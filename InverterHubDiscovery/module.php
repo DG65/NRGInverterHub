@@ -203,6 +203,7 @@ class InverterHubDiscovery extends IPSModule
                     'caption' => '📖  Dokumentation & Hilfe',
                     'expanded' => false,
                     'items' => [
+                        $this->VersionLabel(),
                         ['type' => 'Label', 'caption' => 'Durchsucht einen IP-Bereich im lokalen Netz nach Wechselrichtern auf Modbus-TCP-Port 502 und erkennt den Hersteller anhand weniger typischer Register/Unit-IDs pro Hersteller.'],
                         ['type' => 'Label', 'caption' => 'Start- und End-IP eintragen (Vorschlag anhand des eigenen Netzwerks ist schon ausgefüllt), dann „Netzwerk durchsuchen" klicken. Gefundene Geräte erscheinen unten in der Liste — Klick auf „Erstellen" legt eine InverterHub-Instanz mit vorausgefüllter IP-Adresse, Unit-ID und Hersteller an.'],
                         ['type' => 'Label', 'caption' => 'Die Suche prüft nur wenige dokumentierte Standard-Unit-IDs je Hersteller, keinen vollen 1-247-Bereich — bei exotisch konfigurierter Unit-ID bitte die InverterHub-Instanz manuell anlegen.'],
@@ -291,6 +292,18 @@ class InverterHubDiscovery extends IPSModule
         }
 
         return json_encode($form);
+    }
+
+    // Versionszeile im Doku-Panel (Verbund-Konvention, EMS 24.07.2026): das
+    // „Was ist neu"-Banner ist dismissible, die Version braucht daher eine
+    // dauerhafte Stelle.
+    private function VersionLabel(): array
+    {
+        $lib = @IPS_GetLibrary('{7EFE4BD7-DC14-460E-B0ED-88071197D35B}');
+        $txt = (is_array($lib) && isset($lib['Version']))
+            ? 'ℹ️ InverterHubDiscovery Version ' . $lib['Version'] . ' (Build ' . ($lib['Build'] ?? '?') . ')'
+            : 'ℹ️ InverterHubDiscovery';
+        return ['type' => 'Label', 'caption' => $txt];
     }
 
     // „Was ist neu"-Banner: erscheint nach einem Update (Attribut startet leer),

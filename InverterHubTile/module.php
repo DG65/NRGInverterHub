@@ -101,11 +101,11 @@ class InverterHubTile extends IPSModule
     ];
 
     // „Was ist neu"-Banner (siehe newsBanner()/AckNews()).
-    private const NEWS_VERSION = '0.45';
+    private const NEWS_VERSION = '0.72';
     private const NEWS_ITEMS = [
-        'Manuelle Datenpunkt-Zuordnung, wenn keine InverterHub-Instanz gewählt ist.',
-        'Hauslast optional in eine eigene Variable schreiben.',
-        'Netz-Invert (Meter) wird intern korrekt entflippt (wie die Batterie).',
+        'Einheit wählt sich automatisch nach Größe (W/kW/MW) statt fest kW mit drei Nachkommastellen.',
+        'Victron: Hauslast-Berechnung korrigiert (war zu hoch, wenn gleichzeitig Netzbezug bestand).',
+        'Eingesteckte Wallbox wird nicht mehr fälschlich ausgegraut, wenn gerade nicht geladen wird.',
     ];
 
     public function Create()
@@ -622,13 +622,21 @@ class InverterHubTile extends IPSModule
         // erzeugt, damit es nur EINE Quelle gibt (sonst laufen form.json und
         // die Konstante bei neuen Arten auseinander).
         $this->injectConsumerTypeOptions($form);
+        if (!isset($form['elements']) || !is_array($form['elements'])) {
+            $form['elements'] = [];
+        }
         $banner = $this->newsBanner();
         if ($banner !== null) {
-            if (!isset($form['elements']) || !is_array($form['elements'])) {
-                $form['elements'] = [];
-            }
             array_unshift($form['elements'], $banner);
         }
+        // Versionszeile IMMER sichtbar (Verbund-Konvention, EMS 24.07.2026):
+        // Das „Was ist neu"-Banner ist dismissible, die Versionsnummer muss
+        // deshalb an einer dauerhaften Stelle stehen, nicht nur dort drin.
+        $lib = @IPS_GetLibrary('{7EFE4BD7-DC14-460E-B0ED-88071197D35B}');
+        $verTxt = (is_array($lib) && isset($lib['Version']))
+            ? 'ℹ️ InverterHubTile Version ' . $lib['Version'] . ' (Build ' . ($lib['Build'] ?? '?') . ')'
+            : 'ℹ️ InverterHubTile';
+        array_unshift($form['elements'], ['type' => 'Label', 'caption' => $verTxt]);
         return json_encode($form);
     }
 

@@ -83,11 +83,10 @@ class InverterHubEnergy extends IPSModule
     private const COL_LOAD  = '#E8823C';
 
     // „Was ist neu"-Banner (siehe newsBanner()/AckNews()).
-    private const NEWS_VERSION = '0.45';
+    private const NEWS_VERSION = '0.72';
     private const NEWS_ITEMS = [
-        'Sankey-Energiefluss in 3 Stufen (Erzeugung → Batterie → Verbrauch) mit Tooltips.',
-        'Diagramm-Engine wählbar (Highcharts / ECharts), Datenpunkt-Beschriftung an den Knoten.',
-        'Korrekte Energieberechnung aus dem Archiv (Zähler-Differenz) und Zeitraum-Steuerung (Tag/Woche/Monat/Jahr/Alles/Benutzerdefiniert).',
+        'Datumssteuerung zentriert unter dem Kacheltitel — jetzt wie die Monitoring-Kachel bedient.',
+        'Schnellwahl „Vorgestern/Gestern/Heute" in der Tagesansicht.',
     ];
 
     public function Create()
@@ -169,13 +168,21 @@ class InverterHubEnergy extends IPSModule
         // erzeugt, damit es nur EINE Quelle gibt (sonst laufen form.json und
         // die Konstante bei neuen Arten auseinander).
         $this->injectConsumerTypeOptions($form);
+        if (!isset($form['elements']) || !is_array($form['elements'])) {
+            $form['elements'] = [];
+        }
         $banner = $this->newsBanner();
         if ($banner !== null) {
-            if (!isset($form['elements']) || !is_array($form['elements'])) {
-                $form['elements'] = [];
-            }
             array_unshift($form['elements'], $banner);
         }
+        // Versionszeile IMMER sichtbar (Verbund-Konvention, EMS 24.07.2026) -
+        // das „Was ist neu"-Banner ist dismissible, die Version braucht daher
+        // eine dauerhafte Stelle.
+        $lib = @IPS_GetLibrary('{7EFE4BD7-DC14-460E-B0ED-88071197D35B}');
+        $verTxt = (is_array($lib) && isset($lib['Version']))
+            ? 'ℹ️ InverterHubEnergy Version ' . $lib['Version'] . ' (Build ' . ($lib['Build'] ?? '?') . ')'
+            : 'ℹ️ InverterHubEnergy';
+        array_unshift($form['elements'], ['type' => 'Label', 'caption' => $verTxt]);
         return json_encode($form);
     }
 

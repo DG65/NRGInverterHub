@@ -95,13 +95,11 @@ class InverterHubMonitor extends IPSModule
     // Hinweis erscheinen soll. Das Attribut startet leer, damit das Banner auch
     // bei bestehenden Instanzen nach dem Update erscheint; nach „Verstanden"
     // (oder solange die Version passt) bleibt es aus.
-    private const NEWS_VERSION = '0.45';
+    private const NEWS_VERSION = '0.72';
     private const NEWS_ITEMS = [
-        'Konfiguration: keine Kurven-Tabelle mehr — InverterHub-Instanz wählen und die gewünschten Werte einfach ankreuzen (Farben/Achsen voreingestellt).',
-        'Seitliche Reiter: PV & Einstrahlung · MPP-Tracker · Batterie — jede Ansicht mit passenden Achsen.',
-        'Zeiträume: Tag · Woche · Monat · Jahr · Gesamt · Benutzerdefiniert (freier Von–Bis-Bereich).',
-        'PV & Einstrahlung / MPP-Tracker: berechnete Erwartungswerte (gestrichelt) aus Einstrahlung × Generatorparametern der PV-Prognose — Soll/Ist-Vergleich für Verschmutzungs-/Defekterkennung.',
-        'Tag-Verlauf in kW, Tooltip mit vollem Datum und Einheiten; ausgeblendete Kurven bleiben dauerhaft gemerkt; Steuerung mittig auf Titelhöhe.',
+        'Neuer Reiter „Strompreis": Netzbezug als Balken neben der Preiskurve (bei installiertem Preismodul) — mit Knopf zum Einschalten der Archivierung.',
+        'Schnellwahl „Vorgestern/Gestern/Heute" in der Tagesansicht.',
+        'PV-Prognose-Instanz wird bei mehreren Installationen nicht mehr stillschweigend geraten — explizite Auswahl statt automatisch der ersten.',
     ];
 
     public function Create()
@@ -240,6 +238,7 @@ class InverterHubMonitor extends IPSModule
         $elements[] = [
             'type' => 'ExpansionPanel', 'caption' => '📖 Dokumentation & Hilfe', 'expanded' => false,
             'items' => [
+                $this->VersionLabel(),
                 ['type' => 'Label', 'caption' => '1. InverterHub-Instanz als Quelle wählen und „Änderungen übernehmen". 2. Danach erscheinen unten die vorhandenen, archivierten Werte zum Ankreuzen. Farben, Achse und Einheit sind je Wert voreingestellt.'],
                 ['type' => 'Label', 'caption' => 'Ansichten in der Kachel: „Tag (Verlauf)" zeigt die Leistungs-Zeitreihe (~5-Min). „Monat/Jahr (Energie)" zeigen Energie-Balken aus dem Zähler-Zuwachs (Energiewerte wie „PV Gesamt", „Bezug", „Einspeisung") bzw. — bei reinen Leistungswerten — integriert.'],
                 ['type' => 'Label', 'caption' => 'Die Werte sind in der Kachel auf seitliche Reiter gruppiert (PV & Einstrahlung / MPP-Tracker / Batterie), damit unterschiedliche Einheiten (kW, %, W/m²) nicht auf einer Achse kollidieren.'],
@@ -960,6 +959,18 @@ class InverterHubMonitor extends IPSModule
     // Preisquellen-Instanz: konfigurierte, sonst die einzige vorhandene.
     // Bewusst nur automatisch, wenn es GENAU EINE gibt - bei mehreren muss der
     // Nutzer wählen, statt dass wir die erste raten.
+    // Versionszeile im Doku-Panel (Verbund-Konvention, EMS 24.07.2026): das
+    // „Was ist neu"-Banner ist dismissible, die Version braucht daher eine
+    // dauerhafte Stelle.
+    private function VersionLabel(): array
+    {
+        $lib = @IPS_GetLibrary('{7EFE4BD7-DC14-460E-B0ED-88071197D35B}');
+        $txt = (is_array($lib) && isset($lib['Version']))
+            ? 'ℹ️ InverterHubMonitor Version ' . $lib['Version'] . ' (Build ' . ($lib['Build'] ?? '?') . ')'
+            : 'ℹ️ InverterHubMonitor';
+        return ['type' => 'Label', 'caption' => $txt];
+    }
+
     private function PriceInstanceID(): int
     {
         $cfg = $this->ReadPropertyInteger('PriceInstance');

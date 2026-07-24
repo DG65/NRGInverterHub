@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.72.2-beta.1 (2026-07-24)
+
+- **Versionsnummer jetzt an einer dauerhaften Stelle im Formular** (alle fünf Module: InverterHub,
+  InverterHubTile, InverterHubDiscovery, InverterHubEnergy, InverterHubMonitor). Das
+  „Was ist neu"-Banner ist dismissible und verschwindet irgendwann — die Version stand bis jetzt
+  nirgends sonst. Neu: eine Zeile „ℹ️ Version X.Y.Z (Build N)" im Doku-Panel bzw. am Formularanfang
+  (Tile/Energy, die kein Doku-Panel haben). Verbund-Konvention (EMS, 24.07.2026).
+- **„Was ist neu"-Banner der übrigen vier Module nachgezogen**, aus demselben Grund wie beim
+  Hauptmodul (0.72.1): Alle standen unverändert bei 0.45. Tile, Sankey und Monitoring zeigen jetzt
+  ihre tatsächlichen heutigen Änderungen; Discovery hatte heute keine nutzerrelevante Änderung und
+  bleibt daher bewusst unverändert (die Prüfung „gehört da was rein?" darf „nein" ergeben).
+
 ## 0.72.1-beta.1 (2026-07-24)
 
 - **„Was ist neu"-Banner nachgezogen.** Er stand seit seiner Einführung unverändert auf 0.45,

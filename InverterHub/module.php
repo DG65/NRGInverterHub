@@ -4968,7 +4968,9 @@ class InverterHub extends IPSModule
                     'type'    => 'ExpansionPanel',
                     'caption' => '📖  Dokumentation & Hilfe',
                     'expanded' => false,
-                    'items' => [
+                    'items' => array_merge([
+                        $this->VersionLabel(),
+                    ], [
                         ['type' => 'Label', 'caption' => 'InverterHub liest Wechselrichter verschiedener Hersteller direkt per Modbus TCP aus. Hersteller wählen, IP-Adresse oder Hostname (und ggf. Port/Unit-ID) eintragen, Datenpunkt-Gruppen je nach Anlage aktivieren. Tipp: Trägt man statt der IP einen festen Hostnamen ein (DHCP-Reservierung/mDNS), läuft das Modul auch nach einem IP-Wechsel des Wechselrichters weiter.'],
                         ['type' => 'Label', 'caption' => 'Unterstützte Hersteller: GoodWe (GW-ET/EH/BT/BH), Sungrow (SH-Hybrid), Solis (Hybrid, 33000er-Register), Growatt (TL-X/TL3-X/MOD/MIX/SPH/WIT), SolaX, SMA (STP/STPS/SI, inkl. Netzmessung), Fronius (SunSpec, GEN24-Hybrid inkl. Batterie/Smart Meter), SolarEdge (inkl. StorEdge-Batterie), Deye (SG04LP3), Solplanet/AISWEI, Kostal (PLENTICORE plus Gen. 1), Victron GX (Cerbo/Venus OS) und Huawei SUN2000 (inkl. DTSU666-Zähler + LUNA2000-Batterie).'],
                         ['type' => 'Label', 'caption' => '⚙️ Anschluss-Besonderheiten je Hersteller:'],
@@ -4980,7 +4982,7 @@ class InverterHub extends IPSModule
                         ['type' => 'Label', 'caption' => 'ℹ️ Vorzeichen-Konvention (modulweit): Batterie + = Entladen / − = Laden; Netz-Meter + = Einspeisung / − = Bezug. Stimmt eine Richtung an der eigenen Anlage nicht, hilft der jeweilige Invers-Schalter unten – die InverterHubTile-Kachel bleibt dabei automatisch korrekt.'],
                         ['type' => 'Label', 'caption' => '🛡️ Isolationswiderstand (Riso): bei GoodWe, Huawei, Sungrow, SMA und Kostal verfügbar; bei Growatt optional (modellabhängig). Reine SunSpec-Geräte (Fronius/SolarEdge) liefern ihn nicht.'],
                         ['type' => 'Label', 'caption' => 'Registeradressen stehen im Beschreibungsfeld jeder Variable (Objekt-Manager, Spalte „Beschreibung").'],
-                    ],
+                    ]),
                 ],
                 [
                     'type'    => 'CheckBox',
@@ -5079,6 +5081,20 @@ class InverterHub extends IPSModule
         }
 
         return json_encode($form);
+    }
+
+    // Versionszeile im Doku-Panel (Verbund-Konvention, Teil 2 der einheitlichen
+    // Formular-Optik, EMS 24.07.2026): Das „Was ist neu"-Banner ist dismissible
+    // und verschwindet damit irgendwann - die Versionsnummer muss deshalb an
+    // einer IMMER sichtbaren Stelle stehen, nicht nur im Banner.
+    // Bibliotheks-GUID = "id" aus library.json (nicht die Modul-GUID).
+    private function VersionLabel(): array
+    {
+        $lib = @IPS_GetLibrary('{7EFE4BD7-DC14-460E-B0ED-88071197D35B}');
+        $txt = (is_array($lib) && isset($lib['Version']))
+            ? 'ℹ️ InverterHub Version ' . $lib['Version'] . ' (Build ' . ($lib['Build'] ?? '?') . ')'
+            : 'ℹ️ InverterHub';
+        return ['type' => 'Label', 'caption' => $txt];
     }
 
     // „Was ist neu"-Banner: erscheint nach einem Update (Attribut startet leer),
