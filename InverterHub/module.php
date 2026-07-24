@@ -4559,14 +4559,22 @@ class InverterHub extends IPSModule
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-inverterhub-multi-wechselrichter-ein-modbus-tcp-modul-fuer-goodwe-sma-fronius-sungrow-solis-growatt-solax/144121';
     private const ATTR_REVIEW_HINT_GONE = 'ReviewHintDismissed';
 
-    // „Was ist neu"-Banner (siehe newsBanner()/AckNews()).
-    private const NEWS_VERSION = '0.45';
+    // „Was ist neu"-Banner (siehe newsBanner()/AckNews()). Vergleich laeuft
+    // gegen den STRING NEWS_VERSION - jede Erhoehung zeigt den Banner erneut,
+    // bis der Nutzer ihn (wieder) bestaetigt. Pro-Version-Dismiss ist damit
+    // bereits erfuellt (Verbund-Konvention, EMS 24.07.2026); diese Konstante
+    // bitte bei jeder nutzerrelevanten Aenderungsrunde mit hochziehen - sie
+    // stand seit ihrer Einfuehrung bei 0.45 unveraendert, waehrend das Modul
+    // laengst bei 0.72 war.
+    private const NEWS_VERSION = '0.72';
     private const NEWS_ITEMS = [
-        'Neue Wechselrichter: Victron und Huawei (auch in der Discovery).',
-        'Kostal: Batterie-Leistung und Batterie-Zustand. Fronius: Smart-Meter-Energiezähler (Bezug/Einspeisung gesamt).',
-        'Isolationswiderstand (Riso) für viele Hersteller.',
-        'Schalter „Energie in Wh" (Basiseinheit) — die neue IPS-Darstellung skaliert dann selbst auf Wh/kWh/MWh.',
-        'Bitte die Vorzeichen von Netz-/Batterieleistung und die optionalen Gruppen prüfen.',
+        'Neuer Wechselrichter: FoxESS H1/H3 (Read-Only-Vorabversion, Beta).',
+        'SMA: mehrere Korrekturen an Skalierung, Batterie-/PV-Erkennung und Registerzugriff — Werte sind jetzt deutlich genauer.',
+        'Victron: Hauslast-Berechnung korrigiert (war zu hoch, wenn gleichzeitig Netzbezug bestand).',
+        'GoodWe: Schalter zur Einspeisebegrenzung korrekt beschriftet, plus Warnung bei einer Begrenzung auf 0 W.',
+        'Energiezähler: falscher Archiv-Aggregationstyp behoben — bestehende Variablen werden automatisch und ohne Datenverlust korrigiert.',
+        'Stromflusskachel: Einheit wählt sich automatisch (W/kW/MW), eingesteckte Wallbox wird nicht mehr fälschlich ausgegraut.',
+        'Monitoring: neuer Reiter „Strompreis" mit Netzbezug — bei installiertem Preismodul.',
     ];
 
     private $driver = null;

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.72.1-beta.1 (2026-07-24)
+
+- **„Was ist neu"-Banner nachgezogen.** Er stand seit seiner Einführung unverändert auf 0.45,
+  obwohl seither dutzende nutzerrelevante Änderungen dazukamen. Jetzt aktualisiert auf 0.72 mit
+  den wichtigsten Punkten seit damals (neuer Hersteller FoxESS, SMA-/Victron-/GoodWe-Korrekturen,
+  Energiezähler-Fix, Kachel-Verbesserungen, Strompreis-Reiter im Monitoring). Der
+  Bestätigungs-Mechanismus selbst war bereits korrekt pro Version (Vergleich gegen die
+  Versionskonstante) — nur die Konstante wurde nicht mitgezogen.
+
 ## 0.72.0-beta.1 (2026-07-24)
 
 - **Neuer Hersteller (Read-Only-Vorabversion): FoxESS H1/H3.** Basierend auf der vollständig
