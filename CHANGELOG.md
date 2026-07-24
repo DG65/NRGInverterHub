@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.72.3-beta.1 (2026-07-24)
+
+- **Vollständiges Layout-Audit aller fünf Module gegen die einheitliche Formular-Konvention**
+  (eigenständig durchgeführt, Prinzipien aus der eigenen Commit-Historie und CLAUDE.md abgeleitet).
+  Ergebnis: „Was ist neu" (aufgeklappt, versionsscharf) → „Dokumentation & Hilfe" (eingeklappt,
+  mit Version) → Fachpanels → Symcon-Forum-Hinweis (dismissible, einmalig) ist jetzt in allen
+  fünf Modulen identisch umgesetzt.
+  - InverterHubTile und InverterHubEnergy hatten bisher **gar keinen** Forum-Hinweis — ergänzt.
+  - InverterHubMonitor hatte ebenfalls keinen Forum-Hinweis — ergänzt.
+  - Beim Einbau selbst gefunden und vor dem Push korrigiert: Ein erster Ansatz hätte in Tile und
+    Energy ein ZWEITES „Dokumentation & Hilfe"-Panel neben dem bereits vorhandenen erzeugt
+    (Duplikat). Gegen ein kleines Test-Skript verifiziert, dass nach der Korrektur in beiden
+    Formularen genau ein Doku-Panel mit korrekter Versionszeile existiert.
+  - Spaltenbreiten (feste px + genau eine „auto"-Spalte je Liste) und Feldanordnung (gestapelt,
+    keine Row-/ColumnLayout-Mischungen bei Eingabefeldern) bereits vorbildlich — keine Änderung
+    nötig.
+
 ## 0.72.2-beta.1 (2026-07-24)
 
 - **Versionsnummer jetzt an einer dauerhaften Stelle im Formular** (alle fünf Module: InverterHub,

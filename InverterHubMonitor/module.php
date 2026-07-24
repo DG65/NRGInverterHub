@@ -101,10 +101,15 @@ class InverterHubMonitor extends IPSModule
         'Schnellwahl „Vorgestern/Gestern/Heute" in der Tagesansicht.',
         'PV-Prognose-Instanz wird bei mehreren Installationen nicht mehr stillschweigend geraten — explizite Auswahl statt automatisch der ersten.',
     ];
+    // Symcon-Forum-Hinweis (Verbund-Konvention, Formularpunkt 4): dismissible,
+    // aber EINMALIG statt versionsscharf - der Forum-Link ändert sich normalerweise nicht.
+    private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-inverterhub-multi-wechselrichter-ein-modbus-tcp-modul-fuer-goodwe-sma-fronius-sungrow-solis-growatt-solax/144121';
+    private const ATTR_REVIEW_HINT_GONE = 'ReviewHintDismissed';
 
     public function Create()
     {
         parent::Create();
+        $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
         $this->RegisterAttributeString('SeenNews', '');
         $this->RegisterPropertyInteger('SourceInstance', 0);
         foreach (self::CATALOG as $key => $def) {
@@ -352,6 +357,20 @@ class InverterHubMonitor extends IPSModule
             ],
         ];
 
+        // Symcon-Forum-Hinweis (Verbund-Konvention Formularpunkt 4): dismissible,
+        // einmalig, ans Formularende.
+        if (!$this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)) {
+            $elements[] = [
+                'type' => 'RowLayout',
+                'name' => 'ReviewHint',
+                'items' => [
+                    ['type' => 'Label', 'caption' => '🧪 InverterHubMonitor ist Beta — Rückmeldungen und Testberichte sind im Symcon-Forum-Thread willkommen:'],
+                    ['type' => 'Label', 'link' => true, 'caption' => self::FORUM_THREAD_URL],
+                    ['type' => 'Button', 'caption' => 'Nicht mehr anzeigen', 'onClick' => 'IHUBMON_DismissReviewHint($id);'],
+                ],
+            ];
+        }
+
         return json_encode([
             'elements' => $elements,
             'actions'  => [],
@@ -361,6 +380,12 @@ class InverterHubMonitor extends IPSModule
                 ['code' => 202, 'icon' => 'inactive', 'caption' => 'Keine InverterHub-Instanz gewählt'],
             ],
         ]);
+    }
+
+    public function DismissReviewHint()
+    {
+        $this->WriteAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, true);
+        $this->UpdateFormField('ReviewHint', 'visible', false);
     }
 
     // -----------------------------------------------------------------------

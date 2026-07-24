@@ -278,7 +278,7 @@ class InverterHubDiscovery extends IPSModule
                 'type' => 'RowLayout',
                 'name' => 'ReviewHint',
                 'items' => [
-                    ['type' => 'Label', 'caption' => '🧪 InverterHub ist Beta — Rückmeldungen und Testberichte sind im Symcon-Forum-Thread willkommen:'],
+                    ['type' => 'Label', 'caption' => '🧪 InverterHubDiscovery ist Beta — Rückmeldungen und Testberichte sind im Symcon-Forum-Thread willkommen:'],
                     ['type' => 'Label', 'link' => true, 'caption' => self::FORUM_THREAD_URL],
                     ['type' => 'Button', 'caption' => 'Nicht mehr anzeigen', 'onClick' => 'IHUBD_DismissReviewHint($id);'],
                 ],

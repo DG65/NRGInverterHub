@@ -88,10 +88,15 @@ class InverterHubEnergy extends IPSModule
         'Datumssteuerung zentriert unter dem Kacheltitel — jetzt wie die Monitoring-Kachel bedient.',
         'Schnellwahl „Vorgestern/Gestern/Heute" in der Tagesansicht.',
     ];
+    // Symcon-Forum-Hinweis (Verbund-Konvention, Formularpunkt 4): dismissible,
+    // aber EINMALIG statt versionsscharf - der Forum-Link ändert sich normalerweise nicht.
+    private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-inverterhub-multi-wechselrichter-ein-modbus-tcp-modul-fuer-goodwe-sma-fronius-sungrow-solis-growatt-solax/144121';
+    private const ATTR_REVIEW_HINT_GONE = 'ReviewHintDismissed';
 
     public function Create()
     {
         parent::Create();
+        $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
         $this->RegisterAttributeString('SeenNews', '');
 
         // Zeitraum: day | week | month | year | all | custom
@@ -171,23 +176,54 @@ class InverterHubEnergy extends IPSModule
         if (!isset($form['elements']) || !is_array($form['elements'])) {
             $form['elements'] = [];
         }
+        // Formular-Reihenfolge (Verbund-Konvention, EMS/Dietmar 24.07.2026):
+        // 1. „Was ist neu" (aufgeklappt, versionsscharf dismissible, OHNE Version)
+        // 2. „Dokumentation & Hilfe" (eingeklappt, MIT Versionsnummer) - existiert
+        //    schon in form.json, Versionszeile wird dort NUR eingefuegt.
+        // 3. Fachpanels (form.json)
+        // 4. Symcon-Forum-Hinweis (dismissible, einmalig)
+        $this->InjectVersionIntoDocPanel($form);
         $banner = $this->newsBanner();
         if ($banner !== null) {
             array_unshift($form['elements'], $banner);
         }
-        // Versionszeile IMMER sichtbar (Verbund-Konvention, EMS 24.07.2026) -
-        // das „Was ist neu"-Banner ist dismissible, die Version braucht daher
-        // eine dauerhafte Stelle.
+        if (!$this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)) {
+            $form['elements'][] = [
+                'type' => 'RowLayout',
+                'name' => 'ReviewHint',
+                'items' => [
+                    ['type' => 'Label', 'caption' => '🧪 InverterHubEnergy ist Beta — Rückmeldungen und Testberichte sind im Symcon-Forum-Thread willkommen:'],
+                    ['type' => 'Label', 'link' => true, 'caption' => self::FORUM_THREAD_URL],
+                    ['type' => 'Button', 'caption' => 'Nicht mehr anzeigen', 'onClick' => 'IHUBNRG_DismissReviewHint($id);'],
+                ],
+            ];
+        }
+        return json_encode($form);
+    }
+
+    // Fuegt die Versionszeile als ERSTE Zeile ins bereits in form.json
+    // vorhandene Doku-Panel ein, statt ein zweites, doppeltes Panel zu erzeugen.
+    private function InjectVersionIntoDocPanel(array &$form): void
+    {
         $lib = @IPS_GetLibrary('{7EFE4BD7-DC14-460E-B0ED-88071197D35B}');
         $verTxt = (is_array($lib) && isset($lib['Version']))
             ? 'ℹ️ InverterHubEnergy Version ' . $lib['Version'] . ' (Build ' . ($lib['Build'] ?? '?') . ')'
             : 'ℹ️ InverterHubEnergy';
-        array_unshift($form['elements'], ['type' => 'Label', 'caption' => $verTxt]);
-        return json_encode($form);
+        foreach ($form['elements'] as &$el) {
+            if (($el['type'] ?? '') === 'ExpansionPanel' && str_contains($el['caption'] ?? '', 'Dokumentation')) {
+                array_unshift($el['items'], ['type' => 'Label', 'caption' => $verTxt]);
+                return;
+            }
+        }
+        unset($el);
     }
 
-    // „Was ist neu"-Banner: erscheint nach einem Update (Attribut startet leer),
-    // bis der Nutzer „Verstanden" klickt. Neuinstallation sieht es einmalig.
+    public function DismissReviewHint()
+    {
+        $this->WriteAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, true);
+        $this->UpdateFormField('ReviewHint', 'visible', false);
+    }
+
     // Setzt die Optionen der Spalte „Art" in der Verbraucher-Liste aus
     // CONSUMER_TYPES (rekursiv, da die Liste in einem ExpansionPanel steckt).
     private function injectConsumerTypeOptions(array &$form)
