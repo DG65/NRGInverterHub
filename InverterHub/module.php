@@ -4596,6 +4596,14 @@ class InverterHub extends IPSModule
         $this->RegisterPropertyString('Manufacturer', 'goodwe');
         $this->RegisterPropertyBoolean('MeterInvert', false);
         $this->RegisterPropertyBoolean('BatInvert', false);
+        // Steuerhoheit dieser Instanz (Verbund-Vertrag IHUB_GetFunctions,
+        // EMS-Prioritaetshierarchie Situation A/B in CLAUDE.md). 'ems' = Normalfall,
+        // das EMS darf hierher schreiben. 'external' = ein anderer Akteur besitzt
+        // den Schreibkanal (z. B. Sunny Home Manager, Tibber->Herstellercloud) -
+        // das EMS soll NICHT hierher schreiben. 'none' = niemand soll steuern.
+        // Nur relevant, wenn der Treiber ueberhaupt Steuerregister hat
+        // (GroupControl); bei reinen Lesetreibern wirkungslos, aber schadet nicht.
+        $this->RegisterPropertyString('ControlAuthority', 'ems');
         // Anzahl tatsächlich vorhandener MPPT-Eingänge / Solarladeregler.
         // 0 = alle anlegen, die der Treiber kennt (bisheriges Verhalten und
         // Vorgabe, damit bestehende Instanzen unverändert bleiben).
@@ -4807,7 +4815,63 @@ class InverterHub extends IPSModule
         if (!$this->ReadPropertyBoolean('Active')) {
             return;
         }
+        // Steuerhoheits-Schutz: Nur bei 'ems' schreibt dieses Modul ueberhaupt
+        // an den Wechselrichter. Ist die Instanz als 'external'/'none' markiert
+        // (ein anderer Akteur besitzt den Schreibkanal, z. B. Sunny Home
+        // Manager), wird der Schreibzugriff verweigert - auch wenn irgendein
+        // Aufrufer (Skript, fehlerhafte EMS-Logik) es versucht. Verteidigung in
+        // der Tiefe: Das EMS soll controlAuthority selbst pruefen, aber ein
+        // Bug dort darf hier trotzdem nicht zu einer ungewollten Schreibaktion
+        // fuehren.
+        if ($this->ReadPropertyString('ControlAuthority') !== 'ems') {
+            $this->LogMessage(
+                'Schreibzugriff auf "' . $Ident . '" verweigert: Diese Instanz ist als "'
+                . $this->ReadPropertyString('ControlAuthority') . '" markiert (Steuerhoheit liegt '
+                . 'nicht beim EMS). Falls das EMS hier steuern soll, "Steuerhoheit" in den '
+                . 'Instanzeinstellungen auf "EMS" setzen.',
+                KL_WARNING
+            );
+            return;
+        }
         $this->GetDriver()->writeControl($this->GetModbusClient(), $this, $Ident, $Value);
+    }
+
+    // Verbund-Vertrag fuer das EMS und andere Konsumenten (analog MHUB_GetFunctions).
+    // Liefert Identitaet, Steuerfaehigkeit und die wichtigsten Variablen-IDs dieser
+    // InverterHub-Instanz, damit ein Konsument nicht selbst nach Idents suchen muss.
+    public function GetFunctions(): array
+    {
+        $driver = $this->GetDriver();
+        $hasControl = array_key_exists('GroupControl', $driver->getOptionalGroups());
+        $find = function (string $ident): int {
+            $vid = $this->FindVarByIdent($ident);
+            return $vid ?: 0;
+        };
+        return [
+            'contractVersion'  => '1.0',
+            'instanceID'       => $this->InstanceID,
+            'manufacturer'     => $this->ReadPropertyString('Manufacturer'),
+            // Immer false bei einer PHYSISCHEN Instanz (dieses Modul). Reserviert
+            // fuer InverterHubVirtual (Aggregat mehrerer Instanzen), damit ein
+            // Konsument einen Aggregatwert nicht versehentlich als weiteres
+            // Einzelgeraet in die Steuerung nimmt (siehe CLAUDE.md).
+            'virtual'          => false,
+            'measured'         => true,
+            // Kann dieser Treiber ueberhaupt Steuerregister schreiben? (aktuell
+            // GoodWe/Deye/Sungrow - generisch ueber die GroupControl-Gruppe
+            // erkannt, damit sich das automatisch mitzieht, wenn weitere
+            // Treiber Steuerregister bekommen.)
+            'controllable'     => $hasControl,
+            // Wer darf tatsaechlich schreiben (Nutzereinstellung, s. o.).
+            // Fuer einen Konsumenten ohne 'controllable' ist dieser Wert irrelevant.
+            'controlAuthority' => $this->ReadPropertyString('ControlAuthority'),
+            'pvPowerID'        => $find('pv_total'),
+            'acPowerID'        => $find('ac_power'),
+            'batPowerID'       => $find('bat_power') ?: $find('bat_total_pwr'),
+            'gridPowerID'      => $find('meter_total'),
+            'socID'            => $find('bat_soc') ?: $find('soc'),
+            'connectedID'      => $find('connected'),
+        ];
     }
 
     public function GetConfigurationForm()
@@ -4821,6 +4885,22 @@ class InverterHub extends IPSModule
                 'name'    => $propName,
                 'caption' => $group['caption'],
             ];
+            // Steuerhoheit direkt bei der Steuerungs-Gruppe: nur sichtbar, wenn
+            // dieser Treiber ueberhaupt Steuerregister hat (GroupControl-Gruppe
+            // existiert). Reine Lesetreiber bekommen das Feld nicht - es waere
+            // dort wirkungslos und nur Ballast im Formular.
+            if ($propName === 'GroupControl') {
+                $groupItems[] = [
+                    'type'    => 'Select',
+                    'name'    => 'ControlAuthority',
+                    'caption' => 'Steuerhoheit dieser Instanz',
+                    'options' => [
+                        ['label' => 'EMS (Normalfall — das EMS darf hier schreiben)', 'value' => 'ems'],
+                        ['label' => 'Extern (ein anderer Akteur schreibt, z. B. Sunny Home Manager) — EMS darf NICHT schreiben', 'value' => 'external'],
+                        ['label' => 'Keine (niemand soll hier steuern)', 'value' => 'none'],
+                    ],
+                ];
+            }
         }
         // Invers-Schalter: die Vorzeichen von Netz- und Batterieleistung hängen
         // von Einbauort/Verdrahtung bzw. der gewünschten Konvention ab und sind

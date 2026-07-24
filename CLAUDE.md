@@ -489,7 +489,22 @@ gegengeprüften Umstellungs-Build mit Vorher/Nachher-Test an mindestens einer Li
 
 Manifest: https://github.com/DG65/EMS/blob/main/SUITE.md. Betrifft uns bei jeder angebotenen und
 konsumierten Schnittstelle. **Bestehendes muss nicht umgebaut werden** — anwenden, sobald neue
-Verträge entstehen (v. a. das künftige `IHUB_GetFunctions` beim [[InverterHubVirtual]]).
+Verträge entstehen.
+
+**`IHUB_GetFunctions($id)` ist gebaut** (0.73.0-beta.1, Build 188) — nicht mehr nur geplant.
+Liefert je physischer Instanz: `contractVersion` ('1.0'), `instanceID`, `manufacturer`,
+`virtual` (immer `false` bei einer physischen Instanz — reserviert fürs künftige
+InverterHubVirtual), `measured`, `controllable` (hat der Treiber überhaupt Steuerregister?,
+generisch über die `GroupControl`-Gruppe erkannt), `controlAuthority` (`ems`/`external`/`none`,
+Nutzereinstellung), sowie `pvPowerID`/`acPowerID`/`batPowerID`/`gridPowerID`/`socID`/
+`connectedID`. Aktuell `controllable === true` nur bei GoodWe (9 Steuerpunkte), Deye (Ein/Aus),
+Sungrow (Start/Stop) — die übrigen 13 Treiber sind reine Lesepfade.
+
+**`controlAuthority` wird durchgesetzt, nicht nur gemeldet.** `RequestAction` verweigert jeden
+Schreibzugriff, wenn die Instanz nicht auf `ems` steht (Verteidigung in der Tiefe — das EMS soll
+den Wert selbst prüfen, aber ein Fehler dort darf hier nicht zu einer ungewollten Schreibaktion
+führen). Formularfeld „Steuerhoheit dieser Instanz" erscheint nur bei Treibern mit
+`GroupControl`.
 
 - **Modul-Version:** unser SemVer bleibt, eigener Takt (Store-Pflicht) — davon unberührt.
 - **`contractVersion` je Vertrag:** additives Feld `'Major.Minor'` (String, Start `'1.0'`).

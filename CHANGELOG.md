@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.73.0-beta.1 (2026-07-24)
+
+- **Neuer Verbund-Vertrag `IHUB_GetFunctions($id)`**, analog zu `MHUB_GetFunctions`: liefert
+  Identität, Steuerfähigkeit und die wichtigsten Variablen-IDs (PV-/AC-/Batterie-/Netzleistung,
+  SOC, Verbindungsstatus) einer InverterHub-Instanz, mit `contractVersion` von Anfang an. Feld
+  `virtual` ist bei jeder heutigen (physischen) Instanz `false` — reserviert für den geplanten
+  InverterHubVirtual (Anlagen-Aggregat), damit ein Konsument ihn nie versehentlich als weiteres
+  Einzelgerät in die Steuerung nimmt.
+- **Neue Einstellung „Steuerhoheit dieser Instanz"** (nur sichtbar bei Treibern mit
+  Steuerregistern: GoodWe, Deye, Sungrow): `ems` (Normalfall) / `external` (ein anderer Akteur
+  schreibt, z. B. Sunny Home Manager) / `none`. Steht die Instanz auf `external`/`none`,
+  **verweigert das Modul jeden Schreibzugriff** — auch wenn ihn ein Aufrufer versucht
+  (Verteidigung in der Tiefe: Das EMS soll `controlAuthority` selbst prüfen, aber ein Fehler dort
+  darf hier nicht zu einer ungewollten Schreibaktion führen). `IHUB_GetFunctions` meldet
+  `controllable` (kann dieser Treiber überhaupt steuern) und `controlAuthority` (wer gerade
+  darf) getrennt.
+
 ## 0.72.3-beta.1 (2026-07-24)
 
 - **Vollständiges Layout-Audit aller fünf Module gegen die einheitliche Formular-Konvention**
