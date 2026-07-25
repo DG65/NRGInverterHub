@@ -323,7 +323,7 @@ fehlt das jeweils andere, entfallen lediglich die genannten Zusatzfunktionen.
 Über die IP-Symcon Modulverwaltung „Hinzufügen" mit der URL dieses Repositories:
 
 ```
-https://github.com/DG65/InverterHub
+https://github.com/DG65/NRGInverterHub
 ```
 
 Für den Beta-Kanal den Zweig `beta` auswählen.

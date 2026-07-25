@@ -8,7 +8,7 @@ gemeinsame Regeln und dokumentierte Schnittstellen geeinigt haben.
 
 | Modul | Rolle | Repo / lokale Kopie | Vertrag zu uns |
 |---|---|---|---|
-| **InverterHub** (dieses Repo) | Wechselrichter messen, darstellen, steuern | `DG65/InverterHub` | — |
+| **InverterHub** (dieses Repo) | Wechselrichter messen, darstellen, steuern | `DG65/NRGInverterHub` | — |
 | **MeterHub** | Energiezähler (Modbus TCP) | `DG65/MeterHub` · `../MeterHub` | `MHUB_GetFunctions($id)` |
 | **Prognose** (EnergiePrognose) | PV- und Verbrauchsprognose | `DG65/Prognose` · `../Prognose` | `PVF_GetGenerators`, `PVF_GetModuleArea(s)`, `PVF_GetForecast` |
 | **HeishaMon** | Panasonic-Wärmepumpe | `DG65/HeishaMon` | `HEISHA_GetFunctions($id)` (ab v1.1.1) |
