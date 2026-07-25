@@ -1,9 +1,10 @@
 {
   "id": "{9A2E5C7F-3B1D-4A6E-8C9F-2D5B7E1A4C8F}",
-  "name": "InverterHubTile",
+  "name": "NRGInverterHubTile",
   "type": 3,
   "vendor": "",
   "aliases": [
+    "InverterHubTile",
     "InverterHub Kachel",
     "Wechselrichter Kachel"
   ],

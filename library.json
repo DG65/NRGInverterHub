@@ -1,7 +1,7 @@
 {
   "id": "{7EFE4BD7-DC14-460E-B0ED-88071197D35B}",
   "author": "DG65",
-  "name": "InverterHub for IP-Symcon",
+  "name": "NRGInverterHub for IP-Symcon",
   "url": "https://github.com/DG65/NRGInverterHub",
   "compatibility": {
     "version": "9.0"
