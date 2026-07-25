@@ -4772,6 +4772,18 @@ class InverterHub extends IPSModule
 
     // Wird kurz nach ApplyChanges einmalig vom EnableActionsTimer aufgerufen,
     // sobald die Instanz die Erstellungstransaktion sicher verlassen hat.
+    //
+    // Live-Fehler (25./26.07.2026): IPS_SetVariableCustomAction() ist die
+    // falsche API fuer Variablen, die die eigene Instanz selbst per
+    // RegisterVariableXXX angelegt hat - sie schlaegt fuer diese immer fehl
+    // (auch ausserhalb jeder Transaktion, auch bei druck-frisch angelegten
+    // Variablen), weil eine modul-eigene Variable ihren nativen Action-Slot
+    // ueber $this->EnableAction() bekommt, nicht ueber die globale Funktion.
+    // IPS_SetVariableCustomAction() ist fuer FREMDE/nicht modul-eigene
+    // Variablen gedacht. Ohne diesen Fix blieb "VariableAction" dauerhaft 0,
+    // WebFront-Klicks auf die Steuer-Schalter scheiterten mit "Action is
+    // invalid" - waehrend IPS_RequestAction() aus einem Skript (Kernel-Aufruf
+    // direkt an die Instanz) unbeeinflusst funktionierte.
     public function EnableActions()
     {
         $this->SetTimerInterval('EnableActionsTimer', 0);
@@ -4780,9 +4792,8 @@ class InverterHub extends IPSModule
         foreach ($driver->getOptionalGroups() as $group) {
             foreach ($group['vars'] as $v) {
                 if ($v[5] === 'control') {
-                    $vid = $this->FindVarByIdent($v[0]);
-                    if ($vid) {
-                        IPS_SetVariableCustomAction($vid, $this->InstanceID);
+                    if ($this->FindVarByIdent($v[0])) {
+                        $this->EnableAction($v[0]);
                     }
                 }
             }
