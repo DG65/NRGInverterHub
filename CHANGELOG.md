@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.74.0-beta.1 (2026-07-25)
+
+- **Neuer Verbund-Vertrag `IHUBMON_GetDiagnostics($id)`**, mit NRGDashboard abgestimmt: Erster
+  Schritt der Zielarchitektur, bei der die Diagnose-LOGIK bei uns bleibt (wir kennen die
+  Wechselrichter-Details), die DARSTELLUNG aber künftig zentral über NRGDashboard läuft statt
+  über eine eigene Kachel. `InverterHubMonitor` bleibt vorerst vollständig nutzbar — dies ist
+  eine zusätzliche Schnittstelle, kein Ersatz.
+  Der Vertrag liefert drei Diagnose-Einträge (sofern die Voraussetzungen erfüllt sind):
+  - **Ertrag vs. Prognose** — gemessene Leistung (als Variablen-Referenz) gegen die aus
+    PV-Prognose-Generatorparametern × Einstrahlung berechnete Erwartung (als Wert), mit
+    Bewertung (normal/auffällig/kritisch) ab einer nennenswerten Erwartung.
+  - **MPPT-Strangvergleich** — erkennt einen deutlich schwächeren Einzelstrang (Verschattung/
+    Defekt-Indikator).
+  - **Isolationswiderstand (Riso)** — neue Einstellung „Warnschwelle" (kΩ, Standard 0 = aus).
+    **Bewusst kein Herstellervorgabewert ohne Bestätigung** — die Bewertung greift erst, wenn
+    der Nutzer selbst eine Schwelle einträgt (offener Tester-Wunsch von kea/Dietmar, damit
+    erstmals nutzbar).
+  Konvention (mit NRGDashboard vereinbart, gilt als Muster für künftige Diagnose-Verträge
+  anderer Hub-Module): gemessene Rohgrößen als Variablen-**Referenz** (Dashboard zeichnet
+  Zeitreihen selbst aus dem IPS-Archiv), berechnete Vergleichswerte als **Wert** (unser
+  Domänenwissen), Bewertung als **Metadaten** (`level`/`threshold`/`reason`) — die Einstufung
+  trifft immer der Anbieter, nie der Konsument (analog zum bewusst fehlenden `level` bei
+  `TIBBERGR_GetPriceCurve`). `contractVersion` von Anfang an ('1.0').
+
 ## 0.73.2-beta.1 (2026-07-24)
 
 - **Alle 15 Treiberklassen + die gemeinsame Schnittstelle ebenfalls mit Modul-Präfix.** Der

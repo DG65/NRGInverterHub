@@ -112,6 +112,11 @@ class InverterHubMonitor extends IPSModule
         $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
         $this->RegisterAttributeString('SeenNews', '');
         $this->RegisterPropertyInteger('SourceInstance', 0);
+        // Schwelle fuer die Riso-Bewertung in GetDiagnostics() (kOhm). 0 = aus
+        // (keine Bewertung) - bewusst KEIN herstellerabhaengiger Vorgabewert,
+        // ohne dass der Nutzer/Dietmar ihn bestaetigt hat (Tester-Wunsch
+        // kea/Dietmar, bisher offen; erst mit expliziter Nutzerangabe aktiv).
+        $this->RegisterPropertyInteger('RisoWarnKOhm', 0);
         foreach (self::CATALOG as $key => $def) {
             $this->RegisterPropertyBoolean('show_' . $key, !empty($def['default']));
         }
@@ -312,6 +317,14 @@ class InverterHubMonitor extends IPSModule
                 } else {
                     $valueItems[] = ['type' => 'Label', 'caption' => '✅ Modulfläche aus der PV-Prognose erkannt: ' . rtrim(rtrim(number_format($pvf['area'], 2, ',', '.'), '0'), ',') . ' m² — bereit für die spätere spez.-Leistungs-/PR-Auswertung.'];
                 }
+            }
+            // Riso-Schwelle fuer GetDiagnostics() (Verbund-Vertrag, NRGDashboard).
+            // 0 = aus; bewusst kein Herstellerdefault (siehe Kommentar bei der
+            // Property-Registrierung).
+            $risoVid = ($src > 0) ? $this->FirstIdent($src, self::CATALOG['riso']['power']) : 0;
+            if ($risoVid > 0) {
+                $valueItems[] = ['type' => 'Label', 'caption' => '— Diagnose-Schwelle Isolationswiderstand (für NRGDashboard) —'];
+                $valueItems[] = ['type' => 'NumberSpinner', 'name' => 'RisoWarnKOhm', 'caption' => 'Warnschwelle (kΩ, 0 = keine Bewertung)', 'minimum' => 0, 'suffix' => ' kΩ'];
             }
         } else {
             $valueItems[] = ['type' => 'Label', 'caption' => '➜ Zuerst oben eine InverterHub-Instanz wählen und „Änderungen übernehmen".'];
@@ -1077,6 +1090,141 @@ class InverterHubMonitor extends IPSModule
     }
 
     // Erste vorhandene Variable zu einer Ident-Kandidatenliste in der Quelle.
+    // Verbund-Vertrag fuer NRGDashboard (mit deren Team abgestimmt, 25.07.2026):
+    // liefert die DIAGNOSE-BEWERTUNG (nicht Rohdaten, nicht Charts) - wir kennen
+    // die Wechselrichter-Details und treffen die Bewertung, das Dashboard
+    // rendert nur. Konvention: gemessene Rohgroessen als REFERENZ (Variablen-ID,
+    // das Dashboard zeichnet Zeitreihen selbst aus dem IPS-Archiv), berechnete
+    // Erwartungs-/Vergleichswerte als WERT (unser Domaenenwissen, beim
+    // Dashboard nicht nachzubauen), Bewertung (level/threshold/reason) als
+    // Metadaten je Eintrag - analog dem bewusst weggelassenen 'level' bei
+    // TIBBERGR_GetPriceCurve: die Einstufung trifft immer der Anbieter.
+    // 'level' ist null, wenn (noch) keine Bewertung moeglich ist (z. B. zu
+    // wenig Erzeugung fuer eine sinnvolle Aussage, oder keine Schwelle
+    // konfiguriert) - dann liefert das Feld trotzdem den Rohwert.
+    public function GetDiagnostics(): array
+    {
+        $entries = [];
+        $src = $this->ReadPropertyInteger('SourceInstance');
+
+        // 1) Ertrag vs. PV-Prognose. Nur moeglich, wenn Einstrahlungssensor +
+        // PVF-Generatorparameter vorhanden sind (dieselbe Voraussetzung wie
+        // fuer die gestrichelte Erwartungskurve im Diagramm).
+        $irr = $this->ReadPropertyInteger('IrradianceID');
+        $irrOn = ($this->ReadPropertyBoolean('show_irr') && $irr > 0 && IPS_VariableExists($irr));
+        $pvVid = ($src > 0) ? $this->FirstIdent($src, self::CATALOG['pv']['power']) : 0;
+        if ($irrOn && $pvVid > 0) {
+            $pvf = $this->PvfModel();
+            if ($pvf !== null) {
+                $measuredW = (float)GetValue($pvVid);
+                $expectedW = (float)GetValue($irr) * $pvf['totalKwp'] * $pvf['pr'];
+                // Unter 200 W Erwartung (Daemmerung, stark bewoelkt) ist das
+                // Verhaeltnis Rauschen - keine Bewertung, nur der Rohwert.
+                if ($expectedW > 200.0) {
+                    $ratio = $measuredW / $expectedW;
+                    if ($ratio < 0.5) {
+                        $level = 'kritisch';
+                        $reason = 'Gemessener Ertrag liegt unter 50 % der Erwartung — Verschmutzung oder Defekt möglich.';
+                    } elseif ($ratio < 0.8) {
+                        $level = 'auffaellig';
+                        $reason = 'Gemessener Ertrag liegt unter 80 % der Erwartung.';
+                    } else {
+                        $level = 'normal';
+                        $reason = 'Ertrag im erwarteten Bereich.';
+                    }
+                } else {
+                    $level = null;
+                    $reason = 'Erwartete Leistung zu gering für eine Bewertung (Dämmerung/stark bewölkt).';
+                }
+                $entries[] = [
+                    'type'            => 'yield_vs_forecast',
+                    'label'           => 'Ertrag vs. Prognose',
+                    'measuredPowerID' => $pvVid,   // Referenz - Dashboard zeichnet Verlauf selbst
+                    'expected'        => round($expectedW, 0),   // Wert - unser Domänenwissen
+                    'unit'            => 'W',
+                    'level'           => $level,
+                    'threshold'       => 0.8,
+                    'reason'          => $reason,
+                ];
+            }
+        }
+
+        // 2) MPPT-Strangvergleich. Nur bei mindestens 2 vorhandenen Strängen
+        // sinnvoll; Bewertung nur bei nennenswerter Erzeugung (sonst würde
+        // nachts/bei Rauschen jeder String als "auffällig" gelten).
+        if ($src > 0) {
+            $stringIDs = [];
+            foreach ([1, 2, 3, 4] as $n) {
+                $vid = $this->FirstIdent($src, ['mppt' . $n . '_power']);
+                if ($vid > 0) {
+                    $stringIDs[$n] = $vid;
+                }
+            }
+            if (count($stringIDs) >= 2) {
+                $vals = [];
+                foreach ($stringIDs as $n => $vid) {
+                    $vals[$n] = (float)GetValue($vid);
+                }
+                $max = max($vals);
+                if ($max > 100.0) {
+                    $level = 'normal';
+                    $reason = 'Alle Stränge im erwarteten Verhältnis zueinander.';
+                    foreach ($vals as $n => $v) {
+                        if ($v < 0.5 * $max) {
+                            $level  = 'auffaellig';
+                            $reason = 'MPPT ' . $n . ' liegt deutlich unter den übrigen Strängen — Verschattung oder Defekt möglich.';
+                            break;
+                        }
+                    }
+                } else {
+                    $level  = null;
+                    $reason = 'Erzeugung zu gering für eine Bewertung.';
+                }
+                $entries[] = [
+                    'type'           => 'mppt_string_compare',
+                    'label'          => 'MPPT-Strangvergleich',
+                    'stringPowerIDs' => $stringIDs,   // Referenzen je Strang-Nr.
+                    'unit'           => 'W',
+                    'level'          => $level,
+                    'threshold'      => 0.5,
+                    'reason'         => $reason,
+                ];
+            }
+        }
+
+        // 3) Isolationswiderstand (Riso). Bewertung NUR mit vom Nutzer
+        // gesetzter Schwelle (RisoWarnKOhm > 0) - kein Herstellerdefault ohne
+        // Bestätigung (Tester-Wunsch kea/Dietmar, siehe Kommentar bei der
+        // Property-Registrierung).
+        if ($src > 0) {
+            $risoVid = $this->FirstIdent($src, self::CATALOG['riso']['power']);
+            if ($risoVid > 0) {
+                $warn = $this->ReadPropertyInteger('RisoWarnKOhm');
+                $val  = (float)GetValue($risoVid);
+                if ($warn > 0) {
+                    $level  = ($val < $warn) ? 'kritisch' : 'normal';
+                    $reason = ($val < $warn)
+                        ? 'Isolationswiderstand liegt unter der konfigurierten Schwelle (' . $warn . ' kΩ).'
+                        : 'Isolationswiderstand über der konfigurierten Schwelle.';
+                } else {
+                    $level  = null;
+                    $reason = 'Keine Schwelle konfiguriert (Instanzeinstellungen) — Bewertung nicht möglich.';
+                }
+                $entries[] = [
+                    'type'       => 'riso',
+                    'label'      => 'Isolationswiderstand',
+                    'measuredID' => $risoVid,
+                    'unit'       => 'kΩ',
+                    'level'      => $level,
+                    'threshold'  => $warn ?: null,
+                    'reason'     => $reason,
+                ];
+            }
+        }
+
+        return ['contractVersion' => '1.0', 'instanceID' => $this->InstanceID, 'entries' => $entries];
+    }
+
     private function FirstIdent(int $iid, array $idents): int
     {
         foreach ($idents as $ident) {

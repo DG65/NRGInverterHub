@@ -675,6 +675,27 @@ sich meldet (Format vom EMS abgesegnet). Nicht pollen — MeterHub gibt Bescheid
 - Nur wenn gar kein billing-Zähler da ist: aus `meter_total`-Leistung integrieren (heutiger
   Weg). Einheit (Wh/kWh) und Vorzeichen liefert MeterHub bereits normiert — nicht selbst raten.
 
+## IHUBMON_GetDiagnostics — Diagnostik-Vertrag für NRGDashboard (gebaut 25.07.2026)
+
+Zielarchitektur (Dietmar): **Diagnose-Logik bleibt bei uns** (InverterHubMonitor kennt die
+Wechselrichter-Details), **Darstellung wandert zu NRGDashboard**. `InverterHubMonitor` bleibt
+vorerst voll nutzbar — kein Sofort-Umbau, der Vertrag ist zusätzlich, kein Ersatz. Details/
+Feldliste im README, Abschnitt „Diagnostik-Vertrag". Kurzfassung:
+
+- Drei Einträge: `yield_vs_forecast` (Ertrag vs. PVF-Erwartung), `mppt_string_compare`
+  (schwacher Einzelstrang), `riso` (Isolationswiderstand gegen Nutzer-Schwelle `RisoWarnKOhm`,
+  Default 0 = aus — **kein Herstellervorgabewert ohne Bestätigung**, damit ist der offene
+  Tester-Wunsch kea/Dietmar zur Riso-Schwelle erledigt).
+- Konvention, mit NRGDashboard abgestimmt und als Muster für andere Hub-Module gedacht:
+  gemessene Rohgröße = Variablen-**Referenz** (Konsument zeichnet Archiv-Zeitreihen selbst),
+  berechneter Vergleichswert = **Wert**, Bewertung (`level`/`threshold`/`reason`) = **Metadaten**
+  vom Anbieter (analog zum bewusst fehlenden `level` bei `TIBBERGR_GetPriceCurve`).
+- `contractVersion` '1.0' von Anfang an. `level` ist `null`, wenn keine Bewertung möglich ist
+  (zu wenig Erzeugung, keine Schwelle konfiguriert) — Rohwert kommt trotzdem.
+
+Falls NRGDashboard-Feedback zum Format kommt: additiv erweitern, nicht umbenennen (Vertrag ist
+schon veröffentlicht, sobald ein Konsument darauf aufbaut).
+
 ## InverterHubVirtual — Anlagen-Summe mehrerer Wechselrichter (Designstand)
 
 Mehr-WR-Anlagen (z. B. sirkentucky: zwei getrennte SMA → zwei InverterHub-Instanzen, EINE

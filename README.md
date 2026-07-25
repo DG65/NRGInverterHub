@@ -233,6 +233,33 @@ ist die Anlage zu prüfen. Bedienung wie die Sankey-Kachel: ◄ ► und Kalender
 Weitere Ansichten (Wochen-/Monats-/Jahres-Auswertung, Energie-Balken, normalisierte KPIs mit
 kWp-Kalibrierung und automatische Verschmutzungs-/Defekterkennung) folgen als nächste Stufen.
 
+#### Diagnostik-Vertrag `IHUBMON_GetDiagnostics($id)` (für NRGDashboard)
+
+Zielarchitektur (mit dem NRGDashboard-Modul abgestimmt, 25.07.2026): Die **Diagnose-Logik**
+bleibt hier — wir kennen die Wechselrichter-Details und treffen die Bewertung —, die
+**Darstellung** soll künftig zentral über NRGDashboard laufen statt über eine eigene Kachel.
+`InverterHubMonitor` bleibt vorerst vollständig nutzbar; der Vertrag ist ein zusätzliches
+Angebot, kein Ersatz.
+
+`IHUBMON_GetDiagnostics($id)` liefert eine Liste von Diagnose-Einträgen:
+
+- **`yield_vs_forecast`** — gemessener Ertrag (Variablen-Referenz) gegen die aus
+  PV-Prognose-Generatorparametern × Einstrahlung berechnete Erwartung (Wert), mit Bewertung.
+- **`mppt_string_compare`** — erkennt einen deutlich schwächeren MPPT-Einzelstrang.
+- **`riso`** — Isolationswiderstand gegen eine vom Nutzer gesetzte Warnschwelle (kΩ).
+
+**Konvention** (gilt als Muster für künftige Diagnose-Verträge anderer Hub-Module im NRG-Stack):
+
+| Feldart | Form | Grund |
+|---|---|---|
+| gemessene Rohgröße | Variablen-**Referenz** (`…ID`) | Konsument zeichnet Zeitreihen selbst aus dem IPS-Archiv |
+| berechneter Vergleichswert | **Wert** | unser Domänenwissen, beim Konsumenten nicht nachzubauen |
+| Bewertung | **Metadaten** (`level`, `threshold`, `reason`) | die Einstufung trifft immer der Anbieter, nie der Konsument |
+
+`contractVersion` ist von Anfang an dabei (`'1.0'`), `level` ist `null`, wenn (noch) keine
+Bewertung möglich ist (z. B. zu wenig Erzeugung für eine sinnvolle Aussage oder keine Schwelle
+konfiguriert) — der Rohwert wird trotzdem geliefert.
+
 ## Fronius und SMA: Hinweis zur SunSpec-Discovery
 
 Beide Hersteller sprechen den offenen SunSpec-Standard statt eigener Register (bei Fronius
