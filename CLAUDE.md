@@ -432,6 +432,14 @@ ersten echten EMS-Discovery-Test. PHP-Klassen sind global, nicht pro Modul isoli
 Bei uns behoben: `ModbusTcpClient` → **`IHUB_ModbusTcpClient`** (0.73.1-beta.1, Build 189) —
 rein interne Umbenennung, kein öffentlicher Vertrag betroffen.
 
+**Nachgezogen (0.73.2-beta.1, Build 190):** Derselbe Kollisionstyp betraf auch die 15
+Treiberklassen (`GoodweDriver`, `SmaDriver`, `VictronDriver` usw.) und `InverterDriverInterface`
+— generische, markennahe Namen, die ein anderes Verbund-Modul ebenso vergeben könnte (MeterHub
+plant z. B. selbst einen SMA-Zähler-Treiber). Alle jetzt `IHUB_<Name>`. **Echte Umbenennung,
+kein `class_exists()`-Guard** — ein Guard ließe bei einer Kollision nur zufällig die zuerst
+geladene Implementierung gewinnen (stille statt klarer Fehlerquelle), das wollte das EMS
+ausdrücklich nicht. Gleiches Muster bei MeterHub (`MHUB_`) und ChargerHub abgestimmt.
+
 **Regel für jede künftige globale Hilfsklasse** (nicht nur Modbus-Client, jede `class X` in
 `module.php`, die keinen generischen/eindeutigen Namen hat): Modul-Präfix voranstellen, wie bei
 Idents und Profilen (`IHUB_…`). Vor dem Anlegen einer neuen Klasse kurz `grep -rn "^class "`

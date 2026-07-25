@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.73.2-beta.1 (2026-07-24)
+
+- **Alle 15 Treiberklassen + die gemeinsame Schnittstelle ebenfalls mit Modul-Präfix.** Der
+  vorige Fix (`ModbusTcpClient`) deckte nur die Hilfsklasse ab — dieselbe Kollisionsgefahr
+  bestand für `GoodweDriver`, `SmaDriver`, `VictronDriver` usw.: generische Namen, die ein
+  anderes Modul im Verbund ebenso vergeben könnte (MeterHub plant z. B. einen eigenen
+  SMA-Zähler-Treiber). Alle 15 Treiberklassen und `InverterDriverInterface` heißen jetzt
+  `IHUB_<Name>` (z. B. `IHUB_SmaDriver`, `IHUB_InverterDriverInterface`) — echte Umbenennung,
+  kein `class_exists()`-Guard, damit eine Kollision beim Laden sofort auffällt statt zufällig
+  eine der beiden Implementierungen stillschweigend zu gewinnen. Mechanisch wortgrenzenbasiert
+  durchgeführt und gegen Teilstring-Kollisionen zwischen den 16 Namen geprüft, danach mit
+  `.tools/check-class-scope.php` verifiziert (246 Aufrufe, alle korrekt). Abgestimmt mit
+  MeterHub (`MHUB_`-Präfix) und ChargerHub, gleiches Namensraum-Muster in allen drei Modulen.
+
 ## 0.73.1-beta.1 (2026-07-24)
 
 - **Kritisch: interne Hilfsklasse `ModbusTcpClient` umbenannt in `IHUB_ModbusTcpClient`.**

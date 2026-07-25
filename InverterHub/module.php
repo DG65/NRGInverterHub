@@ -268,10 +268,10 @@ class IHUB_ModbusTcpClient
 }
 
 // ---------------------------------------------------------------------------
-// InverterDriverInterface — Vertrag, den jeder Hersteller-Treiber erfüllt
+// IHUB_InverterDriverInterface — Vertrag, den jeder Hersteller-Treiber erfüllt
 // ---------------------------------------------------------------------------
 
-interface InverterDriverInterface
+interface IHUB_InverterDriverInterface
 {
     /**
      * Immer aktive Basisvariablen.
@@ -308,11 +308,11 @@ interface InverterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// GoodweDriver — Treiber für GoodWe GW-ET/EH/BT/BH-Hybridwechselrichter
+// IHUB_GoodweDriver — Treiber für GoodWe GW-ET/EH/BT/BH-Hybridwechselrichter
 // Portiert 1:1 aus GoodweET/module.php (inkl. dokumentierter Firmware-Quirks)
 // ---------------------------------------------------------------------------
 
-class GoodweDriver implements InverterDriverInterface
+class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
 {
     const REG_WORK_MODE         = 47000;
     const REG_EMS_ENABLE        = 47505;
@@ -950,13 +950,13 @@ class GoodweDriver implements InverterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// SungrowDriver — Sungrow SH-Hybrid-Serie (SH5.0RT...SH10RT, SH5.0RS...SH10RS)
+// IHUB_SungrowDriver — Sungrow SH-Hybrid-Serie (SH5.0RT...SH10RT, SH5.0RS...SH10RS)
 // Eigene, weit verstreute Einzelregister. Mess-/Statuswerte: Read Input
 // Register (FC 0x04). Steuerung: Holding Register (FC 0x03/0x06).
 // Registeradressen werden direkt verwendet (kein Offset -1 dokumentiert).
 // ---------------------------------------------------------------------------
 
-class SungrowDriver implements InverterDriverInterface
+class IHUB_SungrowDriver implements IHUB_InverterDriverInterface
 {
     const REG_START_STOP = 13000; // Holding: 0xCF=Start, 0xCE=Stop
 
@@ -1306,7 +1306,7 @@ class SungrowDriver implements InverterDriverInterface
     {
         if ($ident === 'ctl_run') {
             $val = (bool)$value ? 0xCF : 0xCE;
-            if ($mb->writeSingle(SungrowDriver::REG_START_STOP, $val)) {
+            if ($mb->writeSingle(IHUB_SungrowDriver::REG_START_STOP, $val)) {
                 $hub->SetVarBool('ctl_run', (bool)$value);
             }
         }
@@ -1314,13 +1314,13 @@ class SungrowDriver implements InverterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// SolisDriver — Solis Hybrid-Wechselrichter (33000er-Registerblock).
+// IHUB_SolisDriver — Solis Hybrid-Wechselrichter (33000er-Registerblock).
 // Registeradressen direkt verwendet. Mess-/Statuswerte: Read Input Register
 // (FC 0x04). Reine String-Wechselrichter (3000er-Block) werden derzeit
 // nicht unterstützt.
 // ---------------------------------------------------------------------------
 
-class SolisDriver implements InverterDriverInterface
+class IHUB_SolisDriver implements IHUB_InverterDriverInterface
 {
     public function getBaseVars()
     {
@@ -1525,14 +1525,14 @@ class SolisDriver implements InverterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// GrowattDriver — Growatt Wechselrichter (TL-X/TL3-X/MOD/MIX/SPH/WIT-Serie).
+// IHUB_GrowattDriver — Growatt Wechselrichter (TL-X/TL3-X/MOD/MIX/SPH/WIT-Serie).
 // Durchnummerierte Input-Register (FC 0x04), 32-Bit-Werte als H/L-Paar.
 // Modellfamilien unterscheiden sich in Registerbereichen (siehe Growatt-
 // Protokoll Kapitel 1.2) — abgedeckt ist der gemeinsame Basisbereich
 // (Register-Index 0-107), der bei praktisch allen Modellfamilien gilt.
 // ---------------------------------------------------------------------------
 
-class GrowattDriver implements InverterDriverInterface
+class IHUB_GrowattDriver implements IHUB_InverterDriverInterface
 {
     const STATUS = [0 => 'Warte', 1 => 'Normal', 3 => 'Fehler'];
 
@@ -1696,13 +1696,13 @@ class GrowattDriver implements InverterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// SolaxDriver — SolaX Hybrid X1/X3-Serie. WICHTIG: Der Wechselrichter selbst
+// IHUB_SolaxDriver — SolaX Hybrid X1/X3-Serie. WICHTIG: Der Wechselrichter selbst
 // spricht nur Modbus RTU — Modbus TCP läuft ausschließlich über ein
 // zusätzliches SolaX-Monitoring-Modul (Pocket WiFi/LAN) als RTU/TCP-Gateway.
 // Registeradressen direkt verwendet, Read Input Register (FC 0x04).
 // ---------------------------------------------------------------------------
 
-class SolaxDriver implements InverterDriverInterface
+class IHUB_SolaxDriver implements IHUB_InverterDriverInterface
 {
     public function getBaseVars()
     {
@@ -1911,14 +1911,14 @@ class SolaxDriver implements InverterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// SmaDriver — SMA-Wechselrichter über SunSpec (wie von OpenEMS für SMA
+// IHUB_SmaDriver — SMA-Wechselrichter über SunSpec (wie von OpenEMS für SMA
 // Sunny Tripower verwendet — SMA-eigene native Register wurden zugunsten
 // von SunSpec verworfen, siehe Erkenntnis vom 2026-07-16). Laufzeit-
 // Discovery ab Basisregister 40000, keine festen Adressen — analog zu
-// FroniusDriver, Feldoffsets gegen OpenEMS-SunSpec-Referenz verifiziert.
+// IHUB_FroniusDriver, Feldoffsets gegen OpenEMS-SunSpec-Referenz verifiziert.
 // ---------------------------------------------------------------------------
 
-class SmaDriver implements InverterDriverInterface
+class IHUB_SmaDriver implements IHUB_InverterDriverInterface
 {
     const STATUS = [
         1 => 'Aus', 2 => 'Auto-Shutdown', 3 => 'Startet', 4 => 'Normal (MPPT)',
@@ -1947,7 +1947,7 @@ class SmaDriver implements InverterDriverInterface
     }
 
     // ---- SunSpec Int+SF ----------------------------------------------------
-    // Bewusst als eigene Methoden DIESER Klasse (nicht aus FroniusDriver
+    // Bewusst als eigene Methoden DIESER Klasse (nicht aus IHUB_FroniusDriver
     // mitbenutzt): Die Treiber sind getrennte Klassen, ein klassenübergreifender
     // $this->-Aufruf wäre ein Fatal Error zur Laufzeit.
 
@@ -2207,7 +2207,7 @@ class SmaDriver implements InverterDriverInterface
         }
         $mb->unitId = $sunspecUnit; // zurueck auf die SunSpec-Kennung
 
-        // Offsets siehe FroniusDriver (identische SunSpec-Modelle 101/103/111/113),
+        // Offsets siehe IHUB_FroniusDriver (identische SunSpec-Modelle 101/103/111/113),
         // gegen OpenEMS-SunSpec-Referenz verifiziert. Zusätzlich hier genutzt:
         // DCW (aggregierte DC-Leistung) Float @36, Int+SF @29; TmpCab Float @38, Int+SF @31.
         if ($isFloat) {
@@ -2362,7 +2362,7 @@ class SmaDriver implements InverterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// FroniusDriver — Fronius SunSpec-Modbus (Datamanager). Reine SunSpec-
+// IHUB_FroniusDriver — Fronius SunSpec-Modbus (Datamanager). Reine SunSpec-
 // Implementierung mit DYNAMISCHEN Registeradressen: Modelle werden zur
 // Laufzeit ab Basisregister 40000 durchlaufen (Model-ID + Länge), keine
 // festen Adressen. Adressen werden pro Zyklus neu ermittelt und im Attribut
@@ -2370,7 +2370,7 @@ class SmaDriver implements InverterDriverInterface
 // garantiert stabil sind.
 // ---------------------------------------------------------------------------
 
-class FroniusDriver implements InverterDriverInterface
+class IHUB_FroniusDriver implements IHUB_InverterDriverInterface
 {
     const STATUS = [
         1 => 'Aus', 2 => 'Auto-Shutdown', 3 => 'Startet', 4 => 'Normal (MPPT)',
@@ -2935,7 +2935,7 @@ class FroniusDriver implements InverterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// SolarEdgeDriver — SolarEdge-Wechselrichter über SunSpec. Registeradressen
+// IHUB_SolarEdgeDriver — SolarEdge-Wechselrichter über SunSpec. Registeradressen
 // sind bei SolarEdge in der Praxis stabil (Common Block ab 40000), es wird
 // trotzdem dieselbe Laufzeit-Discovery wie bei Fronius/SMA verwendet — das
 // funktioniert für sowohl feste als auch dynamische Layouts gleichermaßen.
@@ -2943,7 +2943,7 @@ class FroniusDriver implements InverterDriverInterface
 // SolarEdge-Modbus-Vorlage aus dem IP-Symcon-Forum verifiziert.
 // ---------------------------------------------------------------------------
 
-class SolarEdgeDriver implements InverterDriverInterface
+class IHUB_SolarEdgeDriver implements IHUB_InverterDriverInterface
 {
     const STATUS = [
         1 => 'Aus', 2 => 'Auto-Shutdown', 3 => 'Startet', 4 => 'Normal (MPPT)',
@@ -3078,7 +3078,7 @@ class SolarEdgeDriver implements InverterDriverInterface
         $pvTotalVal = 0.0;
         $batPowerVal = 0.0;
 
-        // Offsets siehe FroniusDriver/SmaDriver (identische SunSpec-Modelle),
+        // Offsets siehe IHUB_FroniusDriver/IHUB_SmaDriver (identische SunSpec-Modelle),
         // zusätzlich gegen eine reale SolarEdge-Registertabelle verifiziert.
         if ($isFloat) {
             $hub->SetVarFloat('ac_power', $mb->readFloat32($blk, 20));
@@ -3217,13 +3217,13 @@ class SolarEdgeDriver implements InverterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// DeyeDriver — Deye Hybrid-Wechselrichter (SG04LP3-Serie). Direkte
+// IHUB_DeyeDriver — Deye Hybrid-Wechselrichter (SG04LP3-Serie). Direkte
 // Registeradressierung, ausschließlich Einzelregister (FC 0x03).
 // Register 2026-07-16 gegen eine community-getestete Deye-Modbus-Vorlage
 // aus dem IP-Symcon-Forum übernommen (getestet an einem Deye 8K-SG04LP3).
 // ---------------------------------------------------------------------------
 
-class DeyeDriver implements InverterDriverInterface
+class IHUB_DeyeDriver implements IHUB_InverterDriverInterface
 {
     public function getBaseVars()
     {
@@ -3419,12 +3419,12 @@ class DeyeDriver implements InverterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// SolplanetDriver — Solplanet/AISWEI ASW-Gen-Serie. Direkte Adressierung,
+// IHUB_SolplanetDriver — Solplanet/AISWEI ASW-Gen-Serie. Direkte Adressierung,
 // Read Input Register (FC 0x04). Register 2026-07-16 gegen eine community-
 // getestete Solplanet-Modbus-Vorlage aus dem IP-Symcon-Forum übernommen.
 // ---------------------------------------------------------------------------
 
-class SolplanetDriver implements InverterDriverInterface
+class IHUB_SolplanetDriver implements IHUB_InverterDriverInterface
 {
     public function getBaseVars()
     {
@@ -3581,14 +3581,14 @@ class SolplanetDriver implements InverterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// KostalDriver — Kostal PLENTICORE plus (Generation 1). Direkte Adressierung,
+// IHUB_KostalDriver — Kostal PLENTICORE plus (Generation 1). Direkte Adressierung,
 // Float32-Register (FC 0x03), Wert bereits in physikalischer SI-Einheit
 // (kein separates Skalierungsfaktor-Register wie bei SunSpec Int+SF).
 // Register 2026-07-16 gegen eine community-getestete Kostal-Modbus-Vorlage
 // aus dem IP-Symcon-Forum übernommen.
 // ---------------------------------------------------------------------------
 
-class KostalDriver implements InverterDriverInterface
+class IHUB_KostalDriver implements IHUB_InverterDriverInterface
 {
     public function getBaseVars()
     {
@@ -3828,14 +3828,14 @@ class KostalDriver implements InverterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// HuaweiDriver — Huawei SUN2000 (L1/M1) + DTSU666-Zähler + LUNA2000-Batterie.
+// IHUB_HuaweiDriver — Huawei SUN2000 (L1/M1) + DTSU666-Zähler + LUNA2000-Batterie.
 // Native Huawei-Registermap (FC 0x03, Big-Endian, int16/int32 mit Gain, kein
 // SunSpec). Register/Gain verbatim aus der Bibliothek wlcrs/huawei-solar-lib
 // (huawei_solar/registers.py) übernommen. Standard-Unit-ID des Wechselrichters
 // ist 1 (je nach Konfiguration auch 0/16), Port 502.
 // ---------------------------------------------------------------------------
 
-class HuaweiDriver implements InverterDriverInterface
+class IHUB_HuaweiDriver implements IHUB_InverterDriverInterface
 {
     const STATUS = [
         0x0000 => 'Standby: Initialisierung', 0x0001 => 'Standby: Isolationswiderstand',
@@ -4003,14 +4003,14 @@ class HuaweiDriver implements InverterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// FoxEssDriver — FoxESS H1/H3 Single Phase Hybrid Inverter. Register aus der
+// IHUB_FoxEssDriver — FoxESS H1/H3 Single Phase Hybrid Inverter. Register aus der
 // offiziellen "Fox Hybrid/AC Modbus Protocol"-Dokumentation (V1.01, 2021.09.02),
 // vollständig gelesen (nicht nur auszugsweise).
 //
 // READ-ONLY-MVP, bewusst beschränkt auf den Echtzeit-/Zähler-Block 11000-11095
 // (96 zusammenhängende Register, ein Leseblock). Dafür zeigt die Doku explizite
 // Beispielrahmen mit Funktionscode 0x04 (Read Registers) - hier also FC04 wie
-// dokumentiert (readInput), analog SolplanetDriver.
+// dokumentiert (readInput), analog IHUB_SolplanetDriver.
 //
 // BEWUSST NICHT eingebaut, bis ein Beta-Tester es an echter Hardware verifiziert
 // hat (Lehre aus dem SMA-FC03/FC04-Fehler vom selben Tag - siehe CLAUDE.md):
@@ -4032,7 +4032,7 @@ class HuaweiDriver implements InverterDriverInterface
 // bestaetigen.
 // ---------------------------------------------------------------------------
 
-class FoxEssDriver implements InverterDriverInterface
+class IHUB_FoxEssDriver implements IHUB_InverterDriverInterface
 {
     const STATUS = [
         0 => 'Warten', 1 => 'Prüfung', 2 => 'Netzbetrieb', 3 => 'Inselbetrieb',
@@ -4135,7 +4135,7 @@ class FoxEssDriver implements InverterDriverInterface
     {
         // Ein Block ueber den gesamten Echtzeit-/Zaehler-Bereich (96 Register,
         // 11000-11095) - laut Doku per FC04 (Read Registers) lesbar, siehe
-        // SolplanetDriver fuer dasselbe Muster mit readInput().
+        // IHUB_SolplanetDriver fuer dasselbe Muster mit readInput().
         $blk = $mb->readInput(11000, 96);
         $ok  = ($blk !== null);
         $hub->SetVarBool('connected', $ok);
@@ -4231,7 +4231,7 @@ class FoxEssDriver implements InverterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// VictronDriver — Victron GX (Cerbo/Venus OS) über Modbus TCP. Anders als bei
+// IHUB_VictronDriver — Victron GX (Cerbo/Venus OS) über Modbus TCP. Anders als bei
 // Einzel-Wechselrichtern ist die Unit-ID hier ein Geräte-Selektor: Der Dienst
 // com.victronenergy.system liegt IMMER auf Unit-ID 100 und aggregiert die
 // Anlagenwerte (PV, Netz, Batterie, Verbrauch). Wir sprechen daher fest Unit
@@ -4239,7 +4239,7 @@ class FoxEssDriver implements InverterDriverInterface
 // aus Victrons offizieller attributes.csv (dbus_modbustcp), Big-Endian.
 // ---------------------------------------------------------------------------
 
-class VictronDriver implements InverterDriverInterface
+class IHUB_VictronDriver implements IHUB_InverterDriverInterface
 {
     const UNIT_SYSTEM = 100;
 
@@ -4540,20 +4540,20 @@ class VictronDriver implements InverterDriverInterface
 class InverterHub extends IPSModule
 {
     private const DRIVERS = [
-        'goodwe'    => 'GoodweDriver',
-        'sungrow'   => 'SungrowDriver',
-        'solis'     => 'SolisDriver',
-        'growatt'   => 'GrowattDriver',
-        'solax'     => 'SolaxDriver',
-        'sma'       => 'SmaDriver',
-        'fronius'   => 'FroniusDriver',
-        'solaredge' => 'SolarEdgeDriver',
-        'deye'      => 'DeyeDriver',
-        'solplanet' => 'SolplanetDriver',
-        'kostal'    => 'KostalDriver',
-        'victron'   => 'VictronDriver',
-        'huawei'    => 'HuaweiDriver',
-        'foxess'    => 'FoxEssDriver',
+        'goodwe'    => 'IHUB_GoodweDriver',
+        'sungrow'   => 'IHUB_SungrowDriver',
+        'solis'     => 'IHUB_SolisDriver',
+        'growatt'   => 'IHUB_GrowattDriver',
+        'solax'     => 'IHUB_SolaxDriver',
+        'sma'       => 'IHUB_SmaDriver',
+        'fronius'   => 'IHUB_FroniusDriver',
+        'solaredge' => 'IHUB_SolarEdgeDriver',
+        'deye'      => 'IHUB_DeyeDriver',
+        'solplanet' => 'IHUB_SolplanetDriver',
+        'kostal'    => 'IHUB_KostalDriver',
+        'victron'   => 'IHUB_VictronDriver',
+        'huawei'    => 'IHUB_HuaweiDriver',
+        'foxess'    => 'IHUB_FoxEssDriver',
     ];
 
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-inverterhub-multi-wechselrichter-ein-modbus-tcp-modul-fuer-goodwe-sma-fronius-sungrow-solis-growatt-solax/144121';
@@ -5708,7 +5708,7 @@ class InverterHub extends IPSModule
     }
 
     // Öffentlicher Wrapper: ReadPropertyBoolean() ist bei IPSModule protected
-    // und daher von externen Treiber-Klassen (GoodweDriver etc.) nicht direkt
+    // und daher von externen Treiber-Klassen (IHUB_GoodweDriver etc.) nicht direkt
     // aufrufbar.
     public function GetPropBool(string $name)
     {
