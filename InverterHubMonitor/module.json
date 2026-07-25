@@ -1,10 +1,10 @@
 {
   "id": "{7B1F9A34-6C52-4E8D-9A1B-4F3E2D7C6A19}",
-  "name": "NRGInverterHubMonitor",
+  "name": "InverterHubMonitor",
   "type": 3,
   "vendor": "",
   "aliases": [
-    "InverterHubMonitor",
+    "NRGInverterHubMonitor",
     "InverterHub Monitoring",
     "Monitoring",
     "Leistung & Einstrahlung"

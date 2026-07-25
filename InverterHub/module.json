@@ -1,10 +1,10 @@
 {
   "id": "{BBE2C593-1A91-426D-A714-29A9C7E87589}",
-  "name": "NRGInverterHub",
+  "name": "InverterHub",
   "type": 3,
   "vendor": "",
   "aliases": [
-    "InverterHub",
+    "NRGInverterHub",
     "Wechselrichter (Multi-Hersteller)"
   ],
   "url": "https://github.com/DG65/NRGInverterHub",
