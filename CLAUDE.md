@@ -422,6 +422,23 @@ ab, damit die andere Seite ihre Icons nachziehen kann.
 eine Erhöhung braucht, nennt die gewünschte Nummer, statt die Datei selbst zu bearbeiten —
 so bleiben `library.json` und Changelog synchron.
 
+## Globale Klassennamen brauchen einen Modul-Präfix (Verbund-Konvention, 24.07.2026)
+
+Real passiert: MeterHub, ChargerHub und wir hatten alle drei unabhängig eine interne Hilfsklasse
+schlicht `ModbusTcpClient` genannt — sobald ein Konsument (EMS) mehr als eines dieser Module im
+selben PHP-Prozess lädt, „Cannot redeclare class ModbusTcpClient" (Fatal Error), aufgetreten beim
+ersten echten EMS-Discovery-Test. PHP-Klassen sind global, nicht pro Modul isoliert.
+
+Bei uns behoben: `ModbusTcpClient` → **`IHUB_ModbusTcpClient`** (0.73.1-beta.1, Build 189) —
+rein interne Umbenennung, kein öffentlicher Vertrag betroffen.
+
+**Regel für jede künftige globale Hilfsklasse** (nicht nur Modbus-Client, jede `class X` in
+`module.php`, die keinen generischen/eindeutigen Namen hat): Modul-Präfix voranstellen, wie bei
+Idents und Profilen (`IHUB_…`). Vor dem Anlegen einer neuen Klasse kurz `grep -rn "^class "`
+über die eigenen Dateien prüfen, ob der Name schon vergeben ist — und im Hinterkopf behalten,
+dass andere Verbund-Module denselben naheliegenden Namen (`ModbusTcpClient`, `HttpClient` o. ä.)
+ebenso naheliegend finden könnten.
+
 ## Regeln fürs Committen
 
 Diese Regeln entstanden aus einem konkreten Vorfall: Ein `git add -A` hat die in Arbeit

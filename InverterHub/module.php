@@ -8,10 +8,10 @@
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// ModbusTcpClient — gemeinsame Modbus-TCP-Grundfunktionen für alle Treiber
+// IHUB_ModbusTcpClient — gemeinsame Modbus-TCP-Grundfunktionen für alle Treiber
 // ---------------------------------------------------------------------------
 
-class ModbusTcpClient
+class IHUB_ModbusTcpClient
 {
     public $host;
     public $port;
@@ -2690,7 +2690,7 @@ class FroniusDriver implements InverterDriverInterface
             // "Zähleradresse"). Deren Vorgabe ist 200, je nach Konfiguration
             // aber z. B. 240 - daher konfigurierbar. Erst dort suchen, zur
             // Sicherheit als Rückfall auch in der eigenen Kette.
-            $meterVal = $this->readMeterTotal(new ModbusTcpClient($mb->host, $mb->port, $hub->GetMeterUnitId()));
+            $meterVal = $this->readMeterTotal(new IHUB_ModbusTcpClient($mb->host, $mb->port, $hub->GetMeterUnitId()));
             if ($meterVal === null) {
                 $meterVal = $this->readMeterTotal($mb);
             }
@@ -2702,14 +2702,14 @@ class FroniusDriver implements InverterDriverInterface
         }
 
         if ($hub->GetPropBool('GroupMeterPhases')) {
-            $mc = new ModbusTcpClient($mb->host, $mb->port, $hub->GetMeterUnitId());
+            $mc = new IHUB_ModbusTcpClient($mb->host, $mb->port, $hub->GetMeterUnitId());
             if (!$this->readMeterPhases($mc, $hub)) {
                 $this->readMeterPhases($mb, $hub);
             }
         }
 
         if ($hub->GetPropBool('GroupMeterEnergy')) {
-            $mc = new ModbusTcpClient($mb->host, $mb->port, $hub->GetMeterUnitId());
+            $mc = new IHUB_ModbusTcpClient($mb->host, $mb->port, $hub->GetMeterUnitId());
             $me = $this->readMeterEnergy($mc);
             if ($me === null) {
                 $me = $this->readMeterEnergy($mb);
@@ -5352,9 +5352,9 @@ class InverterHub extends IPSModule
         return $out;
     }
 
-    private function GetModbusClient(): ModbusTcpClient
+    private function GetModbusClient(): IHUB_ModbusTcpClient
     {
-        return new ModbusTcpClient(
+        return new IHUB_ModbusTcpClient(
             $this->ReadPropertyString('Host'),
             $this->ReadPropertyInteger('Port'),
             $this->ReadPropertyInteger('UnitId')

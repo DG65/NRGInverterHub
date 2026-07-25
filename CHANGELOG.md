@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.73.1-beta.1 (2026-07-24)
+
+- **Kritisch: interne Hilfsklasse `ModbusTcpClient` umbenannt in `IHUB_ModbusTcpClient`.**
+  MeterHub und ChargerHub deklarieren beide ebenfalls eine globale Klasse namens
+  `ModbusTcpClient` — sobald ein Konsument (z. B. das EMS) mehr als eines dieser Module im
+  selben PHP-Prozess lädt, führte das zu „Cannot redeclare class ModbusTcpClient" (Fatal
+  Error), real aufgetreten beim ersten EMS-Discovery-Test. Rein interne Umbenennung (private
+  Hilfsklasse, kein öffentlicher Vertrag), keine Verhaltensänderung. Verbund-Konvention
+  daraus: globale Klassennamen brauchen künftig einen Modul-Präfix, wie Idents und Profile.
+
 ## 0.73.0-beta.1 (2026-07-24)
 
 - **Neuer Verbund-Vertrag `IHUB_GetFunctions($id)`**, analog zu `MHUB_GetFunctions`: liefert
