@@ -4685,7 +4685,6 @@ class InverterHub extends IPSModule
 
         $this->RegisterAttributeBoolean('DeviceInfoRead', false);
         $this->RegisterAttributeBoolean('ImplausibleLogged', false);
-        $this->RegisterAttributeBoolean('ControlVarsRegistered', false);
     }
 
     // Ein Gerät, das auf Adressen antwortet, die es gar nicht belegt, liefert
@@ -5412,13 +5411,6 @@ class InverterHub extends IPSModule
                 }
             }
         }
-
-        // Einmalige Migration (s. Kommentar in RegisterVar()) abgeschlossen -
-        // ab jetzt legt RegisterVariableXXX die Steuervariablen idempotent
-        // ueber ihren Ident an, ein erneutes Loeschen findet nicht mehr statt.
-        if (!$this->ReadAttributeBoolean('ControlVarsRegistered')) {
-            $this->WriteAttributeBoolean('ControlVarsRegistered', true);
-        }
     }
 
     /**
@@ -5544,11 +5536,26 @@ class InverterHub extends IPSModule
         // FindVarByIdent-Suche erkannt, die auch in Unterkategorien findet).
         // Existiert die Variable schon, wird der gefundene $vid unveraendert
         // weiterverwendet - keine erneute Registrierung, kein ID-Churn.
-        if ($group === 'control' && !$this->ReadAttributeBoolean('ControlVarsRegistered')) {
-            // Einmalige Migration: eine noch vorhandene ALTE Roh-Variable muss
-            // vorher weg, sonst meldet RegisterVariableXXX "Ident muss fuer
-            // jede Ebene eindeutig sein" (real aufgetreten).
-            if ($vid) {
+        //
+        // Dritter Live-Fehler, real aufgetreten (EMS, 26.07.2026): Die
+        // Einmaligkeit wurde zunaechst ueber ein persistentes Attribut
+        // (ControlVarsRegistered) abgesichert - das ueberlebt aber KEINEN
+        // vollen Modul-Reload (MC_DeleteModule+MC_CreateModule loescht
+        // Instanz-Attribute, dieselbe Nebenwirkung, die auch Tibbers
+        // OAuth-Passwort gekippt hat). Ergebnis: Bei jedem vollen Reload lief
+        // die Migration erneut, neue Variablen-ID bei jedem Mal - fuer
+        // Nutzer inakzeptabel (feste WebFront-Widget-Referenzen brechen).
+        // Deshalb KEIN Attribut/Flag mehr: Die Pruefung ist selbstverifizierend
+        // ueber den ECHTEN, kernel-verwalteten Zustand der Variable selbst
+        // (VariableAction), der - anders als ein Attribut - einen vollen
+        // Modul-Reload uebersteht, solange die Variable selbst nicht geloescht
+        // wird.
+        if ($group === 'control' && $vid) {
+            $alreadyBound = (@IPS_GetVariable($vid)['VariableAction'] === $this->InstanceID);
+            if (!$alreadyBound) {
+                // Alte, roh erzeugte oder noch nicht registrierte Variable -
+                // erst loeschen, dann sauber ueber RegisterVariableXXX neu
+                // anlegen (sonst "Ident muss fuer jede Ebene eindeutig sein").
                 @IPS_DeleteVariable($vid);
                 $vid = 0;
             }
