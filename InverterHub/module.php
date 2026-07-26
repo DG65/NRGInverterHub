@@ -4604,6 +4604,12 @@ class InverterHub extends IPSModule
         // Nur relevant, wenn der Treiber ueberhaupt Steuerregister hat
         // (GroupControl); bei reinen Lesetreibern wirkungslos, aber schadet nicht.
         $this->RegisterPropertyString('ControlAuthority', 'ems');
+        // Periodisches Neuschreiben von ctl_ems_mode/ctl_ems_power gegen den
+        // live bestaetigten GoodWe-Rueckfall auf 255 (s. ReassertEmsControl()).
+        // Default AUS: Wer manuell einmalig schalten/testen will (Konsole,
+        // WebFront), soll das ungestoert tun koennen, ohne dass im Hintergrund
+        // ein anderer Wert zurueckgeschrieben wird.
+        $this->RegisterPropertyBoolean('EmsReassertEnabled', false);
         // Anzahl tatsächlich vorhandener MPPT-Eingänge / Solarladeregler.
         // 0 = alle anlegen, die der Treiber kennt (bisheriges Verhalten und
         // Vorgabe, damit bestehende Instanzen unverändert bleiben).
@@ -4685,6 +4691,12 @@ class InverterHub extends IPSModule
 
         $this->RegisterAttributeBoolean('DeviceInfoRead', false);
         $this->RegisterAttributeBoolean('ImplausibleLogged', false);
+        // Fuer ReassertEmsControl() (periodisches Neuschreiben gegen den
+        // GoodWe-255-Rueckfall, s. dort) - Sentinel EMS_NOT_COMMANDED, bis
+        // RequestAction() den ersten echten Wert gemerkt hat.
+        foreach (self::EMS_REASSERT_IDENTS as $emsIdent) {
+            $this->RegisterAttributeInteger('LastCommanded_' . $emsIdent, self::EMS_NOT_COMMANDED);
+        }
     }
 
     // Ein Gerät, das auf Adressen antwortet, die es gar nicht belegt, liefert
@@ -4805,23 +4817,54 @@ class InverterHub extends IPSModule
                 if ($v[5] === 'control') {
                     $vid = $this->FindVarByIdent($v[0]);
                     if ($vid && @IPS_GetVariable($vid)['VariableAction'] !== $this->InstanceID) {
-                        $ret = $this->EnableAction($v[0]);
-                        $after = @IPS_GetVariable($vid);
-                        // TEMP-Debug: Ausgabe in eine feste Probe-Variable statt
-                        // ins Log (das system_log-Werkzeug haengt gerade fest,
-                        // zeigt auch modulunabhaengige Test-Log-Eintraege nicht).
-                        if (@IPS_ObjectExists(49344)) {
-                            @SetValueString(49344,
-                                'Ident=' . $v[0] . ' vid=' . $vid
-                                . ' InstanceID=' . $this->InstanceID
-                                . ' EnableAction()=' . var_export($ret, true)
-                                . ' VariableAction-danach=' . ($after['VariableAction'] ?? 'n/a')
-                                . ' um ' . date('H:i:s')
-                            );
-                        }
+                        $this->EnableAction($v[0]);
                     }
                 }
             }
+        }
+    }
+
+    // Idents, die GoodWe periodisch neu bestaetigt haben will (s. u.).
+    // Bewusst nur diese zwei, nicht generisch "alle Steuer-Idents": nur fuer
+    // diese ist das Rueckfall-Verhalten live bestaetigt.
+    private const EMS_REASSERT_IDENTS = ['ctl_ems_mode', 'ctl_ems_power'];
+
+    // Live-Befund (26.07.2026, per Registerauslesung UND unabhaengig durch
+    // OpenEMS-Community bestaetigt, siehe deren GoodWeBatteryInverterImpl.java/
+    // ApplyPowerHandler): Register 47511 (ctl_ems_mode) faellt nach einiger
+    // Zeit auf den ungueltigen Wert 255 zurueck, wenn es nur EINMAL
+    // geschrieben wird - GoodWes interner SMART-Automatikmodus uebernimmt
+    // sonst die Kontrolle zurueck. Ein Test mit Neuschreiben alle 10s hat das
+    // Rueckfallen ueber 50s zuverlaessig verhindert.
+    //
+    // Deshalb: RequestAction() merkt sich den zuletzt kommandierten Wert
+    // dieser beiden Idents, ReadFast() schreibt ihn bei jedem Zyklus erneut -
+    // aber NUR, wenn der Nutzer das ueber "EmsReassertEnabled" ausdruecklich
+    // eingeschaltet hat (Default: aus). Bewusst getrennt von jeder
+    // Variablen-Registrierung/EnableAction() - der fruehere Versuch, etwas
+    // Periodisches in ReadFast() unterzubringen (228a6b4), hat den
+    // ID-Churn-Fehler ausgeloest. Reine Modbus-Schreibvorgaenge hier, nichts
+    // an Variablen/Bindung.
+    // Sentinel fuer "noch nie kommandiert" - liegt weit ausserhalb jedes
+    // gueltigen Prozentwerts/Modus-Codes, damit keine Verwechslung mit einem
+    // echten Wert (auch nicht 0) moeglich ist.
+    private const EMS_NOT_COMMANDED = -999999999;
+
+    private function ReassertEmsControl()
+    {
+        if (!$this->ReadPropertyBoolean('EmsReassertEnabled')) {
+            return;
+        }
+        if ($this->ReadPropertyString('ControlAuthority') !== 'ems') {
+            return;
+        }
+        $mb = $this->GetModbusClient();
+        foreach (self::EMS_REASSERT_IDENTS as $ident) {
+            $value = $this->ReadAttributeInteger('LastCommanded_' . $ident);
+            if ($value === self::EMS_NOT_COMMANDED) {
+                continue; // noch nie kommandiert - nichts zu wiederholen
+            }
+            $this->GetDriver()->writeControl($mb, $this, $ident, $value);
         }
     }
 
@@ -4836,14 +4879,17 @@ class InverterHub extends IPSModule
             $this->WriteAttributeBoolean('DeviceInfoRead', true);
         }
         $driver->readFast($this->GetModbusClient(), $this);
-        // ACHTUNG (26.07.2026): Der periodische Aufruf hier wurde testweise
-        // eingefuehrt (228a6b4) und wieder entfernt - Verdacht, real durch
-        // EMS reproduziert OHNE jede externe Einwirkung (RequestAction,
-        // Reload), dass wiederholte EnableAction()-Aufrufe auf eine Variable,
-        // deren Bindung nicht greift, selbst zu einer Neuanlage/ID-Churn
-        // fuehren. Noch nicht abschliessend verstanden - bis geklaert, NICHT
-        // wieder aus einem Timer-/Polling-Zyklus heraus aufrufen. Bindung
-        // bleibt einmalig ueber EnableActionsTimer nach ApplyChanges().
+        // ACHTUNG (26.07.2026): Ein periodischer EnableActions()-Aufruf wurde
+        // hier testweise eingefuehrt (228a6b4) und wieder entfernt - Verdacht,
+        // real reproduziert OHNE jede externe Einwirkung, dass wiederholte
+        // EnableAction()-Aufrufe auf eine Variable, deren Bindung nicht
+        // greift, selbst zu einer Neuanlage/ID-Churn fuehren. Noch nicht
+        // abschliessend verstanden - EnableAction()/RegisterVar() bleiben
+        // deshalb bewusst einmalig (EnableActionsTimer nach ApplyChanges()).
+        // ReassertEmsControl() unten ist davon strikt getrennt: reine
+        // Modbus-Schreibvorgaenge auf bereits bestehende Register, keine
+        // Variablen-Registrierung/Bindung beteiligt.
+        $this->ReassertEmsControl();
     }
 
     public function ReadSlow()
@@ -4878,6 +4924,12 @@ class InverterHub extends IPSModule
             return;
         }
         $this->GetDriver()->writeControl($this->GetModbusClient(), $this, $Ident, $Value);
+
+        // Merken fuer ReassertEmsControl() (s. dort) - nur fuer die Idents,
+        // bei denen der Rueckfall auf 255 live bestaetigt ist.
+        if (in_array($Ident, self::EMS_REASSERT_IDENTS, true)) {
+            $this->WriteAttributeInteger('LastCommanded_' . $Ident, (int) $Value);
+        }
     }
 
     // Verbund-Vertrag fuer das EMS und andere Konsumenten (analog MHUB_GetFunctions).
@@ -4943,6 +4995,17 @@ class InverterHub extends IPSModule
                         ['label' => 'Extern (ein anderer Akteur schreibt, z. B. Sunny Home Manager) — EMS darf NICHT schreiben', 'value' => 'external'],
                         ['label' => 'Keine (niemand soll hier steuern)', 'value' => 'none'],
                     ],
+                ];
+                // Live bestaetigt (26.07.2026): Register ctl_ems_mode/ctl_ems_power
+                // fallen ohne periodische Neubestaetigung auf einen ungueltigen
+                // Wert zurueck (GoodWes interner SMART-Automatikmodus uebernimmt
+                // sonst wieder). Default AUS, damit einmaliges manuelles Schalten
+                // (Konsole/WebFront/Test) nicht durch einen zurueckgeschriebenen
+                // alten Wert gestoert wird.
+                $groupItems[] = [
+                    'type'    => 'CheckBox',
+                    'name'    => 'EmsReassertEnabled',
+                    'caption' => 'EMS-Vorgabe automatisch wiederholen (gegen internen WR-Rückfall)',
                 ];
             }
         }
