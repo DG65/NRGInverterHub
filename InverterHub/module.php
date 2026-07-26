@@ -4685,6 +4685,7 @@ class InverterHub extends IPSModule
 
         $this->RegisterAttributeBoolean('DeviceInfoRead', false);
         $this->RegisterAttributeBoolean('ImplausibleLogged', false);
+        $this->RegisterAttributeBoolean('ControlVarsRegistered', false);
     }
 
     // Ein Gerät, das auf Adressen antwortet, die es gar nicht belegt, liefert
@@ -5431,6 +5432,13 @@ class InverterHub extends IPSModule
                 }
             }
         }
+
+        // Einmalige Migration (s. Kommentar in RegisterVar()) abgeschlossen -
+        // ab jetzt legt RegisterVariableXXX die Steuervariablen idempotent
+        // ueber ihren Ident an, ein erneutes Loeschen findet nicht mehr statt.
+        if (!$this->ReadAttributeBoolean('ControlVarsRegistered')) {
+            $this->WriteAttributeBoolean('ControlVarsRegistered', true);
+        }
     }
 
     /**
@@ -5531,31 +5539,50 @@ class InverterHub extends IPSModule
             @IPS_DeleteVariable($vid);
             $vid = 0;
         }
-        $created = !$vid;
 
-        // Live-Fehler (26.07.2026): Variablen wurden bisher per rohem
+        // Live-Fehler (26.07.2026): Steuervariablen wurden bisher per rohem
         // IPS_CreateVariable()+IPS_SetIdent() angelegt. Solche Variablen sind
         // fuer den Kernel NIE ueber diese Instanz "registriert" (das passiert
         // nur ueber RegisterVariableXXX) - EnableAction() findet dafuer keinen
         // Action-Slot und bleibt wirkungslos (meldet trotzdem `true`, ohne
-        // etwas zu bewirken). Betraf u. a. alle ctl_*-Steuervariablen: Klick
-        // in WebFront/App scheiterte mit "Action is invalid". RegisterVariableXXX
-        // ist idempotent ueber den Ident (unabhaengig vom aktuellen Parent im
-        // Objektbaum) - das anschliessende IPS_SetParent() in die Unterkategorie
-        // bleibt unveraendert und aendert daran nichts.
-        switch ($type) {
-            case 'F':
-                $vid = $this->RegisterVariableFloat($ident, $caption, '', $pos);
-                break;
-            case 'I':
-                $vid = $this->RegisterVariableInteger($ident, $caption, '', $pos);
-                break;
-            case 'B':
-                $vid = $this->RegisterVariableBoolean($ident, $caption, '', $pos);
-                break;
-            case 'S':
-                $vid = $this->RegisterVariableString($ident, $caption, '', $pos);
-                break;
+        // etwas zu bewirken). Klick in WebFront/App scheiterte mit "Action is
+        // invalid". Beschraenkt auf group==='control': Fuer alle uebrigen
+        // (Mess-)Variablen bliebe ein Umstieg auf RegisterVariableXXX ein
+        // Delete+Neuanlage-Vorgang mit NEUER Variablen-ID - das wuerde die
+        // Archivhistorie jeder geloggten Messvariable in jeder Installation
+        // kappen. Steuervariablen werden nicht archiviert, das Risiko
+        // existiert dort nicht. Einmalige Migration ueber ein persistentes
+        // Attribut, damit die alte rohe Variable nur EIN einziges Mal
+        // geloescht+neu angelegt wird (sonst "Ident muss fuer jede Ebene
+        // eindeutig sein", weil RegisterVariableXXX bei weiterhin
+        // existierender alter Roh-Variable eine zweite mit demselben Ident
+        // anlegen will - real aufgetreten, von EMS gemeldet).
+        if ($group === 'control' && !$this->ReadAttributeBoolean('ControlVarsRegistered')) {
+            if ($vid) {
+                @IPS_DeleteVariable($vid);
+                $vid = 0;
+            }
+        }
+        $created = !$vid;
+
+        if ($group === 'control') {
+            switch ($type) {
+                case 'F':
+                    $vid = $this->RegisterVariableFloat($ident, $caption, '', $pos);
+                    break;
+                case 'I':
+                    $vid = $this->RegisterVariableInteger($ident, $caption, '', $pos);
+                    break;
+                case 'B':
+                    $vid = $this->RegisterVariableBoolean($ident, $caption, '', $pos);
+                    break;
+                case 'S':
+                    $vid = $this->RegisterVariableString($ident, $caption, '', $pos);
+                    break;
+            }
+        } elseif (!$vid) {
+            $vid = IPS_CreateVariable($vtype);
+            IPS_SetIdent($vid, $ident);
         }
 
         $catID = $this->EnsureCategory($group);
