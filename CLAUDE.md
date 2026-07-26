@@ -831,11 +831,22 @@ aufrufen, wenn die eigene rekursive `FindVarByIdent()`-Suche wirklich nichts fin
 (`$created === true`).** Existiert die Variable schon (egal in welcher Unterkategorie), wird der
 gefundene `$vid` unverändert weiterverwendet — keine erneute Registrierung.
 
-**Migration bestehender roh erzeugter Steuervariablen:** einmalig, über das persistente Attribut
-`ControlVarsRegistered` (Boolean, Default `false`) abgesichert — beim ersten Lauf wird die alte
-Roh-Variable zuerst gelöscht (sonst „Ident muss für jede Ebene eindeutig sein"), danach erst
-`RegisterVariableXXX` aufgerufen; das Attribut verhindert, dass dieser Löschschritt bei jedem
-künftigen `ApplyChanges()` wiederholt wird.
+**Migration bestehender roh erzeugter Steuervariablen — NICHT über ein Attribut absichern.**
+Ein erster Versuch nutzte ein persistentes Attribut (`ControlVarsRegistered`), um den
+Lösch+Neuanlage-Schritt auf einmal zu begrenzen. Das schlug live fehl (EMS, 26.07.2026,
+dreifach reproduziert): `MC_DeleteModule`+`MC_CreateModule` (voller Modul-Reload) **löscht
+Instanz-Attribute** — dieselbe Nebenwirkung, die auch Tibbers OAuth-Passwort mehrfach gekippt
+hat. Das Flag fiel bei jedem vollen Reload auf `false` zurück, die Migration lief erneut, jedes
+Mal mit einer neuen Variablen-ID — inakzeptabel, sobald WebFront-Widgets feste IDs referenzieren.
+
+**Der tragfähige Ersatz: selbstverifizierend über den echten Zustand prüfen, kein Flag.**
+`IPS_GetVariable($vid)['VariableAction'] === $this->InstanceID` — ist eine gefundene Variable
+bereits korrekt gebunden, bleibt sie unangetastet; nur wenn nicht, wird sie gelöscht und über
+`RegisterVariableXXX` sauber neu angelegt. Dieser Zustand sitzt am Variablen-Objekt selbst
+(Kernel-verwaltet), nicht an einem Instanz-Attribut, und übersteht daher auch einen vollen
+Modul-Reload. **Allgemeine Lehre für den ganzen Verbund:** Jede „nur einmal tun"-Logik, die
+einen vollen Modul-Reload überstehen muss, gehört an einen Zustand, der NICHT in
+Instanz-Attributen hängt — Attribute sind für sowas der falsche Speicherort.
 
 **Prüfmethode, die tatsächlich funktioniert hat:** `IPS_GetVariable($vid)['VariableAction']` direkt
 nach dem Aufruf lesen (0 = keine Bindung). Ein selbst instanziiertes `new InverterHub($id)` +
