@@ -4836,11 +4836,14 @@ class InverterHub extends IPSModule
             $this->WriteAttributeBoolean('DeviceInfoRead', true);
         }
         $driver->readFast($this->GetModbusClient(), $this);
-        // Selbstheilend (s. Kommentar bei EnableActions()): stellt bei jedem
-        // Lesezyklus sicher, dass Steuervariablen weiterhin an diese Instanz
-        // gebunden sind, statt sich auf den einmaligen Timer nach
-        // ApplyChanges() zu verlassen.
-        $this->EnableActions();
+        // ACHTUNG (26.07.2026): Der periodische Aufruf hier wurde testweise
+        // eingefuehrt (228a6b4) und wieder entfernt - Verdacht, real durch
+        // EMS reproduziert OHNE jede externe Einwirkung (RequestAction,
+        // Reload), dass wiederholte EnableAction()-Aufrufe auf eine Variable,
+        // deren Bindung nicht greift, selbst zu einer Neuanlage/ID-Churn
+        // fuehren. Noch nicht abschliessend verstanden - bis geklaert, NICHT
+        // wieder aus einem Timer-/Polling-Zyklus heraus aufrufen. Bindung
+        // bleibt einmalig ueber EnableActionsTimer nach ApplyChanges().
     }
 
     public function ReadSlow()
