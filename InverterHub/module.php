@@ -4789,11 +4789,31 @@ class InverterHub extends IPSModule
         $this->SetTimerInterval('EnableActionsTimer', 0);
 
         $driver = $this->GetDriver();
-        foreach ($driver->getOptionalGroups() as $group) {
+        $groups = $driver->getOptionalGroups();
+        $this->LogMessage(
+            'EnableActions-Debug: Treiber ' . get_class($driver) . ', Gruppen: '
+            . implode(',', array_keys($groups)),
+            KL_MESSAGE
+        );
+        foreach ($groups as $groupName => $group) {
             foreach ($group['vars'] as $v) {
                 if ($v[5] === 'control') {
-                    if ($this->FindVarByIdent($v[0])) {
-                        $this->EnableAction($v[0]);
+                    $vid = $this->FindVarByIdent($v[0]);
+                    if ($vid) {
+                        $ret = $this->EnableAction($v[0]);
+                        $after = @IPS_GetVariable($vid);
+                        $this->LogMessage(
+                            'EnableActions-Debug: Ident=' . $v[0] . ' vid=' . $vid
+                            . ' EnableAction()=' . var_export($ret, true)
+                            . ' VariableAction=' . ($after['VariableAction'] ?? 'n/a')
+                            . ' VariableCustomAction=' . ($after['VariableCustomAction'] ?? 'n/a'),
+                            KL_MESSAGE
+                        );
+                    } else {
+                        $this->LogMessage(
+                            'EnableActions-Debug: Ident=' . $v[0] . ' NICHT gefunden (FindVarByIdent=false)',
+                            KL_MESSAGE
+                        );
                     }
                 }
             }
