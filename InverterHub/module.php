@@ -5531,11 +5531,31 @@ class InverterHub extends IPSModule
             @IPS_DeleteVariable($vid);
             $vid = 0;
         }
-        $created = false;
-        if (!$vid) {
-            $vid = IPS_CreateVariable($vtype);
-            IPS_SetIdent($vid, $ident);
-            $created = true;
+        $created = !$vid;
+
+        // Live-Fehler (26.07.2026): Variablen wurden bisher per rohem
+        // IPS_CreateVariable()+IPS_SetIdent() angelegt. Solche Variablen sind
+        // fuer den Kernel NIE ueber diese Instanz "registriert" (das passiert
+        // nur ueber RegisterVariableXXX) - EnableAction() findet dafuer keinen
+        // Action-Slot und bleibt wirkungslos (meldet trotzdem `true`, ohne
+        // etwas zu bewirken). Betraf u. a. alle ctl_*-Steuervariablen: Klick
+        // in WebFront/App scheiterte mit "Action is invalid". RegisterVariableXXX
+        // ist idempotent ueber den Ident (unabhaengig vom aktuellen Parent im
+        // Objektbaum) - das anschliessende IPS_SetParent() in die Unterkategorie
+        // bleibt unveraendert und aendert daran nichts.
+        switch ($type) {
+            case 'F':
+                $vid = $this->RegisterVariableFloat($ident, $caption, '', $pos);
+                break;
+            case 'I':
+                $vid = $this->RegisterVariableInteger($ident, $caption, '', $pos);
+                break;
+            case 'B':
+                $vid = $this->RegisterVariableBoolean($ident, $caption, '', $pos);
+                break;
+            case 'S':
+                $vid = $this->RegisterVariableString($ident, $caption, '', $pos);
+                break;
         }
 
         $catID = $this->EnsureCategory($group);
