@@ -4793,7 +4793,7 @@ class InverterHub extends IPSModule
         $this->LogMessage(
             'EnableActions-Debug: Treiber ' . get_class($driver) . ', Gruppen: '
             . implode(',', array_keys($groups)),
-            KL_MESSAGE
+            KL_WARNING
         );
         foreach ($groups as $groupName => $group) {
             foreach ($group['vars'] as $v) {
@@ -4807,12 +4807,12 @@ class InverterHub extends IPSModule
                             . ' EnableAction()=' . var_export($ret, true)
                             . ' VariableAction=' . ($after['VariableAction'] ?? 'n/a')
                             . ' VariableCustomAction=' . ($after['VariableCustomAction'] ?? 'n/a'),
-                            KL_MESSAGE
+                            KL_WARNING
                         );
                     } else {
                         $this->LogMessage(
                             'EnableActions-Debug: Ident=' . $v[0] . ' NICHT gefunden (FindVarByIdent=false)',
-                            KL_MESSAGE
+                            KL_WARNING
                         );
                     }
                 }
