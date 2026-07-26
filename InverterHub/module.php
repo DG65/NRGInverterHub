@@ -4797,16 +4797,15 @@ class InverterHub extends IPSModule
     // invalid" - waehrend IPS_RequestAction() aus einem Skript (Kernel-Aufruf
     // direkt an die Instanz) unbeeinflusst funktionierte.
     //
-    // Live-Fehler (26.07.2026, EMS): Der einmalige Kurz-Timer-Aufruf ist
-    // fragil - mehrfach real beobachtet, dass die Bindung im laufenden
-    // Normalbetrieb (ohne erkennbaren Reload) fehlte oder wieder verschwand,
-    // Ursache nicht abschliessend geklaert. Deshalb selbstheilend: Wird
-    // jetzt zusaetzlich bei JEDEM ReadFast()-Zyklus aufgerufen, nicht nur
-    // einmalig. Guenstig im Normalfall (ueberspringt bereits korrekt
-    // gebundene Variablen ueber die VariableAction-Pruefung, kein
-    // wiederholtes EnableAction() auf etwas, das schon passt) und zieht
-    // eine verlorene Bindung spaetestens beim naechsten Lesezyklus
-    // (IntervalFast, typ. 5s) automatisch nach.
+    // Live-Fehler (26.07.2026, EMS/Dietmar): Der einmalige Kurz-Timer-Aufruf
+    // wirkte "fragil" (Bindung nach GroupControl/ControlAuthority-Aenderung
+    // wieder weg) - ein periodischer ReadFast()-Aufruf wurde testweise
+    // eingefuehrt (228a6b4) und wieder entfernt, weil er selbst spontane
+    // ID-Vergabe-Probleme reproduzierte (2e5d0aa). Tatsaechliche Ursache erst
+    // spaeter gefunden: EnableAction() findet die Variable nur als DIREKTES
+    // Kind der Instanz, aber Steuervariablen werden in die Unterkategorie
+    // "EMS-Steuerung" verschoben - jede (Re-)Bindung nach Reparenting schlug
+    // dadurch fehl. Fix s. u. (kurz zurueckhaengen, binden, zurueck).
     public function EnableActions()
     {
         $this->SetTimerInterval('EnableActionsTimer', 0);
@@ -4817,7 +4816,19 @@ class InverterHub extends IPSModule
                 if ($v[5] === 'control') {
                     $vid = $this->FindVarByIdent($v[0]);
                     if ($vid && @IPS_GetVariable($vid)['VariableAction'] !== $this->InstanceID) {
+                        // EnableAction() findet die Variable intern nur als
+                        // DIREKTES Kind der Instanz (IPS_GetObjectIDByIdent()
+                        // ohne Rekursion) - Steuervariablen liegen aber in der
+                        // Unterkategorie "EMS-Steuerung". Deshalb kurz
+                        // zurueckhaengen, binden, wieder zurueck - die Bindung
+                        // (VariableAction) bleibt beim Reparenting erhalten.
+                        // Live verifiziert 26.07.2026: ohne diesen Schritt
+                        // bleibt VariableAction dauerhaft 0, egal wie oft
+                        // EnableActions() aufgerufen wird.
+                        $originalParent = IPS_GetObject($vid)['ParentID'];
+                        IPS_SetParent($vid, $this->InstanceID);
                         $this->EnableAction($v[0]);
+                        IPS_SetParent($vid, $originalParent);
                     }
                 }
             }
