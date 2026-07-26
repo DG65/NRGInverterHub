@@ -4807,13 +4807,18 @@ class InverterHub extends IPSModule
                     if ($vid && @IPS_GetVariable($vid)['VariableAction'] !== $this->InstanceID) {
                         $ret = $this->EnableAction($v[0]);
                         $after = @IPS_GetVariable($vid);
-                        $this->LogMessage(
-                            'TEMP-Debug EnableActions: Ident=' . $v[0] . ' vid=' . $vid
-                            . ' InstanceID=' . $this->InstanceID
-                            . ' EnableAction()=' . var_export($ret, true)
-                            . ' VariableAction-danach=' . ($after['VariableAction'] ?? 'n/a'),
-                            KL_WARNING
-                        );
+                        // TEMP-Debug: Ausgabe in eine feste Probe-Variable statt
+                        // ins Log (das system_log-Werkzeug haengt gerade fest,
+                        // zeigt auch modulunabhaengige Test-Log-Eintraege nicht).
+                        if (@IPS_ObjectExists(49344)) {
+                            @SetValueString(49344,
+                                'Ident=' . $v[0] . ' vid=' . $vid
+                                . ' InstanceID=' . $this->InstanceID
+                                . ' EnableAction()=' . var_export($ret, true)
+                                . ' VariableAction-danach=' . ($after['VariableAction'] ?? 'n/a')
+                                . ' um ' . date('H:i:s')
+                            );
+                        }
                     }
                 }
             }
