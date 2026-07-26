@@ -5531,13 +5531,23 @@ class InverterHub extends IPSModule
         // Delete+Neuanlage-Vorgang mit NEUER Variablen-ID - das wuerde die
         // Archivhistorie jeder geloggten Messvariable in jeder Installation
         // kappen. Steuervariablen werden nicht archiviert, das Risiko
-        // existiert dort nicht. Einmalige Migration ueber ein persistentes
-        // Attribut, damit die alte rohe Variable nur EIN einziges Mal
-        // geloescht+neu angelegt wird (sonst "Ident muss fuer jede Ebene
-        // eindeutig sein", weil RegisterVariableXXX bei weiterhin
-        // existierender alter Roh-Variable eine zweite mit demselben Ident
-        // anlegen will - real aufgetreten, von EMS gemeldet).
+        // existiert dort nicht.
+        //
+        // Zweiter Live-Fehler, real aufgetreten: RegisterVariableXXX() erkennt
+        // eine schon existierende eigene Variable NUR, wenn sie aktuell noch
+        // DIREKTES Kind der Instanz ist. Da wir jede Variable sofort danach in
+        // eine Unterkategorie verschieben (pv/bat/grid/control/...), fand
+        // RegisterVariableXXX sie beim naechsten ApplyChanges() nicht wieder
+        // und legte STATT DESSEN eine weitere neue Variable an - bei jedem
+        // Reload eine neue ID, Action erneut auf 0. Deshalb: RegisterVariableXXX
+        // nur beim EINMALIGEN Erzeugen aufrufen (per eigener, rekursiver
+        // FindVarByIdent-Suche erkannt, die auch in Unterkategorien findet).
+        // Existiert die Variable schon, wird der gefundene $vid unveraendert
+        // weiterverwendet - keine erneute Registrierung, kein ID-Churn.
         if ($group === 'control' && !$this->ReadAttributeBoolean('ControlVarsRegistered')) {
+            // Einmalige Migration: eine noch vorhandene ALTE Roh-Variable muss
+            // vorher weg, sonst meldet RegisterVariableXXX "Ident muss fuer
+            // jede Ebene eindeutig sein" (real aufgetreten).
             if ($vid) {
                 @IPS_DeleteVariable($vid);
                 $vid = 0;
@@ -5545,24 +5555,26 @@ class InverterHub extends IPSModule
         }
         $created = !$vid;
 
-        if ($group === 'control') {
-            switch ($type) {
-                case 'F':
-                    $vid = $this->RegisterVariableFloat($ident, $caption, '', $pos);
-                    break;
-                case 'I':
-                    $vid = $this->RegisterVariableInteger($ident, $caption, '', $pos);
-                    break;
-                case 'B':
-                    $vid = $this->RegisterVariableBoolean($ident, $caption, '', $pos);
-                    break;
-                case 'S':
-                    $vid = $this->RegisterVariableString($ident, $caption, '', $pos);
-                    break;
+        if ($created) {
+            if ($group === 'control') {
+                switch ($type) {
+                    case 'F':
+                        $vid = $this->RegisterVariableFloat($ident, $caption, '', $pos);
+                        break;
+                    case 'I':
+                        $vid = $this->RegisterVariableInteger($ident, $caption, '', $pos);
+                        break;
+                    case 'B':
+                        $vid = $this->RegisterVariableBoolean($ident, $caption, '', $pos);
+                        break;
+                    case 'S':
+                        $vid = $this->RegisterVariableString($ident, $caption, '', $pos);
+                        break;
+                }
+            } else {
+                $vid = IPS_CreateVariable($vtype);
+                IPS_SetIdent($vid, $ident);
             }
-        } elseif (!$vid) {
-            $vid = IPS_CreateVariable($vtype);
-            IPS_SetIdent($vid, $ident);
         }
 
         $catID = $this->EnsureCategory($group);
