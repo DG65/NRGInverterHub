@@ -785,3 +785,61 @@ Gilt für `InverterHubTile/module.html` und sinngemäß für andere Kachel-HTML:
   des Hosts (Variablenliste der Instanz). Das gilt für alle HTML-SDK-Kacheln, auch für
   Symcons eigene. Wirkt die Ansicht leer, liegt das an fehlenden Variablen der Instanz — nicht
   am Kachel-Layout. Bitte nicht erneut „reparieren".
+
+## Steuervariablen brauchen `RegisterVariableXXX()`, nicht rohes `IPS_CreateVariable()`
+
+Realer Vorfall (25./26.07.2026, Dietmars WR1-Instanz): WebFront-Klicks auf Steuer-Schalter
+(z. B. „EMS Leistungsmodus") scheiterten mit **„Action is invalid" (Code -32603)**. Ursache lag
+in zwei Ebenen übereinander, beide hier festgehalten, weil beide bei jedem künftigen Umbau der
+Variablenanlage wieder zuschlagen können:
+
+**Ebene 1 — falsche API zum Verdrahten der Aktion.** `IPS_SetVariableCustomAction($vid, $X)`
+erwartet als zweiten Parameter eine **Skript-ID**, nicht — wie naheliegend vermutet — eine
+Instanz-ID. Ein Aufruf mit der eigenen `$this->InstanceID` schlägt daher **immer** fehl (`false`,
+kein Fehler/Exception), live bestätigt per Fehlermeldung „Skript #<InstanzID> existiert nicht".
+Die korrekte, offiziell dokumentierte SDK-Methode für eine **modul-eigene** Statusvariable ist
+`$this->EnableAction($Ident)` (siehe [Symcon-Doku](https://www.symcon.de/de/service/dokumentation/entwicklerbereich/sdk-tools/sdk-php/module/enableaction/)).
+
+**Ebene 2 — der eigentliche Kern des Fehlers, schwerer zu finden:** `$this->EnableAction($Ident)`
+selbst meldete `true` (kein Fehlersignal!), band aber trotzdem nichts — `VariableAction` blieb bei
+`0`. Grund: Unsere Variablen wurden bislang per rohem `IPS_CreateVariable()`+`IPS_SetIdent()`
+angelegt (nicht über `RegisterVariableInteger()`/`RegisterVariableBoolean()`/etc.). Eine so
+erzeugte Variable ist beim Kernel **nie** als „eigene Variable dieser Instanz" registriert — nur
+`RegisterVariableXXX()` trägt sie in die interne Buchführung ein, auf der `EnableAction()`
+aufsetzt. Bloße Objektbaum-Zugehörigkeit (richtiger Parent, richtiger Ident) reicht nicht.
+**Exakt derselbe Fehlerauslöser wie bei ChargerHub** (rohe Variablenanlage statt
+`RegisterVariableXXX`).
+
+**Der Fix ist bewusst nur auf `group === 'control'` beschränkt, nicht auf alle Variablen:**
+Ein `RegisterVariableXXX`-Umstieg für bereits bestehende Variablen erzeugt zwangsläufig eine
+**neue Variablen-ID** (IPS kann eine roh erzeugte Variable nicht nachträglich „registrieren").
+Für Steuervariablen unkritisch (nie archiviert). Für **Mess**-Variablen wäre das ein
+Archivhistorien-GAU gewesen — jede Installation im Feld hätte bei ihrem nächsten Update die
+komplette Archivhistorie sämtlicher Sensorwerte verloren (neue ID ≠ alte Archivdaten). Genau das
+verletzt die an anderer Stelle in dieser Datei festgehaltene Regel „Bereits geloggte Variablen
+fassen wir nie an". **Diesen Fix nie auf Mess-/archivierte Variablen ausweiten, ohne das explizit
+mit Dietmar abzustimmen.**
+
+**Dritte Falle, real aufgetreten beim ersten Reparaturversuch:** `RegisterVariableXXX()` erkennt
+eine schon vorhandene eigene Variable nur, solange sie **direktes Kind der Instanz** ist. Da
+`RegisterVar()` jede Variable sofort nach der Anlage in ihre fachliche Unterkategorie verschiebt
+(`IPS_SetParent($vid, $catID)` — pv/bat/grid/control/...), erkennt ein **erneuter**
+`RegisterVariableXXX`-Aufruf sie beim nächsten `ApplyChanges()` nicht wieder und legt STATT DESSEN
+eine weitere neue Variable an — bei jedem Modul-Reload eine erneute ID-Dopplung, mit `updated=0`
+auf der jeweils verwaisten Hälfte. **Deshalb: `RegisterVariableXXX()`/`IPS_CreateVariable()` nur
+aufrufen, wenn die eigene rekursive `FindVarByIdent()`-Suche wirklich nichts findet
+(`$created === true`).** Existiert die Variable schon (egal in welcher Unterkategorie), wird der
+gefundene `$vid` unverändert weiterverwendet — keine erneute Registrierung.
+
+**Migration bestehender roh erzeugter Steuervariablen:** einmalig, über das persistente Attribut
+`ControlVarsRegistered` (Boolean, Default `false`) abgesichert — beim ersten Lauf wird die alte
+Roh-Variable zuerst gelöscht (sonst „Ident muss für jede Ebene eindeutig sein"), danach erst
+`RegisterVariableXXX` aufgerufen; das Attribut verhindert, dass dieser Löschschritt bei jedem
+künftigen `ApplyChanges()` wiederholt wird.
+
+**Prüfmethode, die tatsächlich funktioniert hat:** `IPS_GetVariable($vid)['VariableAction']` direkt
+nach dem Aufruf lesen (0 = keine Bindung). Ein selbst instanziiertes `new InverterHub($id)` +
+Reflection auf protected Methoden ist zum Testen **nicht zuverlässig** — ein damit aufgerufenes
+`RegisterVariableInteger()` hat live nicht einmal eine auffindbare Variable erzeugt. Nur der
+echte, kernel-dispatchte Aufruf (die von IPS selbst generierte globale Funktion, z. B.
+`IHUB_EnableActions($id)`) liefert verlässliche Ergebnisse.
