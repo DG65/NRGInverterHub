@@ -4784,6 +4784,17 @@ class InverterHub extends IPSModule
     // WebFront-Klicks auf die Steuer-Schalter scheiterten mit "Action is
     // invalid" - waehrend IPS_RequestAction() aus einem Skript (Kernel-Aufruf
     // direkt an die Instanz) unbeeinflusst funktionierte.
+    //
+    // Live-Fehler (26.07.2026, EMS): Der einmalige Kurz-Timer-Aufruf ist
+    // fragil - mehrfach real beobachtet, dass die Bindung im laufenden
+    // Normalbetrieb (ohne erkennbaren Reload) fehlte oder wieder verschwand,
+    // Ursache nicht abschliessend geklaert. Deshalb selbstheilend: Wird
+    // jetzt zusaetzlich bei JEDEM ReadFast()-Zyklus aufgerufen, nicht nur
+    // einmalig. Guenstig im Normalfall (ueberspringt bereits korrekt
+    // gebundene Variablen ueber die VariableAction-Pruefung, kein
+    // wiederholtes EnableAction() auf etwas, das schon passt) und zieht
+    // eine verlorene Bindung spaetestens beim naechsten Lesezyklus
+    // (IntervalFast, typ. 5s) automatisch nach.
     public function EnableActions()
     {
         $this->SetTimerInterval('EnableActionsTimer', 0);
@@ -4792,7 +4803,8 @@ class InverterHub extends IPSModule
         foreach ($driver->getOptionalGroups() as $group) {
             foreach ($group['vars'] as $v) {
                 if ($v[5] === 'control') {
-                    if ($this->FindVarByIdent($v[0])) {
+                    $vid = $this->FindVarByIdent($v[0]);
+                    if ($vid && @IPS_GetVariable($vid)['VariableAction'] !== $this->InstanceID) {
                         $this->EnableAction($v[0]);
                     }
                 }
@@ -4811,6 +4823,11 @@ class InverterHub extends IPSModule
             $this->WriteAttributeBoolean('DeviceInfoRead', true);
         }
         $driver->readFast($this->GetModbusClient(), $this);
+        // Selbstheilend (s. Kommentar bei EnableActions()): stellt bei jedem
+        // Lesezyklus sicher, dass Steuervariablen weiterhin an diese Instanz
+        // gebunden sind, statt sich auf den einmaligen Timer nach
+        // ApplyChanges() zu verlassen.
+        $this->EnableActions();
     }
 
     public function ReadSlow()
