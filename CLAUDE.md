@@ -854,3 +854,35 @@ Reflection auf protected Methoden ist zum Testen **nicht zuverlässig** — ein 
 `RegisterVariableInteger()` hat live nicht einmal eine auffindbare Variable erzeugt. Nur der
 echte, kernel-dispatchte Aufruf (die von IPS selbst generierte globale Funktion, z. B.
 `IHUB_EnableActions($id)`) liefert verlässliche Ergebnisse.
+
+## GoodWe-Steuerregister 47511 (`ctl_ems_mode`): fällt bei bestimmten Werten auf 255 zurück
+
+Real beobachtet (26.07.2026, Dietmars Anlage): Ein per `RequestAction`/Modbus-Write gesetzter
+Wert des Registers 47511 (EMS Leistungsmodus) hält nicht dauerhaft — er fällt nach einer
+gewissen Zeit (irgendwo zwischen ~15 Sekunden und ~30 Minuten, nicht enger eingegrenzt) auf den
+ungültigen Sentinel-Wert `255` zurück. Betroffen waren die aktiven Steuerwerte (u. a. `1`
+Automatik, `9` Stromeinkauf, `11` Batterie-Laden, `12` Batterie-Entladen). **Nicht** betroffen
+war der Wert `7` (Inselbetrieb) — der hielt stabil, ohne zurückzufallen.
+
+**Wichtig: Das ist kein Fehler in unserem Code.** Live bestätigt über die komplett unabhängige,
+alte GoodweET-Instanz (eigene, nachweislich korrekt gebundene Action) — auch dort fiel derselbe
+Wert auf `255` zurück. Es handelt sich um ein Verhalten des Wechselrichters/der Firmware selbst,
+nicht um einen Schreib- oder Bindungsfehler von InverterHub. Ob es sich um einen echten
+Heartbeat/Timeout oder eine wertspezifische Sonderbehandlung von `7` handelt, ist **nicht**
+abschließend geklärt.
+
+**Getrennt davon, ausdrücklich als Notfall-Erkenntnis vermerkt, NICHT in Code/Formular umsetzen:**
+Ein Wechselrichter+Batterie, der im Standby feststeckt (auch nachdem SOC-Grenzen im SEMS+-Portal
+korrigiert wurden), ließ sich durch Umschalten von `ctl_ems_mode` auf `7` (Inselbetrieb)
+zuverlässig aus dem Standby holen. Dietmar hat ausdrücklich gesagt: nur merken, noch nicht als
+Feature/Wiederherstellungsmechanismus bauen.
+
+## Die „untere SOC-Grenze für netzgekoppelte Ladung" ist KEINE funktionierende Steuerung
+
+Ausdrückliche Feststellung von Dietmar (26.07.2026), verbindlich festgehalten: Das Verändern
+dieser SOC-Grenze (weder über unser `ctl_soc_min`/Register 45356 noch über das entsprechende
+Feld im SEMS+-Portal) hat **keine beobachtbare Wirkung** gezeigt — konkret hat eine Korrektur
+dieses Werts einen im Standby feststeckenden WR/Batterie **nicht** befreit. Diese Einstellung
+taugt nicht als Stellhebel, um das Verhalten des Wechselrichters gezielt zu beeinflussen.
+**Nicht als funktionierenden Kontrollmechanismus behandeln oder Nutzern als Lösungsweg
+empfehlen** — das würde Zeit verschwenden, ohne etwas zu bewirken.
