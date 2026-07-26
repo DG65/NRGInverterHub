@@ -4805,7 +4805,15 @@ class InverterHub extends IPSModule
                 if ($v[5] === 'control') {
                     $vid = $this->FindVarByIdent($v[0]);
                     if ($vid && @IPS_GetVariable($vid)['VariableAction'] !== $this->InstanceID) {
-                        $this->EnableAction($v[0]);
+                        $ret = $this->EnableAction($v[0]);
+                        $after = @IPS_GetVariable($vid);
+                        $this->LogMessage(
+                            'TEMP-Debug EnableActions: Ident=' . $v[0] . ' vid=' . $vid
+                            . ' InstanceID=' . $this->InstanceID
+                            . ' EnableAction()=' . var_export($ret, true)
+                            . ' VariableAction-danach=' . ($after['VariableAction'] ?? 'n/a'),
+                            KL_WARNING
+                        );
                     }
                 }
             }
