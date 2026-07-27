@@ -627,7 +627,7 @@ class InverterHubTile extends IPSModule
     // ReadConsumerRows()). Externe Konsumenten (z. B. andere Kacheln) sollen
     // dieselbe Liste sehen wie der Nutzer hier, statt *_GetFunctions-Vertraege
     // einzeln nachzubauen und dabei manuell eingetragene Zeilen zu verpassen.
-    public function IHUBTILE_GetConsumers($id)
+    public function GetConsumers($id)
     {
         $rows = $this->ReadConsumerRows();
         $out  = [];
@@ -654,7 +654,7 @@ class InverterHubTile extends IPSModule
     // Hauslast-Werten gefuehrt (27.07.2026, Dashboard-Sitzung).
     // 0 = kein echter Zaehler konfiguriert; der Konsument soll dann selbst
     // die Bilanz rechnen (PV − Netz + Batterie), wie diese Kachel es auch tut.
-    public function IHUBTILE_GetHouseLoad($id)
+    public function GetHouseLoad($id)
     {
         $src         = $this->ResolveSource();
         $useInstance = ($src > 0 && IPS_InstanceExists($src));
