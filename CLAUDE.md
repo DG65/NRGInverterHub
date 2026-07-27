@@ -855,6 +855,27 @@ Reflection auf protected Methoden ist zum Testen **nicht zuverlässig** — ein 
 echte, kernel-dispatchte Aufruf (die von IPS selbst generierte globale Funktion, z. B.
 `IHUB_EnableActions($id)`) liefert verlässliche Ergebnisse.
 
+## `MeterInvert`/`BatInvert` gehören NUR nach `module.php` — nie zusätzlich in einen Konsumenten
+
+Real gefunden (27.07.2026, Dashboard-Sitzung, Live-Beleg): `InverterHubTile` hat `MeterInvert`/
+`BatInvert` der Quellinstanz selbst nochmal gelesen und den Wert ein **zweites** Mal gedreht,
+obwohl `module.php` (`SetVarFloat()`) die Korrektur bereits beim Schreiben anwendet — die
+gespeicherte Variable (und damit `gridPowerID`/`batPowerID` im `IHUB_GetFunctions`-Vertrag) ist
+schon kanonisch. Der Doppel-Dreher hob sich in der Kachel zufällig wieder auf (sie *sah* richtig
+aus), während der nach außen gegebene Vertragswert bei `MeterInvert=true` tatsächlich
+vorzeichenverkehrt war — externe Konsumenten (Dashboard), die den Vertragswert direkt nutzen,
+bekamen den Fehler ungefiltert zu sehen. Behoben (Commit `96349f1`): Die Kachel liest bei einer
+InverterHub-Quellinstanz weder `MeterInvert` noch `BatInvert` mehr selbst.
+
+**Regel für jeden künftigen Konsumenten (eigene oder fremde Kachel/Modul):** `MeterInvert`/
+`BatInvert` sind **einmalig, zentral in `module.php`** angewendet — die Werte hinter
+`gridPowerID`/`batPowerID` (und jede andere über `IHUB_GetFunctions` oder direkt gelesene
+Variable) sind **immer bereits kanonisch** (`+ Einspeisung`/`+ Entladen`), unabhängig vom
+Property-Zustand der Quellinstanz. Kein Konsument darf diese Properties selbst nochmal auslesen
+und erneut invertieren — das ist ausschließlich für den **manuellen Modus** (keine InverterHub-
+Instanz als Quelle, z. B. `ManualGridInvert` in `InverterHubTile`) vorgesehen, wo es keine
+vorgeschaltete Korrektur gibt.
+
 ## GoodWe-Steuerregister 47511 (`ctl_ems_mode`): fällt bei bestimmten Werten auf 255 zurück
 
 Real beobachtet (26.07.2026, Dietmars Anlage): Ein per `RequestAction`/Modbus-Write gesetzter
