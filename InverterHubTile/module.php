@@ -836,8 +836,20 @@ class InverterHubTile extends IPSModule
             $grid = $find(self::IDENT_GRID);
             $bat  = $find(self::IDENT_BATPWR);
             $soc  = $find(self::IDENT_SOC);
-            $gridInvert   = (bool)@IPS_GetProperty($src, 'MeterInvert');
-            $batInvert    = (bool)@IPS_GetProperty($src, 'BatInvert');
+            // KEIN eigenes MeterInvert-Auslesen hier: InverterHub wendet die
+            // MeterInvert-Korrektur bereits beim Schreiben an (SetVarFloat(),
+            // module.php) - der gelesene Wert ($grid oben) ist also schon
+            // kanonisch (+ = Einspeisung). Ein zweites Invertieren hier hätte
+            // die Korrektur wieder aufgehoben (Doppelanwendung, real gefunden
+            // 27.07.2026 über die Dashboard-Sitzung: gridPowerID/meter_total
+            // war bei MeterInvert=true vorzeichenverkehrt, während unsere
+            // eigene Kachel "zufällig" wieder richtig aussah, weil sie die
+            // bereits korrigierte Instanz-Variable ein zweites Mal drehte).
+            $gridInvert   = false;
+            // Gleicher Grund wie bei MeterInvert oben: BatInvert wird bereits
+            // in module.php/SetVarFloat beim Schreiben angewendet, der
+            // gelesene Wert ($bat unten) ist schon kanonisch (+ = Entladen).
+            $batInvert    = false;
             $houseMeterID = (int)@IPS_GetProperty($src, 'HouseLoadMeterID');
             // Semantik von ac_power ist NICHT bei allen Treibern gleich: Bei
             // String-Wechselrichtern (SMA/GoodWe/Fronius …) ist es der
