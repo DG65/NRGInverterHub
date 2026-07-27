@@ -644,6 +644,49 @@ class InverterHubTile extends IPSModule
         return $out;
     }
 
+    // Oeffentlicher Vertrag (contractVersion 1.0): die aufgeloeste Hausver-
+    // brauchs-Zaehler-ID nach genau der Prioritaet, die diese Kachel selbst
+    // fuer den Mittelknoten verwendet (eigene "HouseLoadID"-Property >
+    // Quellinstanz "HouseLoadMeterID"/"ManualHouseID" > MeterHub-Kernwert
+    // "Hausverbrauch"), statt PV/Netz/Batterie zu bilanzieren. Externe
+    // Konsumenten (z. B. Dashboard) sollen dieselbe Prioritaet nachvollziehen
+    // koennen, statt sie zu erraten - genau das hatte zu abweichenden
+    // Hauslast-Werten gefuehrt (27.07.2026, Dashboard-Sitzung).
+    // 0 = kein echter Zaehler konfiguriert; der Konsument soll dann selbst
+    // die Bilanz rechnen (PV − Netz + Batterie), wie diese Kachel es auch tut.
+    public function IHUBTILE_GetHouseLoad($id)
+    {
+        $src         = $this->ResolveSource();
+        $useInstance = ($src > 0 && IPS_InstanceExists($src));
+        $houseMeterID = 0;
+
+        if ($useInstance) {
+            $houseMeterID = (int)@IPS_GetProperty($src, 'HouseLoadMeterID');
+        } else {
+            $houseMeterID = $this->ReadPropertyInteger('ManualHouseID');
+            if ($houseMeterID <= 0) {
+                $mhCore = $this->MeterHubCoreIDs();
+                if ($mhCore['house'] > 0) {
+                    $houseMeterID = $mhCore['house'];
+                }
+            }
+        }
+
+        $tileHouseID = $this->ReadPropertyInteger('HouseLoadID');
+        if ($tileHouseID > 0 && IPS_VariableExists($tileHouseID)) {
+            $houseMeterID = $tileHouseID;
+        }
+
+        if ($houseMeterID <= 0 || !IPS_VariableExists($houseMeterID)) {
+            $houseMeterID = 0;
+        }
+
+        return [
+            'contractVersion' => '1.0',
+            'houseLoadID'     => $houseMeterID,
+        ];
+    }
+
     public function GetConfigurationForm()
     {
         $form = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
