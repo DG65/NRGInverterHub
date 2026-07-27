@@ -5010,14 +5010,35 @@ class InverterHub extends IPSModule
             // existiert). Reine Lesetreiber bekommen das Feld nicht - es waere
             // dort wirkungslos und nur Ballast im Formular.
             if ($propName === 'GroupControl') {
+                // Erklaerungsbeduerftiges Feld - Symcon kennt kein Hover-Tooltip
+                // (Verbund-Konvention, EMS 27.07.2026), deshalb PopupButton statt
+                // Mouseover fuer den Hintergrund (Situation A/B, Prioritaetsregel).
                 $groupItems[] = [
-                    'type'    => 'Select',
-                    'name'    => 'ControlAuthority',
-                    'caption' => 'Steuerhoheit dieser Instanz',
-                    'options' => [
-                        ['label' => 'EMS (Normalfall — das EMS darf hier schreiben)', 'value' => 'ems'],
-                        ['label' => 'Extern (ein anderer Akteur schreibt, z. B. Sunny Home Manager) — EMS darf NICHT schreiben', 'value' => 'external'],
-                        ['label' => 'Keine (niemand soll hier steuern)', 'value' => 'none'],
+                    'type'  => 'RowLayout',
+                    'items' => [
+                        [
+                            'type'    => 'Select',
+                            'name'    => 'ControlAuthority',
+                            'caption' => 'Steuerhoheit dieser Instanz',
+                            'options' => [
+                                ['label' => 'EMS (Normalfall — das EMS darf hier schreiben)', 'value' => 'ems'],
+                                ['label' => 'Extern (ein anderer Akteur schreibt, z. B. Sunny Home Manager) — EMS darf NICHT schreiben', 'value' => 'external'],
+                                ['label' => 'Keine (niemand soll hier steuern)', 'value' => 'none'],
+                            ],
+                        ],
+                        [
+                            'type'    => 'PopupButton',
+                            'caption' => 'ℹ️',
+                            'popup'   => [
+                                'caption' => 'Steuerhoheit — was bedeutet das?',
+                                'items'   => [
+                                    ['type' => 'Label', 'caption' => '„EMS": Normalfall, das EMS besitzt den Schreibkanal auf diese Instanz (eigene Optimierung, §14a, Direktvermarktung) und darf hier schreiben.'],
+                                    ['type' => 'Label', 'caption' => '„Extern": ein anderer Akteur besitzt den Schreibkanal komplett außerhalb des EMS (z. B. Sunny Home Manager). InverterHub setzt dann KEINE EMS-Vorgabe um, egal ob das EMS den Eingriff bemerkt.'],
+                                    ['type' => 'Label', 'caption' => '„Keine": niemand soll hier steuern, RequestAction verweigert jeden Schreibzugriff.'],
+                                    ['type' => 'Label', 'caption' => 'Falsch gesetzt führt entweder zu zwei gleichzeitigen Reglern auf derselben Batterie oder dazu, dass das EMS gar nicht schreiben kann, ohne dass das sofort auffällt.'],
+                                ],
+                            ],
+                        ],
                     ],
                 ];
                 // Live bestaetigt (26.07.2026): Register ctl_ems_mode/ctl_ems_power
@@ -5027,9 +5048,26 @@ class InverterHub extends IPSModule
                 // (Konsole/WebFront/Test) nicht durch einen zurueckgeschriebenen
                 // alten Wert gestoert wird.
                 $groupItems[] = [
-                    'type'    => 'CheckBox',
-                    'name'    => 'EmsReassertEnabled',
-                    'caption' => 'EMS-Vorgabe automatisch wiederholen (gegen internen WR-Rückfall)',
+                    'type'  => 'RowLayout',
+                    'items' => [
+                        [
+                            'type'    => 'CheckBox',
+                            'name'    => 'EmsReassertEnabled',
+                            'caption' => 'EMS-Vorgabe automatisch wiederholen (gegen internen WR-Rückfall)',
+                        ],
+                        [
+                            'type'    => 'PopupButton',
+                            'caption' => 'ℹ️',
+                            'popup'   => [
+                                'caption' => 'Automatisches Wiederholen — wann nötig?',
+                                'items'   => [
+                                    ['type' => 'Label', 'caption' => 'GoodWe fällt bei manchen EMS-Leistungsmodus-Werten (u. a. Automatik, Stromeinkauf, Batterie-Laden/-Entladen) nach einiger Zeit von selbst auf den Sentinel-Wert 255 (Gestoppt) zurück — interner SMART-Automatikmodus überschreibt einen einmaligen Schreibvorgang.'],
+                                    ['type' => 'Label', 'caption' => 'AN: InverterHub schreibt den zuletzt kommandierten Wert periodisch erneut, damit er hält — nötig für Dauerbetrieb in einem der betroffenen Modi.'],
+                                    ['type' => 'Label', 'caption' => 'AUS (Standard): kein Hintergrund-Schreiben — wer einmalig manuell schalten/testen will (Konsole, WebFront), wird nicht von einem zurückgeschriebenen alten Wert gestört.'],
+                                ],
+                            ],
+                        ],
+                    ],
                 ];
             }
         }
