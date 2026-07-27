@@ -938,6 +938,30 @@ IPS_SetParent($vid, $originalParent);
 Unterkategorien verschiebt, hat potenziell dasselbe Problem — `EnableAction()`/
 `IPS_GetObjectIDByIdent()` sind grundsätzlich nicht rekursiv, unabhängig vom Hersteller/Treiber.
 
+## `ctl_ems_power` (47512) ist im Modus „Laden-Solar" (2) eine Netz-OBERGRENZE, kein Zusatzwert
+
+Real aufgetreten (27.07.2026, EMS-Sitzung): `ctl_ems_mode=2` ("Laden-Solar"/CHARGE_PV) lud bei
+PV=5098 W mit ~7993 W Batterieleistung — die Differenz (~3366 W) kam aus dem Netz, obwohl der
+Modusname PV-Vorrang suggeriert. `ctl_ems_power` (47512) stand dabei auf einem **stehen
+gebliebenen** Wert (bei uns live geprüft: `3000`), nicht auf `0`.
+
+**Offizielle GoodWe-Registerdoku** (Modbus Protocol Hybrid ET/EH/BH/BT, ARM205-HV v1.7, Tabelle
+8-16 „EMS Power Mode") klärt das eindeutig: Für Modus 2 gilt „Battery power = Xmax + PV
+(Charge). Xmax is to allow the power to be taken from the grid, and PV power is preferred. When
+set to 0, only PV power is used." — `ctl_ems_power` ist in diesem Modus also eine **Netz-
+Erlaubnisobergrenze**, kein additiver „wie viel zusätzlich"-Wert und kein reiner PV-
+Vorrangschalter. Bei `ctl_ems_power=0` fließt ausschließlich PV — das ist dokumentiertes,
+beabsichtigtes Verhalten, **kein WR-Bug**.
+
+**Für reines PV-Laden immer explizit mitschreiben**, nie auf einen impliziten Default verlassen:
+```php
+IPS_RequestAction($id, 'ctl_ems_power', 0);
+IPS_RequestAction($id, 'ctl_ems_mode', 2);
+```
+
+Zum Vergleich (dieselbe Tabelle): Modus 4 (AC-Import) ist der für **absichtliches** Netzladen
+vorgesehene Modus (`Xset` = bewusst aus dem Netz bezogene Leistung, PV sekundär).
+
 ## Die „untere SOC-Grenze für netzgekoppelte Ladung" ist KEINE funktionierende Steuerung
 
 Ausdrückliche Feststellung von Dietmar (26.07.2026), verbindlich festgehalten: Das Verändern
