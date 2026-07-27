@@ -742,6 +742,32 @@ virtuelle WR ist der instanzübergreifende Fall.
 Feldnamen (von Dietmar bestätigt 2026-07-23; mit MeterHub kompatibel, MeterHub übernimmt sie):
 `activeSourceCount`, `aggregation` (sum|mean|plant|device), `virtual`.
 
+**Extern validiert (27.07.2026, Recherche auf Dietmars Wunsch nach mehr Eigeninitiative statt nur
+Ticket-Reaktion):** Das Muster „PV summieren, Netz/Hauslast NUR EINMAL auf Anlagenebene" deckt
+sich mit etablierten Open-Source-EMS-Projekten, kein Sonderweg:
+- **OpenEMS** trennt exakt so: eine `Sum`-Komponente aggregiert anlagenweit, `GridActivePower`
+  kommt von GENAU EINEM Meter mit Rolle `GRID`. Verbrauch wird dort **nicht** aus
+  Einzelgeräte-Hauslastwerten summiert, sondern zentral **abgeleitet**:
+  `Consumption = Production + ESS-Entladung − Netzeinspeisung`. Mehrere Batterie-WR fasst ein
+  explizites ESS-Cluster zusammen — Analogie zu unserem `IHUBV`.
+  (https://community.openems.io/t/ess-with-multiple-inverters/2333,
+  https://openems.github.io/openems.io/openems/latest/coreconcepts.html)
+- **evcc** erlaubt mehrere PV-Meter (automatisch summiert, `site.meters.pvs: [...]`), aber
+  **nur einen** Netz-Meter je Anlage — bei mehreren physischen Zählpunkten muss der Nutzer sie
+  VOR der Site-Konfiguration selbst zu einem virtuellen Meter zusammenfassen, die Anlage sieht
+  danach wieder nur einen. (https://docs.evcc.io/en/meters/)
+- **Home-Assistant-Energiedashboard** hat dagegen KEINEN strukturellen Schutz — es summiert
+  blind, was zugewiesen wird; Nutzer laufen dort real in genau unsere „gefährlichste Falle"
+  (mehrfach gezählte Hauslast bei mehreren WR), weil nichts das verhindert. Negativbeispiel,
+  keine Blaupause.
+
+**Verdikt:** unser Design ist bestätigt, keine Änderung am Grundmuster nötig. Eine Verfeinerung
+von OpenEMS aber als Fallback vormerken, WENN kein Inexogy-Zähler vorhanden ist: Hauslast dann
+nicht von irgendeinem WR erfragen (kein Treiber soll das je müssen), sondern zentral in
+`IHUBV` ableiten: `Hauslast = Σ(PV) + Σ(Batterie-Entladung) − Netzbezug`. Das entfernt die Falle
+strukturell statt nur per Dokumentation zu warnen — passt zu `plant`, ändert aber nichts an der
+Umsetzung (weiterhin offen, s. o.).
+
 ## Verbund-Konvention: Kacheln mit Datumssteuerung bedienen sich identisch
 
 Gilt für **alle** Kacheln mit Zeitraum-/Datumsauswahl — derzeit `InverterHubMonitor` und
