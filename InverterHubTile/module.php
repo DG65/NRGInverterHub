@@ -620,6 +620,30 @@ class InverterHubTile extends IPSModule
         }
     }
 
+    // Oeffentlicher Vertrag (contractVersion 1.0): die Verbraucherliste, wie
+    // sie diese Kachel tatsaechlich rendert - unabhaengig davon, ob eine Zeile
+    // manuell in "Consumers" eingetragen oder ueber MeterHub/HeishaMon
+    // automatisch zugeordnet wurde (beides mischt sich bereits in
+    // ReadConsumerRows()). Externe Konsumenten (z. B. andere Kacheln) sollen
+    // dieselbe Liste sehen wie der Nutzer hier, statt *_GetFunctions-Vertraege
+    // einzeln nachzubauen und dabei manuell eingetragene Zeilen zu verpassen.
+    public function IHUBTILE_GetConsumers($id)
+    {
+        $rows = $this->ReadConsumerRows();
+        $out  = [];
+        foreach ($rows as $row) {
+            $out[] = [
+                'contractVersion' => '1.0',
+                'id'    => $row['id'],
+                'type'  => $row['type'],
+                'label' => $row['name'],
+                'icon'  => $row['icon'],
+                'color' => $row['color'],
+            ];
+        }
+        return $out;
+    }
+
     public function GetConfigurationForm()
     {
         $form = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
