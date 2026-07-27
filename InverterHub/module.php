@@ -4890,14 +4890,27 @@ class InverterHub extends IPSModule
             $this->WriteAttributeBoolean('DeviceInfoRead', true);
         }
         $driver->readFast($this->GetModbusClient(), $this);
-        // ACHTUNG (26.07.2026): Ein periodischer EnableActions()-Aufruf wurde
-        // hier testweise eingefuehrt (228a6b4) und wieder entfernt - Verdacht,
-        // real reproduziert OHNE jede externe Einwirkung, dass wiederholte
-        // EnableAction()-Aufrufe auf eine Variable, deren Bindung nicht
-        // greift, selbst zu einer Neuanlage/ID-Churn fuehren. Noch nicht
-        // abschliessend verstanden - EnableAction()/RegisterVar() bleiben
-        // deshalb bewusst einmalig (EnableActionsTimer nach ApplyChanges()).
-        // ReassertEmsControl() unten ist davon strikt getrennt: reine
+        // Periodische Selbstheilung der Steuer-Bindung (wieder eingefuehrt
+        // 27.07.2026, mit Dietmars/EMS' ausdruecklicher Freigabe, nach
+        // mehrstuendiger Beobachtung vor Entfernung des SUITE.md-Warnhinweises
+        // geplant). Vorgeschichte: Ein erster Versuch (228a6b4, 26.07.2026)
+        // wurde wieder entfernt (2e5d0aa), weil damals der Verdacht bestand,
+        // wiederholte EnableAction()-Aufrufe koennten selbst Neuanlagen/
+        // ID-Churn ausloesen - Ursache damals nicht verstanden.
+        // Inzwischen IST die Ursache bekannt und behoben (2d8228f):
+        // EnableAction() bindet eine Variable nur, wenn sie DIREKTES Kind der
+        // Instanz ist; RegisterVar() verschiebt Steuervariablen aber sofort
+        // in die Unterkategorie "EMS-Steuerung" - jede Bindung nach diesem
+        // Verschieben schlug deshalb fehl, unabhaengig von der Aufrufhaeufigkeit.
+        // EnableActions() selbst legt NIE eine Variable an (nur FindVarByIdent
+        // + bedingtes EnableAction), ist bei bereits korrekt gebundenen
+        // Variablen ein reiner, billiger No-Op (VariableAction-Pruefung) und
+        // kann daher sicher jeden Zyklus laufen - zieht eine verlorene Bindung
+        // (z. B. nach einer Property-Aenderung wie ControlAuthority) spaetestens
+        // beim naechsten ReadFast (typ. 5 s) automatisch nach, ohne dass dafuer
+        // eine Diagnose-Sitzung noetig ist (Verbund-Ziel 3, SUITE.md).
+        $this->EnableActions();
+        // ReassertEmsControl() ist davon strikt getrennt: reine
         // Modbus-Schreibvorgaenge auf bereits bestehende Register, keine
         // Variablen-Registrierung/Bindung beteiligt.
         $this->ReassertEmsControl();
