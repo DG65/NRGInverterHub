@@ -877,6 +877,67 @@ korrigiert wurden), ließ sich durch Umschalten von `ctl_ems_mode` auf `7` (Inse
 zuverlässig aus dem Standby holen. Dietmar hat ausdrücklich gesagt: nur merken, noch nicht als
 Feature/Wiederherstellungsmechanismus bauen.
 
+## GoodWe-Steuervariablen (`GroupControl`): vollständige Ident-Tabelle
+
+Vollständige Referenz aller 9 Steuer-Idents des GoodWe-Treibers (Kategorie „EMS-Steuerung"),
+zusammengestellt für externe Konsumenten (EMS-Sitzung, 27.07.2026) — Aufruf immer über
+`IPS_RequestAction(InstanceID, Ident, Wert)` mit der **InverterHub-Instanz-ID** als erstem
+Parameter, NIE mit der Variablen-ID (real verwechselt, siehe Abschnitt unten).
+
+| Ident | Bezeichnung | Register | Wertebereich |
+|---|---|---|---|
+| `ctl_work_mode` | Steuermodus | RW 47000 | 0=Selbstverbrauch, 1=Inselbetrieb, 2=Backup, 3=Wirtschaftlich, 4=Peak-Shaving, 5=Erw. Selbstverbrauch |
+| `ctl_ems_enable` | EMS-Steuerung aktiv | RW 47505 | bool |
+| `ctl_ems_mode` | EMS Leistungsmodus | RW 47511 | 0=Gestoppt, 1=Automatik, 2=Laden-Solar, 3=Entladen+Solar, 4=AC-Import, 5=AC-Export, 6=Energiesparen, 7=Inselbetrieb, 8=Batterie-Bereitschaft, 9=Stromeinkauf, 10=Stromverkauf, 11=Batterie-Laden, 12=Batterie-Entladen |
+| `ctl_ems_power` | EMS Leistung (W) | RW 47512 | 0–34500 W |
+| `ctl_export_enable` | Einspeisebegrenzung aktiv | RW 47509 | bool |
+| `ctl_export_limit` | Einspeisegrenze (W) | RW 47510 | 0–34500 W (wirkt nur bei `ctl_export_enable=true`) |
+| `ctl_soc_min` | SOC Min. Entladung | RW 45356 | 0–100 % — **bestätigt ohne Wirkung**, siehe Abschnitt unten, nicht als Stellhebel empfehlen |
+| `ctl_internet` | Cloud-Verbindung | RW 47017 | bool |
+| `ctl_restart` | WR Neustart | WO 45220 | bool, nur schreibend |
+
+**Für normalen Automatikbetrieb** (WR aus Sonderzustand zurückholen) reicht üblicherweise:
+```php
+IPS_RequestAction($instanceID, 'ctl_work_mode', 0);   // Selbstverbrauch
+IPS_RequestAction($instanceID, 'ctl_ems_mode', 1);    // Automatik
+IPS_RequestAction($instanceID, 'ctl_ems_enable', true);
+```
+
+`ctl_work_mode` (Steuermodus, Register 47000) und `ctl_ems_mode` (EMS Leistungsmodus, Register
+47511) sind **unabhängige** Register/Variablen mit ähnlich klingenden Namen — real verwechselt
+(EMS-Sitzung, 27.07.2026): Ein Schreiben auf `ctl_ems_mode` verändert `ctl_work_mode` nicht und
+umgekehrt.
+
+## `EnableActions()` band Steuervariablen nach Verschieben in die Kategorie nicht mehr
+
+Live aufgetreten (27.07.2026, nach Ändern von `ControlAuthority`): Alle Steuervariablen waren
+vorhanden und ihre IDs unverändert, aber `VariableAction` stand bei allen auf `0` — WebFront-
+Schalter/`IPS_RequestAction` griffen dadurch ins Leere, obwohl `EnableActions()` (getriggert per
+Timer) mehrfach lief.
+
+**Ursache:** `$this->EnableAction($Ident)` findet die Variable intern nur als **direktes Kind
+der Instanz** (`IPS_GetObjectIDByIdent($Ident, $InstanceID)`, keine Rekursion) — live per Test
+bestätigt (`IPS_GetObjectIDByIdent('ctl_ems_mode', $instanceID)` lieferte `false`, obwohl die
+Variable per rekursiver Suche einwandfrei auffindbar war). `RegisterVar()` verschiebt
+Steuervariablen aber sofort nach Anlage in die Unterkategorie „EMS-Steuerung" (siehe RegisterVar-
+Abschnitt oben) — jede (Re-)Bindung nach diesem Verschieben schlug dadurch strukturell fehl,
+unabhängig von Timing oder Aufrufhäufigkeit.
+
+**Fix (`module.php`, `EnableActions()`, Commit `2d8228f`):** Variable vor `EnableAction()` kurz
+zurück zur Instanz hängen, binden, danach zurück in die Kategorie — `VariableAction` bleibt beim
+Reparenting erhalten (live verifiziert: Bindung übersteht das Zurückhängen unverändert).
+
+```php
+$originalParent = IPS_GetObject($vid)['ParentID'];
+IPS_SetParent($vid, $this->InstanceID);
+$this->EnableAction($v[0]);
+IPS_SetParent($vid, $originalParent);
+```
+
+**Wichtig für den ganzen Verbund:** Jedes Modul, das eigene Steuervariablen zur Übersicht in
+Unterkategorien verschiebt, hat potenziell dasselbe Problem — `EnableAction()`/
+`IPS_GetObjectIDByIdent()` sind grundsätzlich nicht rekursiv, unabhängig vom Hersteller/Treiber.
+
 ## Die „untere SOC-Grenze für netzgekoppelte Ladung" ist KEINE funktionierende Steuerung
 
 Ausdrückliche Feststellung von Dietmar (26.07.2026), verbindlich festgehalten: Das Verändern
