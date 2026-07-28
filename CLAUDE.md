@@ -958,6 +958,17 @@ Es gibt außerdem **DiagStatusH** (Register 35218, U32, „Table 8-13") — ein 
 gemapptes Bitfeld (Precharge-Relais, Bypass-Relais, Meter-Spannungsmessfehler, DRED/ESD-Stopp,
 Offgrid-DOD, BYD-SOC-Adjust) — bei Bedarf nach demselben Muster ergänzen.
 
+**Vorlauf-Hinweis (nachträglich von Dietmar berichtet):** Bereits am Vortag (27.07.2026) wurde
+eine Batteriespannung über 470 V beobachtet, ohne dass es damals zu einer sichtbaren Abschaltung
+kam — das Ereignis vom 28.07.2026 war also vermutlich nicht der allererste Vorbote, nur der
+erste, der tatsächlich zur Abschaltung führte. Beide SOC-Grenzregister (`ctl_soc_min`,
+`ctl_soc_max`) erwiesen sich als wirkungslos dagegen (s. o.); einzig aktives Entladen
+(`ctl_ems_mode=3`) half zuverlässig. Der WR kehrte nach dem Vorfall zwischenzeitlich selbständig
+aus einem Standby zurück, ohne Neustart. Auf Dietmars ausdrücklichen Wunsch (28.07.2026) laufen
+vorerst KEINE weiteren aktiven Eingriffe an der Anlage mehr, nur stille Beobachtung — bis eine
+echte Dauerlösung gefunden ist (Kandidat: GoodWe-Support/Firmware, liegt außerhalb dessen, was
+sich per Modbus lösen lässt).
+
 ## GoodWe-Steuerregister 47511 (`ctl_ems_mode`): fällt bei bestimmten Werten auf 255 zurück
 
 Real beobachtet (26.07.2026, Dietmars Anlage): Ein per `RequestAction`/Modbus-Write gesetzter
