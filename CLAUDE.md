@@ -969,6 +969,19 @@ vorerst KEINE weiteren aktiven Eingriffe an der Anlage mehr, nur stille Beobacht
 echte Dauerlösung gefunden ist (Kandidat: GoodWe-Support/Firmware, liegt außerhalb dessen, was
 sich per Modbus lösen lässt).
 
+**Abschluss-Hypothese (Dietmar, 28.07.2026, plausibel aber NICHT verifiziert):** Die beiden
+Batteriepäckchen könnten während der Ladephase auseinandergedriftet sein (Batterie 1 lud nicht
+mehr, während Batterie 2 weiterlud), kamen aber beide bei „100 %" SOC an. Denkbar als normales,
+seltenes BMS-Kalibrierungsereignis: Die Coulomb-Counting-SOC-Schätzung wird beim Erreichen der
+echten Vollladungs-Zellspannung gegen die Päckchen neu abgeglichen — kein Fehler, nur heute
+zufällig sichtbar geworden, weil intensiv beobachtet wurde. Würde alle drei Symptome erklären:
+Batterie 1 im Standby während Batterie 2 lud (`bat1_mode`/`bat2_mode`-Asymmetrie), die
+Spannungsanomalie nahe 470 V, und die Automatik-Harvest-Blockade (WR wartet vermutlich bewusst
+den Abgleich zwischen den Päckchen ab, bevor er im Automatik-Modus normal weitererntet — ein
+expliziter Export-Modus-Befehl umgeht das, s. o.). Falls das erneut auftritt: auf genau dieses
+Muster prüfen (`bat1_mode` ≠ `bat2_mode` bei beiden nahe 100 % SOC) statt erneut bei Null
+anzufangen.
+
 ## GoodWe-Steuerregister 47511 (`ctl_ems_mode`): fällt bei bestimmten Werten auf 255 zurück
 
 Real beobachtet (26.07.2026, Dietmars Anlage): Ein per `RequestAction`/Modbus-Write gesetzter
