@@ -5046,7 +5046,7 @@ class InverterHub extends IPSModule
                                     ],
                                 ],
                             ];
-                        }, [20, 25, 30, 35, 40, 45, 50]),
+                        }, [55, 60, 70, 80, 90, 100]),
                     ],
                 ];
                 // Live bestaetigt (26.07.2026): Register ctl_ems_mode/ctl_ems_power
