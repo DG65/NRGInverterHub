@@ -5026,27 +5026,20 @@ class InverterHub extends IPSModule
                                 ['label' => 'Keine (niemand soll hier steuern)', 'value' => 'none'],
                             ],
                         ],
-                        // Breiten-Testreihe (Dietmars Wunsch, 28.07.2026): mehrere
-                        // PopupButtons nebeneinander, je mit ihrer eigenen Breite
-                        // beschriftet, um die tatsaechliche Mindestbreite des
-                        // WebFront/Konsole-Skins visuell zu finden. Nur temporaer -
-                        // nach Ermittlung des Werts auf EINEN Button zurueckbauen.
-                        ...array_map(function ($w) {
-                            return [
-                                'type'    => 'PopupButton',
-                                'caption' => (string)$w,
-                                'width'   => $w . 'px',
-                                'popup'   => [
-                                    'caption' => 'Steuerhoheit — was bedeutet das? (Testbreite ' . $w . 'px)',
-                                    'items'   => [
-                                        ['type' => 'Label', 'caption' => '„EMS": Normalfall, das EMS besitzt den Schreibkanal auf diese Instanz (eigene Optimierung, §14a, Direktvermarktung) und darf hier schreiben.'],
-                                        ['type' => 'Label', 'caption' => '„Extern": ein anderer Akteur besitzt den Schreibkanal komplett außerhalb des EMS (z. B. Sunny Home Manager). InverterHub setzt dann KEINE EMS-Vorgabe um, egal ob das EMS den Eingriff bemerkt.'],
-                                        ['type' => 'Label', 'caption' => '„Keine": niemand soll hier steuern, RequestAction verweigert jeden Schreibzugriff.'],
-                                        ['type' => 'Label', 'caption' => 'Falsch gesetzt führt entweder zu zwei gleichzeitigen Reglern auf derselben Batterie oder dazu, dass das EMS gar nicht schreiben kann, ohne dass das sofort auffällt.'],
-                                    ],
+                        [
+                            'type'    => 'PopupButton',
+                            'caption' => '?',
+                            'width'   => '70px',
+                            'popup'   => [
+                                'caption' => 'Steuerhoheit — was bedeutet das?',
+                                'items'   => [
+                                    ['type' => 'Label', 'caption' => '„EMS": Normalfall, das EMS besitzt den Schreibkanal auf diese Instanz (eigene Optimierung, §14a, Direktvermarktung) und darf hier schreiben.'],
+                                    ['type' => 'Label', 'caption' => '„Extern": ein anderer Akteur besitzt den Schreibkanal komplett außerhalb des EMS (z. B. Sunny Home Manager). InverterHub setzt dann KEINE EMS-Vorgabe um, egal ob das EMS den Eingriff bemerkt.'],
+                                    ['type' => 'Label', 'caption' => '„Keine": niemand soll hier steuern, RequestAction verweigert jeden Schreibzugriff.'],
+                                    ['type' => 'Label', 'caption' => 'Falsch gesetzt führt entweder zu zwei gleichzeitigen Reglern auf derselben Batterie oder dazu, dass das EMS gar nicht schreiben kann, ohne dass das sofort auffällt.'],
                                 ],
-                            ];
-                        }, [55, 60, 70, 80, 90, 100]),
+                            ],
+                        ],
                     ],
                 ];
                 // Live bestaetigt (26.07.2026): Register ctl_ems_mode/ctl_ems_power
@@ -5066,7 +5059,7 @@ class InverterHub extends IPSModule
                         [
                             'type'    => 'PopupButton',
                             'caption' => '?',
-                            'width'   => '20px',
+                            'width'   => '70px',
                             'popup'   => [
                                 'caption' => 'Automatisches Wiederholen — wann nötig?',
                                 'items'   => [
