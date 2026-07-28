@@ -46,6 +46,14 @@
 
   <script>
     var lastData = null, curType = null, curIdx = 0, curTab = null, chart = null, chartEngine = null, libs = { hc: 0, ec: 0 };
+    // ECharts feuert 'legendselectchanged' nicht nur bei echten Nutzerklicks,
+    // sondern auch SYNTHETISCH bei setOption(), wenn legend.selected vom
+    // internen Default abweicht - genau der Fall beim Wiederherstellen einer
+    // aus localStorage geladenen Auswahl. Ohne Sperre ueberschreibt der
+    // Handler die gerade geladene Auswahl sofort wieder (reale Ursache eines
+    // Bugs bei der Dashboard-Portierung, 28.07.2026 - hier vorsorglich
+    // gefixt, da derselbe Codepfad).
+    var suppressLegendEvent = false;
     // Legenden-Sichtbarkeit je Kurven-Label (true/false). Bleibt über Zeitraum-
     // und Ansichtswechsel erhalten, damit die Auswahl nicht zurückgesetzt wird.
     // Legenden-Sichtbarkeit je Kurven-Label. Bleibt über Zeitraum-/Reiter-/
@@ -381,8 +389,10 @@
         ],
         series: series
       };
-      if (!chart) { el.innerHTML = ''; chart = echarts.init(el, null, { renderer: 'canvas' }); chart.on('legendselectchanged', function (pr) { if (pr && pr.selected) { Object.keys(pr.selected).forEach(function (k) { vis[k] = pr.selected[k]; }); saveVis(); } }); chart.getZr().on('dblclick', function () { chart.dispatchAction({ type: 'dataZoom', start: 0, end: 100 }); }); }
+      if (!chart) { el.innerHTML = ''; chart = echarts.init(el, null, { renderer: 'canvas' }); chart.on('legendselectchanged', function (pr) { if (suppressLegendEvent) { return; } if (pr && pr.selected) { Object.keys(pr.selected).forEach(function (k) { vis[k] = pr.selected[k]; }); saveVis(); } }); chart.getZr().on('dblclick', function () { chart.dispatchAction({ type: 'dataZoom', start: 0, end: 100 }); }); }
+      suppressLegendEvent = true;
       chart.setOption(option, true); chart.resize();
+      suppressLegendEvent = false;
       // Nach dem Rendern ggf. verzögert nachziehen (Vollbild-/Layout-Wechsel,
       // bei dem der Container erst nach dem ersten Render seine Endgröße hat).
       setTimeout(sizeChart, 60); setTimeout(sizeChart, 300);
