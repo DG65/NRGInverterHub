@@ -508,6 +508,13 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 ['warn_code',  'Warncode',      'I', '', true, 'errors', 'DSP 32000'],
                 ['err_msg',    'Fehlercode',    'I', '', true, 'errors', 'DSP 32002'],
                 ['err_detail', 'Fehler Detail', 'S', '', true, 'errors', ''],
+                // Live gefunden (28.07.2026, EMS-Sitzung): 'warn_code'/'err_msg'
+                // oben sind WECHSELRICHTER-seitige Codes und erfassen BMS-
+                // Schutzereignisse (z.B. Ausgangsport-Ueberspannung bei fast
+                // vollem SOC) NICHT - die stehen nur im SEMS+-Portal. Eigener,
+                // separater Registerblock fuer die Batterie-BMS.
+                ['bms1_err_code',  'BMS1 Fehlercode',  'I', '', true, 'errors', 'DSP 37006/37012'],
+                ['bms1_warn_code', 'BMS1 Warncode',    'I', '', true, 'errors', 'DSP 37010/37013'],
             ]],
             'GroupDevice' => ['caption' => 'Geräteinformation (Seriennummer, Modell, Firmware)', 'vars' => [
                 ['dev_sn',      'Seriennummer', 'S', '', false, 'device', 'DSP 35003'],
@@ -856,6 +863,19 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 $sys = $mb->u16($err, 2);
                 if ($sys & 0x01) { $detail[] = 'Systemfehler 1'; }
                 $hub->SetVarStr('err_detail', empty($detail) ? 'OK' : implode(', ', $detail));
+            }
+            // Separater BMS-Fehler-/Warncode-Block (37006/37010/37012/37013) -
+            // NICHT identisch mit den WR-seitigen Codes oben, s. Kommentar bei
+            // der Variablendefinition.
+            $bmsErrL  = $mb->readHolding(37006, 1);
+            $bmsWarnL = $mb->readHolding(37010, 1);
+            $bmsErrH  = $mb->readHolding(37012, 1);
+            $bmsWarnH = $mb->readHolding(37013, 1);
+            if ($bmsErrL !== null && $bmsErrH !== null) {
+                $hub->SetVarInt('bms1_err_code', ($mb->u16($bmsErrH, 0) << 16) | $mb->u16($bmsErrL, 0));
+            }
+            if ($bmsWarnL !== null && $bmsWarnH !== null) {
+                $hub->SetVarInt('bms1_warn_code', ($mb->u16($bmsWarnH, 0) << 16) | $mb->u16($bmsWarnL, 0));
             }
         }
     }
