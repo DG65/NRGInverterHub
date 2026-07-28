@@ -361,6 +361,12 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
             ['bat_discharge_max_w', 'Bat. max. Entladeleistung','F', 'GWH.Watt', false, 'batcommon', 'BMS calc'],
             ['connected',     'Verbindung',          'B', '~Alert.Reversed',   false, 'errors',    ''],
             ['riso',          'Isolationswiderstand','F', 'GWH.KOhm',          true,  'device',    'DSP 35365'],
+            // Live gefunden (28.07.2026, EMS-Sitzung): deutsche 70%-Regel-
+            // Abregelung. Laut GoodWe-Doku nur 70 oder 100 sinnvoll ("Only
+            // can set 70, only for German"). Bisher rein lesend, keine
+            // Steuerung - Abregelung wird ueber SEMS+/den Netzbetreiber
+            // gesetzt, nicht ueber InverterHub.
+            ['derate_pct',    '70%-Regel Abregelung','I', 'GWH.Percent',       true,  'grid',      'RW 45263'],
         ];
     }
 
@@ -610,6 +616,11 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
 
         $pvTotal = ($pvext !== null) ? (float)$mb->u32($pvext, 0) : 0.0;
         $hub->SetVarFloat('pv_total', $pvTotal);
+
+        $derateBlk = $mb->readHolding(45263, 1);
+        if ($derateBlk !== null) {
+            $hub->SetVarInt('derate_pct', $mb->u16($derateBlk, 0));
+        }
 
         $risoBlk = $mb->readHolding(35365, 1);
         if ($risoBlk !== null) {
