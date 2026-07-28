@@ -5048,29 +5048,39 @@ class InverterHub extends IPSModule
                 // sonst wieder). Default AUS, damit einmaliges manuelles Schalten
                 // (Konsole/WebFront/Test) nicht durch einen zurueckgeschriebenen
                 // alten Wert gestoert wird.
-                $groupItems[] = [
-                    'type'  => 'RowLayout',
-                    'items' => [
-                        [
-                            'type'    => 'CheckBox',
-                            'name'    => 'EmsReassertEnabled',
-                            'caption' => 'EMS-Vorgabe automatisch wiederholen (gegen internen WR-Rückfall)',
-                        ],
-                        [
-                            'type'    => 'PopupButton',
-                            'caption' => '?',
-                            'width'   => '70px',
-                            'popup'   => [
-                                'caption' => 'Automatisches Wiederholen — wann nötig?',
-                                'items'   => [
-                                    ['type' => 'Label', 'caption' => 'GoodWe fällt bei manchen EMS-Leistungsmodus-Werten (u. a. Automatik, Stromeinkauf, Batterie-Laden/-Entladen) nach einiger Zeit von selbst auf den Sentinel-Wert 255 (Gestoppt) zurück — interner SMART-Automatikmodus überschreibt einen einmaligen Schreibvorgang.'],
-                                    ['type' => 'Label', 'caption' => 'AN: InverterHub schreibt den zuletzt kommandierten Wert periodisch erneut, damit er hält — nötig für Dauerbetrieb in einem der betroffenen Modi.'],
-                                    ['type' => 'Label', 'caption' => 'AUS (Standard): kein Hintergrund-Schreiben — wer einmalig manuell schalten/testen will (Konsole, WebFront), wird nicht von einem zurückgeschriebenen alten Wert gestört.'],
+                // Nur bei GoodWe sichtbar: das Rueckfall-Verhalten (ctl_ems_mode
+                // faellt auf Sentinel 255 zurueck) ist GoodWe-spezifisch, die
+                // Idents ctl_ems_mode/ctl_ems_power existieren nur dort - bei
+                // Sungrow/Deye (haben ebenfalls GroupControl) waere die Checkbox
+                // wirkungslose UI ohne erkennbaren Grund (Usability-Befund,
+                // Verbund-Audit 28.07.2026, ausgeloest durch einen aehnlichen
+                // Fund bei EMS). Analog zu den anderen markenspezifischen Feldern
+                // (Fronius/Kostal/SMA/Victron) ueber Manufacturer gegated.
+                if ($this->ReadPropertyString('Manufacturer') === 'goodwe') {
+                    $groupItems[] = [
+                        'type'  => 'RowLayout',
+                        'items' => [
+                            [
+                                'type'    => 'CheckBox',
+                                'name'    => 'EmsReassertEnabled',
+                                'caption' => 'EMS-Vorgabe automatisch wiederholen (gegen internen WR-Rückfall)',
+                            ],
+                            [
+                                'type'    => 'PopupButton',
+                                'caption' => '?',
+                                'width'   => '70px',
+                                'popup'   => [
+                                    'caption' => 'Automatisches Wiederholen — wann nötig?',
+                                    'items'   => [
+                                        ['type' => 'Label', 'caption' => 'Nur bei GoodWe relevant: das Register fällt bei manchen EMS-Leistungsmodus-Werten (u. a. Automatik, Stromeinkauf, Batterie-Laden/-Entladen) nach einiger Zeit von selbst auf den Sentinel-Wert 255 (Gestoppt) zurück — interner SMART-Automatikmodus überschreibt einen einmaligen Schreibvorgang.'],
+                                        ['type' => 'Label', 'caption' => 'AN: InverterHub schreibt den zuletzt kommandierten Wert periodisch erneut, damit er hält — nötig für Dauerbetrieb in einem der betroffenen Modi.'],
+                                        ['type' => 'Label', 'caption' => 'AUS (Standard): kein Hintergrund-Schreiben — wer einmalig manuell schalten/testen will (Konsole, WebFront), wird nicht von einem zurückgeschriebenen alten Wert gestört.'],
+                                    ],
                                 ],
                             ],
                         ],
-                    ],
-                ];
+                    ];
+                }
             }
         }
         // Invers-Schalter: die Vorzeichen von Netz- und Batterieleistung hängen
@@ -5223,7 +5233,7 @@ class InverterHub extends IPSModule
                         $this->VersionLabel(),
                     ], [
                         ['type' => 'Label', 'caption' => 'InverterHub liest Wechselrichter verschiedener Hersteller direkt per Modbus TCP aus. Hersteller wählen, IP-Adresse oder Hostname (und ggf. Port/Unit-ID) eintragen, Datenpunkt-Gruppen je nach Anlage aktivieren. Tipp: Trägt man statt der IP einen festen Hostnamen ein (DHCP-Reservierung/mDNS), läuft das Modul auch nach einem IP-Wechsel des Wechselrichters weiter.'],
-                        ['type' => 'Label', 'caption' => 'Unterstützte Hersteller: GoodWe (GW-ET/EH/BT/BH), Sungrow (SH-Hybrid), Solis (Hybrid, 33000er-Register), Growatt (TL-X/TL3-X/MOD/MIX/SPH/WIT), SolaX, SMA (STP/STPS/SI, inkl. Netzmessung), Fronius (SunSpec, GEN24-Hybrid inkl. Batterie/Smart Meter), SolarEdge (inkl. StorEdge-Batterie), Deye (SG04LP3), Solplanet/AISWEI, Kostal (PLENTICORE plus Gen. 1), Victron GX (Cerbo/Venus OS) und Huawei SUN2000 (inkl. DTSU666-Zähler + LUNA2000-Batterie).'],
+                        ['type' => 'Label', 'caption' => 'Unterstützte Hersteller: GoodWe (GW-ET/EH/BT/BH), Sungrow (SH-Hybrid), Solis (Hybrid, 33000er-Register), Growatt (TL-X/TL3-X/MOD/MIX/SPH/WIT), SolaX, SMA (STP/STPS/SI, inkl. Netzmessung), Fronius (SunSpec, GEN24-Hybrid inkl. Batterie/Smart Meter), SolarEdge (inkl. StorEdge-Batterie), Deye (SG04LP3), Solplanet/AISWEI, Kostal (PLENTICORE plus Gen. 1), Victron GX (Cerbo/Venus OS), Huawei SUN2000 (inkl. DTSU666-Zähler + LUNA2000-Batterie) und FoxESS H1/H3 (Read-Only-Vorabversion, Beta).'],
                         ['type' => 'Label', 'caption' => '⚙️ Anschluss-Besonderheiten je Hersteller:'],
                         ['type' => 'Label', 'caption' => '• Kostal: Standard-Port ist 1502 (nicht 502). Zusätzlich die Byte-Reihenfolge passend zum Wechselrichter wählen (Werkseinstellung CDAB).'],
                         ['type' => 'Label', 'caption' => '• Victron GX: Port 502; die Unit-ID ist bei Victron ein Geräte-Selektor – der Systemdienst liegt fest auf 100 und wird automatisch angesprochen (die Formular-Unit-ID wird ignoriert). Im GX unter Einstellungen → Services → Modbus TCP aktivieren.'],
@@ -5231,7 +5241,7 @@ class InverterHub extends IPSModule
                         ['type' => 'Label', 'caption' => '• Fronius: Der Smart Meter ist ein eigenes Modbus-Gerät mit eigener Unit-ID – über das Feld „Smart-Meter-Adresse" einstellbar (Vorgabe 200, je nach Konfiguration z. B. 240).'],
                         ['type' => 'Label', 'caption' => '• SolaX: Der Wechselrichter selbst spricht nur Modbus RTU. Modbus TCP läuft nur über ein zusätzliches SolaX-Monitoring-Modul (Pocket WiFi/LAN) als Gateway – dessen IP-Adresse eintragen, nicht die des Wechselrichters.'],
                         ['type' => 'Label', 'caption' => 'ℹ️ Vorzeichen-Konvention (modulweit): Batterie + = Entladen / − = Laden; Netz-Meter + = Einspeisung / − = Bezug. Stimmt eine Richtung an der eigenen Anlage nicht, hilft der jeweilige Invers-Schalter unten – die InverterHubTile-Kachel bleibt dabei automatisch korrekt.'],
-                        ['type' => 'Label', 'caption' => '🛡️ Isolationswiderstand (Riso): bei GoodWe, Huawei, Sungrow, SMA und Kostal verfügbar; bei Growatt optional (modellabhängig). Reine SunSpec-Geräte (Fronius/SolarEdge) liefern ihn nicht.'],
+                        ['type' => 'Label', 'caption' => '🛡️ Isolationswiderstand (Riso): bei GoodWe, Huawei, Sungrow, SMA und Kostal verfügbar; bei Growatt und Fronius optional (modellabhängig, je nach SunSpec-Register). Solis, SolaX, SolarEdge, Deye, Solplanet, Victron GX und FoxESS liefern ihn nicht.'],
                         ['type' => 'Label', 'caption' => 'Registeradressen stehen im Beschreibungsfeld jeder Variable (Objekt-Manager, Spalte „Beschreibung").'],
                     ]),
                 ],
@@ -5282,6 +5292,7 @@ class InverterHub extends IPSModule
                     'items' => [
                         ['type' => 'Label', 'caption' => 'Eingang, nicht Ausgang: Hier optional eine bereits vorhandene Variable mit real GEMESSENER Hauslast auswählen (z. B. ein separater Energiezähler/Shelly am Hausanschluss). Bitte einen echten Verbrauchszähler wählen (immer positiv) — kein Netz-/Einspeisezähler, der negativ werden kann. Ist ein Zähler gewählt, zeigt die InverterHubTile-Kachel damit eine genauere Last sowie die Differenz zur PV/Netz/Batterie-Bilanz als „Wandlungsverluste" (Wechselrichter-Eigenverbrauch, Leitungsverluste). Ohne Auswahl bleibt es bei der reinen Bilanzschätzung.'],
                         ['type' => 'Label', 'caption' => 'Hinweis: Die vom Modul BERECHNETE Hauslast als eigene Variable AUSGEBEN kannst du dagegen in der Kachel-Instanz (InverterHubTile) → Panel „Datenquelle" → „Berechnete Hauslast … in eine Variable schreiben".'],
+                        ['type' => 'Label', 'caption' => 'Priorität, falls beide Felder gesetzt sind: Ein an der InverterHubTile-Instanz selbst eingetragener „Echter Hausverbrauch" hat immer Vorrang vor diesem Feld hier.'],
                         ['type' => 'SelectVariable', 'name' => 'HouseLoadMeterID', 'caption' => 'Externe Hauslast-Messvariable (Eingang)'],
                     ],
                 ],

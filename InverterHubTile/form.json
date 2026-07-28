@@ -65,7 +65,7 @@
         {
           "type": "SelectVariable",
           "name": "HouseLoadID",
-          "caption": "Echter Hausverbrauch (Variable, optional – ersetzt die berechnete Hauslast in der Mitte)"
+          "caption": "Echter Hausverbrauch (Variable, optional – ersetzt die berechnete Hauslast in der Mitte; hat Vorrang vor einem ggf. an der InverterHub-Instanz eingetragenen externen Hauslastzähler)"
         },
         {
           "type": "CheckBox",
