@@ -902,6 +902,62 @@ und erneut invertieren — das ist ausschließlich für den **manuellen Modus** 
 Instanz als Quelle, z. B. `ManualGridInvert` in `InverterHubTile`) vorgesehen, wo es keine
 vorgeschaltete Korrektur gibt.
 
+## GoodWe `diag_status_l` (Register 35220, DiagStatusL): Bit-Tabelle
+
+Live-Fall (28.07.2026, EMS-Sitzung): 20+ Minuten AC-Leistungseinbruch bei SOC~99%, im SEMS+-
+Portal als „Ausgangsport-Überspannungsfehler"/„Allgemeine Störungswarnung" (Batteriestring)
+sichtbar. Die vermeintlich naheliegenden `warn_code`/`err_msg` (Register 32000/32002,
+Wechselrichter-seitig) UND ein separater BMS-Fehler-/Warncode-Block (37006/37010/37012/37013,
+`bms1_err_code`/`bms1_warn_code`) blieben beide durchgehend `0` — falsche Fundstellen, jeweils
+live ausprobiert und verworfen. Die tatsächlich bit-codierte Diagnose sitzt in **Register 35220
+„DiagStatusL"** (U32, laut GoodWe-Doku „Table 8-14 Diagnostic Status") — bei uns als
+`diag_status_l` roh (kein Bit-Decode in der UI) abgelegt. Bit-Bedeutung (aus der GoodWe-
+Registerdoku, Tabelle 8-14):
+
+| Bit | Name | Bedeutung |
+|---|---|---|
+| 0 | BatteryVoltLow | Entladung wegen niedriger Batteriespannung gesperrt |
+| 1 | BatterySOCLow | Entladung wegen niedrigem SOC gesperrt |
+| 2 | BatterySOCInBack | SOC noch nicht auf entlade-freigegebenem Niveau |
+| 3 | BMSDischargeDisable | BMS erlaubt keine Entladung |
+| 4 | DischargeTimeOn | Entladezeitfenster gesetzt |
+| 5 | ChargeTimeOn | Ladezeitfenster gesetzt |
+| 6 | DischargeDriveOn | Entlade-Treiber aktiv |
+| 7 | BMSDischgCurrentLow | BMS-Entladestrom-Limit zu niedrig |
+| 8 | DischargeCurrentLow | Entladestrom-Limit zu niedrig (von App) |
+| 9 | MeterCommLoss | Smart-Meter-Kommunikationsausfall |
+| 10 | MeterConnectReverse | Smart-Meter-Anschluss verpolt |
+| 11 | SelfUseLoadLight | Last zu gering, Entladung nicht aktivierbar |
+| 12 | EMSDischargeIZero | Entladestrom-Limit 0A vom EMS |
+| 13 | DischargeBUSHigh | Entladung wegen zu hoher PV-Spannung gesperrt |
+| 14 | BatteryDisconnect | Batterie getrennt |
+| **15** | **BatteryOvercharge** | **Batterie überladen** |
+| 16 | BMSOverTemperature | Lithium-Batterie-Übertemperatur |
+| **17** | **BMSOvercharge** | **Lithium-Batterie überladen oder einzelne Zellspannung zu hoch** |
+| 18 | BMSChargeDisable | BMS erlaubt kein Laden (u. a. normal bei SOC nahe 100 %) |
+| 19 | SelfUseOff | Eigenverbrauchsmodus aus |
+| 20 | SOCDeltaOverRange | SOC springt unplausibel |
+| 21 | BatterySelfDischarge | Batterie entlädt sich >30 % bei niedrigem Strom über längere Zeit |
+| 22 | OffgridSOCLow | SOC niedrig im Inselbetrieb |
+| 23 | GridWaveUnstable | Netzqualität schlecht, häufiger Backup-Wechsel |
+| 24 | FeedPowerLimit | Einspeisebegrenzung gesetzt |
+| 25 | PFValueSet | Leistungsfaktor-Vorgabe gesetzt |
+| 26 | RealPowerLimit | Wirkleistungs-Vorgabe gesetzt |
+| 28 | SOCProtectOff | SOC-Schutz aus |
+
+**Live-Beobachtung dazu:** Bits 15/17 (Overcharge) waren beim Nachlesen NICHT gesetzt, obwohl
+SEMS+ den Alarm laut Dietmar weiterhin als aktiv zeigte — Bit 18 (BMSChargeDisable) war gesetzt
+(plausibel bei SOC~99%, für sich genommen kein Fehler). Naheliegende Erklärung: SEMS+ führt ein
+eigenes, ereignisbasiertes Alarm-Log mit eigenem Reset-Kriterium, das nicht zwingend deckungsgleich
+mit dem Live-Zustand dieses Bitfelds ist — die Momentaufnahme des Registers kann also "sauber"
+aussehen, während die Cloud den Vorfall noch als offen führt. Bei künftigen Fällen: Bits über die
+Zeit protokollieren (nicht nur einmalig lesen), nicht nur den SEMS+-Status als alleinige Wahrheit
+nehmen.
+
+Es gibt außerdem **DiagStatusH** (Register 35218, U32, „Table 8-13") — ein separates, bisher NICHT
+gemapptes Bitfeld (Precharge-Relais, Bypass-Relais, Meter-Spannungsmessfehler, DRED/ESD-Stopp,
+Offgrid-DOD, BYD-SOC-Adjust) — bei Bedarf nach demselben Muster ergänzen.
+
 ## GoodWe-Steuerregister 47511 (`ctl_ems_mode`): fällt bei bestimmten Werten auf 255 zurück
 
 Real beobachtet (26.07.2026, Dietmars Anlage): Ein per `RequestAction`/Modbus-Write gesetzter

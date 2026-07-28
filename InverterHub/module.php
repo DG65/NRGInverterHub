@@ -515,6 +515,15 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 // separater Registerblock fuer die Batterie-BMS.
                 ['bms1_err_code',  'BMS1 Fehlercode',  'I', '', true, 'errors', 'DSP 37006/37012'],
                 ['bms1_warn_code', 'BMS1 Warncode',    'I', '', true, 'errors', 'DSP 37010/37013'],
+                // Live gefunden (28.07.2026): bms1_err_code/warn_code oben
+                // blieben WAEHREND eines aktiven SEMS+-Alarms (Batteriestring-
+                // Ueberspannung) durchgehend 0 - die falsche Fundstelle. Die
+                // tatsaechlich bit-codierte Diagnose steht in DiagStatusL
+                // (Register 35220, U32, "Table 8-14 Diagnostic Status"), u.a.
+                // Bit 15 BatteryOvercharge, Bit 17 BMSOvercharge. Roh als
+                // Ganzzahl abgelegt (kein Bit-Decode in der UI) - Bits bei
+                // Bedarf gegen die Tabelle in CLAUDE.md pruefen.
+                ['diag_status_l', 'Diagnose-Status (Bitfeld)', 'I', '', true, 'errors', 'DSP 35220 (U32), Table 8-14'],
             ]],
             'GroupDevice' => ['caption' => 'Geräteinformation (Seriennummer, Modell, Firmware)', 'vars' => [
                 ['dev_sn',      'Seriennummer', 'S', '', false, 'device', 'DSP 35003'],
@@ -876,6 +885,10 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
             }
             if ($bmsWarnL !== null && $bmsWarnH !== null) {
                 $hub->SetVarInt('bms1_warn_code', ($mb->u16($bmsWarnH, 0) << 16) | $mb->u16($bmsWarnL, 0));
+            }
+            $diagL = $mb->readHolding(35220, 2);
+            if ($diagL !== null) {
+                $hub->SetVarInt('diag_status_l', ($mb->u16($diagL, 0) << 16) | $mb->u16($diagL, 1));
             }
         }
     }
