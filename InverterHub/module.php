@@ -5028,8 +5028,8 @@ class InverterHub extends IPSModule
                         ],
                         [
                             'type'    => 'PopupButton',
-                            'caption' => 'Hilfe',
-                            'width'   => '60px',
+                            'caption' => '?',
+                            'width'   => '20px',
                             'popup'   => [
                                 'caption' => 'Steuerhoheit — was bedeutet das?',
                                 'items'   => [
@@ -5058,8 +5058,8 @@ class InverterHub extends IPSModule
                         ],
                         [
                             'type'    => 'PopupButton',
-                            'caption' => 'Hilfe',
-                            'width'   => '60px',
+                            'caption' => '?',
+                            'width'   => '20px',
                             'popup'   => [
                                 'caption' => 'Automatisches Wiederholen — wann nötig?',
                                 'items'   => [
