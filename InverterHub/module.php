@@ -553,16 +553,17 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 ['ctl_export_enable', 'Einspeisebegrenzung aktiv', 'B', '~Switch',      false, 'control', 'RW 47509 (Feed_Power_Enable: EIN = Begrenzung aus 47510 gilt)'],
                 ['ctl_export_limit',  'Einspeisegrenze (W)',       'I', 'GWH.WattEMS',  false, 'control', 'RW 47510 (wirkt nur bei aktiver Begrenzung)'],
                 ['ctl_soc_min',       'SOC Min. Entladung',   'I', 'GWH.Percent',  false, 'control', 'RW 45356'],
-                // Live-Kontext (28.07.2026, EMS-Sitzung): anderes Register als
-                // das oben bereits bestaetigt WIRKUNGSLOSE ctl_soc_min (45356)
-                // - siehe CLAUDE.md "untere SOC-Grenze ... KEINE funktionierende
-                // Steuerung". Register 45559 "Max Charge SOC" ist LAUT
-                // GoodWe-Doku eine eigene, direkte Ladeobergrenze - noch NICHT
-                // live verifiziert, ob sie tatsaechlich wirkt. Vor Verlass
-                // darauf unbedingt live testen (Ziel: Ueberladung/BMS-
-                // Ueberspannung nahe 100% SOC vermeiden, ohne manuelles
-                // periodisches Entladen).
-                ['ctl_soc_max',       'SOC Max. Ladung (ungetestet)', 'I', 'GWH.Percent', false, 'control', 'RW 45559'],
+                // Live getestet und WIDERLEGT (28.07.2026, EMS-Sitzung): Register
+                // 45559 "Max Charge SOC" nimmt den geschriebenen Wert an (roh
+                // gegengelesen, 97 wurde uebernommen), verhindert das Laden
+                // ueber die Grenze hinaus aber NICHT - bei SOC 98%, Grenze 97,
+                // Automatik-Modus lud die Batterie trotzdem sofort mit -4559W
+                // weiter. Genau dasselbe Muster wie ctl_soc_min (45356, s. o.):
+                // Register laesst sich schreiben, hat aber keine beobachtbare
+                // Wirkung auf das tatsaechliche Ladeverhalten. NICHT als
+                // funktionierenden Kontrollmechanismus behandeln oder Nutzern
+                // als Loesung gegen Ueberladung nahe 100% SOC empfehlen.
+                ['ctl_soc_max',       'SOC Max. Ladung (bestätigt wirkungslos)', 'I', 'GWH.Percent', false, 'control', 'RW 45559'],
                 ['ctl_internet',      'Cloud-Verbindung',     'B', '~Switch',      false, 'control', 'RW 47017'],
                 ['ctl_restart',       'WR Neustart',          'B', '~Switch',      false, 'control', 'WO 45220'],
             ]],

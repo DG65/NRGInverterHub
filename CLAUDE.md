@@ -1065,12 +1065,28 @@ IPS_RequestAction($id, 'ctl_ems_mode', 2);
 Zum Vergleich (dieselbe Tabelle): Modus 4 (AC-Import) ist der für **absichtliches** Netzladen
 vorgesehene Modus (`Xset` = bewusst aus dem Netz bezogene Leistung, PV sekundär).
 
-## Die „untere SOC-Grenze für netzgekoppelte Ladung" ist KEINE funktionierende Steuerung
+## Die GoodWe SOC-Grenzregister (`ctl_soc_min` UND `ctl_soc_max`) sind KEINE funktionierende Steuerung
 
-Ausdrückliche Feststellung von Dietmar (26.07.2026), verbindlich festgehalten: Das Verändern
-dieser SOC-Grenze (weder über unser `ctl_soc_min`/Register 45356 noch über das entsprechende
-Feld im SEMS+-Portal) hat **keine beobachtbare Wirkung** gezeigt — konkret hat eine Korrektur
-dieses Werts einen im Standby feststeckenden WR/Batterie **nicht** befreit. Diese Einstellung
-taugt nicht als Stellhebel, um das Verhalten des Wechselrichters gezielt zu beeinflussen.
-**Nicht als funktionierenden Kontrollmechanismus behandeln oder Nutzern als Lösungsweg
-empfehlen** — das würde Zeit verschwenden, ohne etwas zu bewirken.
+Ausdrückliche Feststellung von Dietmar (26.07.2026, ergänzt 28.07.2026), verbindlich festgehalten:
+Beide SOC-Grenzregister erwiesen sich live als wirkungslos, unabhängig voneinander getestet:
+
+- **`ctl_soc_min`/Register 45356** (26.07.2026): Das Verändern dieser unteren SOC-Grenze (weder
+  über InverterHub noch über das entsprechende Feld im SEMS+-Portal) hat **keine beobachtbare
+  Wirkung** gezeigt — konkret hat eine Korrektur dieses Werts einen im Standby feststeckenden
+  WR/Batterie **nicht** befreit.
+- **`ctl_soc_max`/Register 45559 "Max Charge SOC"** (28.07.2026, EMS-Sitzung): Das Register nimmt
+  einen geschriebenen Wert klaglos an (roh gegengelesen, Schreibvorgang bestätigt) — verhindert
+  das Laden über die gesetzte Grenze hinaus aber **nicht**. Live-Test: SOC 98 %, Grenze auf 97 %
+  gesetzt, Automatik-Modus — die Batterie lud trotzdem sofort mit -4559 W weiter. Ausgelöst durch
+  ein wiederkehrendes BMS-Überspannungsereignis nahe SOC 100 % (Batteriestrings), das InverterHub
+  über `IHUB_GetFunctions`/Standard-Fehlercodes nicht erkennt (s. `diag_status_l`-Abschnitt) —
+  `ctl_soc_max` wurde als möglicher Gegenhebel probiert und dabei live widerlegt.
+
+Beide Register lassen sich also technisch schreiben (kein Fehler, kein Timeout), haben aber
+keine beobachtbare Wirkung auf das tatsächliche Lade-/Entladeverhalten des Wechselrichters —
+**diese SOC-Grenzregister taugen grundsätzlich nicht als Stellhebel** bei diesem WR/dieser
+Firmware. **Nicht als funktionierenden Kontrollmechanismus behandeln oder Nutzern als
+Lösungsweg gegen Standby oder Überladung nahe 100 % SOC empfehlen** — das würde Zeit
+verschwenden, ohne etwas zu bewirken. Einziger bisher bestätigt wirksamer Gegenhebel bei
+Überladung nahe 100 % SOC: aktives Entladen über `ctl_ems_mode=3`/`ctl_ems_power` (manuell,
+kein Dauermechanismus).
