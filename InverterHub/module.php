@@ -4760,6 +4760,10 @@ class InverterHub extends IPSModule
         foreach (self::EMS_REASSERT_IDENTS as $emsIdent) {
             $this->RegisterAttributeInteger('LastCommanded_' . $emsIdent, self::EMS_NOT_COMMANDED);
         }
+        // Fuer den Totmann-Schalter in ReassertEmsControl() (s. dort) - 0 =
+        // noch nie kommandiert, Reassert darf also sofort greifen falls ein
+        // LastCommanded-Wert vorliegt.
+        $this->RegisterAttributeInteger('LastCommandTime', 0);
     }
 
     // Ein Gerät, das auf Adressen antwortet, die es gar nicht belegt, liefert
@@ -4924,6 +4928,20 @@ class InverterHub extends IPSModule
     // echten Wert (auch nicht 0) moeglich ist.
     private const EMS_NOT_COMMANDED = -999999999;
 
+    // Totmann-Schwelle (Verbund-Absprache mit EMS, 28.07.2026): Ein externer
+    // Dauerschreiber (z. B. EMS' eigener Reassert-Loop, typ. alle ~30s) soll
+    // NICHT parallel zu unserem eigenen Reassert dieselben Register bedienen -
+    // zwei unabhaengige Dauerschreiber auf denselben Registern sind reine
+    // Redundanz ohne Zusatznutzen und wurden von Dietmar ausdruecklich
+    // untersagt. Deshalb: ReassertEmsControl() greift nur noch ein, wenn seit
+    // dem letzten RequestAction()-Aufruf (gleich welcher Herkunft - wir
+    // unterscheiden nicht WER schreibt, nur DASS kuerzlich geschrieben wurde)
+    // mehr als diese Schwelle vergangen ist. Solange ein externer Akteur
+    // regelmaessig selbst schreibt, bleibt unser Reassert stumm; faellt der
+    // externe Schreiber aus (z. B. EMS_Active=false oder ein Absturz), springt
+    // unser Reassert nach spaetestens dieser Wartezeit automatisch ein.
+    private const EMS_REASSERT_DEADMAN_SEC = 60;
+
     private function ReassertEmsControl()
     {
         if (!$this->ReadPropertyBoolean('EmsReassertEnabled')) {
@@ -4931,6 +4949,10 @@ class InverterHub extends IPSModule
         }
         if ($this->ReadPropertyString('ControlAuthority') !== 'ems') {
             return;
+        }
+        $lastCommandTime = $this->ReadAttributeInteger('LastCommandTime');
+        if ($lastCommandTime > 0 && (time() - $lastCommandTime) < self::EMS_REASSERT_DEADMAN_SEC) {
+            return; // kuerzlich schrieb schon jemand (wir oder extern) - nicht parallel mitschreiben
         }
         $mb = $this->GetModbusClient();
         foreach (self::EMS_REASSERT_IDENTS as $ident) {
@@ -5013,9 +5035,15 @@ class InverterHub extends IPSModule
         $this->GetDriver()->writeControl($this->GetModbusClient(), $this, $Ident, $Value);
 
         // Merken fuer ReassertEmsControl() (s. dort) - nur fuer die Idents,
-        // bei denen der Rueckfall auf 255 live bestaetigt ist.
+        // bei denen der Rueckfall auf 255 live bestaetigt ist. LastCommandTime
+        // ist der Totmann-Zeitstempel: jeder externe Schreibzugriff (gleich
+        // welcher Herkunft) verzoegert unser eigenes Reassert um erneut
+        // EMS_REASSERT_DEADMAN_SEC - so schreiben wir nie parallel zu einem
+        // aktiv schreibenden externen Akteur (Verbund-Absprache mit EMS,
+        // 28.07.2026).
         if (in_array($Ident, self::EMS_REASSERT_IDENTS, true)) {
             $this->WriteAttributeInteger('LastCommanded_' . $Ident, (int) $Value);
+            $this->WriteAttributeInteger('LastCommandTime', time());
         }
     }
 
