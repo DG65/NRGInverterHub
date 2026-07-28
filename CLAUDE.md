@@ -982,6 +982,16 @@ expliziter Export-Modus-Befehl umgeht das, s. o.). Falls das erneut auftritt: au
 Muster prüfen (`bat1_mode` ≠ `bat2_mode` bei beiden nahe 100 % SOC) statt erneut bei Null
 anzufangen.
 
+**Hardware-Kontext dazu (Dietmars Anlage):** 8× GoodWe Home Lynx D 5.0, zu zwei Türmen à 4 Module
+zusammengefasst (= unsere `bat1`/`bat2`) — JEDES einzelne Modul hat ein **eigenes BMS und einen
+eigenen DC/DC-Wandler**, kann also unabhängig vom Rest des Turms geregelt/entkoppelt werden. Das
+untermauert die Kalibrierungs-Hypothese architektonisch: Ein einzelnes Modul könnte während eines
+Balancing-Vorgangs eigenständig in Standby gehen, ohne dass das ein Fehler ist — genau das Feature,
+das diese modulare Bauweise ermöglicht. `bat1_mode`/`bat2_mode` zeigen nur die aggregierte
+**Turm**-Ebene (4 Module zusammengefasst), nicht die einzelnen Module darunter. Falls es
+feingranularere Modul-Register gibt (z. B. 8 einzelne BMS-Status-Werte statt 2 Turm-Werte), wäre
+das für künftige Diagnosen interessant — noch nicht gesucht, kein akuter Bedarf.
+
 ## GoodWe-Steuerregister 47511 (`ctl_ems_mode`): fällt bei bestimmten Werten auf 255 zurück
 
 Real beobachtet (26.07.2026, Dietmars Anlage): Ein per `RequestAction`/Modbus-Write gesetzter
