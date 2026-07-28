@@ -272,6 +272,39 @@ class InverterHubEnergy extends IPSModule
         $this->UpdateFormField('NewsPanel', 'visible', false);
     }
 
+    // Oeffentlicher Vertrag (contractVersion 1.0), auf Anfrage der Dashboard-
+    // Sitzung (28.07.2026): liefert exakt die Sankey-Daten, die diese Kachel
+    // selbst fuer den gegebenen Zeitraum berechnet - Konsumenten sollen
+    // ComputeFlow()'s Zuordnungs-/Zaehler-Differenzlogik (inkl. der
+    // dokumentierten Doppelzaehlungs-Fallstricke bei Consumers/MeterHub/
+    // HeishaMon) NICHT selbst nachbauen, sondern diesen Getter nutzen.
+    // Feldnamen bewusst an das *_GetFunctions-Vokabular angeglichen
+    // (key/label/column/value statt der internen id/name/col/val).
+    public function GetFlow(int $periodStart, int $periodEnd): array
+    {
+        $flow = $this->ComputeFlow($periodStart, $periodEnd);
+        return [
+            'contractVersion' => '1.0',
+            'hasData'         => $flow['hasData'],
+            'totalIn'         => $flow['totalIn'],
+            'nodes'           => array_map(function ($n) {
+                return [
+                    'key'    => $n['id'],
+                    'label'  => $n['name'],
+                    'color'  => $n['color'],
+                    'column' => $n['col'],
+                ];
+            }, $flow['nodes']),
+            'links' => array_map(function ($l) {
+                return [
+                    'from'  => $l['from'],
+                    'to'    => $l['to'],
+                    'value' => $l['val'],
+                ];
+            }, $flow['links']),
+        ];
+    }
+
     // -----------------------------------------------------------------------
     // Payload
     // -----------------------------------------------------------------------
