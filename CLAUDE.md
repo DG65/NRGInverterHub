@@ -293,6 +293,15 @@ bestimmtes Fahrzeugmodul wäre nur dann sinnvoll, wenn sie — wie bei MeterHub 
 ist und hinter einem `function_exists`-Guard liegt, sodass die manuelle Konfiguration
 unverändert weiterfunktioniert.
 
+**Zuständigkeit ab 28.07.2026 zusätzlich bei Dashboard:** Die Dashboard-Sitzung hat
+`AssignVehicles()`/`Vehicles`-Property/`CondMet`-Helfer 1:1 nach `NRGDashboardTile` portiert
+(deren Commit 849363b), damit ihre eigene Stromflusskachel dieselbe Fahrzeug-Zuordnung zeigt.
+Es gibt dafür **keinen Verbund-Vertrag/SUITE.md-Eintrag** — reine Musterübernahme, keine
+Abhängigkeit zwischen den Modulen. Der Code hier in `InverterHubTile` bleibt unverändert
+bestehen (Dietmars eigene Kachel nutzt ihn weiterhin) — bei künftigen Änderungen an diesem
+Mechanismus **beide Stellen im Blick behalten**, sie können sonst unbemerkt auseinanderlaufen,
+genau wie bei `CONSUMER_TYPES`/`MHUB_TYPE_MAP` (s. Schwester-Repository-Abschnitt).
+
 ## Schwester-Repository MeterHub
 
 Beide sind eigenständig lauffähig und koppeln nur optional aneinander. Die Berührungspunkte:
