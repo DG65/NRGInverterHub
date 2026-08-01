@@ -705,6 +705,24 @@ Feldliste im README, Abschnitt „Diagnostik-Vertrag". Kurzfassung:
 Falls NRGDashboard-Feedback zum Format kommt: additiv erweitern, nicht umbenennen (Vertrag ist
 schon veröffentlicht, sobald ein Konsument darauf aufbaut).
 
+## MigrationsHub-Integration in InverterHubDiscovery (29.07.2026, verdrahtet/ungetestet)
+
+Verbund-Absprache: Migration von Altinstanzen ist jetzt Teil des normalen Discovery-Scans statt
+separates Werkzeug (`InverterHubDiscovery/module.php`, Commit 36f9180). Ablauf: Scan findet ein
+Gerät → ruft additiv `MIGHUB_FindLegacyCandidates($mighubId, $host, $port, $unitId)` auf (hinter
+`function_exists`, MigrationsHub-Instanz wird bei Bedarf einmalig je Scanlauf angelegt) → bei
+Treffern erscheint ein Panel „Migration von Altinstanzen" → Klick auf „Migration vorbereiten"
+(`StartMigration()`) legt die neue InverterHub-Instanz an, ruft `MIGHUB_PrefillMigration()` auf,
+zeigt einen `OpenObjectButton` zu MigrationsHub, wo der bestehende Simulieren/Übernehmen-Ablauf
+läuft. Matching ausschließlich über Host+Port+UnitId, nie über Namen (MigrationsHub-Konvention).
+
+**Status: verdrahtet, aber mangels echtem Testfall NICHT end-to-end getestet** (nur `php -l` +
+Code-Review). Grund: GoodweET — das einzige bisherige Alt-Modul, das InverterHub abgelöst hat —
+ist bei Dietmar inzwischen komplett deinstalliert (Adoption war bereits vollständig
+abgeschlossen), es gibt also keinen echten Alt-Instanz-Kandidaten mehr zum Durchklicken. Auf
+Dietmars ausdrücklichen Wunsch (29.07.2026) **kein künstlicher Wegwerf-Test erzwungen** — echter
+Test folgt bei der nächsten realen Alt-Modul-Ablösung im Verbund, dann diesen Hinweis entfernen.
+
 ## InverterHubVirtual — Anlagen-Summe mehrerer Wechselrichter (Designstand)
 
 Mehr-WR-Anlagen (z. B. sirkentucky: zwei getrennte SMA → zwei InverterHub-Instanzen, EINE
