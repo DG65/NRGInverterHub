@@ -11,7 +11,12 @@
 
 class InverterHubDiscovery extends IPSModule
 {
-    private const INVERTERHUB_GUID = '{BBE2C593-1A91-426D-A714-29A9C7E87589}';
+    private const INVERTERHUB_GUID  = '{BBE2C593-1A91-426D-A714-29A9C7E87589}';
+    // Verbund-Absprache mit MigrationsHub (29.07.2026): Migration als Teil
+    // des normalen Scans statt separates Werkzeug. Rein additiv, komplett
+    // hinter function_exists() - ohne MigrationsHub installiert entfaellt
+    // nur der Migrations-Hinweis, der Rest der Suche bleibt unveraendert.
+    private const MIGRATIONSHUB_GUID = '{330717BB-E309-41A2-90A8-FDA3179ED948}';
     // MeterHub-Zählermodul: Ist es installiert, bietet die Suche gefundene
     // Energiezähler gleich als MeterHub-Instanz zum Anlegen an (kombinierter
     // Scan: Wechselrichter + Zähler in einem Durchgang).
@@ -265,10 +270,45 @@ class InverterHubDiscovery extends IPSModule
                     ],
                 ],
             ],
-            'status' => [
-                ['code' => 102, 'icon' => 'active',   'caption' => 'Bereit.'],
-                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte den IP-Bereich für die Suche eintragen.'],
-            ],
+        ];
+
+        // Migrations-Hinweise (Verbund-Absprache mit MigrationsHub,
+        // 29.07.2026): nur, wenn beim Scan tatsaechlich Alt-Instanzen
+        // gefunden wurden - rein additiv, keine eigene Konfiguration noetig.
+        $migrationItems = [];
+        foreach ($results as $idx => $r) {
+            foreach (($r['legacyCandidates'] ?? []) as $cand) {
+                $candName = (string)($cand['name'] ?? ('Instanz #' . ($cand['instanceID'] ?? '?')));
+                $migrationItems[] = [
+                    'type'  => 'RowLayout',
+                    'items' => [
+                        ['type' => 'Label', 'caption' => $r['label'] . ' @ ' . $r['ip'] . ' (Unit ' . $r['unitId'] . ') — mögliche Alt-Instanz: ' . $candName],
+                        ['type' => 'Button', 'caption' => '🔀 Migration vorbereiten', 'onClick' => 'IHUBD_StartMigration($id, ' . $idx . ', ' . (int)($cand['instanceID'] ?? 0) . ');'],
+                    ],
+                ];
+            }
+        }
+        if (count($migrationItems) > 0) {
+            $migrationItems[] = [
+                'type'    => 'OpenObjectButton',
+                'name'    => 'BtnOpenMigration',
+                'caption' => '➡️ Migration in MigrationsHub öffnen',
+                'objectID' => 0,
+                'visible' => false,
+            ];
+            $form['elements'][] = [
+                'type'     => 'ExpansionPanel',
+                'caption'  => '🔀  Migration von Altinstanzen',
+                'expanded' => true,
+                'items'    => array_merge([
+                    ['type' => 'Label', 'caption' => 'Für diese gefundenen Geräte existiert vermutlich schon eine ältere Instanz eines anderen Moduls. „Migration vorbereiten" legt die neue InverterHub-Instanz an und öffnet anschließend MigrationsHub mit vorbelegter Quelle/Ziel — der eigentliche Übernahme-Ablauf (Simulieren/Übernehmen) läuft dort wie gewohnt.'],
+                ], $migrationItems),
+            ];
+        }
+
+        $form['status'] = [
+            ['code' => 102, 'icon' => 'active',   'caption' => 'Bereit.'],
+            ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte den IP-Bereich für die Suche eintragen.'],
         ];
 
         // Einmaliger Beta-Hinweis mit Link zum Symcon-Forum-Thread, bis er
@@ -331,6 +371,49 @@ class InverterHubDiscovery extends IPSModule
     {
         $this->WriteAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, true);
         $this->UpdateFormField('ReviewHint', 'visible', false);
+    }
+
+    // Legt die neue InverterHub-Instanz fuer das Ergebnis $resultIndex an
+    // (dieselbe Konfiguration wie der normale "Erstellen"-Button waere) und
+    // stoesst danach die Migration von der Alt-Instanz $legacyInstanceID
+    // ueber MigrationsHub an (Verbund-Absprache, 29.07.2026). Der eigentliche
+    // Simulieren/Uebernehmen-Ablauf laeuft in MigrationsHub selbst - wir
+    // legen nur an, befuellen vor und navigieren dorthin.
+    public function StartMigration($resultIndex, $legacyInstanceID)
+    {
+        if (!function_exists('MIGHUB_PrefillMigration')) {
+            $this->LogMessage('MigrationsHub ist nicht (mehr) installiert - Migration nicht moeglich.', KL_WARNING);
+            return;
+        }
+        $results = json_decode($this->ReadAttributeString('ResultsJSON'), true);
+        if (!is_array($results) || !isset($results[$resultIndex])) {
+            $this->LogMessage('Migration: Suchergebnis nicht mehr vorhanden - bitte erneut suchen.', KL_WARNING);
+            return;
+        }
+        $r = $results[$resultIndex];
+        $instanceName = $r['label'] . ' ' . ($r['ip'] ?? '');
+
+        $newId = @IPS_CreateInstance(self::INVERTERHUB_GUID);
+        if (!$newId) {
+            $this->LogMessage('Migration: Neue InverterHub-Instanz konnte nicht angelegt werden.', KL_ERROR);
+            return;
+        }
+        IPS_SetName($newId, $instanceName);
+        @IPS_SetProperty($newId, 'Host', $r['ip']);
+        @IPS_SetProperty($newId, 'Port', $this->ReadPropertyInteger('Port'));
+        @IPS_SetProperty($newId, 'UnitId', $r['unitId']);
+        @IPS_SetProperty($newId, 'Manufacturer', $r['vendor']);
+        IPS_ApplyChanges($newId);
+
+        $mighubId = $this->MigrationsHubInstanceID();
+        if ($mighubId <= 0) {
+            $this->LogMessage('Migration: MigrationsHub-Instanz konnte nicht gefunden/angelegt werden.', KL_ERROR);
+            return;
+        }
+        MIGHUB_PrefillMigration($mighubId, (int)$legacyInstanceID, $newId);
+
+        @$this->UpdateFormField('BtnOpenMigration', 'objectID', $mighubId);
+        @$this->UpdateFormField('BtnOpenMigration', 'visible', true);
     }
 
     // -----------------------------------------------------------------------
@@ -404,12 +487,25 @@ class InverterHubDiscovery extends IPSModule
         $total    = count($openIps);
         $i        = 0;
         $aborted  = $this->scanAborted();
+        // MigrationsHub-Instanz nur EINMAL je Scan-Lauf ermitteln/anlegen,
+        // nicht pro Treffer - und ueberhaupt nur, wenn MigrationsHub
+        // installiert ist (sonst entfaellt der ganze Migrations-Check).
+        $mighubId = function_exists('MIGHUB_FindLegacyCandidates') ? $this->MigrationsHubInstanceID() : 0;
         foreach ($openIps as $ip) {
             if ($this->scanAborted()) { $aborted = true; break; }
             $i++;
             $this->ShowProgress("Prüfe Hersteller: $ip ($i von $total offenen Ports) …", (int)round(($i / max(1, $total)) * 100));
             $found = $this->identifyVendor($ip, $port);
             if ($found !== null) {
+                // Alt-Instanzen-Check (Verbund-Absprache mit MigrationsHub,
+                // 29.07.2026): nur fuer Wechselrichter (nicht Zaehler), nur
+                // wenn MigrationsHub installiert ist, rein additiv.
+                if ($mighubId > 0 && ($found['kind'] ?? 'inverter') === 'inverter') {
+                    $legacy = @MIGHUB_FindLegacyCandidates($mighubId, $ip, $port, $found['unitId']);
+                    if (is_array($legacy) && count($legacy) > 0) {
+                        $found['legacyCandidates'] = $legacy;
+                    }
+                }
                 $results[] = $found;
             }
         }
@@ -423,6 +519,21 @@ class InverterHubDiscovery extends IPSModule
         $this->WriteAttributeString('ResultsJSON', json_encode($results));
         $this->SetStatus(102);
         $this->ReloadForm();
+    }
+
+    // Findet die (einzige sinnvolle) MigrationsHub-Instanz oder legt eine an,
+    // falls keine existiert - MigrationsHub braucht keine Konfiguration, um
+    // MIGHUB_FindLegacyCandidates() beantworten zu koennen. Wird nur
+    // aufgerufen, wenn MigrationsHub ueberhaupt installiert ist
+    // (function_exists-Check beim Aufrufer).
+    private function MigrationsHubInstanceID(): int
+    {
+        $ids = @IPS_GetInstanceListByModuleID(self::MIGRATIONSHUB_GUID);
+        if (is_array($ids) && count($ids) > 0) {
+            return (int)$ids[0];
+        }
+        $newId = @IPS_CreateInstance(self::MIGRATIONSHUB_GUID);
+        return $newId ?: 0;
     }
 
     // Gleicht Suchergebnisse gegen bereits existierende InverterHub- UND
