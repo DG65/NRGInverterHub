@@ -5047,6 +5047,32 @@ class InverterHub extends IPSModule
         }
     }
 
+    // Verbund-Vertrag mit MigrationsHub (29.07.2026): liefert je Fremdmodul-GUID
+    // eine Alt-Ident -> Neu-Ident/-Typ-Zuordnung, damit MigrationsHub Alt-
+    // Variablen VOR unserem eigenen ApplyChanges()-Zyklus per IPS_SetParent/
+    // IPS_SetIdent korrekt umbenennen kann - unsere eigene RegisterVariables()
+    // (Reihenfolge: $valid berechnen -> PruneForeignObjects($valid) ->
+    // RegisterVar() je Variable) erkennt bereits korrekt benannte Variablen
+    // dann selbst als "existiert schon", ohne dass wir selbst reparenten
+    // muessen (s. Absprache im Verbund-Chat). Rein informativ, keine
+    // Objektaenderung hier.
+    //
+    // GoodweET (unser einziger bisheriger Migrationsfall, unser GoodWe-Treiber
+    // wurde daraus 1:1 portiert): Zuordnung hier BEWUSST NOCH LEER - das
+    // GoodweET-Repository ist inzwischen entfernt/nicht mehr erreichbar
+    // (Adoption war laut SUITE.md bereits vollstaendig abgeschlossen), wir
+    // haben also keine verifizierbare Quelle mehr fuer die exakte GUID und
+    // die tatsaechlichen Alt-Idents. Lieber eine ehrliche Leermeldung als
+    // eine geratene, unverifizierte Zuordnung - MigrationsHubs Preflight-
+    // Sonde bleibt bis dahin der Sicherheitsweg. Sollte die GoodweET-GUID/
+    // ihre Ident-Namen irgendwann verifiziert vorliegen (z. B. von Dietmar
+    // oder aus einer alten Sicherung), hier ergaenzen.
+    public function GetIdentMapping(string $foreignModuleGUID, array $foreignIdents): array
+    {
+        // Noch keine verifizierten Zuordnungen hinterlegt (s. Kommentar oben).
+        return [];
+    }
+
     // Verbund-Vertrag fuer das EMS und andere Konsumenten (analog MHUB_GetFunctions).
     // Liefert Identitaet, Steuerfaehigkeit und die wichtigsten Variablen-IDs dieser
     // InverterHub-Instanz, damit ein Konsument nicht selbst nach Idents suchen muss.
