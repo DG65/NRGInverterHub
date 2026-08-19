@@ -279,7 +279,7 @@ bei den anderen Herstellern, aber der zuverlässigste Weg.
 ## Verwandte Projekte
 
 Teil des **NRG-Stack** — welche Modulstände zusammenpassen, listet
-[SUITE.md](https://github.com/DG65/EMS/blob/main/SUITE.md).
+[SUITE.md](https://github.com/DG65/NRGEMS/blob/main/SUITE.md).
 
 ### EnergiePrognose (PV- und Verbrauchsprognose)
 

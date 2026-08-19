@@ -521,7 +521,7 @@ gegengeprüften Umstellungs-Build mit Vorher/Nachher-Test an mindestens einer Li
 
 ## Vertragsversionierung (Verbund-Konvention, 23.07.2026)
 
-Manifest: https://github.com/DG65/EMS/blob/main/SUITE.md. Betrifft uns bei jeder angebotenen und
+Manifest: https://github.com/DG65/NRGEMS/blob/main/SUITE.md. Betrifft uns bei jeder angebotenen und
 konsumierten Schnittstelle. **Bestehendes muss nicht umgebaut werden** — anwenden, sobald neue
 Verträge entstehen.
 
