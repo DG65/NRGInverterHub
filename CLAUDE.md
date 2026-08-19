@@ -283,7 +283,7 @@ Fahrzeug-Tabelle (`Vehicles`: Bezeichnung, Verbunden-Bedingung, `SocID`) ist
 **herstellerneutral**; `AssignVehicles()` ordnet Fahrzeug und Wallbox über die zeitliche
 Korrelation der beiden Verbinden-Meldungen zu, ohne dass eine Seite die andere kennen muss.
 
-**Es gibt keine Code-Abhängigkeit zu [Tessie](https://github.com/DG65/Tessie)** — kein
+**Es gibt keine Code-Abhängigkeit zu [Tessie](https://github.com/DG65/NRGTessie)** — kein
 `TESSIE_`-Aufruf, keine GUID. Tessie ist lediglich eine mögliche Quelle für die eingetragenen
 Variablen (dort u. a. eine `Soc`-Variable). Das ist Absicht: Jede andere Wallbox-/Fahrzeug-
 Quelle funktioniert genauso.

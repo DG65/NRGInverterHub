@@ -283,7 +283,7 @@ Teil des **NRG-Stack** — welche Modulstände zusammenpassen, listet
 
 ### EnergiePrognose (PV- und Verbrauchsprognose)
 
-**[Prognose](https://github.com/DG65/Prognose)** liefert die Prognosen, gegen die dieses
+**[Prognose](https://github.com/DG65/NRGPrognose)** liefert die Prognosen, gegen die dieses
 Projekt die Messwerte stellt. Genutzt wird davon das Modul **PV-Prognose** (Präfix `PVF`):
 
 - Der **InverterHubMonitor** berechnet aus den dort gepflegten Generatorparametern (kWp je
@@ -299,7 +299,7 @@ Die Stromflusskachel kann an einer Wallbox den **Ladestand des angesteckten Fahr
 dessen Namen anzeigen. Die Fahrzeug-Tabelle der Kachel ist dabei bewusst **herstellerneutral**:
 Pro Fahrzeug werden Bezeichnung, eine „Verbunden"-Bedingung und eine SOC-Variable eingetragen —
 gleich, woher diese Variablen stammen. Mit dem Modul
-**[Tessie](https://github.com/DG65/Tessie)** lassen sich dafür die Fahrzeugdaten eines Teslas
+**[Tessie](https://github.com/DG65/NRGTessie)** lassen sich dafür die Fahrzeugdaten eines Teslas
 nutzen (dessen `Soc`-Variable und ein Verbunden-Kennzeichen).
 
 Es besteht **keine Code-Abhängigkeit** zu Tessie: Die Kachel ruft dort nichts auf, sondern liest
@@ -307,7 +307,7 @@ nur die eingetragenen Variablen. Jede andere Quelle funktioniert genauso.
 
 ### MeterHub (Energiezähler)
 
-**[MeterHub](https://github.com/DG65/MeterHub)** ist das Schwester-Repository dieses Projekts:
+**[MeterHub](https://github.com/DG65/NRGMeterHub)** ist das Schwester-Repository dieses Projekts:
 dasselbe Framework-Prinzip, aber für **Energiezähler** statt Wechselrichter (Modbus TCP, z. B.
 Siemens PAC2200, Janitza UMG604/UMG800). Beide Projekte sind eigenständig nutzbar und ergänzen
 sich, wo beide installiert sind:
