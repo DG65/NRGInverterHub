@@ -1,5 +1,11 @@
 # InverterHub
 
+![Symcon](https://img.shields.io/badge/Symcon-PHP--Modul-blue)
+![Modul Version](https://img.shields.io/badge/Version-0.74.0--beta.1-informational)
+![Symcon Version](https://img.shields.io/badge/IP--Symcon-%E2%89%A5%209.0-orange)
+![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-lightgrey)
+[![PayPal](https://img.shields.io/badge/PayPal-Spenden-blue?logo=paypal)](https://paypal.me/DietmarGureth)
+
 IP-Symcon-Modul, das Wechselrichter verschiedener Hersteller direkt per **Modbus TCP** ausliest
 und steuert — ein generisches Treiber-Framework statt eines Moduls pro Hersteller.
 
