@@ -86,6 +86,9 @@ class InverterHubDiscovery extends IPSModule
         $this->RegisterPropertyString('IgnoreIPs', '');
         $this->RegisterAttributeString('ResultsJSON', '[]');
         $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
+        // Verbund-Konvention "Einheitliche Verbund-Status-Kopfzeile" (20.08.2026,
+        // SUITE.md) - Zeitstempel der letzten Suche fuer DiscoverySummaryLine().
+        $this->RegisterAttributeInteger('LastDiscoveryTs', 0);
     }
 
     // Ermittelt heuristisch die ersten drei Oktette des lokalen Subnetzes
@@ -236,6 +239,7 @@ class InverterHubDiscovery extends IPSModule
                                 ['type' => 'Button', 'name' => 'BtnAbort', 'caption' => '✖  Suche abbrechen', 'onClick' => 'IHUBD_AbortScan($id);', 'visible' => false],
                             ],
                         ],
+                        $this->DiscoverySummaryLine(count($results)),
                         [
                             'type'          => 'ProgressBar',
                             'name'          => 'ScanProgress',
@@ -517,8 +521,27 @@ class InverterHubDiscovery extends IPSModule
         }
 
         $this->WriteAttributeString('ResultsJSON', json_encode($results));
+        $this->WriteAttributeInteger('LastDiscoveryTs', time());
         $this->SetStatus(102);
         $this->ReloadForm();
+    }
+
+    // Verbund-Konvention "Einheitliche Verbund-Status-Kopfzeile" (20.08.2026,
+    // SUITE.md, Referenz EMS' getDiscoverySummaryLine()): EINE Kopfzeile
+    // direkt unter dem Such-Button - Icon + Kernzahl + Zeitstempel der letzten
+    // Suche, kein Aufzaehlungssatz. Technische Details bleiben in den
+    // bestehenden Panels darunter.
+    private function DiscoverySummaryLine(int $count): array
+    {
+        $ts = $this->ReadAttributeInteger('LastDiscoveryTs');
+        if ($ts === 0) {
+            $caption = 'ℹ️ Noch nicht gesucht.';
+        } elseif ($count > 0) {
+            $caption = '✅ ' . $count . ' Gerät' . ($count === 1 ? '' : 'e') . ' gefunden (zuletzt ' . date('H:i:s', $ts) . ' Uhr).';
+        } else {
+            $caption = '⚠️ 0 Geräte gefunden (zuletzt ' . date('H:i:s', $ts) . ' Uhr).';
+        }
+        return ['type' => 'Label', 'caption' => $caption];
     }
 
     // Findet die (einzige sinnvolle) MigrationsHub-Instanz oder legt eine an,
