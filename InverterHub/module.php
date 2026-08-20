@@ -4964,17 +4964,26 @@ class InverterHub extends IPSModule
         }
     }
 
-    public function ReadFast()
+    // Verbund-Konvention "Sichtbare Rueckmeldung bei jeder Aktion" (20.08.2026,
+    // SUITE.md Punkt 13, Referenz EMS BuildDayPlan): der "Verbindung testen /
+    // Daten sofort lesen"-Button ruft dieselbe Methode wie der periodische
+    // FastTimer auf - der Rueckgabewert wird dabei stumm verworfen, das
+    // Button-onClick nutzt ihn per echo als sichtbaren Erfolgs-/Fehlertext.
+    public function ReadFast(): string
     {
         if (!$this->ReadPropertyBoolean('Active')) {
-            return;
+            return 'ℹ️ Instanz ist deaktiviert ("Aktiv"-Schalter).';
         }
-        $driver = $this->GetDriver();
-        if (!$this->ReadAttributeBoolean('DeviceInfoRead')) {
-            $driver->readDeviceInfo($this->GetModbusClient(), $this);
-            $this->WriteAttributeBoolean('DeviceInfoRead', true);
+        try {
+            $driver = $this->GetDriver();
+            if (!$this->ReadAttributeBoolean('DeviceInfoRead')) {
+                $driver->readDeviceInfo($this->GetModbusClient(), $this);
+                $this->WriteAttributeBoolean('DeviceInfoRead', true);
+            }
+            $driver->readFast($this->GetModbusClient(), $this);
+        } catch (Throwable $e) {
+            return '⚠️ Verbindung fehlgeschlagen: ' . $e->getMessage();
         }
-        $driver->readFast($this->GetModbusClient(), $this);
         // Periodische Selbstheilung der Steuer-Bindung (wieder eingefuehrt
         // 27.07.2026, mit Dietmars/EMS' ausdruecklicher Freigabe, nach
         // mehrstuendiger Beobachtung vor Entfernung des SUITE.md-Warnhinweises
@@ -4999,6 +5008,7 @@ class InverterHub extends IPSModule
         // Modbus-Schreibvorgaenge auf bereits bestehende Register, keine
         // Variablen-Registrierung/Bindung beteiligt.
         $this->ReassertEmsControl();
+        return '✅ Verbindung ok, Daten gelesen (' . date('H:i:s') . ' Uhr).';
     }
 
     public function ReadSlow()
@@ -5431,7 +5441,7 @@ class InverterHub extends IPSModule
                 ],
             ],
             'actions' => [
-                ['type' => 'Button', 'caption' => 'Verbindung testen / Daten sofort lesen', 'onClick' => 'IHUB_ReadFast($id);'],
+                ['type' => 'Button', 'caption' => 'Verbindung testen / Daten sofort lesen', 'onClick' => 'echo IHUB_ReadFast($id);'],
             ],
             'status' => [
                 ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte IP-Adresse oder Hostname eintragen.'],
