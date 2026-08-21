@@ -952,14 +952,16 @@ class InverterHubDiscovery extends IPSModule
                 return $this->looksLikeAsciiText($name, 5);
 
             case 'foxess':
-                // Betriebsstatus (11056, Enum 0-5) + Modellname (10000-10007, ASCII),
-                // laut "Fox Hybrid/AC Modbus Protocol" (V1.01) per FC04 (Input).
-                // Real gemeldet (21.08.2026, Forum "hbraun"): Port offen, echtes
-                // Geraet ("INVERTER-...") vorhanden, aber FC04 fand nichts - exakt
-                // das Muster der SMA-FC03/FC04-Falle (siehe CLAUDE.md: TCP-Gateways
-                // proxien nicht immer denselben Funktionscode wie die RTU-Doku).
-                // Deshalb hier zusaetzlich FC03 (Holding) auf denselben Adressen
-                // versuchen, bevor der Hersteller als nicht erkannt gilt.
+                // Zwei GRUNDVERSCHIEDENE Registerwelten, je nach Anbindungsart -
+                // real durch zwei Fehlschlaege desselben Testers (21.08.2026,
+                // Forum "hbraun") aufgedeckt: Port offen, echtes Geraet ("INVERTER-
+                // ...") vorhanden, aber weder FC04 noch FC03 auf den alten Adressen
+                // fanden es.
+                //
+                // 1) Aeltere/RS485-ueber-TCP-Gateway-Anbindung: Betriebsstatus
+                //    (11056, Enum 0-5) + Modellname (10000-10007, ASCII), laut
+                //    "Fox Hybrid/AC Modbus Protocol" (V1.01) per FC04 - hier
+                //    zusaetzlich FC03 versucht (SMA-FC03/FC04-Falle, s. CLAUDE.md).
                 foreach ([0x04, 0x03] as $fc) {
                     $s = $this->modbusRead($ip, $port, $unitId, $fc, 11056, 1, 1.0);
                     if ($s === null || $s[0] < 0 || $s[0] > 5) {
@@ -967,6 +969,20 @@ class InverterHubDiscovery extends IPSModule
                     }
                     $model = $this->modbusRead($ip, $port, $unitId, $fc, 10000, 8, 1.0);
                     if ($this->looksLikeAsciiText($model, 4)) {
+                        return true;
+                    }
+                }
+                // 2) Eingebauter WLAN-/LAN-Modbus-TCP-Server neuerer Modelle
+                //    (H1-Gen2-WL, H3 Smart) - KOMPLETT ANDERER Registerblock
+                //    (31000er statt 10000/11000er), FC03 (Holding). Adressen
+                //    community-vermessen (nathanmarlor/foxess_modbus), nicht aus
+                //    der offiziellen RS485-Doku. Netzspannung (31006, x0.1 V) auf
+                //    plausiblen Bereich pruefen, Wechselrichterleistung (31008,
+                //    x0,001 kW, signed) nur auf Lesbarkeit als zweites Merkmal.
+                $gridV = $this->readHolding($ip, $port, $unitId, 31006, 1, 1.0);
+                if ($gridV !== null && $gridV[0] >= 1500 && $gridV[0] <= 3000) {
+                    $pwr = $this->readHolding($ip, $port, $unitId, 31008, 1, 1.0);
+                    if ($pwr !== null) {
                         return true;
                     }
                 }

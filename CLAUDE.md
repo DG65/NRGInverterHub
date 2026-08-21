@@ -22,11 +22,30 @@ immer denselben Funktionscode wie die RTU-Dokumentation vorgibt. Fix (0.74.1-bet
 `probeVendor('foxess')` versucht jetzt zusätzlich FC03 (Holding) auf denselben Adressen, bevor
 der Hersteller als nicht erkannt gilt.
 
-**Falls das immer noch nichts findet:** Nicht am Funktionscode weitersuchen (beide jetzt
-versucht) — als Nächstes die tatsächliche Unit-ID des Geräts erfragen/erproben
-(FoxESS-Cloud-Dongle-Konfiguration oder Home-Assistant-FoxESS-Integration nennen sie oft
-explizit), dann `VENDOR_UNIT_IDS['foxess']` entsprechend erweitern. Nicht auf der Annahme
-`[247, 1]` beharren, wenn ein zweiter Fehlschlag das widerlegt.
+**Dritte Rückmeldung, entscheidender Fund (21.08.2026):** Horst nutzt Home Assistant mit
+FoxESS erfolgreich — auf Nachfrage recherchiert (`nathanmarlor/foxess_modbus`, die
+verbreitetste FoxESS-HA-Integration, plus ein reales Fehlerprotokoll aus dem offiziellen
+FoxESS-Community-Forum): **Neuere Modelle mit eingebautem WLAN-/LAN-Modbus-TCP-Server**
+(H1-Gen2-WL, H3 Smart) sprechen ein **komplett anderes Registerschema** — Block **31000+**
+statt 10000/11000er —, per **FC03 (Holding)**, nicht FC04. Die Unit-ID **247 ist bestätigt
+richtig** (im Forum-Fehlerprotokoll wörtlich `slave: 247` bei genau diesem Registerblock).
+Belegte Adressen (community-vermessen, nicht aus der offiziellen RS485-Doku): Netzspannung
+Holding 31006 (×0,1 V), Wechselrichterleistung Holding 31008 (×0,001 kW, signed, H1) bzw.
+31012-31014 je Phase (H3), Batterie-SOC Holding 31024 (H1) / 31038 (H3-Pro).
+
+Fix (0.74.1-beta.3): `probeVendor('foxess')` prüft jetzt BEIDE Registerwelten nacheinander —
+zuerst die alte RS485/10000er-Welt (FC04+FC03-Fallback), dann bei Fehlschlag den neuen
+31000er-Block (Netzspannung 31006 auf plausiblen Bereich, Wechselrichterleistung 31008 nur
+auf Lesbarkeit).
+
+**WICHTIGER, NOCH OFFENER Folgefehler:** Selbst wenn die Gerätesuche das Gerät jetzt findet,
+liest der **Kerntreiber `IHUB_FoxEssDriver`** (`InverterHub/module.php`) weiterhin
+AUSSCHLIESSLICH den alten 10000/11000er-Block per FC04 — für ein Gerät der WLAN-Serie würde
+die angelegte Instanz vermutlich nur Nullen/Fehler zeigen, keine echten Werte. Das ist ein
+SEPARATER, noch nicht behobener Fehler im Kerntreiber, nicht nur in der Suche. Nicht als
+vollständig gelöst kommunizieren, bevor jemand mit einem WLAN-Serie-Gerät bestätigt, dass nach
+dem Anlegen echte Werte ankommen — sonst wiederholt sich dieselbe Enttäuschung eine Stufe
+später.
 
 ## `InverterHubTile`/`InverterHubMonitor`/`InverterHubEnergy` entfernt (nur `ems-integration`, 20.08.2026)
 

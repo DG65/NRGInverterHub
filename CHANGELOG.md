@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.74.1-beta.3 (2026-08-21)
+
+- **FoxESS-Erkennung: zweite, komplett andere Registerwelt ergänzt.** Neuere Modelle mit
+  eingebautem WLAN-/LAN-Modbus-TCP-Server (H1-Gen2-WL, H3 Smart) nutzen einen anderen
+  Registerblock (31000er statt 10000/11000er) über FC03. `probeVendor('foxess')` prüft jetzt
+  beide Welten nacheinander. Unit-ID 247 durch ein reales FoxESS-Community-Forum-Fehlerprotokoll
+  bestätigt. **Achtung:** Der Kerntreiber `IHUB_FoxEssDriver` liest bislang nur den alten
+  10000/11000er-Block — für WLAN-Serie-Geräte zeigt eine gefundene Instanz aktuell vermutlich
+  noch keine echten Werte. Das ist ein separater, noch offener Folgefehler (siehe CLAUDE.md).
+
 ## 0.74.1-beta.2 (2026-08-21)
 
 - **FoxESS-Erkennung: FC03-Fallback ergänzt.** Rückmeldung vom selben Beta-Tester: Port offen,
