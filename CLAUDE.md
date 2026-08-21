@@ -1,22 +1,29 @@
 # Hinweise für die Arbeit an diesem Repository
 
-## Symcon-Modulverwaltung: interne Bibliotheks-Altlast überlebt Ordner-Löschung + Neustart
+## Falsche Ferndiagnose korrigiert: kein Bibliotheks-Duplikat, zwei harmlose Ursachen
 
-Real beobachtet (21.08.2026, FoxESS-Fall unten, Beta-Tester "hbraun"): Trotz vollständiger
-Bereinigung — Instanzen gelöscht, Symcon-Dienst gestoppt, **nur ein** Modul-Ordner auf Platte
-(`NRGInverterHub`), Bibliothek neu über GitHub-URL hinzugefügt — lud Symcon im Log abwechselnd
-**zwei unterschiedliche Bibliotheksnamen** ("InverterHub for IP-Symcon" vs. "NRG-Stack
-InverterHub for IP-Symcon", der alte Name vor dem Rebranding). Auf Dateisystemebene gab es
-nachweislich nur eine Kopie (Screenshot bestätigt).
+Vorläufige Fehleinschätzung (21.08.2026, FoxESS-Fall unten, Beta-Tester "hbraun") aus der
+Ferne, ohne Zugriff auf das reale System — beim Nachfassen widerlegt, hier als Lehre
+festgehalten:
 
-**Schlussfolgerung: Die Modulverwaltung führt offenbar eine interne (Datenbank-)Registrierung
-je Bibliothek, die eine reine Ordner-Löschung + Dienst-Neustart NICHT zuverlässig bereinigt** —
-zusätzlich zur bereits bekannten Instabilität (`MC_UpdateModule` synct nicht zuverlässig, siehe
-Memory `nrg-stack-modulverwaltung-instabilitaet`). Falls das nochmal auftritt: nicht nur den
-Modul-Ordner prüfen, sondern in der Konsole gezielt nach **mehreren Bibliotheks-Einträgen mit
-demselben/ähnlichem Namen** suchen (nicht nur nach mehreren Instanzen) — ein Store-seitiges
-Aufräumwerkzeug dafür ist mir nicht bekannt; im Zweifel den Nutzer an den Symcon-Support
-verweisen, das liegt außerhalb dessen, was ein Modul selbst reparieren kann.
+1. **Der scheinbare Bibliotheks-„Flap" im Log** ("InverterHub for IP-Symcon" wechselte sich mit
+   "NRG-Stack InverterHub for IP-Symcon" ab) war **kein simultanes Duplikat**, sondern schlicht
+   **zeitlich nacheinander** derselbe Log-Ausschnitt über Horsts eigene Lösch-/Neuinstallations-
+   Schritte hinweg (alter Stand vor seinem Aufräumen, dann sein frischer Neustart). Ein
+   Screenshot des Modul-Ordners bestätigte zu diesem Zeitpunkt bereits nur eine Kopie auf
+   Platte — es gab also gar keine zwei Registrierungen gleichzeitig zu bereinigen.
+2. **"InverterHub Suche" und "NRG-Stack InverterHub Suche" als zwei Auswahlpunkte beim
+   Instanz-Anlegen sind KEIN Duplikat, sondern beabsichtigt:** `InverterHubDiscovery/module.json`
+   hat bewusst drei `aliases` (`"NRG-Stack InverterHub Suche"`, `"InverterHub Suche"`,
+   `"Wechselrichter Suche"`) für **dieselbe** Modul-GUID — Symcon zeigt beim Anlegen jeden Alias
+   als eigene Zeile, alle erzeugen aber identische Instanzen. Reine Auffindbarkeits-Konvenienz
+   (Nutzer kann nach "InverterHub" ODER "NRG-Stack" ODER "Wechselrichter" suchen), kein Bug.
+
+**Lehre für künftige Ferndiagnosen im Verbund:** Log-Auszüge über mehrere Minuten können
+mehrere Nutzeraktionen (Löschen, Neuinstallieren) verschachtelt enthalten — vor einer
+"Duplikat"/"Kollision"-Diagnose die Zeitstempel gegen die vom Nutzer beschriebenen eigenen
+Schritte abgleichen, statt zwei verschiedene Namen im selben Log-Dump vorschnell als
+gleichzeitig zu werten.
 
 ## FoxESS fehlte in der Gerätesuche (21.08.2026, Forum-Meldung "hbraun"/Horst)
 
