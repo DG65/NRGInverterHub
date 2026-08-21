@@ -1,5 +1,23 @@
 # Hinweise für die Arbeit an diesem Repository
 
+## Symcon-Modulverwaltung: interne Bibliotheks-Altlast überlebt Ordner-Löschung + Neustart
+
+Real beobachtet (21.08.2026, FoxESS-Fall unten, Beta-Tester "hbraun"): Trotz vollständiger
+Bereinigung — Instanzen gelöscht, Symcon-Dienst gestoppt, **nur ein** Modul-Ordner auf Platte
+(`NRGInverterHub`), Bibliothek neu über GitHub-URL hinzugefügt — lud Symcon im Log abwechselnd
+**zwei unterschiedliche Bibliotheksnamen** ("InverterHub for IP-Symcon" vs. "NRG-Stack
+InverterHub for IP-Symcon", der alte Name vor dem Rebranding). Auf Dateisystemebene gab es
+nachweislich nur eine Kopie (Screenshot bestätigt).
+
+**Schlussfolgerung: Die Modulverwaltung führt offenbar eine interne (Datenbank-)Registrierung
+je Bibliothek, die eine reine Ordner-Löschung + Dienst-Neustart NICHT zuverlässig bereinigt** —
+zusätzlich zur bereits bekannten Instabilität (`MC_UpdateModule` synct nicht zuverlässig, siehe
+Memory `nrg-stack-modulverwaltung-instabilitaet`). Falls das nochmal auftritt: nicht nur den
+Modul-Ordner prüfen, sondern in der Konsole gezielt nach **mehreren Bibliotheks-Einträgen mit
+demselben/ähnlichem Namen** suchen (nicht nur nach mehreren Instanzen) — ein Store-seitiges
+Aufräumwerkzeug dafür ist mir nicht bekannt; im Zweifel den Nutzer an den Symcon-Support
+verweisen, das liegt außerhalb dessen, was ein Modul selbst reparieren kann.
+
 ## FoxESS fehlte in der Gerätesuche (21.08.2026, Forum-Meldung "hbraun"/Horst)
 
 Real gemeldet: Ein FoxESS-Nutzer fand über `InverterHubDiscovery` "0 Geräte", egal welchen Port
