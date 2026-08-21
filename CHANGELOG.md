@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.74.1-beta.2 (2026-08-21)
+
+- **FoxESS-Erkennung: FC03-Fallback ergänzt.** Rückmeldung vom selben Beta-Tester: Port offen,
+  echtes Gerät vorhanden, aber die FC04-Erkennung aus 0.74.1-beta.1 fand es trotzdem nicht —
+  exakt das Muster der SMA-FC03/FC04-Falle (siehe CLAUDE.md). Die Erkennung versucht jetzt
+  zusätzlich FC03 (Holding) auf denselben Adressen, bevor der Hersteller als nicht erkannt
+  gilt. **Weiterhin unverifiziert an echter Hardware** — falls das immer noch nichts findet,
+  ist vermutlich die Unit-ID falsch, nicht der Funktionscode.
+
 ## 0.74.1-beta.1 (2026-08-21)
 
 - **FoxESS in der Gerätesuche (`InverterHubDiscovery`) ergänzt.** Real gemeldet im Forum

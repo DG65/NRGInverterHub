@@ -952,17 +952,25 @@ class InverterHubDiscovery extends IPSModule
                 return $this->looksLikeAsciiText($name, 5);
 
             case 'foxess':
-                // Input 11056: Betriebsstatus, laut "Fox Hybrid/AC Modbus Protocol"
-                // (V1.01) ein kleiner Enum-Wert (0=Warten .. 5=Nicht behebbarer
-                // Fehler) - plausibel nur 0..5.
-                $s = $this->readInput($ip, $port, $unitId, 11056, 1, 1.0);
-                if ($s === null || $s[0] < 0 || $s[0] > 5) {
-                    return false;
+                // Betriebsstatus (11056, Enum 0-5) + Modellname (10000-10007, ASCII),
+                // laut "Fox Hybrid/AC Modbus Protocol" (V1.01) per FC04 (Input).
+                // Real gemeldet (21.08.2026, Forum "hbraun"): Port offen, echtes
+                // Geraet ("INVERTER-...") vorhanden, aber FC04 fand nichts - exakt
+                // das Muster der SMA-FC03/FC04-Falle (siehe CLAUDE.md: TCP-Gateways
+                // proxien nicht immer denselben Funktionscode wie die RTU-Doku).
+                // Deshalb hier zusaetzlich FC03 (Holding) auf denselben Adressen
+                // versuchen, bevor der Hersteller als nicht erkannt gilt.
+                foreach ([0x04, 0x03] as $fc) {
+                    $s = $this->modbusRead($ip, $port, $unitId, $fc, 11056, 1, 1.0);
+                    if ($s === null || $s[0] < 0 || $s[0] > 5) {
+                        continue;
+                    }
+                    $model = $this->modbusRead($ip, $port, $unitId, $fc, 10000, 8, 1.0);
+                    if ($this->looksLikeAsciiText($model, 4)) {
+                        return true;
+                    }
                 }
-                // Input 10000-10007: Modellname (8 Register, ASCII) - zweites
-                // Merkmal, analog den anderen Treibern.
-                $model = $this->readInput($ip, $port, $unitId, 10000, 8, 1.0);
-                return $this->looksLikeAsciiText($model, 4);
+                return false;
         }
         return false;
     }

@@ -13,10 +13,20 @@ Suche konnte den Hersteller also unabhängig vom Port gar nicht erkennen. Nachge
 **Unit-ID-Kandidaten `[247, 1]` sind eine Annahme, KEINE bestätigte Tatsache** — im Gegensatz
 zu den anderen Treibern in `probeVendor()`, die alle an echter Hardware verifiziert wurden. Der
 FoxESS-Kerntreiber selbst ist ebenfalls explizit als "Read-Only-Vorabversion, Beta, ungetestet"
-markiert. Bei einer Rückmeldung, dass die Suche mit dieser Änderung immer noch nichts findet:
-zuerst die tatsächliche Unit-ID des Geräts erfragen/erproben (FoxESS-Cloud-Dongle-Konfiguration
-oder Home-Assistant-FoxESS-Integration nennen sie oft explizit), dann `VENDOR_UNIT_IDS['foxess']`
-entsprechend erweitern — nicht auf der Annahme beharren.
+markiert.
+
+**Zweite Rückmeldung desselben Testers (21.08.2026, gleicher Tag):** Port offen, ein echtes
+Gerät antwortet (Netzwerk-Scan zeigt „INVERTER-60HD1030638"), aber die FC04-Erkennung fand es
+trotzdem nicht. Genau das Muster der SMA-FC03/FC04-Falle (s. u.) — TCP-Gateways proxien nicht
+immer denselben Funktionscode wie die RTU-Dokumentation vorgibt. Fix (0.74.1-beta.2):
+`probeVendor('foxess')` versucht jetzt zusätzlich FC03 (Holding) auf denselben Adressen, bevor
+der Hersteller als nicht erkannt gilt.
+
+**Falls das immer noch nichts findet:** Nicht am Funktionscode weitersuchen (beide jetzt
+versucht) — als Nächstes die tatsächliche Unit-ID des Geräts erfragen/erproben
+(FoxESS-Cloud-Dongle-Konfiguration oder Home-Assistant-FoxESS-Integration nennen sie oft
+explizit), dann `VENDOR_UNIT_IDS['foxess']` entsprechend erweitern. Nicht auf der Annahme
+`[247, 1]` beharren, wenn ein zweiter Fehlschlag das widerlegt.
 
 ## `InverterHubTile`/`InverterHubMonitor`/`InverterHubEnergy` entfernt (nur `ems-integration`, 20.08.2026)
 
