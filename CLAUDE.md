@@ -1,5 +1,28 @@
 # Hinweise für die Arbeit an diesem Repository
 
+## `InverterHubTile`/`InverterHubMonitor`/`InverterHubEnergy` entfernt (nur `ems-integration`, 20.08.2026)
+
+Auf Anweisung Dietmars entfernt: Die drei Visualisierungs-Kacheln (Stromfluss, Sankey,
+Monitoring/Diagnostik) sind auf diesem Zweig gelöscht — NRGDashboard hat diese Aufgabe
+übernommen. **Betrifft ausdrücklich nur `ems-integration`**, nicht `main`/`beta` (dort laufen
+reale Store-Nutzer, die diese Kacheln ggf. noch verwenden — kein Löschen dort ohne separate
+Absprache). Mit `InverterHubMonitor` ist auch der Diagnostik-Vertrag `IHUBMON_GetDiagnostics`
+entfallen.
+
+**Bekannte Restabhängigkeit bei Dashboard:** `NRGDashboardTile`/`NRGDashboardPVMonitor` riefen
+(Stand vor der Löschung) `IHUBTILE_GetConsumers()`, `IHUBTILE_GetHouseLoad()` und
+`IHUBMON_GetDiagnostics()` als **optionale** Datenquelle auf (hinter `function_exists()`, mit
+Rückfall auf eine gröbere Näherung). Nach dieser Löschung degradiert das still auf den
+Rückfallpfad — kein Absturz, aber ein Funktionsverlust (Verbraucherzuordnung, echte
+Hauslast-Messvariable, Diagnostik-Icon). Dashboard-Sitzung wurde informiert.
+
+Alle historischen Abschnitte weiter unten in dieser Datei, die sich auf diese drei Module
+beziehen (Browser-Eigenheiten der Kacheln, Datumssteuerungs-Konvention, MeterInvert/BatInvert-
+Vorfall, Fahrzeug-/Wallbox-Kopplung, Diagnostik-Vertrag usw.), sind bewusst **nicht entfernt**
+— sie bleiben als Vorfall-/Entscheidungs-Dokumentation gültig, auch wenn der betroffene Code auf
+diesem Zweig nicht mehr existiert (z. B. falls die Module auf `main`/`beta` einmal wieder
+angefasst werden oder als Referenz für NRGDashboards Nachbau).
+
 ## Der Modul-Verbund
 
 Dieses Repo gehört zu einer Gruppe eigenständiger IP-Symcon-Module, die zusammenwirken. An

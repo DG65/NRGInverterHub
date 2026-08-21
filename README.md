@@ -64,12 +64,8 @@ eintragen, gewünschte Datenpunkt-Gruppen aktivieren, übernehmen.
 
 **Externer Hauslastzähler — Eingang (optional):** Unter „Externer Hauslastzähler — Eingang
 (optional)" lässt sich eine bereits vorhandene Variable mit real gemessener Hauslast auswählen
-(z. B. ein Shelly am Hausanschluss). Das ist ein **Eingang** — nicht zu verwechseln mit der in
-der Kachel optional **ausgegebenen** Variable „Hauslast (berechnet)". Die reine PV/Netz/Batterie-Bilanzschätzung berücksichtigt Wechselrichter-
-Eigenverbrauch und Leitungsverluste nicht — mit einem echten Zähler zeigt `InverterHubTile`
-die genauere Last sowie die Differenz als eigenen „Wandlungsverluste"-Kreis. Wichtig: hier
-einen echten Verbrauchszähler wählen (immer positiv), keinen Netz-/Einspeisezähler — negative
-Werte werden ignoriert und die Kachel bleibt bei der Bilanz.
+(z. B. ein Shelly am Hausanschluss). Wichtig: hier einen echten Verbrauchszähler wählen (immer
+positiv), keinen Netz-/Einspeisezähler.
 
 **Energie-Einheit (kWh/Wh):** Standardmäßig werden Energiewerte in kWh ausgegeben. Der Schalter
 „Energie in Wh statt kWh ausgeben" (im Datenpunkte-Panel) stellt sie auf die Basiseinheit Wh um
@@ -78,8 +74,7 @@ Wh/kWh/MWh. Bestehende Instanzen bleiben ohne Umschalten bei kWh (kein Sprung in
 
 **Invers-Schalter:** Je nach Verdrahtung/gewünschter Konvention lassen sich Netz-Leistung
 (Meter) und Batterie-Leistung per Schalter invertieren. Der angezeigte Datenpunkt folgt dann
-der gewählten Konvention; die `InverterHubTile`-Kachel rechnet beide Schalter intern wieder
-auf ihre kanonische Konvention zurück und bleibt dadurch immer korrekt.
+der gewählten Konvention.
 
 ### InverterHubDiscovery
 
@@ -110,161 +105,13 @@ IP-Symcon-Konfigurator-Ansicht — ihre Position und ein „einzeln als gesehen 
 sich modulseitig nicht beeinflussen bzw. ergänzen (IP-Symcon-API-Grenze, keine Dokumentation
 dafür vorhanden).
 
-### InverterHubTile
+### Kacheln (`InverterHubTile`, `InverterHubEnergy`, `InverterHubMonitor`) — entfernt
 
-Energiefluss-Kachel (Visualisierung) für eine InverterHub-Instanz, unabhängig vom Hersteller.
-Die **Hauslast** sitzt im Zentrum, alle übrigen Größen (Solar, Batterie, Netz, optional
-Wandlungsverluste sowie frei konfigurierte Verbraucher) werden gleichmäßig **radial** darum
-verteilt — in der Reihenfolge Solar (oben), Batterie (rechts), Verbraucher, Netz (unten),
-Verluste (links). Fehlt ein Datenpunkt, bleibt die Anordnung ausgewogen, statt eine Lücke zu
-hinterlassen. Kreisgröße und -abstand werden aus der Knotenzahl berechnet, sodass sich auch
-bei vielen Verbrauchern nie Kreise überlappen und die Kachel ihre Größe behält.
-
-Für die Solar-Anzeige nutzt die Kachel automatisch die berechnete PV-Erzeugung (`pv_real`,
-z. B. bei SolarEdge StorEdge), sofern vorhanden, sonst die DC-Gesamtleistung. Über den
-Schalter **„Berechnete Hauslast zusätzlich in eine Variable schreiben"** (Panel „Datenquelle")
-legt die Kachel die Variable **„Hauslast (berechnet)"** an und aktualisiert sie live — nutzbar
-für Automationen, Charts usw.
-
-**Ohne InverterHub-Instanz (manuelle Datenpunkte):** Die Kachel funktioniert auch ganz ohne
-InverterHub. Wird oben keine InverterHub-Instanz gewählt, speist sie sich aus dem Panel
-**„Manuelle Datenpunkte"** — dort lassen sich einzelne Variablen für PV-Leistung, AC-Leistung,
-Netz-/Zählerleistung, Batterie-Leistung, SOC und optional einen externen Hauslastzähler direkt
-zuweisen (z. B. von einem anderen Wechselrichter-Modul oder Zählern). Je Leistungswert ist die
-Einheit wählbar (Automatisch/W/kW/MW), und Netz sowie Batterie haben einen eigenen
-Invers-Schalter. Alle Werte sind optional; je mehr zugewiesen ist, desto vollständiger die
-Darstellung.
-
-**Weitere Verbraucher (optional):** Im Panel „Weitere Verbraucher" lassen sich **beliebig
-viele** zusätzliche Verbraucher als Tabelle pflegen — je Zeile **Art**, **Bezeichnung**,
-**Leistungs-Variable** und **Einheit**. Sie kommen nicht aus dem Wechselrichter, sondern werden
-aus vorhandenen Variablen gespeist und erscheinen als eigene Kreise. Verfügbare Arten (bestimmen
-das Icon): Wallbox, Wärmepumpe, Klimaanlage, Pool-Wärmepumpe, Pool-Pumpe, Sauna, Warmwasser,
-Trockner, Sonstiger Verbraucher. Mehrere Zeilen derselben Art sind möglich (z. B. zwei
-Wallboxen „Garage" und „Carport"); eine leere Bezeichnung fällt auf die Vorgabe der Art
-zurück. Die **Einheit** steht auf „Automatisch" (erkennt W/kW/MW am Profil-Suffix der Variable)
-und lässt sich bei fehlendem Profil manuell setzen — intern rechnet die Kachel alles in Watt um,
-sodass Quellen in kW (viele Wallboxen) korrekt dargestellt werden.
-
-**Wallboxen mit Fahrzeug-Ladestand:** Eine Wallbox wird als **Auto** dargestellt, das – wie das
-Batteriesymbol – den Ladestand des gerade angeschlossenen Fahrzeugs als Füllung samt
-Prozentwert zeigt; ohne Fahrzeug bleibt nur der Umriss. Der Name des erkannten Fahrzeugs steht
-als Zusatzzeile im Kreis.
-
-Dafür gibt es die Tabelle **Fahrzeuge** (Bezeichnung, Ladestand-Variable, Verbunden-Bedingung)
-sowie je Wallbox-Zeile eine eigene Verbunden-Bedingung. Eine Bedingung besteht aus **Variable +
-Vergleich + Wert**, weil jede Quelle das Einstecken anders meldet:
-
-| Beispiel | Typ | Bedingung |
-|---|---|---|
-| „Ladeportklappe offen" (Fahrzeug) | Boolean | ist gesetzt |
-| „Ladekabeltyp" (Fahrzeug) | Text, leer = kein Kabel | ist gesetzt |
-| „Kabel-Leistungsfähigkeit" (go-e) | Integer, 0 = kein Kabel | ist gesetzt |
-
-**Welches Auto steht an welcher Wallbox?** Das ermittelt das Modul selbst — ein Datenpunkt, der
-das benennt, wird *nicht* benötigt (die wenigsten Anlagen haben so etwas). Beim Einstecken
-wechseln Wallbox und Fahrzeug jedes für sich auf „verbunden", und zwar praktisch gleichzeitig.
-Das Modul vergleicht dafür die Zeitpunkte der letzten **Wertänderung** (IP-Symcon führt die
-ohnehin mit) und ordnet die zeitlich am besten passenden Paare eindeutig zu. Bei zwei Autos an
-zwei Wallboxen landet damit jedes dort, wo es tatsächlich eingesteckt wurde. Das Zeitfenster
-ist einstellbar (Vorgabe 300 s; 0 = ohne Begrenzung). Bei genau einer Wallbox und genau einem
-Fahrzeug ist die Lage ohnehin eindeutig — dort darf die Verbunden-Bedingung auch fehlen.
-
-Die Farben sind semantisch fest vergeben: Solar = Sonnengelb, Netz = Grün bei Einspeisung/Rot
-bei Bezug, Batterie = Blau, Verluste = Grau, Hauslast = weicher Grün-Rot-Verlauf je nach
-Anteil aus Netzbezug vs. PV/Batterie. Zusätzliche Verbraucher haben je Art eine eigene Farbe
-(Wärme in Feuertönen, Kühlung/Wasser in Türkis, Fahrzeuge in Violett) und lassen sich je Zeile
-auch frei einfärben.
-
-**Energiefluss:** Zwischen Hauslast und jedem Knoten läuft eine Speiche mit glimmendem Leiter,
-darauf wandern Dreiecke in Flussrichtung, begleitet von wabernden Teslaspulen-Blitzen an Leitungen und Kreiskanten. Die Richtung folgt
-dem Vorzeichen (Netz: Bezug zum Haus / Einspeisung nach außen; Batterie: Laden nach außen /
-Entladen zum Haus), das Tempo der Leistung — die Leistung, ab der Höchsttempo erreicht wird, ist einstellbar.
-
-Kreise mit nennenswertem Leistungsfluss erscheinen groß, farbig und plastisch (Münz-Optik mit
-Wölbung, Kantenanschliff, Glanzlicht und geprägten Icons/Werten) samt Corona, deren Stärke mit
-der Leistung wächst (0 W = keine, 40 kW = maximal). Kreise ohne Fluss treten klein, grau und
-flach zurück; der Wechsel läuft gleitend in einstellbarer Zeit ab.
-
-Da nicht jeder Treiber dieselben Datenpunkte liefert, entfällt ein Kreis, wenn die zugehörige
-Größe bei der gewählten Quelle fehlt (z. B. keine Netzmessung bei Growatt, keine Batterie bei
-SMA/Fronius/SolarEdge), statt falsche Werte zu zeigen. Ist in der Quell-Instanz ein
-Hauslastzähler konfiguriert, erscheint zusätzlich der „Verluste"-Kreis (Differenz zwischen
-Bilanzschätzung und echtem Zähler).
-
-Hintergrundfarbe, Schriftart und die Übergangszeit für den gleitenden Wechsel aktiv/inaktiv
-sind über die Instanzkonfiguration anpassbar; die Kachel skaliert vollständig automatisch mit
-der Widget-Größe.
-
-Einrichtung: Kachel-Instanz anlegen, unter „Datenquelle" die gewünschte InverterHub-Instanz
-auswählen.
-
-### InverterHubEnergy (Energiefluss / Sankey)
-
-Zweite Visualisierung: ein **Sankey-Diagramm**, das zeigt, **wohin die Energie über einen
-Zeitraum geflossen ist** — Quellen (Solar, Batterie-Entladung, Netzbezug) links, Verbraucher
-(Batterie-Ladung, Hausverbrauch bzw. Einzelverbraucher, Netzeinspeisung) rechts, jeweils mit
-Anteil in %. Zeitraum wählbar: **Tag / Woche / Monat / Jahr / Gesamt** oder **angepasst**
-(Von/Bis).
-
-Die Werte kommen ausschließlich aus dem **IP-Symcon-Archiv** der zugewiesenen
-**Energie-Zählervariablen** (z. B. „Ertrag Gesamt", „Bezug/Einspeisung Gesamt", „Bat.
-Laden/Entladen Gesamt") — es wird nichts selbst berechnet oder zusätzlich mitgeführt.
-Voraussetzung: Die Variablen sind akkumulierende Zähler mit aktivierter Archivierung
-(Aggregation „Zähler"). Alle Datenpunkte sind optional; fehlt einer, entfällt der Knoten.
-
-Einzelne Verbraucher (Wärmepumpe, Wallbox …) lassen sich mit ihrer eigenen archivierten
-Energievariable eintragen — sie werden aus dem Hausverbrauch herausgelöst, der Rest erscheint
-als „Sonstiger Verbrauch".
-
-**Darstellung:** 3-stufiges Sankey (Erzeugung/Bezug → **Batterie als Puffer** → Verbrauch/
-Einspeisung). Die Batterie ist ein Zwischenknoten (Zufluss = Ladung, Abfluss = Entladung),
-taucht also nicht doppelt auf. Als Engine ist wahlweise **Apache ECharts** oder **Highcharts**
-wählbar (wie in der Prognosekachel). Interaktive Tooltips zeigen je Knoten Durchsatz/Anteil
-(Batterie zusätzlich „geladen/entladen") und je Fluss Quelle → Ziel mit kWh und Anteil. Die
-Flussaufteilung folgt einem Energiebilanz-Modell (Netzeinspeisung und Batterie-Ladung aus PV;
-Verbrauch anteilig aus PV/Batterie/Netz).
-
-### InverterHubMonitor (Monitoring)
-
-Monitoring-Kachel mit **Intraday-Zeitreihen aus dem Archiv** (à la Meteocontrol VCOM
-„Tatsächliche Leistung"). Beliebige archivierte Variablen werden als Verlaufsdiagramm über
-einen wählbaren Tag dargestellt (~5-Minuten-Auflösung), wahlweise mit **Highcharts oder
-ECharts**. Zwei Y-Achsen (links/rechts) — typischerweise **PV-Leistung** links und ein
-**Einstrahlungssensor** (W/m²) rechts. So lässt sich **Verschmutzung oder ein Defekt** erkennen:
-an einem sauberen Tag laufen Leistung und Einstrahlung proportional, bei Abweichung nach unten
-ist die Anlage zu prüfen. Bedienung wie die Sankey-Kachel: ◄ ► und Kalender zur Tagesauswahl
-(navigierbar sind die letzten 8 Tage).
-
-Weitere Ansichten (Wochen-/Monats-/Jahres-Auswertung, Energie-Balken, normalisierte KPIs mit
-kWp-Kalibrierung und automatische Verschmutzungs-/Defekterkennung) folgen als nächste Stufen.
-
-#### Diagnostik-Vertrag `IHUBMON_GetDiagnostics($id)` (für NRGDashboard)
-
-Zielarchitektur (mit dem NRGDashboard-Modul abgestimmt, 25.07.2026): Die **Diagnose-Logik**
-bleibt hier — wir kennen die Wechselrichter-Details und treffen die Bewertung —, die
-**Darstellung** soll künftig zentral über NRGDashboard laufen statt über eine eigene Kachel.
-`InverterHubMonitor` bleibt vorerst vollständig nutzbar; der Vertrag ist ein zusätzliches
-Angebot, kein Ersatz.
-
-`IHUBMON_GetDiagnostics($id)` liefert eine Liste von Diagnose-Einträgen:
-
-- **`yield_vs_forecast`** — gemessener Ertrag (Variablen-Referenz) gegen die aus
-  PV-Prognose-Generatorparametern × Einstrahlung berechnete Erwartung (Wert), mit Bewertung.
-- **`mppt_string_compare`** — erkennt einen deutlich schwächeren MPPT-Einzelstrang.
-- **`riso`** — Isolationswiderstand gegen eine vom Nutzer gesetzte Warnschwelle (kΩ).
-
-**Konvention** (gilt als Muster für künftige Diagnose-Verträge anderer Hub-Module im NRG-Stack):
-
-| Feldart | Form | Grund |
-|---|---|---|
-| gemessene Rohgröße | Variablen-**Referenz** (`…ID`) | Konsument zeichnet Zeitreihen selbst aus dem IPS-Archiv |
-| berechneter Vergleichswert | **Wert** | unser Domänenwissen, beim Konsumenten nicht nachzubauen |
-| Bewertung | **Metadaten** (`level`, `threshold`, `reason`) | die Einstufung trifft immer der Anbieter, nie der Konsument |
-
-`contractVersion` ist von Anfang an dabei (`'1.0'`), `level` ist `null`, wenn (noch) keine
-Bewertung möglich ist (z. B. zu wenig Erzeugung für eine sinnvolle Aussage oder keine Schwelle
-konfiguriert) — der Rohwert wird trotzdem geliefert.
+Auf diesem Zweig (`ems-integration`) entfernt (20.08.2026): Die Aufgabe der Visualisierung
+(Stromfluss-Kachel, Sankey-Diagramm, Monitoring/Diagnostik) übernimmt jetzt
+[NRGDashboard](https://github.com/DG65/NRGDashboard). Mit `InverterHubMonitor` ist auch der
+Diagnostik-Vertrag `IHUBMON_GetDiagnostics` entfallen. Die volle Doku dieser drei Module bleibt
+in der Git-Historie dieses Repos erhalten.
 
 ## Fronius und SMA: Hinweis zur SunSpec-Discovery
 
@@ -286,24 +133,13 @@ Teil des **NRG-Stack** — welche Modulstände zusammenpassen, listet
 **[Prognose](https://github.com/DG65/NRGPrognose)** liefert die Prognosen, gegen die dieses
 Projekt die Messwerte stellt. Genutzt wird davon das Modul **PV-Prognose** (Präfix `PVF`):
 
-- Der **InverterHubMonitor** berechnet aus den dort gepflegten Generatorparametern (kWp je
-  Generator, Performance-Ratio) zusammen mit einem Einstrahlungssensor **Erwartungswerte** und
-  stellt sie dem gemessenen Ertrag gegenüber — gestrichelt im Diagramm. Damit lassen sich
-  Verschmutzung und Defekte erkennen (Soll/Ist-Vergleich).
-- Ist das Prognose-Modul nicht installiert, weist die Konfigurationsmaske darauf hin und die
-  Erwartungswerte entfallen; alles andere funktioniert unverändert.
-
-### Tessie (Tesla-Fahrzeuge) — optional, rein über Konfiguration
-
-Die Stromflusskachel kann an einer Wallbox den **Ladestand des angesteckten Fahrzeugs** und
-dessen Namen anzeigen. Die Fahrzeug-Tabelle der Kachel ist dabei bewusst **herstellerneutral**:
-Pro Fahrzeug werden Bezeichnung, eine „Verbunden"-Bedingung und eine SOC-Variable eingetragen —
-gleich, woher diese Variablen stammen. Mit dem Modul
-**[Tessie](https://github.com/DG65/NRGTessie)** lassen sich dafür die Fahrzeugdaten eines Teslas
-nutzen (dessen `Soc`-Variable und ein Verbunden-Kennzeichen).
-
-Es besteht **keine Code-Abhängigkeit** zu Tessie: Die Kachel ruft dort nichts auf, sondern liest
-nur die eingetragenen Variablen. Jede andere Quelle funktioniert genauso.
+- Der **InverterHubMonitor** (Genutzt auf `main`/`beta`, auf `ems-integration` entfernt —
+  Aufgabe jetzt bei NRGDashboard) berechnete aus den dort gepflegten Generatorparametern (kWp
+  je Generator, Performance-Ratio) zusammen mit einem Einstrahlungssensor **Erwartungswerte**
+  und stellte sie dem gemessenen Ertrag gegenüber. Damit lassen sich Verschmutzung und Defekte
+  erkennen (Soll/Ist-Vergleich).
+- Ist das Prognose-Modul nicht installiert, entfallen die Erwartungswerte; alles andere
+  funktioniert unverändert.
 
 ### MeterHub (Energiezähler)
 
@@ -315,14 +151,8 @@ sich, wo beide installiert sind:
 - **Gerätesuche:** Der `InverterHubDiscovery` findet auf Wunsch in einem Durchlauf sowohl
   Wechselrichter als auch Zähler und legt Zähler direkt als MeterHub-Instanzen an. Ist MeterHub
   nicht installiert, werden gefundene Zähler übersprungen.
-- **Stromflusskachel:** Die `InverterHubTile` kann ihre Verbraucher-Kreise automatisch aus
-  MeterHub-Instanzen beziehen (Funktionszuordnung → Art, Bezeichnung, Leistungsvariable). Ein
-  MeterHub-Zähler mit Funktion „Netzanschluss" speist die Netzleistung, einer mit
-  „Hausverbrauch" die gemessene Hauslast — die Kachel läuft dadurch auch ganz ohne
-  InverterHub-Instanz. Ohne MeterHub verhält sich die Kachel unverändert.
 
-Die Kopplung ist in beide Richtungen optional: Keines der Module setzt das andere voraus, und
-fehlt das jeweils andere, entfallen lediglich die genannten Zusatzfunktionen.
+Die Kopplung ist optional: Keines der Module setzt das andere voraus.
 
 ## Installation
 
@@ -337,20 +167,11 @@ Für den Beta-Kanal den Zweig `beta` auswählen.
 ### Zusammenspiel mit den anderen Modulen: wie sie sich finden
 
 Alle Kopplungen sind **optional** — kein Modul setzt ein anderes voraus. Fehlt ein Partner,
-entfallen nur dessen Zusatzfunktionen. Gefunden wird auf **drei verschiedene Arten**, und nur
-eine davon läuft von selbst:
+entfallen nur dessen Zusatzfunktionen.
 
 | Kopplung | Wie sie zustande kommt |
 |---|---|
-| Monitoring → **PV-Prognose** | **automatisch**, sobald das Prognose-Modul installiert ist |
 | Gerätesuche → **MeterHub** | **automatisch**: gefundene Zähler werden als MeterHub-Instanzen angelegt |
-| Kachel/Sankey → **MeterHub**, **HeishaMon** | **manuell**: Instanzen in der jeweiligen Liste im Konfigurationsformular eintragen |
-| Wallbox-Ladestand (z. B. Tessie), gemessene Hauslast | **manuell**: Variable auswählen |
-
-**Der häufigste Stolperstein:** Wer ein Partnermodul **nachträglich** installiert, muss die
-Konfiguration der Kachel bzw. der Sankey-Ansicht noch einmal öffnen und die neue Instanz in die
-Liste eintragen. Es passiert nichts von selbst — mit Ausnahme der PV-Prognose. Wenn also nach
-der Installation von MeterHub keine Verbraucher auftauchen, fehlt fast immer dieser Schritt.
 
 ### Empfohlene Reihenfolge
 
@@ -358,16 +179,13 @@ Die Reihenfolge ist nicht zwingend (nichts geht kaputt), erspart aber Nacharbeit
 
 1. **InverterHub** installieren, Wechselrichter anlegen — oder von der **Gerätesuche** finden lassen
 2. **MeterHub**, falls Energiezähler vorhanden
-3. **HeishaMon**, falls Wärmepumpe vorhanden
-4. **PV-Prognose** einrichten (Generatoren mit kWp eintragen)
-5. **Kacheln** zuletzt: Stromfluss, Monitoring, Sankey — dann bieten deren Listen bereits alles an
+3. **NRGDashboard**, für die Visualisierung (Stromfluss, Sankey, Monitoring/Diagnostik)
 
 ### Wie viele Instanzen?
 
-- **Wechselrichter, Zähler und Wallboxen:** beliebig viele — je Gerät eine Instanz.
+- **Wechselrichter und Zähler:** beliebig viele — je Gerät eine Instanz.
 - **EMS:** genau **eine**. Es ist die einzige Stelle, die steuernd auf die Batterie zugreift;
   eine zweite Instanz würde gegen die erste arbeiten.
-- **Kacheln:** beliebig viele, etwa eine je Ansicht oder Raum.
 
 ## Mitwirken / Fehler melden
 
