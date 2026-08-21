@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.74.1-beta.1 (2026-08-21)
+
+- **FoxESS in der Gerätesuche (`InverterHubDiscovery`) ergänzt.** Real gemeldet im Forum
+  (Beta-Tester "hbraun"/Horst): Das Kernmodul hat seit 0.74.0-beta.1 einen vollständigen
+  Read-Only-FoxESS-Treiber (H1/H3), die Gerätesuche kannte den Hersteller aber nicht — jeder
+  Scan endete mit „0 Geräte gefunden", unabhängig vom versuchten Port. Erkennungsmerkmal:
+  Betriebsstatus-Register (Input 11056, plausibler Enum-Wert 0–5) + Modellname (Input
+  10000–10007, ASCII), beide per FC04 wie im Kerntreiber. **Unit-ID-Kandidaten `247, 1` sind
+  eine Annahme** (analog zu GoodWes Konvention derselben Dokumentationsfamilie) — **noch nicht
+  an echter FoxESS-Hardware verifiziert**, siehe CLAUDE.md.
+
 ## 0.74.0-beta.1 (2026-07-25)
 
 - **Neuer Verbund-Vertrag `IHUBMON_GetDiagnostics($id)`**, mit NRGDashboard abgestimmt: Erster

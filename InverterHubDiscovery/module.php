@@ -43,6 +43,7 @@ class InverterHubDiscovery extends IPSModule
         'kostal'    => [71, 1],
         'victron'   => [100],
         'huawei'    => [1, 0, 16],
+        'foxess'    => [247, 1],
     ];
 
     private const VENDOR_LABELS = [
@@ -59,14 +60,16 @@ class InverterHubDiscovery extends IPSModule
         'kostal'    => 'Kostal',
         'victron'   => 'Victron GX',
         'huawei'    => 'Huawei SUN2000',
+        'foxess'    => 'FoxESS',
     ];
 
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-inverterhub-multi-wechselrichter-ein-modbus-tcp-modul-fuer-goodwe-sma-fronius-sungrow-solis-growatt-solax/144121';
     private const ATTR_REVIEW_HINT_GONE = 'ReviewHintDismissed';
 
     // „Was ist neu"-Banner (siehe newsBanner()/AckNews()).
-    private const NEWS_VERSION = '0.45';
+    private const NEWS_VERSION = '0.46';
     private const NEWS_ITEMS = [
+        'FoxESS wird jetzt mit erkannt (Unit-ID-Kandidaten noch unbestätigt, Rückmeldung willkommen).',
         'Victron und Huawei werden jetzt mit erkannt.',
         'Freie Namensvorlage für neue Instanzen mit Platzhaltern ({hersteller}, {ip}, {unitid}, {nr}).',
     ];
@@ -947,6 +950,19 @@ class InverterHubDiscovery extends IPSModule
                 }
                 $name = $this->readHolding($ip, $port, $unitId, 30000, 10, 1.0);
                 return $this->looksLikeAsciiText($name, 5);
+
+            case 'foxess':
+                // Input 11056: Betriebsstatus, laut "Fox Hybrid/AC Modbus Protocol"
+                // (V1.01) ein kleiner Enum-Wert (0=Warten .. 5=Nicht behebbarer
+                // Fehler) - plausibel nur 0..5.
+                $s = $this->readInput($ip, $port, $unitId, 11056, 1, 1.0);
+                if ($s === null || $s[0] < 0 || $s[0] > 5) {
+                    return false;
+                }
+                // Input 10000-10007: Modellname (8 Register, ASCII) - zweites
+                // Merkmal, analog den anderen Treibern.
+                $model = $this->readInput($ip, $port, $unitId, 10000, 8, 1.0);
+                return $this->looksLikeAsciiText($model, 4);
         }
         return false;
     }

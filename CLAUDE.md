@@ -1,5 +1,23 @@
 # Hinweise für die Arbeit an diesem Repository
 
+## FoxESS fehlte in der Gerätesuche (21.08.2026, Forum-Meldung "hbraun"/Horst)
+
+Real gemeldet: Ein FoxESS-Nutzer fand über `InverterHubDiscovery` "0 Geräte", egal welchen Port
+er versuchte (245 wie in Home Assistant, dann 502). Ursache: Das Kernmodul hat seit
+0.74.0-beta.1 einen vollständigen `IHUB_FoxEssDriver` (Read-Only-MVP), aber `foxess` fehlte
+komplett in `InverterHubDiscovery`s `VENDOR_UNIT_IDS`/`VENDOR_LABELS`/`probeVendor()` — die
+Suche konnte den Hersteller also unabhängig vom Port gar nicht erkennen. Nachgezogen
+(0.74.1-beta.1): Erkennung über Input-Register 11056 (Betriebsstatus, Enum 0–5) + 10000-10007
+(Modellname, ASCII), beide FC04 wie im Kerntreiber dokumentiert.
+
+**Unit-ID-Kandidaten `[247, 1]` sind eine Annahme, KEINE bestätigte Tatsache** — im Gegensatz
+zu den anderen Treibern in `probeVendor()`, die alle an echter Hardware verifiziert wurden. Der
+FoxESS-Kerntreiber selbst ist ebenfalls explizit als "Read-Only-Vorabversion, Beta, ungetestet"
+markiert. Bei einer Rückmeldung, dass die Suche mit dieser Änderung immer noch nichts findet:
+zuerst die tatsächliche Unit-ID des Geräts erfragen/erproben (FoxESS-Cloud-Dongle-Konfiguration
+oder Home-Assistant-FoxESS-Integration nennen sie oft explizit), dann `VENDOR_UNIT_IDS['foxess']`
+entsprechend erweitern — nicht auf der Annahme beharren.
+
 ## `InverterHubTile`/`InverterHubMonitor`/`InverterHubEnergy` entfernt (nur `ems-integration`, 20.08.2026)
 
 Auf Anweisung Dietmars entfernt: Die drei Visualisierungs-Kacheln (Stromfluss, Sankey,
