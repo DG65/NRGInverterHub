@@ -1,6 +1,36 @@
 # Hinweise für die Arbeit an diesem Repository
 
-## Falsche Ferndiagnose korrigiert: kein Bibliotheks-Duplikat, zwei harmlose Ursachen
+## GoodWe reagiert schleppend auf Schaltbefehle — Verbindungs-Konkurrenz mit dem Lesezyklus
+
+Real beobachtet (24.08.2026, Dietmars Anlage #52838, unabhängig auch von der EMS-Sitzung an
+derselben Instanz bestätigt): `IPS_RequestAction()` auf `ctl_ems_mode`/`ctl_ems_power` übernimmt
+den Wert in der IPS-Variable sofort (Schreibvorgang laut `writeSingle()` erfolgreich), die reale
+Batterieleistung bleibt aber **20-50+ Sekunden** bei ~0 W/Rauschen, unabhängig vom gesetzten
+Xset. Betroffen waren die Modi 4 (AC-Import), 5 (AC-Export), 6 (Energiesparen), 9
+(Stromeinkauf), 11 (Batterie-Laden) — praktisch jeder Xset-Modus, nicht nur gelegentlich.
+
+**Zuverlässiger Workaround (mehrfach reproduziert, EMS-Sitzung):** Kommunikation an der
+InverterHub-Instanz kurz deaktivieren und wieder aktivieren, danach den Modus erneut setzen —
+dann reagiert die Batterie regelmäßig binnen 5-20 Sekunden. Musste bei (fast) jedem einzelnen
+Moduswechsel wiederholt werden, nicht nur einmal täglich.
+
+**Ursache gefunden:** `GetModbusClient()` erzeugt bei **jedem** Aufruf ein neues
+`IHUB_ModbusTcpClient`-Objekt — sowohl `RequestAction()`/`writeControl()` als auch der
+periodische `FastTimer` (`IntervalFast`, Standard 5 s) öffnen also unabhängig voneinander eigene
+Verbindungen. Der GoodWe-Treiber nutzte dabei — anders als der Sungrow-Treiber (dort schon mit
+Batch-Modus wegen des WiNet-S-Einzelverbindungslimits) — **keinen** Batch-Modus: `readFast()`
+öffnete für **jeden** der ~15-20 Register-Blöcke eine eigene, frisch geöffnete Verbindung. Fällt
+ein Schaltbefehl in dieses mehrere Sekunden lange Lesefenster, konkurriert die Schreibverbindung
+mit den laufenden Lese-Verbindungen um die GoodWe-Firmware.
+
+**Fix (24.08.2026):** `readFast()` läuft jetzt wie beim Sungrow-Treiber in `beginBatch()`/
+`endBatch()` — eine wiederverwendete Verbindung für den gesamten Lesezyklus statt 15-20
+einzelner. Verkürzt das Konfliktfenster von mehreren Sekunden auf einen Bruchteil, beseitigt es
+aber nicht zwingend vollständig (der Schaltbefehl selbst öffnet weiterhin eine eigene, separate
+Verbindung — echte Serialisierung bräuchte eine geteilte/gesperrte Verbindung über
+Skript-Ausführungen hinweg, was IPS' Architektur so nicht ohne Weiteres hergibt). **Auf Dietmars
+Anlage noch nicht live gegengetestet** — nächster Schritt: nach einem Modul-Update beobachten,
+ob das "20-50+ Sekunden Nullleistung"-Muster seltener/kürzer auftritt.
 
 Vorläufige Fehleinschätzung (21.08.2026, FoxESS-Fall unten, Beta-Tester "hbraun") aus der
 Ferne, ohne Zugriff auf das reale System — beim Nachfassen widerlegt, hier als Lehre

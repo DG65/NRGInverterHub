@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.74.2-beta.1 (2026-08-24)
+
+- **GoodWe: Lesezyklus auf Batch-Verbindung umgestellt.** Real beobachtet (Dietmars Anlage,
+  unabhängig auch von der EMS-Sitzung bestätigt): Schaltbefehle (`ctl_ems_mode`/`ctl_ems_power`)
+  wurden laut IPS-Variable sofort übernommen, die reale Batterieleistung blieb aber 20-50+
+  Sekunden bei ~0 W. Ursache: `readFast()` öffnete für jeden der ~15-20 Register-Blöcke eine
+  eigene, frische Modbus-Verbindung (kein Batch-Modus, anders als beim Sungrow-Treiber) —
+  konkurrierte mit der ebenfalls frisch geöffneten Verbindung eines gleichzeitigen
+  Schaltbefehls. Jetzt wie beim Sungrow-Treiber: eine wiederverwendete Verbindung für den
+  gesamten Lesezyklus. **Noch nicht live gegengetestet**, siehe CLAUDE.md.
+
 ## 0.74.1-beta.3 (2026-08-21)
 
 - **FoxESS-Erkennung: zweite, komplett andere Registerwelt ergänzt.** Neuere Modelle mit

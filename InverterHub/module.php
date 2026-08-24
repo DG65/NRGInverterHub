@@ -618,7 +618,30 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
         ];
     }
 
-    public function readFast($mb, $hub){
+    // Verbindungs-Konkurrenz mit RequestAction()/writeControl() (24.08.2026,
+    // live an Dietmars Anlage + unabhaengig von EMS bestaetigt, siehe CLAUDE.md
+    // "GoodWe reagiert schleppend auf Schaltbefehle"): readFast() las bisher
+    // JEDEN der ~15-20 Register-Bloecke ueber eine EIGENE, frisch geoeffnete
+    // Verbindung (kein Batch-Modus, anders als beim Sungrow-Treiber). Faellt
+    // ein RequestAction()-Schreibbefehl (eigene, ebenfalls frische Verbindung
+    // ueber GetModbusClient()) in dieses mehrere Sekunden lange Lesefenster,
+    // konkurrieren beide um die GoodWe-Firmware - beobachtetes Symptom: der
+    // Schaltbefehl wird laut IPS-Variable sofort uebernommen, die reale
+    // Batterieleistung bleibt aber 20-50+ Sekunden bei ~0W/Rauschen. Analog zum
+    // Sungrow-WiNet-S-Muster oben: EINE wiederverwendete Verbindung fuer den
+    // gesamten Lesezyklus verkuerzt das Konfliktfenster von mehreren Sekunden
+    // auf einen Bruchteil.
+    public function readFast($mb, $hub)
+    {
+        $mb->beginBatch();
+        try {
+            return $this->readFastInner($mb, $hub);
+        } finally {
+            $mb->endBatch();
+        }
+    }
+
+    private function readFastInner($mb, $hub){
         $inv     = $mb->readHolding(35103, 42);
         $bat1blk = $mb->readHolding(35174, 18);
         $bat2blk = $mb->readHolding(35262, 7);
