@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.74.2-beta.2 (2026-08-25)
+
+- **`ReassertEmsControl()`: von blindem Zeit-Reassert auf Drift-Prüfung umgestellt.** Real
+  beobachtet: Mit `EmsReassertEnabled=true` wurde der zuletzt kommandierte Wert (z. B.
+  "Entladen 10000 W") alle 60s stur neu geschrieben — auch wenn das Register längst korrekt
+  stand oder die Batterie im Standby war (dort wirkungslos). `readFast()` liest
+  `ctl_ems_mode`/`ctl_ems_power` jetzt jeden Zyklus tatsächlich zurück; reassertiert wird nur
+  noch bei tatsächlicher Abweichung vom kommandierten Wert. Reduziert unnötigen Modbus-Traffic
+  UND macht den gesetzten Modus zuverlässiger sticky (echte Selbstheilung bei Drift, z. B. dem
+  bekannten Rückfall auf 255, statt reiner Zeitsteuerung). **Noch nicht live gegengetestet.**
+
 ## 0.74.2-beta.1 (2026-08-24)
 
 - **GoodWe: Lesezyklus auf Batch-Verbindung umgestellt.** Real beobachtet (Dietmars Anlage,

@@ -1,5 +1,35 @@
 # Hinweise für die Arbeit an diesem Repository
 
+## ReassertEmsControl(): von blindem Zeit-Reassert auf Drift-Prüfung umgestellt (25.08.2026)
+
+Real beobachtet (Dietmars Anlage, live): `ctl_ems_mode`/`ctl_ems_power` wurden bislang NIE
+zurückgelesen — `readFast()` schrieb sie nur beim Kommandieren, `ReassertEmsControl()`
+schrieb den zuletzt kommandierten Wert stur alle `EMS_REASSERT_DEADMAN_SEC` (60s) erneut,
+unabhängig davon, ob das Register längst korrekt stand. Konkret beobachtet: Mit
+`EmsReassertEnabled=true` wurde "Entladen 10000 W" wiederholt in eine Batterie geschrieben, die
+gerade im **Standby** stand (`bat1_mode`/`bat2_mode` beide "Standby") — wirkungsloser, aber
+nicht harmloser Dauer-Traffic ("Käse"): Bei ohnehin instabiler Netzwerkverbindung zum WR (s.
+Abschnitt unten) kann jeder dieser unnötigen Schreibversuche selbst hängenbleiben und über
+synchrone `IPS_RequestAction()`-Aufrufe (z. B. von EMS, alle 30s) fremde Skript-Threads
+blockieren.
+
+**Fix:**
+1. `readFastInner()` liest `ctl_ems_mode`/`ctl_ems_power` (Register 47511+47512, ein
+   zusammenhängender Read) jetzt **jeden Zyklus tatsächlich zurück** und schreibt den echten
+   IST-Wert in die Variablen — vorher konnten diese Variablen nur den zuletzt kommandierten
+   SOLL-Wert zeigen, nie den tatsächlichen Registerstand (z. B. den bekannten Rückfall auf 255
+   war bisher gar nicht sichtbar, außer über einen externen Akteur, der selbst zurückliest).
+2. `ReassertEmsControl()` vergleicht jetzt den frisch zurückgelesenen IST-Wert gegen den
+   kommandierten SOLL-Wert (`LastCommanded_<ident>`) und schreibt **nur noch bei tatsächlicher
+   Abweichung** — steht das Register schon korrekt, bleibt der Zyklus komplett stumm. Das
+   behebt sowohl das Sinnlos-Schreiben in den Standby-Fall als auch die generelle
+   Traffic-Reduktion, UND macht den Modus gleichzeitig zuverlässiger sticky (echte
+   Selbstheilung bei Drift, z. B. dem 255-Rückfall, statt reiner Zeitsteuerung).
+
+**Noch nicht live gegengetestet.** Nächster Schritt: nach Modul-Update beobachten, ob a) der
+gesetzte Modus jetzt zuverlässig ankommt/bleibt (kein Rückfall auf 255 mehr unbemerkt) und b)
+keine unnötigen Schreibversuche mehr im Standby-Fall auftreten.
+
 ## GoodWe reagiert schleppend auf Schaltbefehle — Verbindungs-Konkurrenz mit dem Lesezyklus
 
 Real beobachtet (24.08.2026, Dietmars Anlage #52838, unabhängig auch von der EMS-Sitzung an

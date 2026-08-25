@@ -683,6 +683,17 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
             $hub->SetVarInt('work_mode', $mb->u16($wm, 0));
         }
 
+        // Rueckgelesener IST-Zustand von ctl_ems_mode/ctl_ems_power (24.08.2026,
+        // fuer die drift-basierte Pruefung in ReassertEmsControl() - vorher
+        // wurden diese Idents NUR beim Schreiben gesetzt, nie zurueckgelesen,
+        // wodurch ReassertEmsControl() blind auf Zeit statt auf tatsaechlicher
+        // Abweichung reassertieren musste. Ein Read, deckt beide Register ab.
+        $emsCtl = $mb->readHolding(self::REG_EMS_POWER_MODE, 2);
+        if ($emsCtl !== null) {
+            $hub->SetVarInt('ctl_ems_mode', $mb->u16($emsCtl, 0));
+            $hub->SetVarInt('ctl_ems_power', $mb->u16($emsCtl, 1));
+        }
+
         $bat2Active = $hub->GetPropBool('GroupBat2') && ($bat2blk !== null);
         $soc1 = ($bms !== null) ? (float)$mb->u16($bms, 8)  : 0.0;
         $soc2 = ($bms !== null) ? (float)$mb->u16($bms, 26) : 0.0;
@@ -4977,13 +4988,30 @@ class InverterHub extends IPSModule
         if ($lastCommandTime > 0 && (time() - $lastCommandTime) < self::EMS_REASSERT_DEADMAN_SEC) {
             return; // kuerzlich schrieb schon jemand (wir oder extern) - nicht parallel mitschreiben
         }
+        // Drift-Pruefung statt blindem Zeit-Reassert (24.08.2026, real
+        // beobachtet: die vorige Fassung schrieb den kommandierten Wert stur
+        // alle EMS_REASSERT_DEADMAN_SEC neu, auch wenn das Register laengst
+        // korrekt stand ODER die Batterie im Standby war und der Befehl
+        // ohnehin wirkungslos blieb - unnoetiger Modbus-Traffic ("Kaese"),
+        // der bei ohnehin instabiler Verbindung zusaetzliche haengende
+        // Schreibversuche provozierte. readFastInner() liest ctl_ems_mode/
+        // ctl_ems_power jetzt JEDEN Zyklus tatsaechlich zurueck (s. o.) -
+        // reassertiert wird nur noch, wenn der IST-Wert vom kommandierten
+        // SOLL-Wert tatsaechlich abweicht (z. B. der bekannte Rueckfall auf
+        // 255). Steht das Register schon korrekt, bleibt dieser Zyklus
+        // komplett stumm.
         $mb = $this->GetModbusClient();
         foreach (self::EMS_REASSERT_IDENTS as $ident) {
-            $value = $this->ReadAttributeInteger('LastCommanded_' . $ident);
-            if ($value === self::EMS_NOT_COMMANDED) {
+            $commanded = $this->ReadAttributeInteger('LastCommanded_' . $ident);
+            if ($commanded === self::EMS_NOT_COMMANDED) {
                 continue; // noch nie kommandiert - nichts zu wiederholen
             }
-            $this->GetDriver()->writeControl($mb, $this, $ident, $value);
+            $vid = $this->FindVarByIdent($ident);
+            $live = $vid ? GetValueInteger($vid) : null;
+            if ($live !== null && $live === $commanded) {
+                continue; // Register steht schon korrekt - nichts zu tun
+            }
+            $this->GetDriver()->writeControl($mb, $this, $ident, $commanded);
         }
     }
 
