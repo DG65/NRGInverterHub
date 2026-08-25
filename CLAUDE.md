@@ -1183,12 +1183,24 @@ ungültigen Sentinel-Wert `255` zurück. Betroffen waren die aktiven Steuerwerte
 Automatik, `9` Stromeinkauf, `11` Batterie-Laden, `12` Batterie-Entladen). **Nicht** betroffen
 war der Wert `7` (Inselbetrieb) — der hielt stabil, ohne zurückzufallen.
 
-**Wichtig: Das ist kein Fehler in unserem Code.** Live bestätigt über die komplett unabhängige,
-alte GoodweET-Instanz (eigene, nachweislich korrekt gebundene Action) — auch dort fiel derselbe
-Wert auf `255` zurück. Es handelt sich um ein Verhalten des Wechselrichters/der Firmware selbst,
-nicht um einen Schreib- oder Bindungsfehler von InverterHub. Ob es sich um einen echten
-Heartbeat/Timeout oder eine wertspezifische Sonderbehandlung von `7` handelt, ist **nicht**
-abschließend geklärt.
+**KORREKTUR (25.08.2026, Dietmar direkt widersprochen):** Der obige Absatz behauptete, das sei
+"kein Fehler in unserem Code" und unabhängig über die alte GoodweET-Instanz bestätigt. Das ist
+laut Dietmar so nicht haltbar: Er hat den Wechselrichter seit letztem Jahr, das "Register hält
+nicht/fällt zurück"-Verhalten trat aber **erst auf, seit InverterHub im Einsatz ist** — nicht
+vorher. Die GoodweET-Beobachtung von damals belegt also offenbar NICHT, dass es
+InverterHub-unabhängig ist (möglicherweise lief GoodweET zum Testzeitpunkt zeitgleich mit
+InverterHub, oder die damalige Schlussfolgerung war schlicht falsch). **Diese Zeile nicht mehr
+als Entlastungsbeweis zitieren.** Der tatsächliche Verdacht (25.08.2026, EMS-Sitzung, frischer
+Live-Beleg): Ein von EMS per `IPS_RequestAction()` gesetzter Wert (`ctl_ems_power=3000`,
+`ctl_ems_mode=3`) wurde in der IPS-Variable sofort korrekt übernommen, die Batterie reagierte
+aber 30+ Sekunden konstant mit 0 W — OHNE dass unser eigener `ReassertEmsControl()` aktiv war
+(zu dem Zeitpunkt bereits deaktiviert). Der 0.74.2-beta.1-Batch-Verbindungs-Fix von heute Morgen
+hat das Problem NICHT gelöst, der Vorfall trat danach erneut auf. Naheliegendste verbleibende
+Erklärung: Der periodische `FastTimer`-Lesezyklus selbst (läuft weiter, unabhängig von
+`EmsReassertEnabled`) kollidiert weiterhin mit externen Schreibbefehlen, nur mit kürzerem statt
+eliminiertem Kollisionsfenster. **Noch nicht abschließend untersucht — als offener,
+grundsätzlicher Verdacht (nicht als Wechselrichter-Firmware-Verhalten) festgehalten**, bis
+Dietmar mit sauberen Tests (Reassert aus) mehr Klarheit hat.
 
 **Getrennt davon, ausdrücklich als Notfall-Erkenntnis vermerkt, NICHT in Code/Formular umsetzen:**
 Ein Wechselrichter+Batterie, der im Standby feststeckt (auch nachdem SOC-Grenzen im SEMS+-Portal
