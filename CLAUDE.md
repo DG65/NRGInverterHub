@@ -1183,24 +1183,28 @@ ungültigen Sentinel-Wert `255` zurück. Betroffen waren die aktiven Steuerwerte
 Automatik, `9` Stromeinkauf, `11` Batterie-Laden, `12` Batterie-Entladen). **Nicht** betroffen
 war der Wert `7` (Inselbetrieb) — der hielt stabil, ohne zurückzufallen.
 
-**KORREKTUR (25.08.2026, Dietmar direkt widersprochen):** Der obige Absatz behauptete, das sei
-"kein Fehler in unserem Code" und unabhängig über die alte GoodweET-Instanz bestätigt. Das ist
-laut Dietmar so nicht haltbar: Er hat den Wechselrichter seit letztem Jahr, das "Register hält
-nicht/fällt zurück"-Verhalten trat aber **erst auf, seit InverterHub im Einsatz ist** — nicht
-vorher. Die GoodweET-Beobachtung von damals belegt also offenbar NICHT, dass es
-InverterHub-unabhängig ist (möglicherweise lief GoodweET zum Testzeitpunkt zeitgleich mit
-InverterHub, oder die damalige Schlussfolgerung war schlicht falsch). **Diese Zeile nicht mehr
-als Entlastungsbeweis zitieren.** Der tatsächliche Verdacht (25.08.2026, EMS-Sitzung, frischer
-Live-Beleg): Ein von EMS per `IPS_RequestAction()` gesetzter Wert (`ctl_ems_power=3000`,
-`ctl_ems_mode=3`) wurde in der IPS-Variable sofort korrekt übernommen, die Batterie reagierte
-aber 30+ Sekunden konstant mit 0 W — OHNE dass unser eigener `ReassertEmsControl()` aktiv war
-(zu dem Zeitpunkt bereits deaktiviert). Der 0.74.2-beta.1-Batch-Verbindungs-Fix von heute Morgen
-hat das Problem NICHT gelöst, der Vorfall trat danach erneut auf. Naheliegendste verbleibende
-Erklärung: Der periodische `FastTimer`-Lesezyklus selbst (läuft weiter, unabhängig von
-`EmsReassertEnabled`) kollidiert weiterhin mit externen Schreibbefehlen, nur mit kürzerem statt
-eliminiertem Kollisionsfenster. **Noch nicht abschließend untersucht — als offener,
-grundsätzlicher Verdacht (nicht als Wechselrichter-Firmware-Verhalten) festgehalten**, bis
-Dietmar mit sauberen Tests (Reassert aus) mehr Klarheit hat.
+**Zwischenkorrektur (25.08.2026 vormittags) inzwischen selbst wieder relativiert:** Kurzzeitig
+stand hier, die ursprüngliche "kein Fehler in unserem Code"-Aussage sei laut Dietmar widerlegt.
+Am selben Nachmittag (14:43 Uhr) hat Dietmar einen sauberen Gegenversuch gemacht: InverterHub
+**komplett ausgeschaltet**, stattdessen die alte, unabhängige Legacy-GoodweET-Instanz (#28039,
+komplett anderer Code, eigene Verbindung) direkt auf Modus 3 geschaltet — Register ist
+**sofort** wieder auf 255 zurückgefallen, mit unserem Code dabei nicht einmal aktiv. Das
+bestätigt die ursprüngliche Einschätzung: **255-Rückfall ist echtes WR-/Firmware-Verhalten,
+unabhängig von InverterHub.** Offen bleibt nur noch der Widerspruch zu Dietmars "das gab's vor
+InverterHub nie"-Aussage — möglich wäre ein WR-Firmware-Update oder ein geändertes
+SEMS+-Portal-Verhalten irgendwann im letzten Jahr, unabhängig von unserem Modul; nicht weiter
+aufgeklärt.
+
+**Getrennt davon, weiterhin ein offener, echter Verdacht bei uns:** Derselbe Nachmittag lieferte
+zusätzlich einen unabhängigen Beleg für ein zweites Problem — ein von EMS per
+`IPS_RequestAction()` gesetzter Wert (`ctl_ems_power=3000`, `ctl_ems_mode=3`) wurde in der
+IPS-Variable sofort korrekt übernommen, die Batterie reagierte aber 30+ Sekunden konstant mit
+0 W, obwohl unser eigener `ReassertEmsControl()` zu dem Zeitpunkt bereits deaktiviert war. Der
+0.74.2-beta.1-Batch-Verbindungs-Fix von diesem Morgen hat das nicht gelöst. Das ist NICHT
+dasselbe Symptom wie der 255-Rückfall (der jetzt als reines WR-Verhalten gilt) — vermutlich der
+periodische `FastTimer`-Lesezyklus, der weiterhin (unabhängig von `EmsReassertEnabled`) mit
+externen Schreibbefehlen kollidiert, nur mit kürzerem statt eliminiertem Zeitfenster. Noch nicht
+abschließend untersucht.
 
 **Getrennt davon, ausdrücklich als Notfall-Erkenntnis vermerkt, NICHT in Code/Formular umsetzen:**
 Ein Wechselrichter+Batterie, der im Standby feststeckt (auch nachdem SOC-Grenzen im SEMS+-Portal
