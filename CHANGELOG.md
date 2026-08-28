@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.74.4-beta.1 (2026-08-28)
+
+- **`IHUB_GetFunctions()`: Vertrag 1.1 → 1.2, MPPT-Strangdetails exponiert.** Drei weitere
+  additive Felder `mpptPowerIDs`/`mpptCurrentIDs`/`mpptVoltageIDs` (je ein Array von
+  Variablen-IDs, ein Eintrag pro Strang) auf Anfrage von NRGDashboard für eine
+  Stromwerte-Tabelle je MPPT-Strang. Generisch über `FindVarByIdent()` je Treiber-Idiom
+  (`mpptN_current` vs. `mpptN_curr`) gesucht, kein Bruch für bestehende Konsumenten.
+
 ## 0.74.3-beta.1 (2026-08-28)
 
 - **`IHUB_GetFunctions()`: Vertrag 1.0 → 1.1, Mehrblock-Batterien exponiert.** Auf Anfrage von

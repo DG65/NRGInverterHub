@@ -698,6 +698,13 @@ Aktuell nur beim GoodWe-Treiber befüllt (`bat1_temp`/`bat1_soc`/`bat1_soh`/`bat
 `bat_capacity`), generisch über `FindVarByIdent()` gesucht — kein Treiber-Sonderfall in
 `GetFunctions()` nötig, andere Treiber liefern einfach leere Arrays.
 
+**`contractVersion` 1.1 → 1.2 (28.08.2026, additiv, kein Bruch):** drei neue Felder für
+MPPT-Stränge (NRGDashboard-Anfrage: "Tabelle mit allen relevanten Stromwerten ... auch für die
+MPPTs"): `mpptPowerIDs`/`mpptCurrentIDs`/`mpptVoltageIDs`, je ein flaches Array, ein Eintrag pro
+Strang (bis zu 4). Ident-Schreibweise unterscheidet sich je Treiber (GoodWe: `mpptN_power`/
+`mpptN_current`; Sungrow/Victron: `mpptN_power`/`mpptN_curr`/`mpptN_volt`) — beide Varianten
+werden anhand des Idents probiert, generisch über `FindVarByIdent()`, kein Treiber-Sonderfall.
+
 **`controlAuthority` wird durchgesetzt, nicht nur gemeldet.** `RequestAction` verweigert jeden
 Schreibzugriff, wenn die Instanz nicht auf `ems` steht (Verteidigung in der Tiefe — das EMS soll
 den Wert selbst prüfen, aber ein Fehler dort darf hier nicht zu einer ungewollten Schreibaktion

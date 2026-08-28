@@ -5174,12 +5174,37 @@ class InverterHub extends IPSModule
                 $batterySohIDs[] = $h;
             }
         }
+        // MPPT-Strang-Details (Dietmar, 28.08.2026, ueber NRGDashboard
+        // angefragt: "eine Tabelle mit allen relevanten Stromwerten ...
+        // z.B. auch fuer die MPPTs"). Ident-Schreibweise unterscheidet sich
+        // je Treiber (GoodWe: mppt1_current, Sungrow/Victron: mppt1_curr/
+        // mppt1_volt) - beide Varianten je Index probieren, $find() liefert
+        // bei Nichttreffer ohnehin 0. Bis zu 4 Straenge (aktuell hoechste
+        // beobachtete Anzahl, z.B. Sungrow).
+        $mpptPowerIDs = [];
+        $mpptCurrentIDs = [];
+        $mpptVoltageIDs = [];
+        for ($i = 1; $i <= 4; $i++) {
+            $p = $find('mppt' . $i . '_power');
+            $c = $find('mppt' . $i . '_current') ?: $find('mppt' . $i . '_curr');
+            $v = $find('mppt' . $i . '_volt');
+            if ($p > 0) {
+                $mpptPowerIDs[] = $p;
+            }
+            if ($c > 0) {
+                $mpptCurrentIDs[] = $c;
+            }
+            if ($v > 0) {
+                $mpptVoltageIDs[] = $v;
+            }
+        }
         return [
-            // 1.0 -> 1.1: additive Erweiterung (batteryTempIDs/batterySocIDs/
-            // batterySohIDs/batteryCapacityID) - kein Feld entfernt/umbenannt/
+            // 1.0 -> 1.1: batteryTempIDs/batterySocIDs/batterySohIDs/
+            // batteryCapacityID. 1.1 -> 1.2: mpptPowerIDs/mpptCurrentIDs/
+            // mpptVoltageIDs. Beides additiv, kein Feld entfernt/umbenannt/
             // umgedeutet, Major bleibt unveraendert (siehe CLAUDE.md
             // "Vertragsversionierung").
-            'contractVersion'  => '1.1',
+            'contractVersion'  => '1.2',
             'instanceID'       => $this->InstanceID,
             'manufacturer'     => $this->ReadPropertyString('Manufacturer'),
             // Immer false bei einer PHYSISCHEN Instanz (dieses Modul). Reserviert
@@ -5206,6 +5231,9 @@ class InverterHub extends IPSModule
             'batterySocIDs'    => $batterySocIDs,
             'batterySohIDs'    => $batterySohIDs,
             'batteryCapacityID' => $find('bat_capacity'),
+            'mpptPowerIDs'     => $mpptPowerIDs,
+            'mpptCurrentIDs'   => $mpptCurrentIDs,
+            'mpptVoltageIDs'   => $mpptVoltageIDs,
         ];
     }
 
