@@ -5145,8 +5145,41 @@ class InverterHub extends IPSModule
             $vid = $this->FindVarByIdent($ident);
             return $vid ?: 0;
         };
+        // Batterie-Block-Details (Dietmar, 28.08.2026, ueber NRGDashboard
+        // angefragt: bei Mehrblock-Batterien - z.B. Dietmars eigene Anlage
+        // mit 2 Tuermen - interessieren Temperatur/SOC/SOH je Block, nicht
+        // nur der aggregierte Gesamtwert). bat1_*/bat2_*-Idents existieren
+        // bislang nur beim GoodWe-Treiber; FindVarByIdent() sucht generisch
+        // im gesamten Objektbaum der Instanz, liefert bei anderen Treibern
+        // schlicht 0 zurueck - kein Treiber-Sonderfall noetig. Bis zu 4
+        // Bloecke vorgesehen (aktuell keine bat3_/bat4_-Idents vorhanden,
+        // defensiv fuer kuenftige Treiber mit mehr Bloecken). Nur belegte
+        // IDs (> 0) landen im Ergebnis - additiv, kein Konsument muss auf
+        // fehlende Bloecke pruefen, ein leeres Array ist der Normalfall bei
+        // Einzelblock-/Nicht-GoodWe-Anlagen.
+        $batteryTempIDs = [];
+        $batterySocIDs = [];
+        $batterySohIDs = [];
+        for ($i = 1; $i <= 4; $i++) {
+            $t = $find('bat' . $i . '_temp');
+            $s = $find('bat' . $i . '_soc');
+            $h = $find('bat' . $i . '_soh');
+            if ($t > 0) {
+                $batteryTempIDs[] = $t;
+            }
+            if ($s > 0) {
+                $batterySocIDs[] = $s;
+            }
+            if ($h > 0) {
+                $batterySohIDs[] = $h;
+            }
+        }
         return [
-            'contractVersion'  => '1.0',
+            // 1.0 -> 1.1: additive Erweiterung (batteryTempIDs/batterySocIDs/
+            // batterySohIDs/batteryCapacityID) - kein Feld entfernt/umbenannt/
+            // umgedeutet, Major bleibt unveraendert (siehe CLAUDE.md
+            // "Vertragsversionierung").
+            'contractVersion'  => '1.1',
             'instanceID'       => $this->InstanceID,
             'manufacturer'     => $this->ReadPropertyString('Manufacturer'),
             // Immer false bei einer PHYSISCHEN Instanz (dieses Modul). Reserviert
@@ -5169,6 +5202,10 @@ class InverterHub extends IPSModule
             'gridPowerID'      => $find('meter_total'),
             'socID'            => $find('bat_soc') ?: $find('soc'),
             'connectedID'      => $find('connected'),
+            'batteryTempIDs'   => $batteryTempIDs,
+            'batterySocIDs'    => $batterySocIDs,
+            'batterySohIDs'    => $batterySohIDs,
+            'batteryCapacityID' => $find('bat_capacity'),
         ];
     }
 

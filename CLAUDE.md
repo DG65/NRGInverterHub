@@ -689,6 +689,15 @@ Nutzereinstellung), sowie `pvPowerID`/`acPowerID`/`batPowerID`/`gridPowerID`/`so
 `connectedID`. Aktuell `controllable === true` nur bei GoodWe (9 Steuerpunkte), Deye (Ein/Aus),
 Sungrow (Start/Stop) — die übrigen 13 Treiber sind reine Lesepfade.
 
+**`contractVersion` 1.0 → 1.1 (28.08.2026, additiv, kein Bruch):** vier neue Felder für
+Mehrblock-Batterien (auf NRGDashboard-Anfrage, Dietmars eigene Anlage hat 2 Batterie-Türme):
+`batteryTempIDs`/`batterySocIDs`/`batterySohIDs` (je ein flaches Array von Variablen-IDs, ein
+Eintrag pro erkanntem Block — leer, wenn der Treiber keine Block-Idents hat oder nur ein Block
+vorhanden ist) und `batteryCapacityID` (installierte Gesamtkapazität in kWh, 0 wenn unbekannt).
+Aktuell nur beim GoodWe-Treiber befüllt (`bat1_temp`/`bat1_soc`/`bat1_soh`/`bat2_*`/
+`bat_capacity`), generisch über `FindVarByIdent()` gesucht — kein Treiber-Sonderfall in
+`GetFunctions()` nötig, andere Treiber liefern einfach leere Arrays.
+
 **`controlAuthority` wird durchgesetzt, nicht nur gemeldet.** `RequestAction` verweigert jeden
 Schreibzugriff, wenn die Instanz nicht auf `ems` steht (Verteidigung in der Tiefe — das EMS soll
 den Wert selbst prüfen, aber ein Fehler dort darf hier nicht zu einer ungewollten Schreibaktion

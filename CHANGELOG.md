@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.74.3-beta.1 (2026-08-28)
+
+- **`IHUB_GetFunctions()`: Vertrag 1.0 → 1.1, Mehrblock-Batterien exponiert.** Auf Anfrage von
+  NRGDashboard (Detailansicht der Energiefluss-Kachel) vier neue additive Felder:
+  `batteryTempIDs`/`batterySocIDs`/`batterySohIDs` (je ein Array von Variablen-IDs, ein Eintrag
+  pro erkanntem Batterie-Block) und `batteryCapacityID` (installierte Gesamtkapazität in kWh).
+  Aktuell nur beim GoodWe-Treiber befüllt (Dietmars eigene Anlage hat 2 Batterie-Türme mit
+  eigener Temperatur/SOC/SOH je Block, bisher nur intern verfügbar) — andere Treiber liefern
+  einfach leere Arrays, kein Bruch für bestehende Konsumenten.
+
 ## 0.74.2-beta.2 (2026-08-25)
 
 - **`ReassertEmsControl()`: von blindem Zeit-Reassert auf Drift-Prüfung umgestellt.** Real
