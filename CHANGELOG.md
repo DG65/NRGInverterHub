@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.76.0-beta.6 (2026-08-29)
+
+- **Tour-Text präzisiert:** Die Detailseite ist kachelfüllend, nicht bildschirmfüllend — je
+  größer die Kachel, desto größer die Ansicht.
+
 ## 0.76.0-beta.5 (2026-08-29)
 
 - **Tour-Startseite mit Ausblick-Hinweis:** Der erste Tour-Schritt sagt jetzt ausdrücklich,
