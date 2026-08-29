@@ -1,0 +1,349 @@
+<!-- Geraete-Detailseite der Energiefluss-Kachel (28.08.2026).
+     Wird ausschliesslich ueber den WebHook ausgeliefert
+     (/hook/nrgdashtile<ID>?detail=<key>) - bewusst als eigenstaendige,
+     bildschirmfuellende Seite statt in der Kachel, weil die Kachel im
+     Grid fuer Diagramme zu klein sein kann (Dietmar, 28.08.2026).
+     Type-neutral (CLAUDE.md Kernprinzip 2): rendert nur die generischen
+     Zeilen aus DetailValues() - die L1-L3-Gruppierung passiert rein
+     anhand des Variablennamens, kein Geraetetyp ist hart verdrahtet. -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gerätedetails</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+  :root { --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: #26292e; color: #e8eaed; font-family: var(--font);
+    padding: 18px 22px; overflow-x: hidden;
+  }
+  #closeBtn {
+    /* fixiert statt im Textfluss (Dietmar, 28.08.2026: "auch beim Scrollen
+       sollte der Schliessen-Button statisch stehen bleiben") - die Seite
+       kann bei vielen Vertragsfeldern/Diagrammen laenger als der
+       Bildschirm werden. */
+    position: sticky; top: 14px; z-index: 10;
+    display: inline-flex; align-items: center; gap: 6px; background: #3a3f46;
+    color: #e8eaed; border: 0; border-radius: 6px; padding: 6px 12px 6px 10px;
+    font-size: 13px; font-family: var(--font); cursor: pointer; margin-bottom: 14px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .35);
+  }
+  #closeBtn:hover { background: #6b3a3a; }
+  #closeBtn svg { width: 16px; height: 16px; fill: currentColor; }
+  #head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 4px; }
+  #title { font-size: 24px; font-weight: 600; }
+  #powerNow { font-size: 22px; color: #7fd48a; font-variant-numeric: tabular-nums; }
+  #source { font-size: 12px; color: #9aa0a6; margin-bottom: 14px; }
+  h2 { font-size: 14px; font-weight: 600; color: #bdc1c6; margin: 18px 0 8px; }
+  #err { color: #e6a9a9; font-size: 15px; margin: 20px 0; display: none; }
+  /* Wertetabellen */
+  table { border-collapse: collapse; font-size: 13px; }
+  td, th { padding: 4px 14px 4px 0; text-align: left; white-space: nowrap; }
+  th { color: #9aa0a6; font-weight: 500; }
+  td.v { font-variant-numeric: tabular-nums; }
+  td.stale { color: #9aa0a6; }
+  #groupWrap table td, #groupWrap table th { padding-right: 22px; }
+  #groupWrap > div { margin-bottom: 18px; }
+  .grid2 { display: flex; gap: 40px; flex-wrap: wrap; align-items: flex-start; }
+  /* Diagramme */
+  .chartbox { width: 100%; height: 320px; }
+  #dayNav { display: flex; align-items: center; gap: 8px; margin: 4px 0 6px; }
+  #dayNav button {
+    background: #3a3f46; color: #e8eaed; border: 0; border-radius: 6px;
+    padding: 4px 12px; font-size: 13px; cursor: pointer; font-family: var(--font);
+  }
+  #dayNav button:hover { background: #4a5058; }
+  #dayLabel { font-size: 13px; color: #bdc1c6; min-width: 84px; text-align: center; }
+  .note { font-size: 11px; color: #9aa0a6; margin-top: 2px; }
+  #stamp { font-size: 11px; color: #6b7075; margin-top: 14px; }
+
+  /* "Für mich"-Kennzahlen (28.08.2026): uebersetzte Alltags-/Krisen-Werte
+     statt reiner Messtechnik, deshalb bewusst OBEN vor der technischen
+     Wertetabelle und optisch als eigene Kachelreihe abgesetzt. */
+  #hlWrap { display: none; margin-bottom: 6px; }
+  #hlGrid { display: flex; flex-wrap: wrap; gap: 10px; }
+  .hl-card {
+    background: #2f333a; border: 1px solid #3d424a; border-radius: 10px;
+    padding: 10px 16px; min-width: 148px;
+  }
+  .hl-card .hl-label { font-size: 11px; color: #9aa0a6; margin-bottom: 3px; }
+  .hl-card .hl-value { font-size: 20px; font-weight: 600; color: #e8eaed; font-variant-numeric: tabular-nums; }
+  .hl-card .hl-hint { font-size: 10.5px; color: #7a8189; margin-top: 4px; line-height: 1.4; max-width: 26ch; }
+</style>
+
+<button id="closeBtn"><svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>Schließen</button>
+<div id="head"><span id="title">…</span><span id="powerNow"></span></div>
+<div id="source"></div>
+<div id="err"></div>
+
+<div id="hlWrap"><div id="hlGrid"></div></div>
+
+<div id="subMeterWrap" style="display:none">
+  <h2>Kaskadierte Zähler</h2>
+  <div id="subMeterT"></div>
+</div>
+
+<div class="grid2">
+  <div id="groupWrap"></div>
+  <div id="valWrap" style="display:none"><h2>Aktuelle Werte</h2><div id="valT"></div></div>
+</div>
+
+<div id="powerWrap" style="display:none">
+  <h2>Leistung</h2>
+  <div id="dayNav">
+    <button id="prevDay">‹</button><span id="dayLabel"></span><button id="nextDay">›</button>
+    <button id="todayBtn">Heute</button>
+  </div>
+  <div id="powerChart" class="chartbox"></div>
+</div>
+<div id="powerNote" class="note" style="display:none">Für die Leistung dieses Geräts liegen keine Archivdaten vor (Variable nicht protokolliert).</div>
+
+<div id="energyWrap" style="display:none">
+  <h2 id="energyH">Energie je Tag</h2>
+  <div id="energyChart" class="chartbox" style="height:260px"></div>
+  <div id="energyNote" class="note" style="display:none">Näherung: aus dem Tagesmittel der Leistung integriert (kein Energiezähler im Vertrag des Geräts).</div>
+</div>
+
+<div id="stamp"></div>
+
+<script>
+'use strict';
+let powerChart = null, energyChart = null, lastPayload = null;
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtW(w) {
+  if (w === null || w === undefined) return '';
+  const a = Math.abs(w);
+  return a >= 10000 ? (w / 1000).toFixed(1) + ' kW' : Math.round(w).toLocaleString('de-DE') + ' W';
+}
+
+// L1-L3-Gruppierung rein anhand des Variablennamens (Anbieter benennt) -
+// "Spannung L1"/"Strom L2 "/"cos φ L3" usw. landen in einer Phasentabelle,
+// alles andere in der einfachen Werteliste.
+// Erkennt WIEDERHOLTE Werte-Gruppen rein am Variablennamen (Anbieter
+// benennt) und baut daraus Tabellen mit einer Spalte je Index - ohne
+// jeden Geraetetyp/Hersteller zu kennen (CLAUDE.md Kernprinzip 2). Deckt
+// zwei Namensmuster ab: Index NACH der Messgroesse ("Spannung L1", die
+// urspruengliche Drehstrom-Phasentabelle) und Index VOR der Messgroesse
+// ("MPPT1 Leistung", "Bat.1 Temperatur" - Batterie-Bloecke/MPPT-Straenge).
+// Mehrere Gruppentypen auf demselben Geraet sind moeglich (je eigene
+// Tabelle); Gruppen mit nur einem Treffer wandern zurueck in die
+// einfache Werteliste, damit ein Einzelwert nicht als "Tabelle mit einer
+// Spalte" erscheint.
+const GROUP_PATTERNS = [
+  { key: 'phase', heading: 'Phasen', re: /^(.*?)[\s\-_]*L([123])\s*$/i, col: m => 'L' + m[2], base: m => m[1].trim() },
+  { key: 'mppt', heading: 'MPPT-Stränge', re: /^MPPT\s*[-.]?\s*(\d+)[\s.:_-]*(.+)$/i, col: m => 'Strang ' + m[1], base: m => m[2].trim() },
+  { key: 'block', heading: 'Batterie-Blöcke', re: /^(?:Bat\.?|Batterie|Turm)\s*[-.]?\s*(\d+)[\s.:_-]*(.+)$/i, col: m => 'Block ' + m[1], base: m => m[2].trim() },
+];
+
+function splitGroups(rows) {
+  const byType = new Map(); // key -> { heading, groups: Map(base -> {col: row}) }
+  const rest = [];
+  rows.forEach(r => {
+    const name = r.name || '';
+    let matched = false;
+    for (const p of GROUP_PATTERNS) {
+      const m = p.re.exec(name);
+      if (m) {
+        const base = p.base(m) || r.field;
+        if (!byType.has(p.key)) byType.set(p.key, { heading: p.heading, groups: new Map() });
+        const g = byType.get(p.key).groups;
+        if (!g.has(base)) g.set(base, {});
+        g.get(base)[p.col(m)] = r;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) rest.push(r);
+  });
+  const tables = [];
+  byType.forEach(({ heading, groups }) => {
+    const rowsOut = [];
+    groups.forEach((g, base) => {
+      if (Object.keys(g).length >= 2) rowsOut.push({ base, g }); else Object.values(g).forEach(r => rest.push(r));
+    });
+    if (rowsOut.length) {
+      const cols = [...new Set(rowsOut.flatMap(({ g }) => Object.keys(g)))].sort();
+      tables.push({ heading, cols, rows: rowsOut });
+    }
+  });
+  return { tables, rest };
+}
+
+function staleCls(ts, renderedAt) {
+  // Aelter als 1 h -> gedimmt (reines Sekundendelta, kein Kalenderbezug).
+  return (renderedAt - ts) > 3600 ? ' class="v stale"' : ' class="v"';
+}
+
+function renderValues(p) {
+  const { tables, rest } = splitGroups(p.values || []);
+  document.getElementById('groupWrap').innerHTML = tables.map(t => {
+    let h = '<h2>' + esc(t.heading) + '</h2><table><tr><th></th>' + t.cols.map(c => '<th>' + esc(c) + '</th>').join('') + '</tr>';
+    t.rows.forEach(({ base, g }) => {
+      h += '<tr><th>' + esc(base) + '</th>';
+      t.cols.forEach(c => {
+        h += g[c] ? '<td' + staleCls(g[c].ts, p.renderedAt) + '>' + esc(g[c].value) + '</td>' : '<td></td>';
+      });
+      h += '</tr>';
+    });
+    return '<div>' + h + '</table></div>';
+  }).join('');
+
+  const vw = document.getElementById('valWrap');
+  if (rest.length) {
+    let h = '<table>';
+    rest.forEach(r => {
+      h += '<tr><th>' + esc(r.name) + '</th><td' + staleCls(r.ts, p.renderedAt) + '>' + esc(r.value) + '</td></tr>';
+    });
+    document.getElementById('valT').innerHTML = h + '</table>';
+    vw.style.display = '';
+  } else vw.style.display = 'none';
+}
+
+const AXIS = { axisLabel: { color: '#9aa0a6' }, axisLine: { lineStyle: { color: '#4a5058' } } };
+function renderPower(p) {
+  const wrap = document.getElementById('powerWrap');
+  const note = document.getElementById('powerNote');
+  document.getElementById('dayLabel').textContent = p.dayLabel || '';
+  document.getElementById('nextDay').disabled = !!p.isToday;
+  if (!p.power || !p.power.length) {
+    wrap.style.display = (p.day ? '' : 'none');
+    note.style.display = '';
+    if (powerChart) powerChart.clear();
+    return;
+  }
+  note.style.display = 'none';
+  wrap.style.display = '';
+  if (!powerChart) powerChart = echarts.init(document.getElementById('powerChart'));
+  powerChart.setOption({
+    animation: false,
+    grid: { left: 58, right: 20, top: 20, bottom: 40 },
+    tooltip: { trigger: 'axis', valueFormatter: v => fmtW(v) },
+    xAxis: Object.assign({ type: 'time' }, AXIS),
+    yAxis: Object.assign({ type: 'value', splitLine: { lineStyle: { color: '#33373d' } } }, AXIS),
+    series: [{
+      type: 'line', showSymbol: false, data: p.power,
+      lineStyle: { width: 1.5, color: '#7fb2d4' },
+      areaStyle: { color: 'rgba(127,178,212,.18)' },
+    }],
+  }, true);
+}
+
+function renderEnergy(p) {
+  const wrap = document.getElementById('energyWrap');
+  const e = p.energy || { bars: [] };
+  if (!e.bars || !e.bars.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  document.getElementById('energyH').textContent = 'Energie je Tag' + (e.name ? ' — ' + e.name : '');
+  document.getElementById('energyNote').style.display = e.approx ? '' : 'none';
+  if (!energyChart) energyChart = echarts.init(document.getElementById('energyChart'));
+  const cats = e.bars.map(b => {
+    const d = new Date(b[0] + 'T00:00:00');
+    return d.getDate() + '.' + (d.getMonth() + 1) + '.';
+  });
+  energyChart.setOption({
+    animation: false,
+    grid: { left: 58, right: 20, top: 20, bottom: 40 },
+    tooltip: { trigger: 'axis', valueFormatter: v => (v === null ? '' : v.toLocaleString('de-DE') + ' ' + (e.unit || '')) },
+    xAxis: Object.assign({ type: 'category', data: cats }, AXIS),
+    yAxis: Object.assign({ type: 'value', splitLine: { lineStyle: { color: '#33373d' } } }, AXIS),
+    series: [{ type: 'bar', data: e.bars.map(b => b[1]), itemStyle: { color: '#c9a86b', borderRadius: [3, 3, 0, 0] } }],
+  }, true);
+}
+
+function renderHighlights(p) {
+  const wrap = document.getElementById('hlWrap');
+  const hl = p.highlights || [];
+  if (!hl.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  document.getElementById('hlGrid').innerHTML = hl.map(h =>
+    '<div class="hl-card"><div class="hl-label">' + esc(h.label) + '</div>' +
+    '<div class="hl-value">' + esc(h.value) + '</div>' +
+    (h.hint ? '<div class="hl-hint">' + esc(h.hint) + '</div>' : '') +
+    '</div>'
+  ).join('');
+}
+
+function renderSubMeters(p) {
+  const wrap = document.getElementById('subMeterWrap');
+  const sub = p.subMeters || [];
+  if (!sub.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  let h = '<table>';
+  sub.forEach(s => {
+    h += '<tr><th>' + esc(s.label) + '</th><td class="v">' + esc(s.value) + '</td></tr>';
+  });
+  document.getElementById('subMeterT').innerHTML = h + '</table>';
+}
+
+function handleDetail(p) {
+  lastPayload = p;
+  if (!p || !p.ok) {
+    document.getElementById('err').textContent = (p && p.error) || 'Daten konnten nicht geladen werden.';
+    document.getElementById('err').style.display = '';
+    return;
+  }
+  document.getElementById('err').style.display = 'none';
+  if (p.font) document.documentElement.style.setProperty('--font', p.font);
+  if (p.bg) document.body.style.background = p.bg;
+  document.title = p.label + ' — Gerätedetails';
+  document.getElementById('title').textContent = p.label;
+  document.getElementById('powerNow').textContent = fmtW(p.powerNow);
+  document.getElementById('source').textContent = p.source || '';
+  renderHighlights(p);
+  renderSubMeters(p);
+  renderValues(p);
+  renderPower(p);
+  renderEnergy(p);
+  document.getElementById('stamp').textContent = 'Stand: ' + new Date(p.renderedAt * 1000).toLocaleTimeString('de-DE');
+}
+
+function loadDay(dayStr) {
+  const u = new URL(window.location.href);
+  if (dayStr) u.searchParams.set('day', dayStr); else u.searchParams.delete('day');
+  u.searchParams.set('json', '1');
+  fetch(u.toString()).then(r => r.json()).then(handleDetail).catch(() => {});
+}
+function shiftDay(delta) {
+  if (!lastPayload || !lastPayload.day) return;
+  // DST-Regel: Date-Feldmutation statt ±86400000.
+  const d = new Date(lastPayload.day + 'T12:00:00');
+  d.setDate(d.getDate() + delta);
+  const s = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  loadDay(s);
+}
+// Schliessen: laeuft die Seite im Overlay-<iframe> der Kachel (Regelfall,
+// 28.08.2026), meldet sich die Seite per postMessage beim Elternfenster ab
+// - das spielt dort die Einsaug-Animation rueckwaerts ab. Bei einem echten
+// eigenen Tab/Fenster (Direktaufruf der Hook-URL, z.B. IPSView-Popup oder
+// Lesezeichen - kein iframe-Parent) faellt der Klick auf window.close()
+// zurueck; ohne Skript-Opener bleibt er dann wirkungslos, ein bewusster
+// Normalfall.
+function closeOrCloseTab() {
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage('nrgdash-detail-close', window.location.origin);
+  } else {
+    window.close();
+  }
+}
+document.getElementById('closeBtn').onclick = closeOrCloseTab;
+// Escape schliesst auch dann, wenn der Fokus (z.B. nach einem Klick ins
+// Diagramm) im iframe liegt - ein Escape-Listener am Elternfenster wuerde
+// hier NICHT feuern, da Tastaturereignisse bei iframe-Fokus nicht zum
+// Elterndokument durchgereicht werden.
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeOrCloseTab(); });
+document.getElementById('prevDay').onclick = () => shiftDay(-1);
+document.getElementById('nextDay').onclick = () => shiftDay(1);
+document.getElementById('todayBtn').onclick = () => loadDay('');
+window.addEventListener('resize', () => {
+  if (powerChart) powerChart.resize();
+  if (energyChart) energyChart.resize();
+});
+// Auto-Aktualisierung alle 30 s - nur solange der heutige Tag angezeigt
+// wird (historische Tage aendern sich nicht mehr).
+setInterval(() => { if (lastPayload && lastPayload.ok && lastPayload.isToday) loadDay(''); }, 30000);
+/*%%PAYLOAD%%*/
+</script>

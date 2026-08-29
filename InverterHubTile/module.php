@@ -171,6 +171,7 @@ class InverterHubTile extends IPSModule
         // Instanz-Kinder, dort sind sie ohne Konsolenzugriff bedienbar.
         // Steuervariablen, nie archiviert - RegisterVariableXXX unkritisch.
         foreach ([
+            'HideInactive'    => ['Inaktive Knotenpunkte ausblenden statt nur ausgrauen', 200, false],
             'CoupleBoltPower' => ['Blitzbögen an Leistung koppeln', 201, true],
             'CoupleGlowPower' => ['Leuchtschein an Leistung koppeln', 202, true],
         ] as $ident => [$caption, $pos, $default]) {
@@ -194,7 +195,7 @@ class InverterHubTile extends IPSModule
     // WebFront-Bedienung der Doppelpfeil-Variablen (s. Create()).
     public function RequestAction($Ident, $Value)
     {
-        if (in_array($Ident, ['CoupleBoltPower', 'CoupleGlowPower'], true)) {
+        if (in_array($Ident, ['HideInactive', 'CoupleBoltPower', 'CoupleGlowPower'], true)) {
             $this->SetValue($Ident, (bool)$Value);
             $this->UpdateVisualizationValue($this->BuildPayload());
             return;
@@ -689,14 +690,20 @@ class InverterHubTile extends IPSModule
             return;
         }
         if (isset($_GET['detail'])) {
-            // Klick-Detailseite: in dieser Kachel-Ausgabe (InverterHubTile)
-            // noch nicht umgesetzt - ehrliche Hinweisseite statt Fehler.
+            // Klick-Detailseite (Muster NRGDashboardTile, schlanke Fassung:
+            // Leistung-Tagesverlauf + 14-Tage-Energiebalken + Variablenwerte;
+            // Highlights/Unterzaehler bleiben leer, die Seite blendet die
+            // Bereiche dann selbst aus).
+            $key = (string)$_GET['detail'];
+            $day = isset($_GET['day']) ? (string)$_GET['day'] : '';
+            if (isset($_GET['json'])) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode($this->BuildDetailPayload($key, $day));
+                return;
+            }
             header('Content-Type: text/html; charset=utf-8');
-            echo '<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">'
-               . '<title>Detailansicht</title></head><body style="font-family:sans-serif;padding:2em;">'
-               . '<h3>Detailansicht noch nicht verfügbar</h3>'
-               . '<p>Die Geräte-Detailseite ist in dieser Kachel-Ausgabe noch nicht enthalten.</p>'
-               . '</body></html>';
+            $html = file_get_contents(__DIR__ . '/detail.html');
+            echo str_replace('/*%%PAYLOAD%%*/', 'handleDetail(' . json_encode($this->BuildDetailPayload($key, $day)) . ');', $html);
             return;
         }
         if (isset($_GET['json'])) {
@@ -718,6 +725,160 @@ class InverterHubTile extends IPSModule
     {
         $this->WriteAttributeBoolean('TourSeen', false);
         return '✅ Die Einführungs-Tour wird beim nächsten Öffnen der Kachel wieder angezeigt.';
+    }
+
+    /**
+     * Aufloesung eines Kachel-detailKey zu Variablen/Metadaten - Grundlage
+     * der Klick-Detailseite. Deckt beide Betriebsarten (Quell-Instanz und
+     * manuelle Datenpunkte) ab; 'loss' hat keine eigene Variable.
+     */
+    private function DetailDevice(string $key)
+    {
+        $src = $this->ResolveSource();
+        $useInstance = ($src > 0 && IPS_InstanceExists($src));
+        $findIdent = function (array $idents) use ($src, $useInstance) {
+            if (!$useInstance) { return 0; }
+            foreach ($idents as $ident) {
+                $vid = $this->FindIdentRecursive($src, $ident);
+                if ($vid && $vid > 0) { return $vid; }
+            }
+            return 0;
+        };
+        $manual = function (string $prop) {
+            $id = $this->ReadPropertyInteger($prop);
+            return ($id > 0 && IPS_VariableExists($id)) ? $id : 0;
+        };
+        switch ($key) {
+            case 'pv':
+                return ['label' => 'Solar', 'function' => 'pv', 'instanceID' => $useInstance ? $src : 0,
+                    'powerID' => $useInstance ? $findIdent(self::IDENT_PV) : $manual('ManualPvID')];
+            case 'battery':
+                return ['label' => 'Batterie', 'function' => 'battery', 'instanceID' => $useInstance ? $src : 0,
+                    'powerID' => $useInstance ? $findIdent(self::IDENT_BATPWR) : $manual('ManualBatID'),
+                    'socID'   => $useInstance ? $findIdent(self::IDENT_SOC) : $manual('ManualSocID')];
+            case 'grid':
+                return ['label' => 'Netz', 'function' => 'grid', 'instanceID' => $useInstance ? $src : 0,
+                    'powerID' => $useInstance ? $findIdent(self::IDENT_GRID) : $manual('ManualGridID')];
+            case 'house':
+                $houseID = $this->ReadPropertyInteger('HouseLoadID');
+                if ($houseID <= 0 || !IPS_VariableExists($houseID)) {
+                    $houseID = $useInstance ? (int)@IPS_GetProperty($src, 'HouseLoadMeterID') : $this->ReadPropertyInteger('ManualHouseID');
+                }
+                return ['label' => 'Hauslast', 'function' => 'house', 'instanceID' => $useInstance ? $src : 0,
+                    'powerID' => ($houseID > 0 && IPS_VariableExists($houseID)) ? $houseID : 0];
+            case 'loss':
+                return ['label' => 'Verluste', 'function' => 'loss', 'instanceID' => $useInstance ? $src : 0, 'powerID' => 0];
+        }
+        if (preg_match('/^c(\d+)$/', $key, $m)) {
+            $rows = $this->ReadConsumerRows();
+            $i = (int)$m[1];
+            if (isset($rows[$i])) {
+                return ['label' => $rows[$i]['name'], 'function' => $rows[$i]['type'],
+                    'instanceID' => 0, 'powerID' => (int)$rows[$i]['id']];
+            }
+        }
+        return null;
+    }
+
+    /** Datenpaket der Klick-Detailseite (schlankes NRGDashboardTile-Muster). */
+    private function BuildDetailPayload(string $key, string $dayStr)
+    {
+        $d = $this->DetailDevice($key);
+        if ($d === null) {
+            return ['ok' => false, 'error' => 'Gerät nicht gefunden - bitte die Kachel neu öffnen.'];
+        }
+        // DST-sicher: Kalendertag-Grenzen ueber strtotime, nie 86400er-Arithmetik.
+        $dayStart = strtotime('today');
+        if ($dayStr !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayStr)) {
+            $parsed = strtotime($dayStr . ' 00:00:00');
+            if ($parsed !== false) { $dayStart = $parsed; }
+        }
+        $dayEnd = min(time(), strtotime('+1 day', $dayStart));
+
+        $source = '';
+        $iid = (int)($d['instanceID'] ?? 0);
+        if ($iid > 0 && IPS_InstanceExists($iid)) {
+            $inst = IPS_GetInstance($iid);
+            $source = IPS_GetName($iid) . ' (' . ($inst['ModuleInfo']['ModuleName'] ?? '') . ')';
+        }
+
+        $powerID = (int)($d['powerID'] ?? 0);
+        $values = [];
+        foreach (['powerID', 'socID'] as $f) {
+            $vid = (int)($d[$f] ?? 0);
+            if ($vid > 0 && IPS_VariableExists($vid)) {
+                $v = IPS_GetVariable($vid);
+                $values[] = ['field' => $f, 'name' => IPS_GetName($vid),
+                    'value' => GetValueFormatted($vid), 'ts' => (int)$v['VariableUpdated']];
+            }
+        }
+
+        return [
+            'ok'         => true,
+            'key'        => $key,
+            'label'      => $d['label'],
+            'function'   => $d['function'],
+            'source'     => $source,
+            'powerNow'   => ($powerID > 0) ? round($this->VarWatts($powerID, 'auto')) : null,
+            'values'     => $values,
+            'day'        => date('Y-m-d', $dayStart),
+            'dayLabel'   => date('d.m.Y', $dayStart),
+            'isToday'    => date('Y-m-d', $dayStart) === date('Y-m-d'),
+            'power'      => $this->DetailDaySeries($powerID, $dayStart, $dayEnd),
+            'energy'     => $this->DetailEnergyBars($powerID, $dayStart),
+            'highlights' => [],
+            'subMeters'  => [],
+            'renderedAt' => time(),
+            'bg'         => $this->ColorOrEmpty($this->ReadPropertyInteger('ColorBackground')),
+            'font'       => $this->FontStack($this->ReadPropertyString('FontFamily')),
+        ];
+    }
+
+    /** 5-Minuten-Tagesverlauf aus dem Archiv ([[ms, W], ...]). */
+    private function DetailDaySeries(int $vid, int $from, int $to)
+    {
+        $arch = $this->DetailArchiveID();
+        if ($arch <= 0 || $vid <= 0 || !IPS_VariableExists($vid) || !@AC_GetLoggingStatus($arch, $vid)) {
+            return [];
+        }
+        $agg = @AC_GetAggregatedValues($arch, $vid, 5, $from, $to, 0);
+        if (!is_array($agg)) { return []; }
+        $out = [];
+        foreach ($agg as $row) {
+            $out[] = [((int)$row['TimeStamp']) * 1000, round((float)$row['Avg'], 1)];
+        }
+        usort($out, function ($a, $b) { return $a[0] <=> $b[0]; });
+        return $out;
+    }
+
+    /**
+     * 14-Tage-Energiebalken: aus der Leistung integriert (Tagesmittel x 24h,
+     * als Naeherung gekennzeichnet) - die Kachel kennt nur Leistungsvariablen,
+     * keine Zaehler. Kein rohes Zaehler-Differenzieren (IPS-Counter-Falle).
+     */
+    private function DetailEnergyBars(int $powerID, int $dayStart)
+    {
+        $arch = $this->DetailArchiveID();
+        if ($arch <= 0 || $powerID <= 0 || !IPS_VariableExists($powerID) || !@AC_GetLoggingStatus($arch, $powerID)) {
+            return ['bars' => [], 'unit' => '', 'approx' => false];
+        }
+        $from = strtotime('-13 day', $dayStart);
+        $to = min(time(), strtotime('+1 day', $dayStart));
+        $agg = @AC_GetAggregatedValues($arch, $powerID, 1, $from, $to, 0);
+        if (!is_array($agg)) { return ['bars' => [], 'unit' => '', 'approx' => false]; }
+        $bars = [];
+        foreach ($agg as $row) {
+            $wAvg = (float)$row['Avg'] * $this->UnitFactorFromProfile($powerID);
+            $bars[] = [date('Y-m-d', (int)$row['TimeStamp']), round(($wAvg * 24.0) / 1000.0, 2)];
+        }
+        usort($bars, function ($a, $b) { return strcmp($a[0], $b[0]); });
+        return ['bars' => $bars, 'unit' => 'kWh', 'approx' => true, 'name' => IPS_GetName($powerID)];
+    }
+
+    private function DetailArchiveID()
+    {
+        $ids = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
+        return count($ids) > 0 ? $ids[0] : 0;
     }
 
     /** WebHook beim WebHook-Control registrieren (Standard-Muster, 1:1 NRGDashboardTile). */
@@ -997,7 +1158,7 @@ class InverterHubTile extends IPSModule
                     'devices'     => [],
                     'updatedAt'   => time(),
                     'renderedAt'  => time(),
-                    'hideInactive' => false,
+                    'hideInactive' => (bool)$this->GetValue('HideInactive'),
                     'coupleBolt'  => (bool)$this->GetValue('CoupleBoltPower'),
                     'coupleGlow'  => (bool)$this->GetValue('CoupleGlowPower'),
                     'effectIntensity' => (int)$this->GetValue('EffectIntensity'),
@@ -1160,7 +1321,7 @@ class InverterHubTile extends IPSModule
             'devices'         => $devices,
             'updatedAt'       => time(),
             'renderedAt'      => time(),
-            'hideInactive'    => false,
+            'hideInactive'    => (bool)$this->GetValue('HideInactive'),
             'coupleBolt'      => (bool)$this->GetValue('CoupleBoltPower'),
             'coupleGlow'      => (bool)$this->GetValue('CoupleGlowPower'),
             'effectIntensity' => (int)$this->GetValue('EffectIntensity'),

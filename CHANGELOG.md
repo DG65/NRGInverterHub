@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.76.0-beta.3 (2026-08-29)
+
+- **Klick-Detailseite mit echtem Inhalt** (vorher Platzhalter-Hinweis): Klick auf einen
+  Knoten öffnet jetzt die Geräte-Detailseite mit aktuellem Leistungswert, Variablenwerten,
+  5-Minuten-Tagesverlauf und 14-Tage-Energiebalken (aus der Leistung integriert, als
+  Näherung gekennzeichnet — die Kachel kennt nur Leistungsvariablen, keine Zähler) inkl.
+  Tages-Navigation. „Für mich"-Kennzahlen und Unterzähler der NRGDashboard-Fassung bleiben
+  vorerst aus.
+- **Vierter Doppelpfeil-Regler ergänzt:** „Inaktive Knotenpunkte ausblenden statt nur
+  ausgrauen" fehlte in beta.2 — jetzt vollständige Parität mit der NRGDashboard-Kachel.
+
 ## 0.76.0-beta.2 (2026-08-29)
 
 - **Einführungs-Tour und Doppelpfeil-Einstellungen der neuen Kachel angebunden.** Neu: eigener
