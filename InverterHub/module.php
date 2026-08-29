@@ -694,47 +694,25 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
             $hub->SetVarInt('work_mode', $mb->u16($wm, 0));
         }
 
-        // Rueckgelesener IST-Zustand von ctl_ems_mode/ctl_ems_power (24.08.2026,
-        // fuer die drift-basierte Pruefung in ReassertEmsControl() - vorher
-        // wurden diese Idents NUR beim Schreiben gesetzt, nie zurueckgelesen,
-        // wodurch ReassertEmsControl() blind auf Zeit statt auf tatsaechlicher
-        // Abweichung reassertieren musste. Ein Read, deckt beide Register ab.
+        // Rueckgelesener IST-Zustand von ctl_ems_mode/ctl_ems_power - reines
+        // Reporting (Architektur-Entscheidung Dietmar, 29.08.2026: InverterHub
+        // ist NUR Kommunikationsschicht; jede Steuerungs-POLITIK - Heartbeat,
+        // Totmann-Fallback, Reassert - liegt beim EMS). Die 255 (offizieller
+        // STOPPED-Modus, Firmware-Totmann bei ausbleibendem EMS-Heartbeat,
+        // per OpenEMS-Quelle bestaetigt) wird hier nur sichtbar gemacht:
+        // eigener Profileintrag (s. EMS_MODES) + einmalige Log-Warnung beim
+        // Uebergang. KEIN automatischer Eingriff - das entscheidet das EMS.
         $prevEmsMode = $hub->GetVarInt('ctl_ems_mode');
         $emsCtl = $mb->readHolding(self::REG_EMS_POWER_MODE, 2);
         if ($emsCtl !== null) {
             $emsModeLive = $mb->u16($emsCtl, 0);
             $hub->SetVarInt('ctl_ems_mode', $emsModeLive);
             $hub->SetVarInt('ctl_ems_power', $mb->u16($emsCtl, 1));
-
-            // Totmann-Behandlung (29.08.2026, Dietmars Interpretation + A/B-Test,
-            // per OpenEMS-Quelle bestaetigt: 255 = offizieller STOPPED-Modus,
-            // von der Firmware SELBST gesetzt, wenn bei ctl_ems_enable=true der
-            // EMS-Heartbeat ausbleibt - OpenEMS schreibt sekuendlich und sieht
-            // die 255 deshalb nie). Zwei per Schalter waehlbare Szenarien
-            // (Property DeadmanBehavior, s. Create()):
-            if ($emsModeLive === 255) {
-                if ($hub->GetPropStr('DeadmanBehavior') === 'fallback') {
-                    // Verfuegbarkeit: zurueck in die native Eigenregelung.
-                    $enBlk = $mb->readHolding(self::REG_EMS_ENABLE, 1);
-                    if ($enBlk !== null && $mb->u16($enBlk, 0) !== 0) {
-                        if ($mb->writeSingle(self::REG_EMS_ENABLE, 0)) {
-                            $hub->SetVarBool('ctl_ems_enable', false);
-                            $hub->WarnUser('GoodWe-Totmann ausgeloest: Register 47511 stand auf 255 '
-                                . '(externe Steuerung von der Firmware als ausgefallen markiert) - '
-                                . 'ctl_ems_enable wurde automatisch auf Aus geschaltet, der '
-                                . 'Wechselrichter regelt wieder eigenstaendig.');
-                        }
-                    }
-                } elseif ($prevEmsMode !== 255) {
-                    // Sicherheits-Stopp (Default): Zustand respektieren, KEIN
-                    // Eingriff - nur einmalig beim Uebergang warnen (nicht in
-                    // jedem 5s-Zyklus erneut).
-                    $hub->WarnUser('GoodWe-Totmann ausgeloest: Register 47511 steht auf 255 '
-                        . '(Steuerung verloren, Wechselrichter im Sicherheits-Stopp/Wartemodus). '
-                        . 'Kein automatischer Eingriff (Einstellung "Sicherheits-Stopp beibehalten") - '
-                        . 'zum Fortsetzen EMS-Vorgabe erneut setzen oder ctl_ems_enable auf Aus '
-                        . 'schalten (native Eigenregelung).');
-                }
+            if ($emsModeLive === 255 && $prevEmsMode !== 255) {
+                $hub->WarnUser('GoodWe-Totmann ausgeloest: Register 47511 steht auf 255 '
+                    . '(Steuerung verloren, Wechselrichter im Sicherheits-Stopp/Wartemodus). '
+                    . 'InverterHub greift nicht ein - die Reaktion (erneut kommandieren, '
+                    . 'ctl_ems_enable aus, Heartbeat) ist Sache des EMS bzw. des Nutzers.');
             }
         }
 
@@ -4745,36 +4723,16 @@ class InverterHub extends IPSModule
         // Nur relevant, wenn der Treiber ueberhaupt Steuerregister hat
         // (GroupControl); bei reinen Lesetreibern wirkungslos, aber schadet nicht.
         $this->RegisterPropertyString('ControlAuthority', 'ems');
-        // Periodisches Neuschreiben von ctl_ems_mode/ctl_ems_power gegen den
-        // live bestaetigten GoodWe-Rueckfall auf 255 (s. ReassertEmsControl()).
-        // Default AUS: Wer manuell einmalig schalten/testen will (Konsole,
-        // WebFront), soll das ungestoert tun koennen, ohne dass im Hintergrund
-        // ein anderer Wert zurueckgeschrieben wird.
-        $this->RegisterPropertyBoolean('EmsReassertEnabled', false);
-        // Schreibstrategie fuer ctl_ems_mode/ctl_ems_power (Dietmar, 29.08.2026:
-        // der Nutzer soll sich BEWUSST entscheiden koennen):
-        // 'off'       = kein Hintergrund-Schreiben (Default; manuelles Schalten/
-        //               Testen bleibt ungestoert, Totmann kann ausloesen).
-        // 'drift'     = nur nachschreiben, wenn der zurueckgelesene IST-Wert vom
-        //               kommandierten SOLL abweicht (sparsam; der Totmann kann
-        //               trotzdem kurz ausloesen, wird aber korrigiert).
-        // 'heartbeat' = OpenEMS-Stil: kommandierten Wert JEDEN Lesezyklus
-        //               (IntervalFast, typ. 5s) neu schreiben - die Firmware
-        //               sieht dauerhaft einen Heartbeat, 255 tritt nie auf.
-        // Ersetzt funktional die alte Checkbox EmsReassertEnabled (Property
-        // bleibt registriert, wird aber nicht mehr ausgewertet).
-        $this->RegisterPropertyString('EmsWriteMode', 'off');
-        // Verhalten, wenn die GoodWe-Firmware den Totmann ausloest (Register
-        // 47511 = 255/STOPPED, weil bei ctl_ems_enable=true der EMS-Heartbeat
-        // ausblieb). Zwei bewusst getrennte Szenarien (Dietmar, 29.08.2026):
-        // 'stop'     = Sicherheits-Stopp respektieren: WR bleibt gestoppt, wir
-        //              warnen nur. Fuer Anlagen/Gebaeude, die bei Steuerungs-
-        //              ausfall definiert STEHEN BLEIBEN muessen (das ist der
-        //              Sinn des Firmware-Totmanns; Default, konservativ).
-        // 'fallback' = Verfuegbarkeit vor Stillstand: ctl_ems_enable wird
-        //              automatisch auf false geschaltet, der WR faellt in
-        //              seine native Eigenregelung zurueck.
-        $this->RegisterPropertyString('DeadmanBehavior', 'stop');
+        // Architektur-Entscheidung (Dietmar, 29.08.2026): InverterHub ist REINE
+        // Kommunikationsschicht. Jede Steuerungs-POLITIK - Heartbeat/Reassert
+        // gegen den GoodWe-255-Totmann, automatischer Fallback auf enable=false,
+        // Pendel-Erkennung - liegt beim EMS (dorthin uebergeben), NICHT hier.
+        // Frueher hier vorhandene Politik-Properties (EmsReassertEnabled,
+        // EmsWriteMode, DeadmanBehavior) wurden ersatzlos entfernt.
+        // Formular-Gate: Steuerungs-Sektion standardmaessig ausgeblendet -
+        // reines Monitoring braucht sie nicht, und wer steuern will, schaltet
+        // sie bewusst frei (Gefahrenhinweis inklusive).
+        $this->RegisterPropertyBoolean('ControlUnlocked', false);
         // Anzahl tatsächlich vorhandener MPPT-Eingänge / Solarladeregler.
         // 0 = alle anlegen, die der Treiber kennt (bisheriges Verhalten und
         // Vorgabe, damit bestehende Instanzen unverändert bleiben).
@@ -4856,16 +4814,6 @@ class InverterHub extends IPSModule
 
         $this->RegisterAttributeBoolean('DeviceInfoRead', false);
         $this->RegisterAttributeBoolean('ImplausibleLogged', false);
-        // Fuer ReassertEmsControl() (periodisches Neuschreiben gegen den
-        // GoodWe-255-Rueckfall, s. dort) - Sentinel EMS_NOT_COMMANDED, bis
-        // RequestAction() den ersten echten Wert gemerkt hat.
-        foreach (self::EMS_REASSERT_IDENTS as $emsIdent) {
-            $this->RegisterAttributeInteger('LastCommanded_' . $emsIdent, self::EMS_NOT_COMMANDED);
-        }
-        // Fuer den Totmann-Schalter in ReassertEmsControl() (s. dort) - 0 =
-        // noch nie kommandiert, Reassert darf also sofort greifen falls ein
-        // LastCommanded-Wert vorliegt.
-        $this->RegisterAttributeInteger('LastCommandTime', 0);
     }
 
     // Ein Gerät, das auf Adressen antwortet, die es gar nicht belegt, liefert
@@ -5004,104 +4952,12 @@ class InverterHub extends IPSModule
         }
     }
 
-    // Idents, die GoodWe periodisch neu bestaetigt haben will (s. u.).
-    // Bewusst nur diese zwei, nicht generisch "alle Steuer-Idents": nur fuer
-    // diese ist das Rueckfall-Verhalten live bestaetigt.
-    private const EMS_REASSERT_IDENTS = ['ctl_ems_mode', 'ctl_ems_power'];
-
-    // Live-Befund (26.07.2026, per Registerauslesung UND unabhaengig durch
-    // OpenEMS-Community bestaetigt, siehe deren GoodWeBatteryInverterImpl.java/
-    // ApplyPowerHandler): Register 47511 (ctl_ems_mode) faellt nach einiger
-    // Zeit auf den ungueltigen Wert 255 zurueck, wenn es nur EINMAL
-    // geschrieben wird - GoodWes interner SMART-Automatikmodus uebernimmt
-    // sonst die Kontrolle zurueck. Ein Test mit Neuschreiben alle 10s hat das
-    // Rueckfallen ueber 50s zuverlaessig verhindert.
-    //
-    // Deshalb: RequestAction() merkt sich den zuletzt kommandierten Wert
-    // dieser beiden Idents, ReadFast() schreibt ihn bei jedem Zyklus erneut -
-    // aber NUR, wenn der Nutzer das ueber "EmsReassertEnabled" ausdruecklich
-    // eingeschaltet hat (Default: aus). Bewusst getrennt von jeder
-    // Variablen-Registrierung/EnableAction() - der fruehere Versuch, etwas
-    // Periodisches in ReadFast() unterzubringen (228a6b4), hat den
-    // ID-Churn-Fehler ausgeloest. Reine Modbus-Schreibvorgaenge hier, nichts
-    // an Variablen/Bindung.
-    // Sentinel fuer "noch nie kommandiert" - liegt weit ausserhalb jedes
-    // gueltigen Prozentwerts/Modus-Codes, damit keine Verwechslung mit einem
-    // echten Wert (auch nicht 0) moeglich ist.
-    private const EMS_NOT_COMMANDED = -999999999;
-
-    // Totmann-Schwelle (Verbund-Absprache mit EMS, 28.07.2026): Ein externer
-    // Dauerschreiber (z. B. EMS' eigener Reassert-Loop, typ. alle ~30s) soll
-    // NICHT parallel zu unserem eigenen Reassert dieselben Register bedienen -
-    // zwei unabhaengige Dauerschreiber auf denselben Registern sind reine
-    // Redundanz ohne Zusatznutzen und wurden von Dietmar ausdruecklich
-    // untersagt. Deshalb: ReassertEmsControl() greift nur noch ein, wenn seit
-    // dem letzten RequestAction()-Aufruf (gleich welcher Herkunft - wir
-    // unterscheiden nicht WER schreibt, nur DASS kuerzlich geschrieben wurde)
-    // mehr als diese Schwelle vergangen ist. Solange ein externer Akteur
-    // regelmaessig selbst schreibt, bleibt unser Reassert stumm; faellt der
-    // externe Schreiber aus (z. B. EMS_Active=false oder ein Absturz), springt
-    // unser Reassert nach spaetestens dieser Wartezeit automatisch ein.
-    private const EMS_REASSERT_DEADMAN_SEC = 60;
-
-    private function ReassertEmsControl()
-    {
-        $mode = $this->ReadPropertyString('EmsWriteMode');
-        if ($mode !== 'drift' && $mode !== 'heartbeat') {
-            return; // 'off' (Default): kein Hintergrund-Schreiben
-        }
-        if ($this->ReadPropertyString('ControlAuthority') !== 'ems') {
-            return;
-        }
-        if ($mode === 'heartbeat') {
-            // OpenEMS-Stil ("beruhigende Schalttoene", Dietmar 29.08.2026):
-            // kommandierten Wert JEDEN Zyklus bedingungslos neu schreiben.
-            // Konsequenz, bewusst gewaehlt: der Firmware-Totmann feuert NIE -
-            // faellt die eigentliche Steuerlogik (EMS) aus, laeuft der WR im
-            // zuletzt kommandierten Modus unbegrenzt weiter, solange wir
-            // weiter schreiben. Kein Sicherheits-Stopp mehr.
-            $mb = $this->GetModbusClient();
-            foreach (self::EMS_REASSERT_IDENTS as $ident) {
-                $commanded = $this->ReadAttributeInteger('LastCommanded_' . $ident);
-                if ($commanded === self::EMS_NOT_COMMANDED) {
-                    continue;
-                }
-                $this->GetDriver()->writeControl($mb, $this, $ident, $commanded);
-            }
-            return;
-        }
-        // mode === 'drift': sparsames Nachschreiben nur bei Abweichung, mit
-        // Totmann-Ruecksicht (nicht parallel zu einem aktiven externen Schreiber).
-        $lastCommandTime = $this->ReadAttributeInteger('LastCommandTime');
-        if ($lastCommandTime > 0 && (time() - $lastCommandTime) < self::EMS_REASSERT_DEADMAN_SEC) {
-            return; // kuerzlich schrieb schon jemand (wir oder extern) - nicht parallel mitschreiben
-        }
-        // Drift-Pruefung statt blindem Zeit-Reassert (24.08.2026, real
-        // beobachtet: die vorige Fassung schrieb den kommandierten Wert stur
-        // alle EMS_REASSERT_DEADMAN_SEC neu, auch wenn das Register laengst
-        // korrekt stand ODER die Batterie im Standby war und der Befehl
-        // ohnehin wirkungslos blieb - unnoetiger Modbus-Traffic ("Kaese"),
-        // der bei ohnehin instabiler Verbindung zusaetzliche haengende
-        // Schreibversuche provozierte. readFastInner() liest ctl_ems_mode/
-        // ctl_ems_power jetzt JEDEN Zyklus tatsaechlich zurueck (s. o.) -
-        // reassertiert wird nur noch, wenn der IST-Wert vom kommandierten
-        // SOLL-Wert tatsaechlich abweicht (z. B. der bekannte Rueckfall auf
-        // 255). Steht das Register schon korrekt, bleibt dieser Zyklus
-        // komplett stumm.
-        $mb = $this->GetModbusClient();
-        foreach (self::EMS_REASSERT_IDENTS as $ident) {
-            $commanded = $this->ReadAttributeInteger('LastCommanded_' . $ident);
-            if ($commanded === self::EMS_NOT_COMMANDED) {
-                continue; // noch nie kommandiert - nichts zu wiederholen
-            }
-            $vid = $this->FindVarByIdent($ident);
-            $live = $vid ? GetValueInteger($vid) : null;
-            if ($live !== null && $live === $commanded) {
-                continue; // Register steht schon korrekt - nichts zu tun
-            }
-            $this->GetDriver()->writeControl($mb, $this, $ident, $commanded);
-        }
-    }
+    // Hinweis (Architektur-Entscheidung Dietmar, 29.08.2026): Der fruehere
+    // Reassert-/Heartbeat-Mechanismus gegen den GoodWe-255-Totmann
+    // (EMS_REASSERT_IDENTS, ReassertEmsControl(), LastCommanded_/
+    // LastCommandTime-Attribute) wurde ersatzlos ENTFERNT - InverterHub ist
+    // reine Kommunikationsschicht, jede Steuerungs-Politik liegt beim EMS.
+    // Historie/Begruendung: CLAUDE.md, Abschnitt "255 entschluesselt".
 
     // Verbund-Konvention "Sichtbare Rueckmeldung bei jeder Aktion" (20.08.2026,
     // SUITE.md Punkt 13, Referenz EMS BuildDayPlan): der "Verbindung testen /
@@ -5143,10 +4999,6 @@ class InverterHub extends IPSModule
         // beim naechsten ReadFast (typ. 5 s) automatisch nach, ohne dass dafuer
         // eine Diagnose-Sitzung noetig ist (Verbund-Ziel 3, SUITE.md).
         $this->EnableActions();
-        // ReassertEmsControl() ist davon strikt getrennt: reine
-        // Modbus-Schreibvorgaenge auf bereits bestehende Register, keine
-        // Variablen-Registrierung/Bindung beteiligt.
-        $this->ReassertEmsControl();
         return '✅ Verbindung ok, Daten gelesen (' . date('H:i:s') . ' Uhr).';
     }
 
@@ -5160,6 +5012,13 @@ class InverterHub extends IPSModule
 
     public function RequestAction($Ident, $Value)
     {
+        // Reine Formular-UI-Aktion (Freischalt-Haken der Steuerungs-Sektion):
+        // VOR den Schutz-Guards behandeln - sie schreibt nichts an den WR und
+        // muss auch bei Active=false/ControlAuthority!='ems' funktionieren.
+        if ($Ident === 'UiToggleCtl') {
+            $this->UpdateFormField('CtlPanel', 'visible', (bool)$Value);
+            return;
+        }
         if (!$this->ReadPropertyBoolean('Active')) {
             return;
         }
@@ -5182,18 +5041,6 @@ class InverterHub extends IPSModule
             return;
         }
         $this->GetDriver()->writeControl($this->GetModbusClient(), $this, $Ident, $Value);
-
-        // Merken fuer ReassertEmsControl() (s. dort) - nur fuer die Idents,
-        // bei denen der Rueckfall auf 255 live bestaetigt ist. LastCommandTime
-        // ist der Totmann-Zeitstempel: jeder externe Schreibzugriff (gleich
-        // welcher Herkunft) verzoegert unser eigenes Reassert um erneut
-        // EMS_REASSERT_DEADMAN_SEC - so schreiben wir nie parallel zu einem
-        // aktiv schreibenden externen Akteur (Verbund-Absprache mit EMS,
-        // 28.07.2026).
-        if (in_array($Ident, self::EMS_REASSERT_IDENTS, true)) {
-            $this->WriteAttributeInteger('LastCommanded_' . $Ident, (int) $Value);
-            $this->WriteAttributeInteger('LastCommandTime', time());
-        }
     }
 
     // Verbund-Vertrag mit MigrationsHub (29.07.2026): liefert je Fremdmodul-GUID
@@ -5330,12 +5177,25 @@ class InverterHub extends IPSModule
         $driver = $this->GetDriver();
 
         $groupItems = [];
+        // Alles Steuerungs-Relevante wandert in eine eigene, standardmaessig
+        // ausgeblendete Sektion (Dietmars Konzept, 29.08.2026): Wer nur
+        // Monitoring will, sieht keine Steuerungsoptionen; wer steuern will,
+        // muss die Sektion bewusst freischalten und den Gefahrenhinweis lesen.
+        $ctlItems = [];
         foreach ($driver->getOptionalGroups() as $propName => $group) {
-            $groupItems[] = [
-                'type'    => 'CheckBox',
-                'name'    => $propName,
-                'caption' => $group['caption'],
-            ];
+            if ($propName === 'GroupControl') {
+                $ctlItems[] = [
+                    'type'    => 'CheckBox',
+                    'name'    => $propName,
+                    'caption' => $group['caption'],
+                ];
+            } else {
+                $groupItems[] = [
+                    'type'    => 'CheckBox',
+                    'name'    => $propName,
+                    'caption' => $group['caption'],
+                ];
+            }
             // Steuerhoheit direkt bei der Steuerungs-Gruppe: nur sichtbar, wenn
             // dieser Treiber ueberhaupt Steuerregister hat (GroupControl-Gruppe
             // existiert). Reine Lesetreiber bekommen das Feld nicht - es waere
@@ -5344,7 +5204,7 @@ class InverterHub extends IPSModule
                 // Erklaerungsbeduerftiges Feld - Symcon kennt kein Hover-Tooltip
                 // (Verbund-Konvention, EMS 27.07.2026), deshalb PopupButton statt
                 // Mouseover fuer den Hintergrund (Situation A/B, Prioritaetsregel).
-                $groupItems[] = [
+                $ctlItems[] = [
                     'type'  => 'RowLayout',
                     'items' => [
                         [
@@ -5377,75 +5237,31 @@ class InverterHub extends IPSModule
                 // fallen ohne periodische Neubestaetigung auf einen ungueltigen
                 // Wert zurueck (GoodWes interner SMART-Automatikmodus uebernimmt
                 // sonst wieder). Default AUS, damit einmaliges manuelles Schalten
-                // (Konsole/WebFront/Test) nicht durch einen zurueckgeschriebenen
-                // alten Wert gestoert wird.
-                // Nur bei GoodWe sichtbar: das Rueckfall-Verhalten (ctl_ems_mode
-                // faellt auf Sentinel 255 zurueck) ist GoodWe-spezifisch, die
-                // Idents ctl_ems_mode/ctl_ems_power existieren nur dort - bei
-                // Sungrow/Deye (haben ebenfalls GroupControl) waere die Checkbox
-                // wirkungslose UI ohne erkennbaren Grund (Usability-Befund,
-                // Verbund-Audit 28.07.2026, ausgeloest durch einen aehnlichen
-                // Fund bei EMS). Analog zu den anderen markenspezifischen Feldern
-                // (Fronius/Kostal/SMA/Victron) ueber Manufacturer gegated.
-                if ($this->ReadPropertyString('Manufacturer') === 'goodwe') {
-                    $groupItems[] = [
-                        'type'  => 'RowLayout',
-                        'items' => [
-                            [
-                                'type'    => 'Select',
-                                'name'    => 'EmsWriteMode',
-                                'caption' => 'Schreibstrategie für die EMS-Vorgabe',
-                                'options' => [
-                                    ['caption' => 'Nur auf Befehl schreiben (Totmann aktiv)',        'value' => 'off'],
-                                    ['caption' => 'Bei Abweichung nachschreiben (Totmann greift kurz)', 'value' => 'drift'],
-                                    ['caption' => 'Dauer-Heartbeat, jeden Zyklus (kein Totmann!)',   'value' => 'heartbeat'],
-                                ],
-                            ],
-                            [
-                                'type'    => 'PopupButton',
-                                'caption' => '?',
-                                'width'   => '70px',
-                                'popup'   => [
-                                    'caption' => 'Schreibstrategie — bewusste Sicherheitsentscheidung',
-                                    'items'   => [
-                                        ['type' => 'Label', 'caption' => 'Hintergrund: Bei aktiver EMS-Steuerung (ctl_ems_enable = An) hat die GoodWe-Firmware einen eingebauten Totmannschalter — bleiben Vorgaben ~1–2 Minuten aus, stoppt sich der Wechselrichter selbst (Wert 255). Das ist ein Sicherheitsmechanismus, kein Fehler.'],
-                                        ['type' => 'Label', 'caption' => '„Nur auf Befehl" (Standard): Kein Hintergrund-Schreiben. Der Totmann bleibt voll wirksam — fällt die Steuerung aus, stoppt der Wechselrichter sicher. Manuelles Schalten/Testen bleibt ungestört.'],
-                                        ['type' => 'Label', 'caption' => '„Bei Abweichung nachschreiben": Sparsame Selbstheilung — weicht der zurückgelesene Wert vom kommandierten ab (z. B. nach einem Totmann-Stopp), wird er neu gesetzt. Der Totmann kann kurz auslösen, wird aber automatisch korrigiert.'],
-                                        ['type' => 'Label', 'caption' => '⚠️ „Dauer-Heartbeat": Der kommandierte Wert wird in jedem Lesezyklus neu geschrieben (wie OpenEMS). Der Totmannschalter feuert damit NIE — fällt die eigentliche Steuerlogik (EMS) aus, läuft der Wechselrichter im zuletzt befohlenen Modus unbegrenzt weiter. Nur wählen, wenn die Anlage das sicherheitstechnisch erlaubt.'],
-                                    ],
-                                ],
-                            ],
-                        ],
-                    ];
-                    $groupItems[] = [
-                        'type'  => 'RowLayout',
-                        'items' => [
-                            [
-                                'type'    => 'Select',
-                                'name'    => 'DeadmanBehavior',
-                                'caption' => 'Verhalten bei Totmann-Auslösung (Wert 255)',
-                                'options' => [
-                                    ['caption' => 'Sicherheits-Stopp beibehalten (nur warnen)', 'value' => 'stop'],
-                                    ['caption' => 'Automatisch in Eigenregelung zurückfallen',  'value' => 'fallback'],
-                                ],
-                            ],
-                            [
-                                'type'    => 'PopupButton',
-                                'caption' => '?',
-                                'width'   => '70px',
-                                'popup'   => [
-                                    'caption' => 'Totmann-Verhalten — welches Szenario passt?',
-                                    'items'   => [
-                                        ['type' => 'Label', 'caption' => 'Hintergrund: Bei aktiver EMS-Steuerung (ctl_ems_enable = An) erwartet die GoodWe-Firmware regelmäßige Vorgaben. Bleiben sie aus (~1–2 Minuten), stoppt sich der Wechselrichter selbst und zeigt den Wert 255 — ein beabsichtigter Sicherheitsmechanismus (Totmannschalter), kein Fehler.'],
-                                        ['type' => 'Label', 'caption' => '„Sicherheits-Stopp beibehalten" (Standard): Der Wechselrichter bleibt gestoppt, es erscheint nur eine Warnung im Protokoll. Richtig für Anlagen, die bei Steuerungsausfall aus Sicherheitsgründen definiert stehen bleiben müssen.'],
-                                        ['type' => 'Label', 'caption' => '„Automatisch in Eigenregelung zurückfallen": Das Modul schaltet die EMS-Steuerung ab (ctl_ems_enable = Aus), der Wechselrichter regelt sofort wieder eigenständig (Eigenverbrauchs-Automatik). Richtig, wenn Verfügbarkeit wichtiger ist als der Stopp-Zustand.'],
-                                    ],
-                                ],
-                            ],
-                        ],
-                    ];
-                }
+                // (Steuerungs-POLITIK - Schreibstrategie/Totmann-Verhalten -
+                // liegt seit 29.08.2026 komplett beim EMS, s. Create()-Kommentar.)
             }
+        }
+        // Steuerungs-Sektion: standardmaessig komplett ausgeblendet. Der
+        // Freischalt-Haken zeigt sie live (UpdateFormField), gespeichert wird
+        // der Haken als Property, damit die Sektion nach erneutem Oeffnen
+        // sichtbar bleibt, wenn sie einmal bewusst aktiviert wurde. Fuer reines
+        // Monitoring bleibt das Formular frei von jeder Steuerungsoption.
+        if (count($ctlItems) > 0) {
+            $groupItems[] = [
+                'type'     => 'CheckBox',
+                'name'     => 'ControlUnlocked',
+                'caption'  => '🛑 Steuerungsfunktionen anzeigen (Eingriff in den Wechselrichter — auf eigene Gefahr)',
+                'onChange' => 'IPS_RequestAction($id, "UiToggleCtl", $ControlUnlocked);',
+            ];
+            array_unshift($ctlItems, ['type' => 'Label', 'caption' => '⚠️ Diese Sektion schreibt in den Wechselrichter. Falsche Einstellungen können die Anlage stoppen, die Batterie fehlsteuern oder gegen Vorgaben des Netzbetreibers verstoßen. Wer hier etwas ändert, tut das auf eigene Verantwortung — im Zweifel: nichts anfassen, Standardwerte lassen.']);
+            $groupItems[] = [
+                'type'    => 'ExpansionPanel',
+                'name'    => 'CtlPanel',
+                'caption' => '🛑 Steuerung — auf eigene Gefahr',
+                'visible' => $this->ReadPropertyBoolean('ControlUnlocked'),
+                'expanded' => true,
+                'items'   => $ctlItems,
+            ];
         }
         // Invers-Schalter: die Vorzeichen von Netz- und Batterieleistung hängen
         // von Einbauort/Verdrahtung bzw. der gewünschten Konvention ab und sind
@@ -6327,14 +6143,6 @@ class InverterHub extends IPSModule
     public function GetPropBool(string $name)
     {
         return $this->ReadPropertyBoolean($name);
-    }
-
-    // Analog GetPropBool - fuer String-Properties (z. B. DeadmanBehavior im
-    // GoodWe-Treiber). ReadPropertyString ist protected, Treiberklassen
-    // brauchen den oeffentlichen Umweg.
-    public function GetPropStr(string $name)
-    {
-        return $this->ReadPropertyString($name);
     }
 
     // Aktueller Wert einer eigenen Integer-Variable (rekursive Ident-Suche) -

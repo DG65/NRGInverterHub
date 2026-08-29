@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.75.0-beta.1 (2026-08-29)
+
+- **Architektur-Schnitt: InverterHub ist reine Kommunikationsschicht — jede Steuerungs-Politik
+  liegt beim EMS.** Auf Dietmars Entscheidung wurden alle in den letzten Builds entstandenen
+  Politik-Mechanismen wieder ENTFERNT: `EmsReassertEnabled`/`EmsWriteMode` (Reassert/Heartbeat),
+  `DeadmanBehavior` (automatischer Fallback auf `ctl_ems_enable=false`), Pendel-Bremse. Die
+  Konzepte sind an das EMS-Modul übergeben, das sie in seiner Regelschleife umsetzt (dort mit
+  vollem Zustandswissen besser aufgehoben — OpenEMS macht es genauso: Heartbeat aus dem
+  Controller, nicht aus dem Modbus-Treiber).
+  Bei InverterHub bleiben nur Kommunikation und ehrliches Reporting: Rücklesen von
+  `ctl_ems_mode`/`ctl_ems_power` je Zyklus, der 255-Profileintrag „⚠️ Totmann: Steuerung
+  verloren", eine einmalige Log-Warnung beim Übergang auf 255 sowie der Steuerhoheits-Guard.
+- **Neues Formular-Gate:** Alle Steuerungsoptionen (Datenpunkt-Gruppe „EMS-Steuerung",
+  Steuerhoheit) sind standardmäßig ausgeblendet — für reines Monitoring bleibt das Formular
+  frei davon. Ein Haken „🛑 Steuerungsfunktionen anzeigen (auf eigene Gefahr)" blendet die
+  Sektion samt deutlichem Gefahrenhinweis live ein.
+
 ## 0.74.6-beta.1 (2026-08-29)
 
 - **GoodWe: Totmann-Verhalten und Schreibstrategie als bewusste Nutzerentscheidung.** Der
