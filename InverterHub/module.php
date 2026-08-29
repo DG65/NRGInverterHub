@@ -4729,10 +4729,6 @@ class InverterHub extends IPSModule
         // Pendel-Erkennung - liegt beim EMS (dorthin uebergeben), NICHT hier.
         // Frueher hier vorhandene Politik-Properties (EmsReassertEnabled,
         // EmsWriteMode, DeadmanBehavior) wurden ersatzlos entfernt.
-        // Formular-Gate: Steuerungs-Sektion standardmaessig ausgeblendet -
-        // reines Monitoring braucht sie nicht, und wer steuern will, schaltet
-        // sie bewusst frei (Gefahrenhinweis inklusive).
-        $this->RegisterPropertyBoolean('ControlUnlocked', false);
         // Anzahl tatsächlich vorhandener MPPT-Eingänge / Solarladeregler.
         // 0 = alle anlegen, die der Treiber kennt (bisheriges Verhalten und
         // Vorgabe, damit bestehende Instanzen unverändert bleiben).
@@ -5012,13 +5008,6 @@ class InverterHub extends IPSModule
 
     public function RequestAction($Ident, $Value)
     {
-        // Reine Formular-UI-Aktion (Freischalt-Haken der Steuerungs-Sektion):
-        // VOR den Schutz-Guards behandeln - sie schreibt nichts an den WR und
-        // muss auch bei Active=false/ControlAuthority!='ems' funktionieren.
-        if ($Ident === 'UiToggleCtl') {
-            $this->UpdateFormField('CtlPanel', 'visible', (bool)$Value);
-            return;
-        }
         if (!$this->ReadPropertyBoolean('Active')) {
             return;
         }
@@ -5177,25 +5166,12 @@ class InverterHub extends IPSModule
         $driver = $this->GetDriver();
 
         $groupItems = [];
-        // Alles Steuerungs-Relevante wandert in eine eigene, standardmaessig
-        // ausgeblendete Sektion (Dietmars Konzept, 29.08.2026): Wer nur
-        // Monitoring will, sieht keine Steuerungsoptionen; wer steuern will,
-        // muss die Sektion bewusst freischalten und den Gefahrenhinweis lesen.
-        $ctlItems = [];
         foreach ($driver->getOptionalGroups() as $propName => $group) {
-            if ($propName === 'GroupControl') {
-                $ctlItems[] = [
-                    'type'    => 'CheckBox',
-                    'name'    => $propName,
-                    'caption' => $group['caption'],
-                ];
-            } else {
-                $groupItems[] = [
-                    'type'    => 'CheckBox',
-                    'name'    => $propName,
-                    'caption' => $group['caption'],
-                ];
-            }
+            $groupItems[] = [
+                'type'    => 'CheckBox',
+                'name'    => $propName,
+                'caption' => $group['caption'],
+            ];
             // Steuerhoheit direkt bei der Steuerungs-Gruppe: nur sichtbar, wenn
             // dieser Treiber ueberhaupt Steuerregister hat (GroupControl-Gruppe
             // existiert). Reine Lesetreiber bekommen das Feld nicht - es waere
@@ -5204,7 +5180,7 @@ class InverterHub extends IPSModule
                 // Erklaerungsbeduerftiges Feld - Symcon kennt kein Hover-Tooltip
                 // (Verbund-Konvention, EMS 27.07.2026), deshalb PopupButton statt
                 // Mouseover fuer den Hintergrund (Situation A/B, Prioritaetsregel).
-                $ctlItems[] = [
+                $groupItems[] = [
                     'type'  => 'RowLayout',
                     'items' => [
                         [
@@ -5240,28 +5216,6 @@ class InverterHub extends IPSModule
                 // (Steuerungs-POLITIK - Schreibstrategie/Totmann-Verhalten -
                 // liegt seit 29.08.2026 komplett beim EMS, s. Create()-Kommentar.)
             }
-        }
-        // Steuerungs-Sektion: standardmaessig komplett ausgeblendet. Der
-        // Freischalt-Haken zeigt sie live (UpdateFormField), gespeichert wird
-        // der Haken als Property, damit die Sektion nach erneutem Oeffnen
-        // sichtbar bleibt, wenn sie einmal bewusst aktiviert wurde. Fuer reines
-        // Monitoring bleibt das Formular frei von jeder Steuerungsoption.
-        if (count($ctlItems) > 0) {
-            $groupItems[] = [
-                'type'     => 'CheckBox',
-                'name'     => 'ControlUnlocked',
-                'caption'  => '🛑 Steuerungsfunktionen anzeigen (Eingriff in den Wechselrichter — auf eigene Gefahr)',
-                'onChange' => 'IPS_RequestAction($id, "UiToggleCtl", $ControlUnlocked);',
-            ];
-            array_unshift($ctlItems, ['type' => 'Label', 'caption' => '⚠️ Diese Sektion schreibt in den Wechselrichter. Falsche Einstellungen können die Anlage stoppen, die Batterie fehlsteuern oder gegen Vorgaben des Netzbetreibers verstoßen. Wer hier etwas ändert, tut das auf eigene Verantwortung — im Zweifel: nichts anfassen, Standardwerte lassen.']);
-            $groupItems[] = [
-                'type'    => 'ExpansionPanel',
-                'name'    => 'CtlPanel',
-                'caption' => '🛑 Steuerung — auf eigene Gefahr',
-                'visible' => $this->ReadPropertyBoolean('ControlUnlocked'),
-                'expanded' => true,
-                'items'   => $ctlItems,
-            ];
         }
         // Invers-Schalter: die Vorzeichen von Netz- und Batterieleistung hängen
         // von Einbauort/Verdrahtung bzw. der gewünschten Konvention ab und sind

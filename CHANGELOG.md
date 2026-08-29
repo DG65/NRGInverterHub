@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.75.0-beta.2 (2026-08-29)
+
+- **Formular-Gate wieder entfernt (Dietmar: „nicht doppelt gemoppelt").** Nach der Übergabe
+  der Steuerungs-Politik ans EMS blieben hinter dem Freischalt-Haken nur noch zwei harmlose
+  Kommunikations-Einstellungen (Datenpunkt-Gruppe „EMS-Steuerung", Steuerhoheit) — die
+  Absicherung passiert jetzt im EMS, das Gate war Redundanz. Beide Felder stehen wieder
+  direkt im Datenpunkte-Panel.
+
 ## 0.75.0-beta.1 (2026-08-29)
 
 - **Architektur-Schnitt: InverterHub ist reine Kommunikationsschicht — jede Steuerungs-Politik
