@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.76.0-beta.4 (2026-08-29)
+
+- **Gesundheitsanzeige angebunden:** Die Diagnoseleiste (Warndreieck) der neuen Kachel zeigt
+  jetzt die Einträge des `IHUBMON_GetDiagnostics`-Vertrags (Ertrag vs. Prognose,
+  MPPT-Strangvergleich, Isolationswiderstand), sofern eine `InverterHubMonitor`-Instanz mit
+  derselben Datenquelle existiert — optionale Kopplung, ohne Monitor bleibt die Leiste aus.
+- **Geisterringe angebunden:** Jeder Knoten zeigt als zweiten Ring den Wert von gestern zur
+  selben Uhrzeit (aus dem Archiv, 5-Minuten-Cache) — nur bei archivierten Variablen.
+
 ## 0.76.0-beta.3 (2026-08-29)
 
 - **Klick-Detailseite mit echtem Inhalt** (vorher Platzhalter-Hinweis): Klick auf einen

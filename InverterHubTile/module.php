@@ -68,6 +68,9 @@ class InverterHubTile extends IPSModule
 
     // Anbieter des MHUB-Vertrags: echte Zähler und virtuelle (berechnete).
     private const METERHUB_GUID         = '{BAB8E05C-9150-43B9-9F2B-E5215FA54F0A}';
+    // InverterHubMonitor - liefert den Diagnostik-Vertrag IHUBMON_GetDiagnostics
+    // (Gesundheitsanzeige der Kachel: Warndreieck + Diagnoseleiste).
+    private const MONITOR_GUID          = '{7B1F9A34-6C52-4E8D-9A1B-4F3E2D7C6A19}';
     private const METERHUB_VIRTUAL_GUID = '{ADF18291-2E60-4354-92F5-B96863C127C8}';
 
     // Übersetzung der MeterHub-Funktionen in Verbraucher-Arten dieser Kachel.
@@ -164,6 +167,10 @@ class InverterHubTile extends IPSModule
         // (?dismissTour=1), da die sandboxed HTML-SDK-Kachel keinen anderen
         // Rueckkanal in die Instanz hat.
         $this->RegisterAttributeBoolean('TourSeen', false);
+        // Geisterringe (gestriger Vergleichswert je Knoten): Archiv-Abfragen
+        // je BuildPayload() waeren zu teuer - 5-Minuten-Cache je Variable
+        // (Muster NRGDashboardTile YesterdayCache).
+        $this->RegisterAttributeString('YesterdayCache', '{}');
 
         // Anzeige-Feinheiten "hinter dem Doppelpfeil" (Muster NRGDashboardTile/
         // Prognose-Energiebilanz): echte Instanz-Variablen mit EnableAction()
@@ -725,6 +732,77 @@ class InverterHubTile extends IPSModule
     {
         $this->WriteAttributeBoolean('TourSeen', false);
         return '✅ Die Einführungs-Tour wird beim nächsten Öffnen der Kachel wieder angezeigt.';
+    }
+
+    private const YESTERDAY_CACHE_TTL_SEC = 300;
+
+    /**
+     * Wert der Variable vor genau 24h aus dem Archiv (+-15min-Fenster,
+     * naechstliegender Datenpunkt) - treibt die Geisterringe der Kachel.
+     * Gecacht (5min TTL), null wenn kein Archiv/keine Daten.
+     */
+    private function GetYesterdayValue(int $id)
+    {
+        if ($id <= 0 || !IPS_VariableExists($id) || !function_exists('AC_GetLoggedValues')) {
+            return null;
+        }
+        $now = time();
+        $cache = json_decode($this->ReadAttributeString('YesterdayCache'), true);
+        if (!is_array($cache)) { $cache = []; }
+        $entry = $cache[(string)$id] ?? null;
+        if (is_array($entry) && ($now - ($entry['fetchedAt'] ?? 0)) < self::YESTERDAY_CACHE_TTL_SEC) {
+            return $entry['value'] ?? null;
+        }
+        $arch = $this->DetailArchiveID();
+        if ($arch <= 0) { return null; }
+        $target = strtotime('-1 day', $now);
+        $rows = @AC_GetLoggedValues($arch, $id, $target - 900, $target + 900, 0);
+        $value = null;
+        if (is_array($rows) && count($rows) > 0) {
+            $best = null; $bestDiff = PHP_INT_MAX;
+            foreach ($rows as $row) {
+                $diff = abs(($row['TimeStamp'] ?? 0) - $target);
+                if ($diff < $bestDiff) { $bestDiff = $diff; $best = $row; }
+            }
+            if ($best !== null) {
+                $value = (float)($best['Avg'] ?? $best['Value'] ?? 0);
+            }
+        }
+        $cache[(string)$id] = ['value' => $value, 'fetchedAt' => $now];
+        $this->WriteAttributeString('YesterdayCache', json_encode($cache));
+        return $value;
+    }
+
+    /**
+     * Gesundheits-/Diagnoseanzeige der Kachel: Eintraege des Diagnostik-
+     * Vertrags IHUBMON_GetDiagnostics (InverterHubMonitor), sofern eine
+     * Monitor-Instanz existiert, die auf DIESELBE Quell-Instanz zeigt wie
+     * diese Kachel (kein Raten bei mehreren Monitoren). Optionale Kopplung:
+     * ohne Monitor bleibt die Liste leer, die Kachel blendet die
+     * Diagnoseleiste dann selbst aus.
+     */
+    private function CollectDiagnostics()
+    {
+        if (!function_exists('IHUBMON_GetDiagnostics')) {
+            return [];
+        }
+        $src = $this->ResolveSource();
+        if ($src <= 0 || !IPS_InstanceExists($src)) {
+            return [];
+        }
+        $out = [];
+        foreach (IPS_GetInstanceListByModuleID(self::MONITOR_GUID) as $monID) {
+            if ((int)@IPS_GetProperty($monID, 'SourceInstance') !== $src) {
+                continue;
+            }
+            $entries = @IHUBMON_GetDiagnostics($monID);
+            if (is_array($entries)) {
+                foreach ($entries as $e) {
+                    if (is_array($e)) { $out[] = $e; }
+                }
+            }
+        }
+        return $out;
     }
 
     /**
@@ -1316,6 +1394,27 @@ class InverterHubTile extends IPSModule
             ];
         }
 
+        // Geisterringe: gestriger Vergleichswert je Knoten (gleiche
+        // Variablen wie die Live-Werte, ueber DetailDevice() aufgeloest;
+        // Einheiten-/Vorzeichen-Kanonisierung wie beim Live-Wert). null =
+        // kein Archiv/keine Daten - die Kachel laesst den Ring dann weg.
+        foreach ($devices as &$dev) {
+            $dd = $this->DetailDevice($dev['detailKey']);
+            $vid = (int)($dd['powerID'] ?? 0);
+            if ($vid > 0) {
+                $yv = $this->GetYesterdayValue($vid);
+                if ($yv !== null) {
+                    $w = $yv * $this->UnitFactorFromProfile($vid);
+                    if (!$useInstance) {
+                        if ($dev['function'] === 'grid' && $this->ReadPropertyBoolean('ManualGridInvert')) { $w = -$w; }
+                        if ($dev['function'] === 'battery' && $this->ReadPropertyBoolean('ManualBatInvert')) { $w = -$w; }
+                    }
+                    $dev['yesterdayValue'] = round($w);
+                }
+            }
+        }
+        unset($dev);
+
         $payload = array_merge($style, [
             'ok'              => $connected,
             'devices'         => $devices,
@@ -1326,7 +1425,7 @@ class InverterHubTile extends IPSModule
             'coupleGlow'      => (bool)$this->GetValue('CoupleGlowPower'),
             'effectIntensity' => (int)$this->GetValue('EffectIntensity'),
             'hookPath'        => '/hook/ihubtile' . $this->InstanceID,
-            'diagnostics'     => [],
+            'diagnostics'     => $this->CollectDiagnostics(),
             'gridAmpel'       => null,
             'showTour'        => !$this->ReadAttributeBoolean('TourSeen'),
         ]);
