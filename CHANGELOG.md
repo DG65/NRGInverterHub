@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.74.6-beta.1 (2026-08-29)
+
+- **GoodWe: Totmann-Verhalten und Schreibstrategie als bewusste Nutzerentscheidung.** Der
+  Firmware-Totmann (Selbst-Stopp auf 255 bei ausbleibendem EMS-Heartbeat) ist ein
+  beabsichtigter Sicherheitsmechanismus — je nach Anlage/Gebäude ist mal der Stopp, mal die
+  Verfügbarkeit das richtige Verhalten. Deshalb zwei neue Auswahlfelder (nur GoodWe):
+  - **„Verhalten bei Totmann-Auslösung"**: „Sicherheits-Stopp beibehalten" (Standard — WR
+    bleibt gestoppt, nur einmalige Log-Warnung beim Übergang) oder „Automatisch in
+    Eigenregelung zurückfallen" (Modul schaltet `ctl_ems_enable` aus, WR regelt selbst weiter).
+  - **„Schreibstrategie für die EMS-Vorgabe"**: „Nur auf Befehl" (Standard, Totmann voll
+    wirksam), „Bei Abweichung nachschreiben" (sparsame Selbstheilung, ersetzt die bisherige
+    Reassert-Checkbox) oder „Dauer-Heartbeat" (OpenEMS-Stil, jeden Zyklus — der Totmann feuert
+    damit NIE; der WR läuft bei Ausfall der Steuerlogik im letzten Modus weiter, Hilfetext
+    warnt ausdrücklich).
+  Die alte Checkbox „EMS-Vorgabe automatisch wiederholen" ist durch die Schreibstrategie
+  ersetzt (wer sie aktiv hatte: „Bei Abweichung nachschreiben" wählen).
+
 ## 0.74.5-beta.2 (2026-08-29)
 
 - **GoodWe: 255 bekommt eigene Anzeige „⚠️ Totmann: Steuerung verloren" (Warnrot).** Ohne
