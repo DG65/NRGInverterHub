@@ -4,11 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-  /* --nc (Knotenfarbe) als typisierte Custom Property registrieren. Nur so
-     interpoliert der Browser den Farbwechsel grau <-> Identitätsfarbe weich;
-     unregistrierte Custom Properties springen hart. Fällt die Registrierung
-     aus (älterer Browser), bleibt alles funktionsfähig - der Farbwechsel
-     springt dann lediglich, Größe/Deckkraft gleiten weiterhin. */
+  /* Visuelle Basis 1:1 von InverterHubTile/module.html übernommen (auf
+     Wunsch Dietmars, 27.07.2026 - die erste Eigenentwicklung wirkte im
+     Vergleich naiv). Münz-Look, Corona-Glow, Fluss-Animationen und die
+     Safari-Fallen-Vermeidung (kein filter:blur() für weiche Verläufe,
+     Ellipsen als Kreis+scale, viewBox fest+preserveAspectRatio) sind
+     unverändert aus dem Referenzmodul übernommen - Details siehe dort. */
   @property --nc {
     syntax: '<color>';
     inherits: true;
@@ -23,61 +24,21 @@
     --text: inherit;
     --textmuted: rgba(158,158,158,0.9);
     --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    /* Übergangszeit aktiv<->inaktiv, wird aus der Instanzkonfiguration
-       gesetzt (TransitionMs). 0ms = ohne Animation. */
     --trans: 800ms;
     --ease: cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
-  /* Alles liegt in EINEM SVG mit viewBox, damit die gesamte Kachel beim
-     Skalieren des Widgets als Einheit mitwächst. Absolute Positionierung
-     statt Flexbox, da ein Flex-Kind mit width/height:100% in manchen
-     Kachel-Hosts nicht zuverlässig auf die tatsächliche Containergröße
-     schrumpft und dadurch Inhalt am Rand abgeschnitten wurde. */
-  /* Höhe bewusst über 100dvh statt 100%: Manche Kachel-Hosts geben dem body eine
-     GRÖSSERE Höhe als den tatsächlich sichtbaren Bereich. Der Inhalt wird dann
-     korrekt in die zu hohe Box eingepasst — und ist unten abgeschnitten bzw.
-     wirkt nach unten verschoben. Mit 100dvh (Rückfall 100vh) ist die Box an den
-     sichtbaren Bereich gebunden, unabhängig davon, was der Host am body setzt.
-     Das ersetzt das frühere `position: fixed`, das denselben Zweck erfüllte,
-     aber in Safari innerhalb eines iframes fehlerhaft gezeichnet wurde. */
   html, body { width: 100%; background: transparent; user-select: none; overflow: hidden; }
   html, body { height: 100vh; }
   html, body { height: 100dvh; }
   body { max-height: 100dvh; }
 
-  /* BEWUSST absolute, nicht fixed: `position: fixed` innerhalb eines iframes ist
-     in Safari/WebKit ein bekannter Fehlerkreis — das Element wird abgeschnitten
-     oder oben hängend gezeichnet, obwohl der Inspektor die Box korrekt meldet
-     (mehrfach in Apples Entwicklerforum dokumentiert). Ein Beta-Tester sah
-     dadurch die Kachel unten abgeschnitten, während dieselbe Safari-Version bei
-     anderen fehlerfrei lief.
-
-     `absolute` gegen den body ist außerdem das Muster ALLER anderen Kacheln in
-     diesem Modulverbund; unsere war die einzige mit `fixed`. Damit der body dabei
-     nicht höher wird als der sichtbare Bereich, ist seine Höhe oben auf 100dvh
-     festgelegt — sonst kehrt genau der Abschneide-Fehler zurück, gegen den `fixed`
-     ursprünglich eingeführt worden war.
-
-     (Randnotiz: Das Maximieren-Symbol öffnet NICHT die vergrößerte Kachel,
-     sondern die Objekt-Detailansicht des Hosts — davon unabhängig.) */
-  /* WICHTIG: Der body darf NICHT positioniert sein (kein position: relative).
-     Sonst bezieht sich `inset: 0` auf dessen POLSTERKANTE — und der Kachel-Host
-     setzt dem body einen Innenabstand (gemessen: 20px seitlich, 60px oben für die
-     Titelleiste). Das SVG saß dadurch um genau diesen Betrag versetzt und ragte
-     unten und rechts hinaus.
-     Ohne positionierten Vorfahren bezieht sich `inset: 0` auf den initialen
-     Containing Block, also exakt auf den sichtbaren Bereich — dasselbe Ergebnis
-     wie beim früheren `position: fixed`, aber ohne dessen Safari-Fehler. */
   .flow-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
   text { font-family: var(--font); }
 
-  /* Statusanzeige als HTML-Overlay-Plakette im Stil der Kreise: plastische
-     Fläche, feine Kante, glühender Punkt. Fest in der unteren linken Ecke -
-     unabhängig von der SVG-viewBox, daher kein Nachziehen beim Resize. */
   .status-overlay {
     position: absolute; left: 4px; bottom: 4px; z-index: 2;
     display: inline-flex; align-items: center; gap: 8px;
@@ -89,17 +50,84 @@
     pointer-events: none;
   }
   .status-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--textmuted); flex: none; }
-  .status-dot.ok { background: #4caf50; box-shadow: 0 0 4px rgba(76,175,80,0.85); }
-  .status-dot.pulse { animation: pulse 2s ease-in-out infinite; }
+  .status-dot.fresh { background: #4caf50; box-shadow: 0 0 4px rgba(76,175,80,0.85); }
+  .status-dot.fresh.pulse { animation: pulse 2s ease-in-out infinite; }
+  .status-dot.stale { background: #c9a227; }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
-  .state-label { font-size: 14px; font-weight: 600; color: var(--textmuted); white-space: nowrap; }
+  .state-label { font-size: 12px; font-weight: 600; color: var(--textmuted); white-space: nowrap; }
 
-  /* Der Knoten trägt --nc (Farbe erben Ring/Icon/Wert) sowie Position UND
-     Skalierung in EINEM transform. transform-box/-origin sind bewusst gesetzt,
-     damit sich das CSS-transform exakt wie das SVG-transform-Attribut verhält
-     (Ursprung im Koordinatensystem des Knotens) - nur so skaliert der Kreis um
-     seinen eigenen Mittelpunkt statt um eine Bounding-Box-Mitte. Da der
-     translate-Anteil konstant bleibt, animiert praktisch nur die Skalierung. */
+  /* Diagnose-Badge (IHUBMON_GetDiagnostics, siehe README "Diagnostik-
+     Vertrag") - bewusst dezent: nur sichtbar, wenn ueberhaupt Eintraege
+     vorliegen, faengt als reine Zahl+Farbe (schlechtestes level) an und
+     zeigt die Details erst bei Klick/Hover, um in der engen Kachel keinen
+     Platz zu verbrauchen, solange alles unauffaellig ist. */
+  .diag-badge {
+    /* Rechts UNTEN statt oben (Dietmar, 27.07.2026) - oben rechts lag das
+       Badge direkt unter dem WebFront-Doppelpfeil zum Vollbild-Umschalten
+       und war dadurch nicht klickbar. */
+    position: absolute; right: 4px; bottom: 4px; z-index: 3;
+    display: none; align-items: center; gap: 6px;
+    height: 26px; padding: 0 10px;
+    border-radius: 13px; cursor: pointer;
+    background: linear-gradient(180deg, rgba(60,64,72,0.92), rgba(28,30,36,0.92));
+    border: 1px solid rgba(255,255,255,0.10);
+    font-family: var(--font); font-size: 12px; font-weight: 600;
+    color: var(--textmuted);
+  }
+  .diag-badge.show { display: inline-flex; }
+  .diag-badge .diag-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: #3a3; }
+  .diag-badge.level-auffaellig .diag-dot { background: #c9a227; }
+  .diag-badge.level-kritisch .diag-dot { background: #c33; }
+  .diag-panel {
+    /* Oeffnet nach OBEN vom Badge aus (bottom statt top), da das Badge
+       jetzt selbst unten sitzt. */
+    position: absolute; right: 4px; bottom: 34px; z-index: 3;
+    display: none; min-width: 220px; max-width: 280px;
+    padding: 8px 10px; border-radius: 10px;
+    background: linear-gradient(180deg, rgba(60,64,72,0.96), rgba(28,30,36,0.96));
+    border: 1px solid rgba(255,255,255,0.10);
+    font-family: var(--font); font-size: 11.5px; color: var(--textmuted);
+  }
+  .diag-panel.open { display: block; }
+  .diag-row { padding: 4px 0; border-top: 1px solid rgba(255,255,255,0.08); }
+  .diag-row:first-child { border-top: none; }
+  .diag-row .diag-label { font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 6px; }
+  .diag-row .diag-value { opacity: 0.9; margin: 1px 0; }
+  .diag-row .diag-reason { opacity: 0.7; font-size: 11px; }
+
+  .tour-overlay {
+    position: absolute; inset: 0; z-index: 10; display: none;
+    align-items: center; justify-content: center;
+    background: rgba(10,11,14,0.72);
+    font-family: var(--font);
+  }
+  .tour-overlay.show { display: flex; }
+  .tour-card {
+    max-width: 340px; width: calc(100% - 48px);
+    padding: 18px 20px 16px;
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(60,64,72,0.97), rgba(28,30,36,0.97));
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.45);
+    color: var(--text);
+  }
+  .tour-dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 12px; }
+  .tour-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.25); transition: background 0.2s ease, transform 0.2s ease; }
+  .tour-dot.active { background: var(--nc, #6cb4ff); transform: scale(1.3); }
+  .tour-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; text-align: center; }
+  .tour-text { font-size: 12.5px; line-height: 1.5; color: var(--textmuted); text-align: center; }
+  .tour-nav { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 16px; }
+  .tour-btn {
+    padding: 7px 14px; border-radius: 8px; cursor: pointer; border: 1px solid rgba(255,255,255,0.14);
+    font-family: var(--font); font-size: 12px; font-weight: 600;
+    background: rgba(255,255,255,0.06); color: var(--text);
+  }
+  .tour-btn:hover { background: rgba(255,255,255,0.12); }
+  .tour-btn-ghost { color: var(--textmuted); }
+  .tour-btn-accent { background: rgba(108,180,255,0.18); border-color: rgba(108,180,255,0.4); }
+  .tour-btn-check { background: rgba(76,175,80,0.18); border-color: rgba(76,175,80,0.45); }
+  .tour-btn[disabled] { opacity: 0.35; cursor: default; pointer-events: none; }
+
   .node {
     transform-box: view-box;
     transform-origin: 0 0;
@@ -108,44 +136,34 @@
                 opacity var(--trans) var(--ease);
   }
 
-  /* Fill/Stroke sind vererbbare CSS-Eigenschaften bei SVG (im Gegensatz zu
-     "color"/currentColor) - Icon-Kinder erben --nc automatisch. */
   .node-icon, .node-icon * { fill: var(--nc, var(--grey)); stroke: var(--nc, var(--grey)); }
-  /* Konturformen: die Regel oben setzt fill auf ALLE Kinder und schlägt dabei
-     das fill="none"-Attribut (CSS gewinnt gegen Präsentationsattribut). Formen,
-     die nur als Umriss gezeichnet werden sollen, werden daher per data-hollow
-     ausgenommen - das muss jeden verwendeten Elementtyp abdecken. */
   .node-icon rect[data-hollow],
   .node-icon polygon[data-hollow],
   .node-icon circle[data-hollow],
   .node-icon path[data-hollow] { fill: none; }
 
-  /* Striktes, überall identisches Template: Icon -> Wert -> Label, in genau
-     dieser Reihenfolge und mit denselben Abständen für JEDEN Knoten. */
   .node-value { font-size: 22px; font-weight: 800; fill: var(--nc, var(--grey)); }
-  /* em statt fixer px-Größe: skaliert automatisch mit der Wertschrift und
-     nutzt dieselbe Farbe (--nc) statt einer eigenen, gedämpften Farbe. */
   .node-value-unit { font-size: 0.52em; font-weight: 600; fill: var(--nc, var(--grey)); }
   .node-label { font-size: 12.5px; fill: var(--textmuted); }
-  /* Zusatzzeile unter der Beschriftung (z. B. erkanntes Fahrzeug an einer
-     Wallbox) - bewusst kleiner und gedämpfter als die Beschriftung. */
   .node-sub { font-size: 10px; font-weight: 700; fill: var(--nc, var(--grey)); opacity: 0.75; }
+  /* Zugeordnetes Fahrzeug (z.B. Wallbox+Tessie-Auto): die eigentlich
+     interessante Info (welches Auto laedt) wird die groessere/farbige
+     Zeile, die Geraetebezeichnung (z.B. "WB 2") ruckt klein/grau
+     darunter - Dietmar, 05.08.2026, Layoutvorschlag bestaetigt. */
+  .node-vehicle-name { font-size: 13.5px; font-weight: 700; fill: var(--nc, var(--grey)); }
+  .node-device-name { font-size: 10.5px; fill: var(--textmuted); opacity: 0.85; }
 
-  /* --- Energiefluss ------------------------------------------------------
-     Aufbau je Speiche: ruhiger Grundstrich, darüber ein glimmender Leiter,
-     darauf laufende Dreiecke in Flussrichtung, dazu wabernde Blitze. */
-  .wire { fill: none; stroke: var(--wire); stroke-width: 2.5; stroke-linecap: round; }
+  .spoke { transition: opacity var(--trans) var(--ease); }
 
-  /* Glimmender Leiter: weich gezeichnet, wirkt dadurch "geladen". */
+  .wire { fill: none; stroke: var(--wire); stroke-width: 2.5; stroke-linecap: round; transition: stroke-width var(--trans) var(--ease); }
+  .flow-peak-mark { stroke-width: 2.5; stroke-linecap: round; opacity: 0.85; }
+
   .flow-core {
     fill: none; stroke-width: 3.5; stroke-linecap: round;
     filter: blur(3px); opacity: 0;
     transition: opacity 0.35s, stroke 0.4s;
   }
 
-  /* Laufende Dreiecke. offset-rotate:auto richtet sie automatisch entlang der
-     Bahn aus - die Bahn wird bereits IN Flussrichtung erzeugt, dadurch zeigen
-     die Spitzen immer korrekt voraus, ohne Extra-Logik. */
   .flow-tri {
     offset-rotate: auto;
     animation-name: flowMove;
@@ -158,9 +176,6 @@
     to   { offset-distance: 100%; }
   }
 
-  /* Wabernde Blitze: drei vorberechnete Zickzack-Varianten, die versetzt
-     kurz aufblitzen - dadurch entsteht ein unruhiges Flackern wie bei einer
-     Teslaspule, ganz ohne laufende Neuberechnung. */
   .flow-bolt {
     fill: none; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round;
     opacity: 0; filter: blur(1.1px);
@@ -177,11 +192,6 @@
     100% { opacity: 0; }
   }
 
-  /* Teslaspulen-Blitze um die Kreise: Zickzack-Bögen entlang der Münzkante
-     (.node-bolt) sowie leistungsabhängige "Reichweiten"-Blitze, die bei hoher
-     Leistung bis zum Nachbarknoten wachsen (.node-aura, im Welt-Layer). Beide
-     flackern über --bmax, das je Knoten mit der Leistung gesetzt wird - so
-     werden die Blitze mit steigender Leistung heller. */
   .node-bolt, .node-aura {
     fill: none; stroke: var(--nc, var(--grey));
     stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
@@ -200,47 +210,17 @@
   }
   .node.inactive .node-bolt { display: none; }
 
-  /* Kollektor-Ring: bewusst kräftiger als die dünnen Speichen, damit er als
-     eigenständiges Gestaltungselement erkennbar bleibt. */
   .ring-decor { fill: none; stroke: var(--ring-decor); stroke-width: 3.5; stroke-dasharray: 2 6; }
 
-  /* Corona als echter Vektor (radialer Verlauf, per attachGlow zugewiesen) statt
-     CSS-blur - gestochen scharf in allen Browsern (Safari rasterte blur() grob)
-     und kein Repaint-Aussetzer beim Vergrößern. Intensität = Opacity des Kreises
-     (leistungsabhängig, weich animiert). */
-  .node-glow {
-    /* fill wird per Inline-Style (attachGlow) auf den Verlauf gesetzt - bewusst
-       NICHT hier als fill:none, sonst schlägt die Stylesheet-Regel das
-       fill-Attribut und Safari zeigt statt des Verlaufs nur den darunter-
-       liegenden Kantenring. */
-    opacity: 0;
-    transition: opacity var(--trans) var(--ease);
-  }
-  /* Ring = nur die farbige Kante; die gewölbte Fläche liegt als eigenes
-     Element (.node-face) darunter, damit sie separat ein-/ausgeblendet werden
-     kann (ein Wechsel fill: none <-> Verlauf ließe sich nicht animieren). */
+  .node-glow { opacity: 0; transition: opacity var(--trans) var(--ease); }
   .node-ring { fill: none; stroke-width: 3; stroke: var(--nc, var(--grey)); }
   .node-face { fill: url(#plasticFill); }
 
-  /* --- Münz-/Schlaglicht-Ebenen (nur für aktive Knoten) --- */
-  /* Dunkle Bodenschattierung leicht nach unten versetzt, damit der Kreis wie
-     eine erhabene Münze über der Fläche schwebt. */
-  /* Verlauf statt blur() (Safari-scharf). Der weiche Randabfall steckt im
-     radialen Verlauf; die Elemente sind entsprechend etwas größer gezeichnet,
-     um die frühere Unschärfe-Ausdehnung zu ersetzen. */
   .coin-shadow { fill: url(#coinShadowG); opacity: 0.55; }
-  /* Metallischer Kantenanschliff: heller Lichtfang oben-links, dunkler
-     Schatten unten-rechts (bevelGrad), überlagert den farbigen Ring, sodass
-     die Identitätsfarbe in den Mitteltönen erhalten bleibt. */
   .node-bevel { fill: none; stroke: url(#bevelGrad); stroke-width: 5; }
-  /* Weiches, großes Glanzlicht oben links (diffuse Wölbung). */
   .node-highlight { fill: url(#glossHi); opacity: 0.5; }
-  /* Kleiner, knackiger Glint - wie Licht, das auf die Münzkante trifft. */
   .node-spec { fill: url(#glossSpec); opacity: 0.55; }
 
-  /* Alle Münz-Ebenen blenden weich aus, sobald der Knoten inaktiv wird -
-     gesteuert allein über die Klasse .inactive am Knoten, damit Zustand und
-     Animation an einer Stelle definiert sind. */
   .node-face, .coin-shadow, .node-bevel, .node-highlight, .node-spec {
     transition: opacity var(--trans) var(--ease);
   }
@@ -249,40 +229,96 @@
   .node.inactive .node-bevel,
   .node.inactive .node-highlight,
   .node.inactive .node-spec { opacity: 0; }
+
+  .node-liquid { fill: var(--nc, var(--grey)); opacity: 0.30; transition: y var(--trans) var(--ease), height var(--trans) var(--ease); }
+  .node-liquid-low { fill: #e74c3c; }
+
+  .node-ghost-ring { fill: none; stroke: var(--nc, var(--grey)); stroke-width: 2; stroke-dasharray: 3 5; opacity: 0.5; transition: r var(--trans) var(--ease); }
+
+  .node-forecast-ring { stroke: var(--nc, var(--grey)); stroke-width: 3; stroke-linecap: round; opacity: 0.85; transition: stroke-dashoffset var(--trans) var(--ease); }
+  .node-forecast-ring-over { stroke: #4caf50; }
+  .node-autarky-ring { stroke: #4caf50; stroke-width: 3; stroke-linecap: round; opacity: 0.85; transition: stroke-dashoffset var(--trans) var(--ease); }
+
+  /* Netzampel-Farbwaesche (28.08.2026) - dezenter Farbverlauf hinter dem
+     Flow-Diagramm, nur sichtbar wenn eine StromGedacht-Instanz Daten
+     liefert (d.gridAmpel, handleMessage()). Eigene Ebene UNTER dem SVG,
+     damit sie den Node-Kontrast nicht beeintraechtigt. */
+  #ampelWash {
+    position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    opacity: 0; transition: opacity 1.2s ease, background 1.2s ease;
+  }
+  #ampelWash.show { opacity: 1; }
+
+  .node-price-spark { fill: none; stroke: var(--nc, var(--grey)); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; opacity: 0.8; }
+
+
+  .node-warn { pointer-events: none; }
+  .node-warn-tri { fill: #f5a623; stroke: rgba(0,0,0,0.35); stroke-width: 1; }
+  .node-warn-mark { fill: #26221a; font-size: 11px; font-weight: 800; text-anchor: middle; stroke: none; }
+  .node-warn-kritisch .node-warn-tri { fill: #e74c3c; }
+
+  #nrgdash-empty { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; font-size: 13px; opacity: .7; text-align: center; padding: 12px; }
+
+  /* Geraete-Detail-Overlay (28.08.2026, dritte Fassung): bildschirmfuellend
+     statt in der (fuer Diagramme oft zu kleinen) Kachel - laedt die
+     eigenstaendige Detailseite per <iframe> ueber den WebHook (gleicher
+     Inhalt wie ein eigener Tab, nur ohne Tab-Wechsel).
+     Ein-/Ausblende-Animation ist ein "Container-Transform"-Morph (Material-
+     Design-Begriff): der angeklickte Knoten WAECHST direkt zur Detailkachel
+     - keine Physik-Simulation mehr. Die fruehere Strudel-Simulation (20
+     Rand-Partikel, Gravitation, tangentialer Drall) hatte zwei echte
+     Probleme: (1) Dietmar gefiel der Drall optisch nicht mehr, (2) ein rein
+     geometrischer Bug - das Flow-Diagramm ist klein, alle Knoten liegen nah
+     beieinander, das Panel aber (auf Wunsch) fast bildschirmfuellend; die
+     reale Pixel-Distanz zwischen z.B. "Haus" und einem Verbraucher-Knoten
+     war dadurch im Verhaeltnis zur Panel-Groesse winzig, das Ziel landete
+     praktisch immer nur knapp neben dem Haus-Knoten. Der Morph-Ansatz
+     umgeht das strukturell: das Panel STARTET exakt an Position/Groesse
+     des geklickten Knotens (openDeviceDetail() setzt einen inversen
+     transform via FLIP-Technik: translate+scale vom Panel-Mittelpunkt zum
+     Knoten-Mittelpunkt, border-radius:50% fuer die Kreisform) und
+     transitioniert dann zur echten Panel-Groesse - unabhaengig davon, wie
+     nah/fern der Knoten am Panel-Zentrum liegt, IMMER korrekt. Schliessen
+     spielt denselben Uebergang exakt rueckwaerts (dieselbe Knotenposition
+     wird beim Klick erneut vermessen, siehe LAST_ORIGIN_EL). */
+  #detailOverlay {
+    position: fixed; inset: 0; z-index: 9999; display: none;
+    align-items: center; justify-content: center;
+    background: rgba(10, 12, 15, 0);
+    transition: background .5s ease;
+  }
+  #detailOverlay.visible { background: rgba(10, 12, 15, .55); }
+  #detailPanel {
+    /* volle Breite (Dietmar, 28.08.2026: "darf die gesamte Kachelbreite
+       einnehmen") statt auf 1100px gedeckelt. */
+    width: 97vw; height: min(860px, 92vh);
+    border-radius: 16px; overflow: hidden; background: #26292e;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, .5);
+    transform-origin: center center;
+    transition: transform .55s cubic-bezier(.32, .72, 0, 1), border-radius .55s cubic-bezier(.32, .72, 0, 1);
+  }
+  #detailPanel.closingMorph { transition-timing-function: cubic-bezier(.55, 0, .68, .12); }
+  #detailFrame { width: 100%; height: 100%; border: 0; display: block; background: #26292e; }
 </style>
 </head>
 <body>
 
-<!-- viewBox MUSS zu R_CONTENT im Skript passen: Kantenlaenge = 2 * R_CONTENT,
-     zentriert auf CX/CY (280/301). Aktuell R_CONTENT = 297 -> 594, also
-     x = 280-297 = -17, y = 301-297 = 4. Wird R_CONTENT geaendert, hier
-     nachziehen - fitViewBox() ist bewusst ein No-op und korrigiert nichts. -->
+<div id="ampelWash"></div>
+
 <svg class="flow-svg" id="svg" viewBox="-17 4 594 594" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
   <defs id="markerDefs"></defs>
   <defs>
-    <!-- Münz-Look für AKTIVE Kreise. Inaktive Kreise bleiben bewusst flach
-       (fill:none), wie bisher. -->
-    <!-- Gewölbte Fläche: Licht kommt von oben-links, dadurch heller Scheitel
-       oben-links und dunkler abfallender Rand unten-rechts. -->
     <radialGradient id="plasticFill" cx="33%" cy="25%" r="88%">
       <stop offset="0%"   stop-color="#3d4655"/>
       <stop offset="42%"  stop-color="#1d222b"/>
       <stop offset="100%" stop-color="#070a0e"/>
     </radialGradient>
-    <!-- Kanten-Anschliff der Münze: gerichtetes Licht von oben-links nach
-       unten-rechts (weiß -> transparent -> schwarz). objectBoundingBox, also
-       fest achsparallel = konstante Lichtrichtung. -->
     <linearGradient id="bevelGrad" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.9"/>
       <stop offset="28%"  stop-color="#ffffff" stop-opacity="0"/>
       <stop offset="70%"  stop-color="#000000" stop-opacity="0"/>
       <stop offset="100%" stop-color="#000000" stop-opacity="0.65"/>
     </linearGradient>
-    <!-- Glanzlichter und Bodenschatten der Münzen als radiale Vektor-Verläufe
-       statt CSS-filter:blur(). blur() rasterte Safari beim Skalieren grob/körnig
-       (derselbe Effekt wie zuvor bei der Corona) - der Verlauf ist in allen
-       Browsern vektorscharf. Die Ellipsen/Kreise tragen den Verlauf als fill;
-       der weiche Randabfall ersetzt die frühere Unschärfe. -->
     <radialGradient id="glossHi" cx="50%" cy="50%" r="50%">
       <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.85"/>
       <stop offset="55%"  stop-color="#ffffff" stop-opacity="0.32"/>
@@ -298,18 +334,7 @@
       <stop offset="55%"  stop-color="#000000" stop-opacity="0.72"/>
       <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
     </radialGradient>
-    <!-- Prägung (Relief) für Icons und Leistungswerte. Die Alphamaske des
-       Glyphen dient als Höhenkarte: feSpecularLighting mit Licht von
-       oben-links erzeugt echte, metallisch glänzende Grate auf den erhabenen
-       Kanten (wie in eine Münze gestanzt), dazu ein dunkler, weicher
-       Tiefenschatten unten-rechts. -->
     <filter id="relief" x="-70%" y="-70%" width="240%" height="240%">
-      <!-- Höhenkarte bewusst kräftiger geglättet (stdDev 1.3 statt 0.9): an den
-           scharfen Glyphenkanten entstehen sonst hochfrequente Glanzspitzen, die
-           Safari (rastert den Filter grob) als Körnung/Rauschen zeigt. Der
-           breitere Glanz (specularExponent 9 statt 14) verteilt das Highlight
-           weicher - in Chrome/Firefox weiterhin klar geprägt, in Safari deutlich
-           ruhiger. -->
       <feGaussianBlur in="SourceAlpha" stdDev="1.3" result="bump"/>
       <feSpecularLighting in="bump" surfaceScale="2.6" specularConstant="1"
           specularExponent="9" lighting-color="#ffffff" result="spec">
@@ -328,138 +353,355 @@
     </filter>
   </defs>
 
-  <!-- Dynamischer Inhalt: Speichen zuerst (unten), dann Knoten (oben) -->
   <g id="wires-layer"></g>
 
-  <!-- Zentrum: Hauslast, immer vorhanden. Kollektor-Ring derzeit ausgeblendet
-       (Nutzerwunsch), lag mittig zwischen Zentrums- und äußeren Kreisen. -->
   <circle class="ring-decor" id="ring-decor" cx="280" cy="301" r="96" style="display:none"/>
   <g id="node-center" class="node">
-    <circle class="coin-shadow" cx="0" cy="8.96" r="63"/>
-    <circle class="node-glow" r="56"/>
-    <circle class="node-face" r="56"/>
-    <circle class="node-ring" r="56"/>
-    <circle class="node-bevel" r="56"/>
+    <!-- Haus-"Muenze" als <rect> statt <circle> (28.08.2026, Dietmar: ab
+         vielen Knoten soll der Hausknoten zum "Chip"/zur Pille werden statt
+         alle Verbraucher-Kreise weiter zu schrumpfen). rx=ry=Halbe-Hoehe
+         macht ein <rect> optisch UNUNTERSCHEIDBAR von einem Kreis, solange
+         Breite=Hoehe ist - deshalb genuegt EIN Render-Pfad fuer beide
+         Faelle, layoutCenterChip() setzt x/y/width/height/rx/ry jeden
+         Render neu (siehe dort). node-highlight/node-spec bleiben bewusst
+         Kreise (rein dekoratives Glanzlicht nahe der linken Kappe, muss
+         nicht mitskalieren). */ -->
+    <rect class="coin-shadow" x="-63" y="-54.04" width="126" height="126" rx="63" ry="63"/>
+    <rect class="node-glow" x="-56" y="-56" width="112" height="112" rx="56" ry="56"/>
+    <rect class="node-face" x="-56" y="-56" width="112" height="112" rx="56" ry="56"/>
+    <rect class="node-ring" x="-56" y="-56" width="112" height="112" rx="56" ry="56"/>
+    <rect class="node-bevel" x="-56" y="-56" width="112" height="112" rx="56" ry="56"/>
+    <!-- Autarkiegrad-Ringsegment (28.08.2026, Dietmar: "alles direkt
+         umsetzen") - Bogen um den Haus-Chip, Laenge = Anteil des heutigen
+         Verbrauchs, der NICHT aus dem Netz kam. rx=ry=Halbe-Hoehe wie beim
+         Coin selbst (layoutCenterChip() haelt x/y/width/height/rx/ry
+         synchron, +7 Padding nach aussen). -->
+    <rect class="node-autarky-ring" x="-63" y="-63" width="126" height="126" rx="63" ry="63" fill="none"/>
     <circle class="node-highlight" r="40" transform="translate(-16.8,-26.9) scale(1,0.575)"/>
     <circle class="node-spec" r="17" transform="translate(-24.6,-30.8) scale(1,0.559)"/>
     <g id="center-icon" class="node-icon" transform="translate(0,-30)" stroke-width="2" fill="none" filter="url(#relief)">
-      <polygon points="0,-12 13.6,-0.8 13.6,12 -13.6,12 -13.6,-0.8" data-hollow="1"/>
+      <polygon points="0,-15 17,-1 17,15 -17,15 -17,-1" data-hollow="1"/>
     </g>
     <text id="lbl-center-val" x="0" y="9" text-anchor="middle" class="node-value" filter="url(#relief)">0<tspan class="node-value-unit" dx="2">kW</tspan></text>
-    <text x="0" y="33" text-anchor="middle" class="node-label">Hauslast</text>
+    <text x="0" y="33" text-anchor="middle" class="node-label">Haus</text>
   </g>
 
   <g id="nodes-layer"></g>
-
 </svg>
 
-<!-- Statusanzeige als HTML-Overlay, fest in der unteren linken Ecke (per CSS).
-     Bewusst NICHT im SVG: dort müsste die Position aus der viewBox berechnet und
-     bei jedem Resize nachgezogen werden - das hinkte beim Zoomen hinterher. Als
-     Overlay klebt sie ohne Nachrechnen in der Ecke. -->
+<div id="nrgdash-empty">Keine Geräte gefunden - NRGDASH_Discover() ausführen.</div>
+
+<div id="detailOverlay">
+  <div id="detailPanel"><iframe id="detailFrame" title="Gerätedetails"></iframe></div>
+</div>
+
 <div id="status" class="status-overlay">
   <span id="dot" class="status-dot"></span>
   <span id="stateLabel" class="state-label">–</span>
 </div>
 
-<script>
-// Hinweis: Pfeile/Lauflinien und der große Kollektor-Ring werden derzeit nicht
-// gezeichnet (Nutzerwunsch). Die zugehörigen Platzhalter (#wires-layer,
-// #markerDefs, #ring-decor) sowie deren CSS sind absichtlich erhalten, damit
-// sie sich bei Bedarf wieder befüllen lassen.
-const CX = 280, CY = 301;          // Zentrum
-// Die Knoten-Geometrie wird IMMER in dieser Entwurfsgröße gezeichnet; die
-// tatsächliche Darstellungsgröße entsteht ausschließlich über die Skalierung
-// der Gruppe. Dadurch skaliert stets der komplette Kreisinhalt mit.
-const DESIGN_R = 56;
-// Aktive Knoten sind alle gleich groß; inaktive (kein nennenswerter Fluss)
-// werden bewusst kleiner gezeichnet - der Größenunterschied selbst ist das
-// gewünschte Signal für "inaktiv", nicht nur Farbe/Transparenz.
-const SCALE_INACTIVE = 44 / 56;
-// Äußerer Rand des Layouts: Der Abstand vom Zentrum plus Knotenradius ergibt
-// immer exakt diesen Wert, damit die Kachel unabhängig von der Knotenzahl
-// gleich groß bleibt (und die Statuszeile bündig sitzt).
-const R_MAX = 234;
-const NODE_GAP = 10;               // Mindestluft zwischen benachbarten Knoten
-const CENTER_R = DESIGN_R;         // Radius des Hauslast-Kreises (Skalierung 1)
-const SPOKE_GAP = 9;               // Luft zwischen Speiche und Kreisrand
-const TRI_COUNT = 3;               // laufende Dreiecke je Speiche
-const BOLT_COUNT = 3;              // Blitz-Varianten je Speiche
+<div id="diagBadge" class="diag-badge" onclick="toggleDiagPanel()">
+  <span class="diag-dot"></span>
+  <span id="diagBadgeText">0</span>
+</div>
+<div id="diagPanel" class="diag-panel"></div>
 
-// Kreisgröße und -abstand aus der Knotenzahl ableiten: Bei wenigen Knoten
-// bleibt es bei der Entwurfsgröße, ab ca. neun Knoten werden sie so weit
-// verkleinert, dass sich benachbarte Kreise gerade nicht berühren.
-// Herleitung: Sehne zwischen zwei benachbarten Mittelpunkten
-// = 2*rOuter*sin(pi/n) muss >= 2*outerR + NODE_GAP sein, mit rOuter = R_MAX - outerR.
+<!-- Einfuehrungs-Tour (28.08.2026, Dietmar: "eine Tour die bei der ersten
+     Benutzung eingeblendet und nur per Haken ausgeblendet werden kann").
+     Bewusst KEIN X/Escape zum Wegklicken - nur der Haken-Button am Ende
+     jedes Schritts markiert die Tour als gesehen (Dietmars Wortlaut: "nur
+     per Haken ausgeblendet"). Inhalt/Navigation siehe TOUR_STEPS/renderTour(). -->
+<div id="tourOverlay" class="tour-overlay">
+  <div class="tour-card">
+    <div class="tour-dots" id="tourDots"></div>
+    <div class="tour-title" id="tourTitle"></div>
+    <div class="tour-text" id="tourText"></div>
+    <div class="tour-nav">
+      <button type="button" class="tour-btn tour-btn-ghost" id="tourPrev">Zurück</button>
+      <button type="button" class="tour-btn tour-btn-accent" id="tourNext">Weiter</button>
+      <button type="button" class="tour-btn tour-btn-check" id="tourDone">✓ Verstanden, nicht mehr zeigen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- Übernommen aus InverterHubTile/module.html (Referenz-Visualisierung
+// des Verbunds) - Layout-/Effekt-Engine ist geräteartenneutral, daher 1:1
+// wiederverwendbar. Angepasst: buildItems() konsumiert unser generisches
+// Geräte-Schema (function/label/value/category) statt fester WR-Felder.
+const CX = 280, CY = 301;
+const DESIGN_R = 56;
+const SCALE_INACTIVE = 44 / 56;
+let HIDE_INACTIVE = false;
+
+// Nutzer-Anzeigeeinstellungen (28.08.2026) - browserlokal in localStorage,
+// je Kachel-Instanz (Schluessel enthaelt die InstanceID aus dem Hook-Pfad,
+// sonst wuerden mehrere Kacheln im selben Browser sich gegenseitig
+// ueberschreiben). Seit 28.08.2026 (zweiter Anlauf, Dietmar: "hinter den
+// Doppelpfeil oben rechts auf der Kachel", nicht als selbstgebautes Panel
+// in der Kachel) echte Instanz-Variablen des Hosts statt localStorage -
+// kommen serverseitig im Payload (d.hideInactive/d.coupleBolt/...), siehe
+// module.php Create()/RequestAction(). Ein Klick auf den WebFront-
+// Doppelpfeil oeffnet dafuer NICHT diese Kachel-HTML, sondern die
+// Standardansicht der Instanz-Kinder (SUITE.md Punkt 10) - dort erscheinen
+// die Variablen automatisch als Schalter/Zahlenfeld.
+let COUPLE_BOLT = true;
+let COUPLE_GLOW = true;
+let EFFECT_INTENSITY = 1;
+
+let lastBoltHw = null; // Chip-Blitzboegen nur bei tatsaechlicher Breitenaenderung neu aufbauen
+const R_MAX = 234;
+const NODE_GAP = 20; // Regelabstand zwischen benachbarten Verbraucher-Knoten (Dietmar, 28.08.2026; 10->15->20px erhoeht - bei vielen Knoten griff der Wert wegen eines Bugs in der Kompressionsformel bislang gar nicht, siehe computeLayout())
+const CENTER_R = DESIGN_R;
+const SPOKE_GAP = 9;
+const TRI_COUNT = 3;
+const BOLT_COUNT = 3;
+// Ab dieser Knotenzahl verlaesst der Hausknoten die Kreisform und wird zum
+// "Chip" (Rechteck mit Halbkreis links/rechts) - Dietmar, 28.08.2026: bei
+// vielen Verbrauchern (er hat ueber 50 einzeln messbare Punkte im Haus)
+// muessten die Kreise sonst immer weiter schrumpfen, um noch auf den
+// Kreisumfang zu passen. Ein breiterer Chip-Umfang waechst dagegen LINEAR
+// mit der Breite (nicht nur mit dem Radius wie beim Kreis) und bietet so
+// zusaetzlichen Platz, ohne die einzelnen Knoten zu verkleinern.
+const CHIP_THRESHOLD = 8;
+
+/**
+ * Liefert EIN zusammengehoeriges Haus/Verbraucher-Punktpaar auf der Pille
+ * bei Bogenlaengen-Anteil tFrac (0..1, 0 = oberste Mitte, im Uhrzeigersinn).
+ * ENTSCHEIDEND (28.08.2026, dritter Fund): die Bogenlaenge wird auf dem
+ * VERBRAUCHER-RING (hh2=hh+ringGap) gemessen, nicht auf dem kleineren Haus-
+ * Umfang - sonst wachsen bei gleichem Winkel-Schritt auf der (groesseren)
+ * Rundung automatisch groessere Luecken zwischen den Knoten als auf der
+ * Geraden ("an den Rundungen verlieren sich die Abstaende, an der Geraden
+ * liegen die Kreise press aneinander" - Dietmar). Nur eine Parametrisierung
+ * auf dem tatsaechlichen Ring, auf dem die Knoten sitzen, ergibt ueberall
+ * denselben Kreismittelpunkt-Abstand.
+ *
+ * Haus- und Verbraucher-Punkt teilen sich trotzdem denselben lokalen
+ * Parameter (x-Position auf der Geraden, Winkel auf der Kappe) - straight
+ * (=hw-hh) ist fuer Haus und Ring identisch (ringGap kuerzt sich beim
+ * Subtrahieren raus), nur der Kappen-RADIUS unterscheidet sich (hh vs.
+ * hh2). Dadurch bleibt die Speiche weiterhin garantiert entweder rein
+ * vertikal (gerade Kante) oder radial zum Mittelpunkt DER JEWEILIGEN Kappe
+ * (Rundung) - beide Anforderungen gleichzeitig erfuellt.
+ */
+function pillPointPair(tFrac, hw, hh, ringGap) {
+  const straight = Math.max(0, hw - hh);
+  const hh2 = hh + ringGap;
+  const capLen2 = Math.PI * hh2; // Kappenlaenge AUF DEM VERBRAUCHER-RING
+  const perim2 = 4 * straight + 2 * capLen2;
+  let t = ((tFrac % 1) + 1) % 1 * perim2;
+
+  if (t <= straight) {
+    return { house: { x: t, y: -hh, angleDeg: -90 }, sat: { x: t, y: -hh2, angleDeg: -90 } };
+  }
+  t -= straight;
+  if (t <= capLen2) {
+    const a = -90 + (t / capLen2) * 180;
+    const rad = a * Math.PI / 180;
+    return {
+      house: { x: straight + hh * Math.cos(rad), y: hh * Math.sin(rad), angleDeg: a },
+      sat: { x: straight + hh2 * Math.cos(rad), y: hh2 * Math.sin(rad), angleDeg: a },
+    };
+  }
+  t -= capLen2;
+  if (t <= 2 * straight) {
+    const x = straight - t;
+    return { house: { x, y: hh, angleDeg: 90 }, sat: { x, y: hh2, angleDeg: 90 } };
+  }
+  t -= 2 * straight;
+  if (t <= capLen2) {
+    const a = 90 + (t / capLen2) * 180;
+    const rad = a * Math.PI / 180;
+    return {
+      house: { x: -straight + hh * Math.cos(rad), y: hh * Math.sin(rad), angleDeg: a },
+      sat: { x: -straight + hh2 * Math.cos(rad), y: hh2 * Math.sin(rad), angleDeg: a },
+    };
+  }
+  t -= capLen2;
+  const x = -straight + t;
+  return { house: { x, y: -hh, angleDeg: -90 }, sat: { x, y: -hh2, angleDeg: -90 } };
+}
+
 function computeLayout(n) {
+  const chip = n > CHIP_THRESHOLD;
+  // Verbraucher-Groesse: normale Kreis-Packungsformel, ab dem Schwellwert
+  // aber mit n auf CHIP_THRESHOLD gedeckelt - danach uebernimmt die
+  // Chip-Verbreiterung die zusaetzliche Kapazitaet statt weiterem
+  // Schrumpfen der einzelnen Knoten.
+  const nForSize = chip ? CHIP_THRESHOLD : Math.max(n, 1);
   let outerR = DESIGN_R;
-  if (n >= 3) {
-    const s = Math.sin(Math.PI / n);
+  if (nForSize >= 3) {
+    const s = Math.sin(Math.PI / nForSize);
     outerR = Math.min(DESIGN_R, (R_MAX * s - NODE_GAP / 2) / (1 + s));
   }
   outerR = Math.max(16, outerR);
-  return { outerR, rOuter: R_MAX - outerR };
+  const rOuterCircle = R_MAX - outerR;
+
+  // Radialer Abstand Hausrand -> Verbraucher-MITTELPUNKT, wie im Kreis-Fall
+  // (dort implizit rOuter-CENTER_R, typischerweise 100+ Px) - NICHT nur ein
+  // kleiner Sichtabstand. Dieser Zwischenraum ist notwendig, weil dort die
+  // fliessenden Pfeil-Dreiecke (.flow-tri) entlang der Speiche animiert
+  // werden (Dietmar, 28.08.2026: "der Abstand ist notwendig, weil ja auch
+  // spaeter noch die Dreiecke fliessen sollen"). Fund/Fix: die vorherige
+  // Chip-Fassung hatte hier faelschlich nur outerR+NODE_GAP/2 verwendet
+  // (einen ganz anderen, viel kleineren Wert - NODE_GAP ist der Abstand
+  // ZWISCHEN benachbarten Verbraucher-Knoten, nicht der radiale Abstand
+  // Haus<->Knoten) und dadurch teils sogar negative Speichenlaengen
+  // produziert (Knoten und Haus ueberlappten sich rechnerisch).
+  const ringGap = rOuterCircle - DESIGN_R;
+
+  let hw = DESIGN_R;
+  const hh = DESIGN_R;
+  if (chip) {
+    // Wie viel zusaetzlicher Umfang noetig ist, damit n Knoten im GLEICHEN
+    // Abstand wie beim Kreis (2*outerR+GAP) Platz finden - ueberall gleich
+    // grosse Luecken, siehe pillPointPair(): dort wird konsequent auf dem
+    // VERBRAUCHER-RING (hh2=hh+ringGap) gemessen, deshalb auch hier als
+    // Bezugsgroesse. Eine Verbreiterung um delta verlaengert die beiden
+    // geraden Seiten um je 2*delta, also den Ring-Umfang um 4*delta.
+    const hh2 = hh + ringGap;
+    const ringPerimAtHwEqHh = 2 * Math.PI * hh2; // Ring-Umfang bei hw=hh (reine Kreisform)
+    const neededPerim = n * (2 * outerR + NODE_GAP);
+    const extra = Math.max(0, neededPerim - ringPerimAtHwEqHh);
+    hw = hh + extra / 4;
+
+    // Die Pille darf nicht beliebig breit werden - die Kachel hat eine
+    // feste Leinwandgroesse (viewBox), ein Kappen-Knoten ganz aussen sitzt
+    // bei hw+ringGap vom Mittelpunkt entfernt. HW_MAX begrenzt das auf
+    // GENAU denselben Radius (R_MAX), den auch die Kreis-Satelliten nie
+    // ueberschreiten - der Chip wandert also nie weiter aus der sichtbaren
+    // Flaeche als ein normaler Kreis-Knoten es duerfte.
+    const hwMax = Math.max(DESIGN_R, R_MAX - ringGap);
+    if (hw > hwMax) {
+      hw = hwMax;
+      // Ideal-Abstand (Dietmar, 28.08.2026: "Regelabstand ~10px, darf enger
+      // werden, wenn die Kachel nicht mehr ausreicht") passt bei dieser
+      // Breite nicht mehr fuer alle n Knoten - statt die Pille dennoch
+      // weiter zu verbreitern (und Knoten aus der Kachel wandern zu
+      // lassen), wird JETZT der Kreisradius selbst nachgeben: kleinster
+      // outerR, mit dem n Knoten im Regelabstand NODE_GAP noch auf den
+      // (jetzt gedeckelten) RING-Umfang passen (auch hier: gleiche
+      // Bezugsgroesse wie pillPointPair(), sonst waere die Verteilung im
+      // Kompressions-Fall wieder ungleichmaessig).
+      //
+      // BUGFIX (28.08.2026, live gemeldet: "Kreise liegen noch immer zu
+      // dicht", NODE_GAP-Erhoehung zeigte keine Wirkung): Diese Zeile hat
+      // faelschlich MIN_NODE_GAP (den harten Notfall-Boden von 3px) statt
+      // NODE_GAP (den eigentlichen Regelabstand) als Zielgroesse verwendet
+      // - bei vielen Knoten (Chip bereits maximal breit, genau Dietmars
+      // reale ueber-50-Verbraucher-Anlage) kollabierte der Abstand dadurch
+      // IMMER auf ~1-3px, unabhaengig vom eingestellten NODE_GAP-Wert.
+      // Der outerR-Mindestwert (16) bleibt der letzte Boden, falls selbst
+      // NODE_GAP bei extrem vielen Knoten nicht mehr vollstaendig passt.
+      const straightMax = Math.max(0, hw - hh);
+      const ringPerimAtHwMax = 4 * straightMax + 2 * Math.PI * hh2;
+      const spacingAtHwMax = ringPerimAtHwMax / n;
+      if (spacingAtHwMax - NODE_GAP < 2 * outerR) {
+        outerR = Math.max(16, Math.min(outerR, (spacingAtHwMax - NODE_GAP) / 2));
+      }
+    }
+  }
+
+  // Position je Knoten: bei chip=false 1:1 die alte, rein winkelbasierte
+  // Kreisformel - bei chip=true entlang des GESAMTEN Pillen-Umfangs
+  // (Kappen eingeschlossen) in gleichem Bogenlaengen-Abstand statt
+  // gleichem Winkel (das ist der Grund, warum die Verbreiterung
+  // ueberhaupt zusaetzlichen Platz bringt).
+  const points = [];
+  for (let i = 0; i < n; i++) {
+    if (!chip) {
+      const angleDeg = -90 + (360 / n) * i;
+      const rad = angleDeg * Math.PI / 180;
+      points.push({
+        angleDeg,
+        x: rOuterCircle * Math.cos(rad), y: rOuterCircle * Math.sin(rad),
+        hx: DESIGN_R * Math.cos(rad), hy: DESIGN_R * Math.sin(rad),
+      });
+    } else {
+      const t = i / n;
+      const { house, sat } = pillPointPair(t, hw, hh, ringGap);
+      points.push({ angleDeg: sat.angleDeg, x: sat.x, y: sat.y, hx: house.x, hy: house.y });
+    }
+  }
+
+  return { outerR, rOuter: rOuterCircle, chip, hw, hh, points };
 }
 
-const C_SOLAR = [255, 179, 0];
-const C_BAT   = [33, 150, 243];
-const C_GREEN = [67, 160, 71];
-const C_RED   = [229, 57, 53];
-const C_GREY  = [158, 158, 158];
+/** Setzt die tatsaechliche Chip-Geometrie am Hausknoten (x/y/width/height/
+ *  rx/ry der <rect>-Elemente) - bei hw===hh (unter CHIP_THRESHOLD) optisch
+ *  identisch zum bisherigen Kreis. */
+function layoutCenterChip(hw, hh) {
+  const setRect = (selector, w, h) => {
+    const node = document.querySelector('#node-center ' + selector);
+    if (!node) return;
+    node.setAttribute('x', -w); node.setAttribute('y', -h);
+    node.setAttribute('width', 2 * w); node.setAttribute('height', 2 * h);
+    node.setAttribute('rx', h); node.setAttribute('ry', h);
+  };
+  setRect('.node-face', hw, hh);
+  setRect('.node-ring', hw, hh);
+  setRect('.node-bevel', hw, hh);
+  setRect('.node-glow', hw, hh);
+  setRect('.node-autarky-ring', hw + 7, hh + 7);
+  // Schatten wie im Original leicht groesser (Faktor 1.13) und nach unten
+  // versetzt (0.16*hh) - Formel 1:1 aus makeCoinShadow() uebernommen, nur
+  // auf zwei unabhaengige Halbachsen (hw/hh) statt einen einzelnen Radius
+  // angewendet.
+  const sw = hw * 1.13, sh = hh * 1.13, oy = hh * 0.16;
+  const shadow = document.querySelector('#node-center .coin-shadow');
+  if (shadow) {
+    shadow.setAttribute('x', -sw); shadow.setAttribute('y', -sh + oy);
+    shadow.setAttribute('width', 2 * sw); shadow.setAttribute('height', 2 * sh);
+    shadow.setAttribute('rx', sh); shadow.setAttribute('ry', sh);
+  }
+  // Blitzboegen (.node-bolt) folgen jetzt dem tatsaechlichen Pillenrand
+  // (jagArc/pillRadiusAt) statt eines starren Kreises - nur bei
+  // tatsaechlicher Breitenaenderung neu aufbauen, sonst wuerde die CSS-
+  // Flacker-Animation (boltFlickerV) bei jedem Render-Tick neu starten und
+  // sichtbar ruckeln.
+  if (hw !== lastBoltHw) {
+    lastBoltHw = hw;
+    const holder = document.getElementById('center-bolts');
+    if (holder) {
+      holder.textContent = '';
+      addNodeBolts(holder, hw, hh, 5);
+    }
+  }
+}
+
+const C_SOLAR  = [255, 179, 0];
+const C_BAT    = [33, 150, 243];
+const C_GREEN  = [67, 160, 71];
+const C_RED    = [229, 57, 53];
+const C_GREY   = [158, 158, 158];
 
 function rgb(c) { return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')'; }
-// "#rrggbb" -> [r,g,b]; ungültige/fehlende Werte liefern null.
-function hexToRgb(h) {
-  const m = /^#?([0-9a-f]{6})$/i.exec(String(h || ''));
-  if (!m) { return null; }
-  const n = parseInt(m[1], 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
 function lerp(a, b, t) {
   t = Math.max(0, Math.min(1, t));
-  return [
-    Math.round(a[0] + (b[0]-a[0])*t), Math.round(a[1] + (b[1]-a[1])*t), Math.round(a[2] + (b[2]-a[2])*t)
-  ];
+  return [Math.round(a[0]+(b[0]-a[0])*t), Math.round(a[1]+(b[1]-a[1])*t), Math.round(a[2]+(b[2]-a[2])*t)];
 }
-// measured === false kennzeichnet einen GESCHÄTZTEN Wert (derzeit: HeishaMon
-// ohne externen Stromzähler, dessen Schätzung nur im ~200-W-Raster liegt).
-// Drei Nachkommastellen wären dort Scheingenauigkeit - „0,034 kW" suggeriert
-// eine Auflösung, die es nicht gibt. Daher eine Nachkommastelle und ein
-// vorangestelltes ≈, damit der Charakter des Werts sichtbar bleibt.
-// Alles andere (auch fehlendes Feld) gilt als gemessen und bleibt dreistellig.
-// Die EINHEIT richtet sich nach der Größenordnung, statt fest kW zu sein:
-// unter 1 kW in W ohne Nachkommastellen (470 W statt 0,470 kW), darüber in kW
-// mit Watt-Auflösung, ab 1 MW in MW. Hintergrund: Bei kleinen Verbrauchern
-// bestanden die Anzeigen fast nur aus Nullen („0,034 kW").
+
+// Analog fmtPower aus InverterHubTile: unter 1 kW in W, sonst kW mit drei
+// bzw. (geschätzt) einer Nachkommastelle. measured===false -> "≈"-Präfix.
 function fmtPower(w, measured) {
   const v = w || 0, a = Math.abs(v);
   const est = (measured === false);
-  const num = function (x, d) {
-    return (est ? '≈' : '') + x.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
-  };
+  const num = (x, d) => (est ? '≈' : '') + x.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
   if (a >= 1000000) { return { value: num(v / 1000000, 3), unit: 'MW' }; }
   if (a >= 1000)    { return { value: num(v / 1000, est ? 1 : 3), unit: 'kW' }; }
-  // Geschätzte Werte (HeishaMon ohne Zähler, ~200-W-Raster) auf 10 W runden -
-  // eine wattgenaue Angabe wäre dort Scheingenauigkeit.
   return { value: num(est ? Math.round(v / 10) * 10 : v, 0), unit: 'W' };
 }
-// Corona-Stärke: skaliert von 0 (bei 0 W) bis Maximum (bei GLOW_MAX_W = 40 kW).
-// Perzeptuelle sqrt-Kennlinie, damit auch mittlere Leistungen sichtbar sind.
-// Nicht nur die Deckkraft wächst, sondern auch Ringbreite und Weichzeichnung,
-// damit der Halo bei hoher Leistung spürbar "aufblüht".
+
+// Exakt InverterHubTiles Originalwerte übernommen (bestätigt 27.07.2026: fest
+// einprogrammiert, nicht konfigurierbar, rein empirisch gewählt - unsere
+// vorherige Abweichung war keine bewusste Anpassung, nur andere Zahlen).
 const GLOW_MAX_W = 40000;
-// Corona: radialer Verlauf, der genau außerhalb des Knotenrands aufleuchtet und
-// weich nach außen ausläuft. Die farbtragenden Stops bekommen die Knotenfarbe,
-// die Gesamt-Deckkraft (leistungsabhängig) steuert die Opacity des Kreises
-// (per CSS animiert). Kein blur() -> in allen Browsern scharf.
 let glowGradSeq = 0;
 function attachGlow(glowEl) {
   const defs = document.getElementById('markerDefs');
   const id = 'glowg' + (++glowGradSeq);
-  const grad = el('radialGradient', { id: id, cx: '50%', cy: '50%', r: '50%' });
-  // Der Knotenrand liegt bei ~54 % des Verlaufsradius (DESIGN_R / (DESIGN_R*1.9)).
-  // Innen transparent, direkt außerhalb der Kante das Maximum, danach ein langer
-  // weicher Auslauf - so entsteht ein glühender Hof statt einer harten Kante.
+  const grad = el('radialGradient', { id, cx: '50%', cy: '50%', r: '50%' });
   const stops = [
     el('stop', { offset: '0%',   'stop-color': '#fff', 'stop-opacity': '0' }),
     el('stop', { offset: '52%',  'stop-color': '#fff', 'stop-opacity': '0' }),
@@ -467,20 +709,18 @@ function attachGlow(glowEl) {
     el('stop', { offset: '74%',  'stop-color': '#fff', 'stop-opacity': '0.22' }),
     el('stop', { offset: '100%', 'stop-color': '#fff', 'stop-opacity': '0' }),
   ];
-  stops.forEach(function (s) { grad.appendChild(s); });
+  stops.forEach(s => grad.appendChild(s));
   if (defs) { defs.appendChild(grad); }
-  glowEl.setAttribute('r', (DESIGN_R * 1.9).toFixed(1)); // Halo reicht über den Knotenrand hinaus
-  // Inline-Style statt Attribut: schlägt die .node-glow-Stylesheet-Regel in
-  // ALLEN Browsern (Safari ignorierte ein fill-Attribut zugunsten des CSS).
+  glowEl.setAttribute('r', (DESIGN_R * 1.9).toFixed(1));
   glowEl.style.fill = 'url(#' + id + ')';
-  glowEl._glowStops = [stops[2], stops[3], stops[4]]; // farb-/fadetragende Stops
+  glowEl._glowStops = [stops[2], stops[3], stops[4]];
   return glowEl;
 }
 function applyGlow(glowEl, color, magnitudeW) {
   const t = Math.max(0, Math.min(1, magnitudeW / GLOW_MAX_W));
   if (glowEl._glowStops) {
-    const c = 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
-    glowEl._glowStops.forEach(function (s) { s.setAttribute('stop-color', c); });
+    const c = rgb(color);
+    glowEl._glowStops.forEach(s => s.setAttribute('stop-color', c));
   }
   glowEl.style.opacity = (t <= 0) ? '0' : Math.sqrt(t).toFixed(3);
 }
@@ -491,92 +731,46 @@ function el(tag, attrs) {
   return e;
 }
 
-// Benötigter Radius um das Zentrum. Die Knotenränder reichen bis R_MAX — die
-// CORONA aber noch deutlich weiter: Sie ist ein Kreis mit DESIGN_R * 1.9 um den
-// Knotenmittelpunkt, ragt also rund 50 Einheiten über den Knotenrand hinaus.
-//
-// Mit den früheren 26 Einheiten Luft wurde sie abgeschnitten, und die Knoten
-// standen fast auf der Kante. Bei WENIGEN Knoten fiel das kaum auf, weil die
-// Diagonalen frei blieben; ab etwa acht Knoten sind auch die Ecken besetzt und
-// der Inhalt stößt ringsum an. Deshalb wird jetzt der tatsächliche Bedarf
-// gerechnet: äußerster Knotenmittelpunkt + Corona + etwas Luft.
-const R_GLOW    = DESIGN_R * 1.9;
-const R_CONTENT = Math.ceil((R_MAX - DESIGN_R) + R_GLOW + 12);
-
-// Die viewBox ist bewusst FEST und quadratisch (Zentrum CX/CY, Kantenlänge
-// 2*R_CONTENT) - sie umschließt den Inhalt exakt und symmetrisch. Das
-// Einpassen in die tatsächliche Kachelgröße übernimmt allein der Browser über
-// preserveAspectRatio="xMidYMid meet": der Inhalt wird an die kürzere Seite
-// gefittet und in der längeren zentriert - identisches Layout wie zuvor, aber
-// nativ und ohne JS.
-//
-// Früher wurde die viewBox per JS an das Seitenverhältnis nachgezogen. Das
-// klappte im Endzustand, hinkte beim laufenden Vergrößern/Verkleinern aber
-// einen Frame hinterher: für diesen Frame stand eine viewBox mit falschem
-// Seitenverhältnis in einer bereits neu dimensionierten Box - der Inhalt sprang
-// klein in eine Ecke ("halber Inhalt weg"). Mit fester viewBox gibt es diesen
-// Zwischenzustand nicht mehr. fitViewBox bleibt als No-op erhalten, damit
-// bestehende Aufrufer nicht ins Leere greifen.
-function fitViewBox() { /* viewBox ist fest - siehe Kommentar oben */ }
-
-// Statusplakette an der unteren linken Ecke der Zeichenfläche ausrichten und
-// auf die Textbreite zuschneiden (die Beschriftung wechselt: "Verbunden",
-// "Getrennt", "Keine Datenquelle").
-// Die Statusplakette liegt als HTML-Overlay fest in der unteren linken Ecke
-// (per CSS positioniert, Breite folgt dem Text automatisch) - sie braucht die
-// viewBox nicht mehr und wandert daher auch bei Resize nicht. layoutStatus
-// bleibt als No-op erhalten.
-function layoutStatus() { /* Overlay wird per CSS positioniert */ }
-
-// --- Münz-/Schlaglicht-Ebenen (nur für aktive Knoten) ---
-// Dunkle Bodenschattierung leicht nach unten versetzt - die Münze schwebt.
-function makeCoinShadow(r) {
-  return el('circle', { class: 'coin-shadow', cx: 0, cy: r * 0.16, r: r * 1.13 });
-}
-// Metallischer Kantenanschliff (siehe #bevelGrad).
-function makeBevel(r) {
-  return el('circle', { class: 'node-bevel', r: r });
-}
-// Weiches, großes Glanzlicht oben links (diffuse Wölbung). Als KREIS mit
-// radialem Verlauf gezeichnet und per scale(1,ry/rx) zur Ellipse gestaucht -
-// so bleibt die Verlaufsmechanik quadratisch (Safari rendert einen
-// objectBoundingBox-Verlauf auf nicht-quadratischer Box hart statt weich).
+function makeCoinShadow(r) { return el('circle', { class: 'coin-shadow', cx: 0, cy: r * 0.16, r: r * 1.13 }); }
+function makeBevel(r) { return el('circle', { class: 'node-bevel', r }); }
 function makeHighlight(r) {
   const c = el('circle', { class: 'node-highlight', r: r * 0.72 });
-  c.setAttribute('transform',
-    'translate(' + (-r * 0.30) + ',' + (-r * 0.48) + ') scale(1,0.57)');
+  c.setAttribute('transform', 'translate(' + (-r * 0.30) + ',' + (-r * 0.48) + ') scale(1,0.57)');
   return c;
 }
-// Kleiner, knackiger Glint auf der Kante oben-links (ebenfalls Kreis+Stauchung).
 function makeSpecular(r) {
   const c = el('circle', { class: 'node-spec', r: r * 0.30 });
-  c.setAttribute('transform',
-    'translate(' + (-r * 0.44) + ',' + (-r * 0.55) + ') scale(1,0.55)');
+  c.setAttribute('transform', 'translate(' + (-r * 0.44) + ',' + (-r * 0.55) + ') scale(1,0.55)');
   return c;
 }
 
-// <marker>-Inhalte erben KEINE Farbe von der referenzierenden Linie (kein
-// CSS-Vererbungskontext für SVG-Marker) - pro Knoten wird daher ein eigenes,
-// bereits passend eingefärbtes Marker-Element angelegt statt eines einzigen
-// globalen Pfeils (der zuvor von allen Knoten geteilt wurde und dadurch nur
-// in einer Farbe bzw. Schwarz erschien).
-function makeMarker(id, color) {
-  // markerUnits fehlte -> Default "strokeWidth" skaliert die Pfeilspitze mit
-  // der Linienstärke (3), aus 9px wurden faktisch 27px, die über den Ring
-  // hinausragten. refX lag zudem in der Dreiecksmitte statt an der Spitze,
-  // wodurch der Pfeil über den eigentlichen Linienendpunkt hinausschoss.
-  const m = el('marker', {
-    id, markerWidth: 10, markerHeight: 10, refX: 10, refY: 5,
-    orient: 'auto', markerUnits: 'userSpaceOnUse',
+// SOC als Fuellstand (28.08.2026, Dietmar: "SOC als Fuellstand statt nur
+// Zahl") - von unten steigendes Rechteck, per clipPath auf die Coin-Flaeche
+// begrenzt. rect.y/height werden in updateOuterNode() aus item.soc gesetzt;
+// group.style.display steuert Sichtbarkeit (nur Batterie-Knoten).
+let liquidClipSeq = 0;
+function makeLiquidFill(r) {
+  liquidClipSeq++;
+  const clipId = 'liquidClip' + liquidClipSeq;
+  const group = el('g', { class: 'node-liquid-group' });
+  group.style.display = 'none';
+  const defs = el('defs', {});
+  const clip = el('clipPath', { id: clipId });
+  clip.appendChild(el('circle', { r }));
+  defs.appendChild(clip);
+  group.appendChild(defs);
+  const rect = el('rect', {
+    class: 'node-liquid', x: -r, width: r * 2, y: 0, height: 0,
+    'clip-path': 'url(#' + clipId + ')'
   });
-  const p = el('path', { d: 'M0,0 L10,5 L0,10 Z' });
-  p.style.fill = rgb(color);
-  m.appendChild(p);
-  return m;
+  group.appendChild(rect);
+  return { group, rect, r };
 }
 
-// -- Icon-Zeichner: jeweils eine Gruppe von Kindelementen, im 32x32-Raster
-//    zentriert auf (0,0), wird an fester Position translate(0,-16) verankert.
+// -- Icon-Katalog: nur die im NRG-Stack-Vokabular tatsächlich vorkommenden
+//    Zeichenfunktionen (Referenzmuster InverterHubTile ICONS, 32x32-Raster
+//    zentriert auf (0,0)). Erweiterbar - neue function-Werte brauchen hier
+//    einen Eintrag plus einen Schlüssel in FUNCTION_STYLE weiter unten.
 const ICONS = {
   sun(g) {
     g.appendChild(el('circle', { r: 7, stroke: 'none' }));
@@ -594,9 +788,6 @@ const ICONS = {
     g.appendChild(el('polygon', { points: '0,-15 17,-1 17,15 -17,15 -17,-1', 'data-hollow': '1' }));
   },
   battery(g, socPct) {
-    // Breiter, liegender Body - der Füllstand (SOC) wird als horizontaler
-    // Balken direkt im Icon dargestellt, der Prozentwert steht mittig
-    // darüber geschrieben direkt IM Icon (nicht mehr separat daneben).
     g.appendChild(el('rect', { x: -20, y: -11, width: 37, height: 22, rx: 3, 'data-hollow': '1' }));
     g.appendChild(el('rect', { x: 17, y: -5.5, width: 5, height: 11, rx: 1.3, stroke: 'none' }));
     if (socPct != null) {
@@ -604,19 +795,11 @@ const ICONS = {
       const fillW = 31 * pct;
       g.appendChild(el('rect', { x: -18, y: -9, width: fillW, height: 18, rx: 1.8, opacity: 0.4, stroke: 'none' }));
       const t = el('text', { x: -1.5, y: 4, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 800 });
-      t.style.fill = '#fff';
-      t.style.stroke = 'none';
+      t.style.fill = '#fff'; t.style.stroke = 'none';
       t.textContent = Math.round(socPct) + '%';
       g.appendChild(t);
     }
   },
-  flame(g) {
-    g.appendChild(el('path', {
-      d: 'M0,-9.6 C4.44,-3.36 4.44,1.08 0,4.44 C1.32,1.08 -1.08,0 -1.08,2.28 C-2.28,-1.08 -3.36,-4.44 0,-9.6 Z',
-      'stroke-linejoin': 'round'
-    }));
-  },
-  // Wärmepumpe: Außeneinheit (Gehäuse) mit Lüfterrad.
   heatpump(g) {
     g.appendChild(el('rect', { x: -15, y: -12, width: 30, height: 24, rx: 3, 'data-hollow': '1' }));
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 7.5, 'data-hollow': '1' }));
@@ -625,21 +808,24 @@ const ICONS = {
       g.appendChild(el('line', { x1: 0, y1: 0, x2: x, y2: y, 'stroke-linecap': 'round' }));
     });
   },
-  // Wallbox: "fahrende Batterie" - exakt das Batteriesymbol in unveränderter
-  // Größe (inkl. Ladestands-Füllung und Prozentwert), dazu Räder. Das Ganze
-  // wird um die Hälfte dessen nach oben geschoben, was die Räder unten
-  // überstehen, damit es wieder mittig im Kreis sitzt.
   car(g, socPct) {
     const WHEEL_R = 3.5, WHEEL_CY = 14, BAT_BOTTOM = 11;
     const overhang = (WHEEL_CY + WHEEL_R) - BAT_BOTTOM;
-
     const inner = el('g', { transform: 'translate(0,' + (-overhang / 2).toFixed(2) + ')' });
     ICONS.battery(inner, socPct);
-    [-11, 9].forEach(x =>
-      inner.appendChild(el('circle', { cx: x, cy: WHEEL_CY, r: WHEEL_R, stroke: 'none' })));
+    [-11, 9].forEach(x => inner.appendChild(el('circle', { cx: x, cy: WHEEL_CY, r: WHEEL_R, stroke: 'none' })));
     g.appendChild(inner);
   },
-  // Klimaanlage: Innengerät (Split) mit austretendem Luftstrom.
+  other(g) {
+    g.appendChild(el('path', {
+      d: 'M-7.5,-11 L-7.5,-3 C-7.5,1.6 -4.1,5 0,5 C4.1,5 7.5,1.6 7.5,-3 L7.5,-11',
+      'data-hollow': '1', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+    }));
+    [-3.8, 3.8].forEach(x => g.appendChild(el('line', { x1: x, y1: -14, x2: x, y2: -8, 'stroke-linecap': 'round' })));
+    g.appendChild(el('line', { x1: 0, y1: 5, x2: 0, y2: 13.5, 'stroke-linecap': 'round' }));
+  },
+  // -- Ab hier 1:1 aus InverterHubTile/module.html uebernommen (Zeichner
+  //    fuer die vollstaendige CONSUMER_TYPES-Tabelle, siehe README) --
   ac(g) {
     g.appendChild(el('rect', { x: -15, y: -12, width: 30, height: 13, rx: 2.5, 'data-hollow': '1' }));
     g.appendChild(el('line', { x1: -11, y1: -6, x2: 11, y2: -6 }));
@@ -647,7 +833,6 @@ const ICONS = {
       d: `M${x},4 q3.2,4 0,8.5`, 'data-hollow': '1', 'stroke-linecap': 'round',
     })));
   },
-  // Pool-Wärmepumpe: Wärme über Wasserwellen.
   poolheat(g) {
     g.appendChild(el('path', {
       d: 'M0,-14 C3.8,-9 3.8,-5.6 0,-2.8 C1.1,-5.6 -1.1,-6.4 -1.1,-4.5 C-2.2,-6.8 -3.3,-9.5 0,-14 Z',
@@ -658,7 +843,6 @@ const ICONS = {
       'data-hollow': '1', 'stroke-linecap': 'round',
     })));
   },
-  // Pool-Pumpe: Pumpengehäuse mit Saugstutzen und Sockel.
   poolpump(g) {
     g.appendChild(el('circle', { cx: -1, cy: -1, r: 8.5, 'data-hollow': '1' }));
     g.appendChild(el('circle', { cx: -1, cy: -1, r: 2.2, stroke: 'none' }));
@@ -668,7 +852,6 @@ const ICONS = {
     }));
     g.appendChild(el('rect', { x: -13, y: 8, width: 24, height: 4.5, rx: 1.5, stroke: 'none' }));
   },
-  // Sauna: Ofen mit Steinen und aufsteigender Wärme.
   sauna(g) {
     g.appendChild(el('rect', { x: -10, y: -2.5, width: 20, height: 15, rx: 2, 'data-hollow': '1' }));
     [[-5, -4.2], [0, -5.2], [5, -4.2]].forEach(([x, y]) =>
@@ -677,7 +860,6 @@ const ICONS = {
       d: `M${x},-13.5 q2.6,3 0,6`, 'data-hollow': '1', 'stroke-linecap': 'round',
     })));
   },
-  // Warmwasser: Speicher mit Wassertropfen.
   boiler(g) {
     g.appendChild(el('rect', { x: -8.5, y: -13, width: 17, height: 22, rx: 4, 'data-hollow': '1' }));
     g.appendChild(el('line', { x1: -8.5, y1: -6.5, x2: 8.5, y2: -6.5 }));
@@ -689,14 +871,12 @@ const ICONS = {
       x1: x, y1: 9, x2: x, y2: 13.5, 'stroke-linecap': 'round',
     })));
   },
-  // Trockner: Gerät mit Trommel und Bedienfeld.
   dryer(g) {
     g.appendChild(el('rect', { x: -12, y: -13, width: 24, height: 26, rx: 2.5, 'data-hollow': '1' }));
     g.appendChild(el('line', { x1: -12, y1: -7, x2: 12, y2: -7 }));
     g.appendChild(el('circle', { cx: 0, cy: 3.5, r: 7, 'data-hollow': '1' }));
     g.appendChild(el('circle', { cx: -8, cy: -10, r: 1.4, stroke: 'none' }));
   },
-  // Waschmaschine: Gerät mit Trommel und Wasserwelle.
   washer(g) {
     g.appendChild(el('rect', { x: -12, y: -13, width: 24, height: 26, rx: 2.5, 'data-hollow': '1' }));
     g.appendChild(el('line', { x1: -12, y1: -7, x2: 12, y2: -7 }));
@@ -707,7 +887,6 @@ const ICONS = {
     }));
     g.appendChild(el('circle', { cx: -8, cy: -10, r: 1.4, stroke: 'none' }));
   },
-  // Spülmaschine: Gerät mit Teller.
   dishwasher(g) {
     g.appendChild(el('rect', { x: -12, y: -13, width: 24, height: 26, rx: 2.5, 'data-hollow': '1' }));
     g.appendChild(el('line', { x1: -12, y1: -7, x2: 12, y2: -7 }));
@@ -715,7 +894,6 @@ const ICONS = {
     g.appendChild(el('circle', { cx: 0, cy: 3.5, r: 2.6, 'data-hollow': '1' }));
     g.appendChild(el('circle', { cx: 8, cy: -10, r: 1.4, stroke: 'none' }));
   },
-  // Backofen: Gerät mit Sichtfenster und Griff.
   oven(g) {
     g.appendChild(el('rect', { x: -12, y: -13, width: 24, height: 26, rx: 2.5, 'data-hollow': '1' }));
     g.appendChild(el('line', { x1: -12, y1: -6, x2: 12, y2: -6 }));
@@ -723,21 +901,18 @@ const ICONS = {
     g.appendChild(el('line', { x1: -8.5, y1: -9.5, x2: 8.5, y2: -9.5, 'stroke-linecap': 'round' }));
     g.appendChild(el('circle', { cx: 8.4, cy: -9.5, r: 1.3, stroke: 'none' }));
   },
-  // Herd: Kochfeld mit vier Platten.
   stove(g) {
     g.appendChild(el('rect', { x: -12, y: -9, width: 24, height: 20, rx: 3, 'data-hollow': '1' }));
     [[-5.5, -3.5], [5.5, -3.5], [-5.5, 5], [5.5, 5]].forEach(([x, y]) =>
       g.appendChild(el('circle', { cx: x, cy: y, r: 3.4, 'data-hollow': '1' })));
     g.appendChild(el('line', { x1: -7, y1: -12.5, x2: 7, y2: -12.5, 'stroke-linecap': 'round' }));
   },
-  // Kühl-/Gefriergerät: zweitüriger Schrank mit Griffen.
   fridge(g) {
     g.appendChild(el('rect', { x: -9, y: -13.5, width: 18, height: 27, rx: 2.5, 'data-hollow': '1' }));
     g.appendChild(el('line', { x1: -9, y1: -3.5, x2: 9, y2: -3.5 }));
     g.appendChild(el('line', { x1: 5, y1: -10.5, x2: 5, y2: -6.5, 'stroke-linecap': 'round' }));
     g.appendChild(el('line', { x1: 5, y1: -0.5, x2: 5, y2: 4.5, 'stroke-linecap': 'round' }));
   },
-  // Küche: Topf mit Deckel.
   kitchen(g) {
     g.appendChild(el('path', {
       d: 'M-10,-3 L-10,6 q0,5 5,5 L5,11 q5,0 5,-5 L10,-3 Z',
@@ -747,7 +922,6 @@ const ICONS = {
     g.appendChild(el('line', { x1: 0, y1: -3, x2: 0, y2: -7, 'stroke-linecap': 'round' }));
     g.appendChild(el('circle', { cx: 0, cy: -8.5, r: 1.6, stroke: 'none' }));
   },
-  // Heizung: Radiator mit Rippen.
   heater(g) {
     g.appendChild(el('rect', { x: -11, y: -8, width: 22, height: 16, rx: 2, 'data-hollow': '1' }));
     [-5.5, 0, 5.5].forEach(x => g.appendChild(el('line', { x1: x, y1: -8, x2: x, y2: 8 })));
@@ -755,7 +929,6 @@ const ICONS = {
       x1: x, y1: 8, x2: x, y2: 12.5, 'stroke-linecap': 'round',
     })));
   },
-  // Lüftung: Ventilator mit drei Flügeln.
   vent(g) {
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 12, 'data-hollow': '1' }));
     [0, 120, 240].forEach(a => g.appendChild(el('path', {
@@ -764,7 +937,6 @@ const ICONS = {
     })));
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 2.1, stroke: 'none' }));
   },
-  // Beleuchtung: Glühbirne mit Strahlen.
   light(g) {
     g.appendChild(el('path', {
       d: 'M0,-11 C-4.6,-11 -7.6,-7.6 -7.6,-3.6 C-7.6,-0.4 -5.4,1.6 -4.2,3.6 L4.2,3.6 C5.4,1.6 7.6,-0.4 7.6,-3.6 C7.6,-7.6 4.6,-11 0,-11 Z',
@@ -773,7 +945,6 @@ const ICONS = {
     [6.4, 9.4].forEach(y => g.appendChild(el('line', { x1: -3.8, y1: y, x2: 3.8, y2: y, 'stroke-linecap': 'round' })));
     g.appendChild(el('line', { x1: -2, y1: 12.4, x2: 2, y2: 12.4, 'stroke-linecap': 'round' }));
   },
-  // Server / Netzwerk: Rack mit zwei Einschüben.
   it(g) {
     [-9.5, 1.5].forEach(y => {
       g.appendChild(el('rect', { x: -12, y, width: 24, height: 9, rx: 1.8, 'data-hollow': '1' }));
@@ -783,14 +954,12 @@ const ICONS = {
       }));
     });
   },
-  // Werkstatt: Schraubenschlüssel.
   workshop(g) {
     g.appendChild(el('path', {
       d: 'M6.5,-12 a6.4,6.4 0 1 0 4.2,8.4 L-6.5,10.6 a3.4,3.4 0 0 1-4.8,-4.8 L4.4,-7.2 Z',
       'data-hollow': '1', 'stroke-linejoin': 'round',
     }));
   },
-  // Garage: Gebäude mit Sektionaltor.
   garage(g) {
     g.appendChild(el('path', {
       d: 'M-12,-1.5 L0,-11.5 L12,-1.5 L12,12 L-12,12 Z',
@@ -799,139 +968,213 @@ const ICONS = {
     [2.5, 6, 9.5].forEach(y => g.appendChild(el('line', { x1: -7, y1: y, x2: 7, y2: y })));
     g.appendChild(el('line', { x1: -7, y1: -0.5, x2: 7, y2: -0.5 }));
   },
-  // Sonstiger Verbraucher: Netzstecker.
-  other(g) {
-    g.appendChild(el('path', {
-      d: 'M-7.5,-11 L-7.5,-3 C-7.5,1.6 -4.1,5 0,5 C4.1,5 7.5,1.6 7.5,-3 L7.5,-11',
-      'data-hollow': '1', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
-    }));
-    [-3.8, 3.8].forEach(x => g.appendChild(el('line', {
-      x1: x, y1: -14, x2: x, y2: -8, 'stroke-linecap': 'round',
-    })));
-    g.appendChild(el('line', { x1: 0, y1: 5, x2: 0, y2: 13.5, 'stroke-linecap': 'round' }));
-  },
 };
 
-// -- Node-Definitionen: legen fest, welche festen äußeren Knoten es gibt.
-//    "have"/"w" verweisen auf Felder im Payload.
-//    Die Reihenfolge ist die im Uhrzeigersinn ab oben: Solar (oben), Batterie
-//    (rechts), [zusätzliche Verbraucher], Netz (unten), Verluste (links). Die
-//    Winkel werden NICHT fest vergeben, sondern alle vorhandenen Knoten werden
-//    gleichmäßig (radial) um die Hauslast verteilt - so bleibt die Anordnung
-//    immer ausgewogen, auch wenn ein Knoten fehlt oder Verbraucher dazukommen.
-//    Bei genau diesen vier Knoten ergibt sich weiterhin exakt
-//    oben/rechts/unten/links.
-const NODE_DEFS_LEAD = [
-  { key: 'pv',   label: 'Solar',    icon: 'sun',     have: 'pvHave',   w: 'pvW',
-    color: () => C_SOLAR, dir: () => 'in' },
-  { key: 'bat',  label: 'Batterie', icon: 'battery', have: 'batHave',  w: 'batW',
-    color: () => C_BAT, dir: (w) => w > 0 ? 'in' : 'out', battery: true },
-];
-const NODE_DEFS_TAIL = [
-  { key: 'grid', label: 'Netz',     icon: 'bolt',    have: 'gridHave', w: 'gridW',
-    color: (w) => w >= 0 ? C_GREEN : C_RED, dir: (w) => w >= 0 ? 'out' : 'in' },
-  { key: 'loss', label: 'Verluste', icon: 'flame',   have: 'lossHave', w: 'lossW',
-    color: () => C_GREY, dir: () => 'out', grey: true, minMagnitude: 15 },
-];
-
-// Baut die tatsächlich darzustellende Knotenliste: feste Knoten (soweit im
-// Payload vorhanden) plus die frei konfigurierten Verbraucher (Wärmepumpe,
-// beliebig viele Wallboxen), die zwischen Batterie und Netz eingereiht werden.
-// consumerColor: Verbraucher folgen derselben Semantik wie die Hauslast -
-// grün, solange lokal aus PV/Batterie gedeckt, rot bei Netzbezug.
-function buildItems(d, consumerColor) {
-  const items = [];
-  const addFixed = (def) => {
-    if (!d[def.have]) { return; }
-    items.push({
-      ...def,
-      value: d[def.w] ?? 0,
-      // Ladestand nur bei der Batterie; alle anderen festen Knoten haben keinen.
-      soc: (def.battery && d.socHave) ? d.soc : null,
-    });
-  };
-
-  NODE_DEFS_LEAD.forEach(addFixed);
-  (d.consumers || []).forEach(c => {
-    // Jeder Verbraucher hat seine eigene Farbe (Vorgabe der Art oder eigene
-    // Einstellung, vom Modul aufgelöst). Nur falls die einmal fehlt, greift
-    // der Grün-Rot-Verlauf der Hauslast als Rückfall.
-    const col = hexToRgb(c.color) || consumerColor;
-    items.push({
-      key: c.key, label: c.label, icon: c.icon,
-      value: c.w || 0,
-      // Wallboxen liefern den Ladestand des Fahrzeugs, das gerade an ihnen
-      // steht (vom Modul ermittelt); alle anderen Verbraucher haben keinen.
-      soc: c.socHave ? c.soc : null,
-      // Name des erkannten Fahrzeugs (nur Wallboxen)
-      sub: c.sub || '',
-      // false = geschätzter Wert (siehe fmtPower). Das Modul setzt das Feld immer,
-      // auch bei manuell zugewiesenen Verbrauchern und Zählern (dort true).
-      measured: c.measured,
-      // Eingesteckte Wallbox: auch bei 0 W farbig statt ausgegraut (s. updateOuterNode).
-      plugged: !!c.plugged,
-      color: () => col,
-      dir: () => 'out',
-    });
-  });
-  NODE_DEFS_TAIL.forEach(addFixed);
-
-  return items;
+// "#rrggbb" -> [r,g,b], von InverterHubTile uebernommen.
+function hexToRgb(h) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(h || ''));
+  if (!m) { return null; }
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-// Setzt Zahl UND Einheit. Der Textknoten trägt die Zahl, das angehängte
-// <tspan class="node-value-unit"> die Einheit - beide müssen zusammen wandern,
-// sonst steht „470" mit „kW" daneben.
+// Vollstaendige CONSUMER_TYPES-Tabelle 1:1 von InverterHub uebernommen
+// (InverterHubTile/module.php CONSUMER_TYPES, Farben/Icons abgestimmt mit
+// der MeterHub-Seite: Waerme in Feuertoenen, Kuehlung/Wasser in Tuerkis,
+// Fahrzeuge in Violett, bewusst abgesetzt von der blauen Hausbatterie).
+const CONSUMER_TYPES = {
+  wallbox:    { label: 'Wallbox',            icon: 'car',        color: hexToRgb('#9575CD') },
+  heatpump:   { label: 'Wärmepumpe',         icon: 'heatpump',   color: hexToRgb('#FF7A18') },
+  ac:         { label: 'Klimaanlage',        icon: 'ac',         color: hexToRgb('#26C6DA') },
+  poolheat:   { label: 'Pool-Wärmepumpe',    icon: 'poolheat',   color: hexToRgb('#FF8A50') },
+  poolpump:   { label: 'Pool-Pumpe',         icon: 'poolpump',   color: hexToRgb('#26A69A') },
+  sauna:      { label: 'Sauna',              icon: 'sauna',      color: hexToRgb('#F4511E') },
+  boiler:     { label: 'Warmwasser',         icon: 'boiler',     color: hexToRgb('#FFA726') },
+  dryer:      { label: 'Trockner',           icon: 'dryer',      color: hexToRgb('#78909C') },
+  washer:     { label: 'Waschmaschine',      icon: 'washer',     color: hexToRgb('#4DD0E1') },
+  dishwasher: { label: 'Spülmaschine',       icon: 'dishwasher', color: hexToRgb('#4DB6AC') },
+  oven:       { label: 'Backofen',           icon: 'oven',       color: hexToRgb('#EF6C00') },
+  stove:      { label: 'Herd',               icon: 'stove',      color: hexToRgb('#E64A19') },
+  fridge:     { label: 'Kühl-/Gefriergerät', icon: 'fridge',     color: hexToRgb('#4FC3F7') },
+  kitchen:    { label: 'Küche',              icon: 'kitchen',    color: hexToRgb('#FFB74D') },
+  heater:     { label: 'Heizung',            icon: 'heater',     color: hexToRgb('#FF7043') },
+  vent:       { label: 'Lüftung',            icon: 'vent',       color: hexToRgb('#80DEEA') },
+  light:      { label: 'Beleuchtung',        icon: 'light',      color: hexToRgb('#FFD54F') },
+  it:         { label: 'Server / Netzwerk',  icon: 'it',         color: hexToRgb('#7986CB') },
+  workshop:   { label: 'Werkstatt',          icon: 'workshop',   color: hexToRgb('#8D6E63') },
+  garage:     { label: 'Garage',             icon: 'garage',     color: hexToRgb('#B39DDB') },
+  other:      { label: 'Verbraucher',        icon: 'other',      color: hexToRgb('#90A4AE') },
+};
+
+// Uebersetzt die im NRG-Stack tatsaechlich vorkommenden function-Werte auf
+// einen CONSUMER_TYPES-Schluessel (Muster: InverterHubTile MHUB_TYPE_MAP).
+// ChargerHub liefert 'charger', Tessie 'vehicle', MeterHub kann
+// 'wallbox1'..'wallbox5'/'hotwater'/'aircon'/'ventilation'/'pool' melden -
+// alles auf dieselbe Kategorie wie bei InverterHub abgebildet.
+const CONSUMER_TYPE_MAP = {
+  charger: 'wallbox', vehicle: 'wallbox',
+  wallbox1: 'wallbox', wallbox2: 'wallbox', wallbox3: 'wallbox', wallbox4: 'wallbox', wallbox5: 'wallbox',
+  hotwater: 'boiler', aircon: 'ac', ventilation: 'vent', pool: 'poolpump',
+};
+
+// Farbe/Richtung je function-Typ. pv/battery/grid sind feste Kernknoten
+// (siehe InverterHubTile NODE_DEFS_LEAD/TAIL); alles andere sind
+// Verbraucher aus CONSUMER_TYPES. Fehlt ein Eintrag, greift DEFAULT_STYLE
+// (grau, "other"-Icon) - lieber unauffällig als unsichtbar (vgl.
+// functionCategory() in module.php, gleiches Rückfall-Prinzip).
+const FUNCTION_STYLE = {
+  pv:       { icon: 'sun',     color: () => C_SOLAR,                   dir: () => 'in' },
+  battery:  { icon: 'battery', color: () => C_BAT,                     dir: (w) => w >= 0 ? 'in' : 'out', battery: true },
+  grid:     { icon: 'bolt',    color: (w) => w >= 0 ? C_GREEN : C_RED, dir: (w) => w >= 0 ? 'out' : 'in' },
+};
+const DEFAULT_STYLE = { icon: 'other', color: () => C_GREY, dir: () => 'out' };
+
+// Loest die Darstellung (Icon+Farbe) fuer einen beliebigen function-Wert
+// auf: feste Kernknoten zuerst, sonst über CONSUMER_TYPE_MAP/CONSUMER_TYPES,
+// sonst DEFAULT_STYLE.
+function resolveStyle(fn) {
+  if (FUNCTION_STYLE[fn]) { return FUNCTION_STYLE[fn]; }
+  const typeKey = CONSUMER_TYPE_MAP[fn] || fn;
+  const ct = CONSUMER_TYPES[typeKey];
+  if (ct) { return { icon: ct.icon, color: () => ct.color, dir: () => 'out' }; }
+  return DEFAULT_STYLE;
+}
+
+// Baut die Knotenliste aus den Geräten (das explizite 'house'-Gerät wird nie
+// als Außenknoten gezeichnet, es speist nur das Zentrum - siehe handleMessage).
+// Feste Reihenfolge wie InverterHubTiles NODE_DEFS_LEAD/NODE_DEFS_TAIL
+// (per send_message von InverterHub bestätigt, 27.07.2026): Solar, Batterie
+// zuerst, dann alle Verbraucher in ihrer Zuordnungsreihenfolge, Netz zuletzt
+// (vor einem 'Verluste'-Knoten, den wir mangels Datenquelle noch nicht
+// abbilden - siehe README). Die radiale Verteilung (ensureNodes) hängt
+// direkt von dieser Reihenfolge ab; wurde sie ignoriert, landete Netz an
+// einer völlig anderen Position als bei InverterHub (genau der gemeldete
+// Unterschied "Netz unten-rechts statt links").
+const LEAD_ORDER = ['pv', 'battery'];
+const TAIL_ORDER = ['grid'];
+
+function buildItems(devices) {
+  const items = devices
+    .filter(d => d.function !== 'house')
+    .map(d => {
+      const style = resolveStyle(d.function);
+      return {
+        key: 'dev' + d.instanceID + '_' + d.function + '_' + (d.label || ''),
+        // Discovery-stabiler Schluessel fuers Backend (Klick-Detailseite).
+        detailKey: d.detailKey || '',
+        function: d.function,
+        label: d.label || d.function,
+        icon: style.icon,
+        value: d.value ?? 0,
+        soc: (d.soc !== undefined && d.soc !== null) ? d.soc : null,
+        sub: d.sub || '',
+        measured: d.measured ?? true,
+        plugged: !!d.plugged,
+        color: style.color,
+        dir: style.dir,
+        battery: !!style.battery,
+        // Diagnose-Warnstufe (28.08.2026) - 'kritisch'/'auffaellig'/null,
+        // siehe buildPayload()/resolveDiagnostics() im Backend.
+        warnLevel: d.warnLevel || null,
+        yesterdayValue: (d.yesterdayValue !== undefined && d.yesterdayValue !== null) ? d.yesterdayValue : null,
+        forecastRatio: (d.forecastRatio !== undefined && d.forecastRatio !== null) ? d.forecastRatio : null,
+        priceTrend: Array.isArray(d.priceTrend) ? d.priceTrend : null,
+        priceNow: (d.priceNow !== undefined && d.priceNow !== null) ? d.priceNow : null,
+        peakTodayW: (d.peakTodayW !== undefined && d.peakTodayW !== null) ? d.peakTodayW : null,
+      };
+    });
+
+  const lead = LEAD_ORDER.map(fn => items.filter(i => i.function === fn)).flat();
+  const tail = TAIL_ORDER.map(fn => items.filter(i => i.function === fn)).flat();
+  const middle = items.filter(i => !LEAD_ORDER.includes(i.function) && !TAIL_ORDER.includes(i.function));
+  return [...lead, ...middle, ...tail];
+}
+
 function setValueText(textEl, watts, measured) {
   const f = fmtPower(watts, measured);
   textEl.firstChild.nodeValue = f.value;
   const unitEl = textEl.querySelector('.node-value-unit');
-  if (unitEl && unitEl.textContent !== f.unit) {
-    unitEl.textContent = f.unit;
-  }
+  if (unitEl && unitEl.textContent !== f.unit) { unitEl.textContent = f.unit; }
 }
 
-// --- Persistente Knoten -----------------------------------------------------
-// Die Knoten werden EINMAL aufgebaut und danach nur noch aktualisiert. Nur so
-// können CSS-Transitions überhaupt greifen: würde bei jedem Update wie früher
-// alles neu erzeugt, startet jedes Element bereits in seinem Zielzustand und
-// der Wechsel aktiv/inaktiv wirkt zwangsläufig schlagartig.
+// Kosten-Ticker (28.08.2026, Dietmar: "alles direkt umsetzen") - der
+// Netz-Knoten wechselt periodisch zwischen Watt und Kosten pro Stunde
+// (aus item.priceNow, derselben Preisquelle wie die Sparkline). Eigene
+// Anzeigefunktion statt Direktaufruf von setValueText(), damit der Timer
+// unabhaengig vom Server-Push (der viel seltener/unregelmaessiger kommt)
+// zwischen beiden Darstellungen umschalten kann.
+let COST_TICKER_ON = false;
+function renderValueDisplay(refs) {
+  if (refs.isGrid && COST_TICKER_ON && refs.priceNow != null && refs.active) {
+    const eurPerHour = (refs.magnitude / 1000) * (refs.priceNow / 100);
+    refs.valText.firstChild.nodeValue = eurPerHour.toFixed(eurPerHour < 1 ? 3 : 2);
+    const unitEl = refs.valText.querySelector('.node-value-unit');
+    if (unitEl) { unitEl.textContent = '€/h'; }
+  } else {
+    setValueText(refs.valText, refs.magnitude, refs.measured);
+  }
+}
+setInterval(() => {
+  COST_TICKER_ON = !COST_TICKER_ON;
+  Object.values(nodeRefs).forEach(r => { if (r.isGrid) { renderValueDisplay(r); } });
+}, 4000);
+
 let builtSig = null;
-const nodeRefs = {};   // key -> { g, glow, iconG, valText, cx, cy, baseScale }
+const nodeRefs = {};
 
-function createOuterNode(item, angleDeg, layout) {
-  const rad = angleDeg * Math.PI / 180;
-  const cx = CX + layout.rOuter * Math.cos(rad);
-  const cy = CY + layout.rOuter * Math.sin(rad);
+function createOuterNode(item, pt, layout) {
+  const cx = CX + pt.x;
+  const cy = CY + pt.y;
 
-  // Die Geometrie entsteht immer in der Entwurfsgröße (DESIGN_R); sowohl die
-  // layoutbedingte Größe (viele Knoten -> kleinere Kreise) als auch die
-  // Verkleinerung bei Inaktivität laufen ausschließlich über die Skalierung
-  // der ganzen Gruppe, damit stets der komplette Kreisinhalt mitgeht.
   const g = el('g', { class: 'node' });
   g.appendChild(makeCoinShadow(DESIGN_R));
   const glow = attachGlow(el('circle', { class: 'node-glow' }));
   g.appendChild(glow);
   g.appendChild(el('circle', { class: 'node-face', r: DESIGN_R }));
+  // Fuellstand als Ladeanzeige (28.08.2026, Dietmar: "SOC als Fuellstand
+  // statt nur Zahl") - ein von unten steigendes Rechteck, auf die
+  // Knoten-Flaeche geclippt, zusaetzlich zum vorhandenen Batterie-Badge
+  // (das bleibt fuer die genaue Prozentzahl). Nur bei Batterie-Knoten
+  // befuellt (updateOuterNode()), sonst bleibt liquid.style.display none.
+  const liquid = makeLiquidFill(DESIGN_R);
+  g.appendChild(liquid.group);
+  // Gestern-Vergleich als Geisterring (28.08.2026, Dietmar: "alles direkt
+  // umsetzen") - gestrichelter Ring, dessen Radius das Verhaeltnis von
+  // gestern zu heute (zur gleichen Uhrzeit) zeigt: groesser als der feste
+  // Coin-Ring = gestern mehr Leistung, kleiner = gestern weniger. Nur
+  // sichtbar, wenn ein Archivwert vorliegt (updateOuterNode()).
+  const ghostRing = el('circle', { class: 'node-ghost-ring', r: DESIGN_R });
+  ghostRing.style.display = 'none';
+  g.appendChild(ghostRing);
   g.appendChild(el('circle', { class: 'node-ring', r: DESIGN_R }));
+
+  // PV-Prognose-Fortschrittsring (28.08.2026, Dietmar: "alles direkt
+  // umsetzen") - Bogen ausserhalb des Coin-Rings, Laenge = Tagesertrag
+  // bisher / Tagesprognose. Nur am Solar-Knoten befuellt (updateOuterNode()).
+  const forecastRing = el('circle', {
+    class: 'node-forecast-ring', r: DESIGN_R + 7, fill: 'none',
+    'stroke-dasharray': (2 * Math.PI * (DESIGN_R + 7)).toFixed(1),
+    'stroke-dashoffset': (2 * Math.PI * (DESIGN_R + 7)).toFixed(1),
+    transform: 'rotate(-90)'
+  });
+  forecastRing.style.display = 'none';
+  g.appendChild(forecastRing);
+
+  // Strompreis-Trend-Sparkline (28.08.2026) - kleine Linie unter dem
+  // Geraetenamen, nur am Netz-Knoten befuellt (updateOuterNode()).
+  const priceSpark = el('polyline', { class: 'node-price-spark', points: '' });
+  priceSpark.style.display = 'none';
+  priceSpark.setAttribute('transform', 'translate(-18,50)');
+  g.appendChild(priceSpark);
   g.appendChild(makeBevel(DESIGN_R));
   g.appendChild(makeHighlight(DESIGN_R));
   g.appendChild(makeSpecular(DESIGN_R));
-  // Teslaspulen-Blitze um die Münzkante; der Winkel liefert je Knoten ein
-  // stabiles, aber unterschiedliches Muster.
-  addNodeBolts(g, DESIGN_R, Math.round(angleDeg + 360));
+  addNodeBolts(g, DESIGN_R, DESIGN_R, Math.round(pt.angleDeg + 360));
 
-  const iconG = el('g', {
-    class: 'node-icon', transform: 'translate(0,-30)',
-    'stroke-width': 2, fill: 'none', filter: 'url(#relief)',
-  });
+  const iconG = el('g', { class: 'node-icon', transform: 'translate(0,-30)', 'stroke-width': 2, fill: 'none', filter: 'url(#relief)' });
   g.appendChild(iconG);
 
-  // Platzreserve wie für "33,333 kW" (breitester realistischer Wert)
-  // eingeplant, Wert vertikal nahe der Kreismitte statt weiter oben.
-  const valText = el('text', {
-    x: 0, y: 9, 'text-anchor': 'middle', class: 'node-value', filter: 'url(#relief)',
-  });
+  const valText = el('text', { x: 0, y: 9, 'text-anchor': 'middle', class: 'node-value', filter: 'url(#relief)' });
   valText.appendChild(document.createTextNode('0'));
   const unit = el('tspan', { class: 'node-value-unit', dx: 2 });
   unit.textContent = 'kW';
@@ -942,36 +1185,61 @@ function createOuterNode(item, angleDeg, layout) {
   labelText.textContent = item.label;
   g.appendChild(labelText);
 
-  // Zusatzzeile, z. B. das an einer Wallbox erkannte Fahrzeug - macht die
-  // automatische Zuordnung nachvollziehbar.
   const subText = el('text', { x: 0, y: 45, 'text-anchor': 'middle', class: 'node-sub' });
   g.appendChild(subText);
 
-  return { g, glow, iconG, valText, subText, cx, cy, baseScale: layout.outerR / DESIGN_R };
+  // Diagnose-Warnsymbol (28.08.2026, Dietmar: "Diagnose-Warnungen direkt
+  // am Knoten") - kleines Dreieck oben rechts auf dem Coin, nur sichtbar
+  // bei tatsaechlich vorliegender Warnstufe (updateOuterNode()).
+  // Position exakt auf dem Ring-Radius bei 45° (klassische Notification-
+  // Badge-Optik, haelftig innen/aussen auf dem Ring) statt vorher weiter
+  // innen, wo das Dreieck mit Icon-Elementen kollidierte (z.B. dem
+  // rechten oberen Sonnenstrahl beim PV-Knoten - Dietmar, 28.08.2026).
+  const warnOff = DESIGN_R * Math.SQRT1_2;
+  const warn = el('g', { class: 'node-warn', transform: 'translate(' + warnOff.toFixed(1) + ',' + (-warnOff).toFixed(1) + ')' });
+  warn.appendChild(el('polygon', { points: '0,-9 8,7 -8,7', class: 'node-warn-tri' }));
+  const warnMark = el('text', { x: 0, y: 5, 'text-anchor': 'middle', class: 'node-warn-mark' });
+  warnMark.textContent = '!';
+  warn.appendChild(warnMark);
+  g.appendChild(warn);
+
+  return { g, glow, liquid, warn, ghostRing, forecastRing, priceSpark, iconG, valText, labelText, subText, cx, cy, baseScale: layout.outerR / DESIGN_R };
 }
 
-// Zickzack entlang einer Strecke - Grundlage der Blitze. Der "seed" liefert
-// je Variante einen anderen, aber stabilen Verlauf.
 function jagPath(p1, p2, amp, seg, seed) {
   const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
   const len = Math.hypot(dx, dy) || 1;
-  const nx = -dy / len, ny = dx / len;   // Normale zur Strecke
+  const nx = -dy / len, ny = dx / len;
   let d = 'M' + p1[0].toFixed(1) + ',' + p1[1].toFixed(1);
   for (let i = 1; i < seg; i++) {
     const t = i / seg;
     const off = Math.sin(seed * 12.9898 + i * 4.1414) * amp * (i % 2 ? 1 : -1);
-    d += ' L' + (p1[0] + dx * t + nx * off).toFixed(1)
-       + ',' + (p1[1] + dy * t + ny * off).toFixed(1);
+    d += ' L' + (p1[0] + dx * t + nx * off).toFixed(1) + ',' + (p1[1] + dy * t + ny * off).toFixed(1);
   }
   return d + ' L' + p2[0].toFixed(1) + ',' + p2[1].toFixed(1);
 }
-
-// Zickzack entlang eines Kreisbogens - Teslaspulen-Blitze um die Münzkante.
-// Radialer Jitter statt Normalen-Jitter, sonst wie jagPath.
-function jagArc(r, startDeg, endDeg, amp, seg, seed) {
+/** Abstand vom Mittelpunkt (0,0) zum Pillenrand in Richtung angleDeg -
+ *  degeneriert bei hw===hh exakt zum Kreisradius r=hh. Fuer die Blitzboegen
+ *  (.node-bolt) noetig, die am Hausknoten sonst weiter auf einem starren
+ *  DESIGN_R-Kreis liefen, waehrend der Chip laengst breiter ist (Dietmar,
+ *  28.08.2026: "die Blitze haengen noch voll am Kreis - muessen mit der
+ *  Pille mitwandern"). */
+function pillRadiusAt(angleDeg, hw, hh) {
+  const rad = angleDeg * Math.PI / 180;
+  const cx0 = Math.cos(rad), sy0 = Math.sin(rad);
+  const straight = Math.max(0, hw - hh);
+  if (Math.abs(sy0) < 1e-9) { return hw; }
+  const tFlat = hh / Math.abs(sy0);
+  if (Math.abs(tFlat * cx0) <= straight) { return tFlat; }
+  const cx = (cx0 >= 0 ? 1 : -1) * straight;
+  const b = cx * cx0;
+  const disc = Math.max(0, b * b - (cx * cx - hh * hh));
+  return b + Math.sqrt(disc);
+}
+function jagArc(hw, hh, startDeg, endDeg, amp, seg, seed) {
   const pt = (deg, jitter) => {
     const rad = deg * Math.PI / 180;
-    const rr = r + jitter;
+    const rr = pillRadiusAt(deg, hw, hh) + jitter;
     return (rr * Math.cos(rad)).toFixed(1) + ',' + (rr * Math.sin(rad)).toFixed(1);
   };
   let d = 'M' + pt(startDeg, 0);
@@ -982,102 +1250,210 @@ function jagArc(r, startDeg, endDeg, amp, seg, seed) {
   }
   return d + ' L' + pt(endDeg, 0);
 }
-
-// Hängt die Kreis-Blitze an eine Knoten-Gruppe: drei Bögen an zufällig
-// wirkenden, aber stabilen Positionen rund um die Kante, zeitlich versetzt
-// flackernd. seedBase macht die Muster je Knoten unterschiedlich.
-function addNodeBolts(g, r, seedBase) {
+function addNodeBolts(g, hw, hh, seedBase) {
   for (let i = 0; i < BOLT_COUNT; i++) {
     const start = (seedBase * 47 + i * 120) % 360;
-    const span  = 55 + ((seedBase + i) % 3) * 20;   // 55/75/95 Grad
-    const b = el('path', {
-      class: 'node-bolt',
-      d: jagArc(r, start, start + span, 3.2, 8, seedBase * 3 + i + 1),
-    });
+    const span  = 55 + ((seedBase + i) % 3) * 20;
+    const b = el('path', { class: 'node-bolt', d: jagArc(hw, hh, start, start + span, 3.2, 8, seedBase * 3 + i + 1) });
     b.style.animationDuration = (1.15 + ((seedBase + i * 2) % 5) * 0.11).toFixed(2) + 's';
     b.style.animationDelay = (((seedBase * 7 + i * 13) % 17) / 10).toFixed(2) + 's';
     g.appendChild(b);
   }
 }
-
-// Kreis-Blitze auch am (statisch aufgebauten) Hauslast-Kreis: unterhalb von
-// Icon/Text eingehängt, damit sie die Beschriftung nicht überlagern.
 (function () {
   const c = document.getElementById('node-center');
-  // Corona des (statischen) Hauslast-Kreises ebenfalls auf den Vektor-Verlauf.
   const cg = c.querySelector('.node-glow');
   if (cg) { attachGlow(cg); }
-  const holder = el('g', {});
-  addNodeBolts(holder, DESIGN_R, 5);
+  const holder = el('g', { id: 'center-bolts' });
+  addNodeBolts(holder, DESIGN_R, DESIGN_R, 5);
   c.insertBefore(holder, document.getElementById('center-icon'));
 })();
 
-// Speiche zwischen Hauslast-Kreis und äußerem Knoten. Beide Flussrichtungen
-// werden als Bahn vorbereitet; welche gerade gilt, entscheidet updateSpoke.
-function createSpoke(angleDeg, layout, layer) {
-  const rad = angleDeg * Math.PI / 180;
-  const c = Math.cos(rad), s = Math.sin(rad);
-  const r1 = CENTER_R + SPOKE_GAP;                              // am Zentrum
-  const r2 = layout.rOuter - layout.outerR - SPOKE_GAP;         // am Knoten
-  const p1 = [CX + r1 * c, CY + r1 * s];
-  const p2 = [CX + r2 * c, CY + r2 * s];
-
-  const line = (cls) => el('line', {
-    class: cls, x1: p1[0].toFixed(1), y1: p1[1].toFixed(1),
-    x2: p2[0].toFixed(1), y2: p2[1].toFixed(1),
-  });
-
-  layer.appendChild(line('wire'));
+function createSpoke(pt, layout, layer) {
+  // Richtung vom Hausrand-Punkt (pt.hx/hy) zum Verbraucher-Mittelpunkt
+  // (pt.x/y) - bei chip=false ist das exakt die alte radiale Richtung
+  // (hx/hy liegen dann auf demselben Winkel wie x/y), bei chip=true ergibt
+  // sich die Speichen-Richtung automatisch korrekt aus den zwei Punkten,
+  // ohne dass createSpoke() selbst wissen muss, ob/wo die Pille gerade
+  // oder gerundet ist.
+  const dx = pt.x - pt.hx, dy = pt.y - pt.hy;
+  const dist = Math.hypot(dx, dy) || 1;
+  const ux = dx / dist, uy = dy / dist;
+  const p1 = [CX + pt.hx + ux * SPOKE_GAP, CY + pt.hy + uy * SPOKE_GAP];
+  const p2 = [CX + pt.x - ux * (layout.outerR + SPOKE_GAP), CY + pt.y - uy * (layout.outerR + SPOKE_GAP)];
+  const line = (cls) => el('line', { class: cls, x1: p1[0].toFixed(1), y1: p1[1].toFixed(1), x2: p2[0].toFixed(1), y2: p2[1].toFixed(1) });
+  // Eigene <g> je Speiche (statt aller Elemente direkt im gemeinsamen
+  // wiresLayer) - nur so laesst sich eine einzelne Speiche fuer
+  // HIDE_INACTIVE ein-/ausblenden, ohne alle anderen mitzunehmen.
+  const g = el('g', { class: 'spoke' });
+  layer.appendChild(g);
+  const wire = line('wire');
+  g.appendChild(wire);
   const core = line('flow-core');
-  layer.appendChild(core);
-
+  g.appendChild(core);
   const bolts = [];
   for (let i = 0; i < BOLT_COUNT; i++) {
     const b = el('path', { class: 'flow-bolt', d: jagPath(p1, p2, 3.4, 9, i + 1) });
-    layer.appendChild(b);
+    g.appendChild(b);
     bolts.push(b);
   }
-
   const tris = [];
   for (let i = 0; i < TRI_COUNT; i++) {
     const t = el('path', { class: 'flow-tri', d: 'M-3.4,-3.8 L3.8,0 L-3.4,3.8 Z' });
-    layer.appendChild(t);
+    g.appendChild(t);
     tris.push(t);
   }
-
+  // Peak-Marker (28.08.2026, Dietmar: "alles direkt umsetzen") - kleiner
+  // Querstrich auf der Speiche an der Stelle, die der heutigen Tagesspitze
+  // entspricht (Anteil an FLOW_REF_W, updateSpoke() positioniert ihn).
+  const peakMark = el('line', { class: 'flow-peak-mark' });
+  peakMark.style.display = 'none';
+  g.appendChild(peakMark);
   return {
-    tris, bolts, core,
+    g, tris, bolts, core, wire, peakMark, p1, p2,
     dIn:  'M' + p2[0].toFixed(1) + ',' + p2[1].toFixed(1) + ' L' + p1[0].toFixed(1) + ',' + p1[1].toFixed(1),
     dOut: 'M' + p1[0].toFixed(1) + ',' + p1[1].toFixed(1) + ' L' + p2[0].toFixed(1) + ',' + p2[1].toFixed(1),
   };
 }
 
-// Referenzleistung für das Fluss-Tempo, aus der Instanzkonfiguration
-// (FlowRefW). Bei dieser Leistung läuft die Animation mit Höchsttempo -
-// ein kleinerer Wert spreizt die sichtbaren Unterschiede im Alltagsbereich.
-let FLOW_REF_W = 10000;
+let FLOW_REF_W = 10000; // wie GLOW_MAX_W: InverterHubTile-Original übernommen
+let HOOK_PATH = ''; // eigener WebHook-Pfad, aus dem Payload (module.php)
 
-// Leistung, bei der die Kranz-Blitze eines Knotens den Nachbarknoten voll
-// erreichen. Darunter wachsen sie anteilig, darüber bleiben sie am Nachbarn.
-const AURA_REACH_W = 25000;
+// Container-Transform-Morph fuers Oeffnen/Schliessen des Detail-Overlays
+// (Dietmar, 28.08.2026 - abgeloest: die vorherige Strudel-Physik-Simulation
+// hatte einen echten geometrischen Bug bei einem bildschirmfuellenden
+// Panel und einem kompakten Flow-Diagramm, siehe CSS-Kommentar oben bei
+// #detailOverlay). FLIP-Technik (First/Last/Invert/Play): das Panel wird
+// per transform (translate+scale) exakt auf Position/Groesse des
+// angeklickten Knotens "zurueckversetzt" (First=aktuelle Knotenposition,
+// Last=natuerliche Panel-Position/-Groesse), dann in einem Frame auf
+// transform:none zurueckgesetzt - CSS transitioniert dazwischen glatt.
+// LAST_ORIGIN_EL merkt sich den zuletzt geoeffneten Knoten, damit
+// closeDeviceDetail() exakt denselben Uebergang rueckwaerts spielen kann.
+let LAST_ORIGIN_EL = null;
 
-// Helligkeit der Blitze (--bmax) aus der Leistung: von gerade sichtbar bis
-// kräftig, wurzelförmig.
-function boltBrightness(magnitude, active) {
-  if (!active) { return 0; }
-  const k = Math.sqrt(Math.max(0, Math.min(1, magnitude / AURA_REACH_W)));
-  return 0.35 + 0.55 * k;
+/** Liefert {dx, dy, sx, sy} - den Transform, der das (natuerlich
+ *  positionierte) Panel exakt auf originEl's aktuelle Position/Groesse
+ *  legt. sx/sy nach unten begrenzt, damit eine sehr kleine Knoten-Bounding-
+ *  Box (z.B. 0 waehrend eines Layout-Uebergangs) nicht zu transform:
+ *  scale(0) fuehrt (nicht animierbar/unsichtbar haengenbleibend). */
+function panelMorphTransform(panel, originEl) {
+  const p = panel.getBoundingClientRect();
+  if (!originEl || p.width === 0 || p.height === 0) {
+    return { dx: 0, dy: 0, sx: 0.05, sy: 0.05 };
+  }
+  const o = originEl.getBoundingClientRect();
+  return {
+    dx: (o.left + o.width / 2) - (p.left + p.width / 2),
+    dy: (o.top + o.height / 2) - (p.top + p.height / 2),
+    sx: Math.max(0.05, o.width / p.width),
+    sy: Math.max(0.05, o.height / p.height),
+  };
 }
 
-// Aktualisiert die "Reichweiten"-Blitze eines Knotens: Zickzack-Bögen, die von
-// der Kante Richtung Nachbarknoten wachsen (Länge = Leistung / AURA_REACH_W).
+// Oeffnet die bildschirmfuellende Geraete-Detailseite als Overlay im
+// SELBEN Fenster (Dietmar, 28.08.2026 - dritter Anlauf: window.open() in
+// einem neuen Tab vermied zwar das Platzproblem). Laedt die eigenstaendige
+// Detailseite (gleicher Inhalt wie im eigenen Tab) per <iframe> - kein
+// Tab-Wechsel, keine Kollision mit Symcons Titelzeile. Der
+// Schliessen-Button der Detailseite meldet sich im Overlay per
+// postMessage ab (siehe window "message"-Listener unten). Ohne
+// registrierten WebHook (WebHook-Control-Instanz fehlt) kein Klick-Ziel -
+// dann still nichts tun.
+//
+// Morph-Ursprung = das angeklickte KNOTEN-ELEMENT selbst (dessen eigene
+// getBoundingClientRect()), NICHT die Klick-Koordinate aus dem Event -
+// robuster gegenueber Layout-Eigenheiten und noetig, damit
+// closeDeviceDetail() denselben Knoten fuer den Rueckweg wiederfindet.
+function openDeviceDetail(detailKey, originEl) {
+  if (!HOOK_PATH) return;
+  LAST_ORIGIN_EL = originEl || null;
+  const overlay = document.getElementById('detailOverlay');
+  const panel = document.getElementById('detailPanel');
+  const frame = document.getElementById('detailFrame');
+  overlay.style.display = 'flex';
+  panel.classList.remove('closingMorph');
+  // reflow erzwingen: 'display:flex' muss layoutet sein, bevor wir sowohl
+  // die (natuerliche) Panel-Groesse als auch die Knotenposition vermessen.
+  void overlay.offsetWidth;
+  const t = panelMorphTransform(panel, originEl);
+  panel.style.transition = 'none';
+  panel.style.transform = 'translate(' + t.dx + 'px,' + t.dy + 'px) scale(' + t.sx + ',' + t.sy + ')';
+  panel.style.borderRadius = '50%';
+  void panel.offsetWidth; // erzwingt Anwendung des Start-Transforms vor dem Zuruecksetzen der transition
+  requestAnimationFrame(() => {
+    panel.style.transition = '';
+    overlay.classList.add('visible');
+    panel.style.transform = 'translate(0,0) scale(1,1)';
+    panel.style.borderRadius = '16px';
+    frame.src = HOOK_PATH + '?detail=' + encodeURIComponent(detailKey);
+  });
+}
+
+function closeDeviceDetail() {
+  const overlay = document.getElementById('detailOverlay');
+  const panel = document.getElementById('detailPanel');
+  if (overlay.style.display !== 'flex') return;
+  // Knotenposition JETZT neu vermessen (nicht die von openDeviceDetail()
+  // gecachte) - falls sich waehrend die Detailseite offen war am
+  // Flow-Diagramm etwas verschoben hat (neue Werte, andere Anzahl
+  // Geraete), morpht das Panel trotzdem an die aktuell richtige Stelle
+  // zurueck. Ist der Ursprungsknoten nicht mehr vorhanden (z.B. Geraet
+  // ausgeblendet), faellt panelMorphTransform() auf ein kleines
+  // Verschwinden zur Panel-Mitte zurueck statt einen Fehler zu werfen.
+  const t = panelMorphTransform(panel, LAST_ORIGIN_EL && document.body.contains(LAST_ORIGIN_EL) ? LAST_ORIGIN_EL : null);
+  overlay.classList.remove('visible');
+  panel.classList.add('closingMorph');
+  panel.style.transform = 'translate(' + t.dx + 'px,' + t.dy + 'px) scale(' + t.sx + ',' + t.sy + ')';
+  panel.style.borderRadius = '50%';
+  setTimeout(() => { // Dauer muss zur CSS-Transition (.55s) passen
+    overlay.style.display = 'none';
+    panel.classList.remove('closingMorph');
+    panel.style.transition = 'none';
+    panel.style.transform = '';
+    panel.style.borderRadius = '';
+    void panel.offsetWidth;
+    panel.style.transition = '';
+    document.getElementById('detailFrame').src = 'about:blank';
+  }, 580);
+}
+window.addEventListener('message', function (e) {
+  if (e.data === 'nrgdash-detail-close') closeDeviceDetail();
+});
+document.getElementById('detailOverlay').addEventListener('click', function (e) {
+  if (e.target === this) closeDeviceDetail();
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') closeDeviceDetail();
+});
+window.addEventListener('message', function (e) {
+  if (e.data === 'nrgdash-detail-close') closeDeviceDetail();
+});
+document.getElementById('detailOverlay').addEventListener('click', function (e) {
+  if (e.target === this) closeDeviceDetail();
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') closeDeviceDetail();
+});
+const AURA_REACH_W = 24000; // Dietmars vereinbarter Wert (27.07.2026) - weicht bewusst von InverterHubTiles 25000 ab
+
+function boltBrightness(magnitude, active) {
+  if (!active) { return 0; }
+  // "Blitzbögen an Leistung koppeln" (Nutzer-Einstellung, 28.08.2026):
+  // ausgeschaltet -> immer volle Ausschlagsstaerke, unabhaengig vom Wert.
+  const k = COUPLE_BOLT ? Math.sqrt(Math.max(0, Math.min(1, magnitude / AURA_REACH_W))) : 1;
+  return Math.max(0, Math.min(1, (0.35 + 0.55 * k) * EFFECT_INTENSITY));
+}
+
 function updateNodeAura(refs, magnitude, active, color) {
   const col = rgb(color);
   const reach = magnitude / AURA_REACH_W;
-  const k = Math.sqrt(Math.max(0, Math.min(1, reach)));
-  const bmax = (0.3 + 0.6 * k).toFixed(2);
-  const amp  = 2 + 4 * k;
-
+  // "Leuchtschein an Leistung koppeln" (Nutzer-Einstellung, 28.08.2026):
+  // ausgeschaltet -> Schein bei aktivem Knoten immer auf voller Reichweite,
+  // unabhaengig vom Leistungswert.
+  const k = COUPLE_GLOW ? Math.sqrt(Math.max(0, Math.min(1, reach))) : 1;
+  const bmax = Math.max(0, Math.min(1, (0.3 + 0.6 * k) * EFFECT_INTENSITY)).toFixed(2);
+  const amp  = (2 + 4 * k) * EFFECT_INTENSITY;
   (refs.aura || []).forEach((a, idx) => {
     if (!active || reach < 0.03) { a.el.style.display = 'none'; return; }
     const dx = a.ncx - refs.cx, dy = a.ncy - refs.cy;
@@ -1086,9 +1462,7 @@ function updateNodeAura(refs, magnitude, active, color) {
     const start   = [refs.cx + ux * refs.nodeR, refs.cy + uy * refs.nodeR];
     const nbrEdge = [a.ncx - ux * refs.nodeR, a.ncy - uy * refs.nodeR];
     const f = Math.min(1, reach);
-    const end = [start[0] + (nbrEdge[0] - start[0]) * f,
-                 start[1] + (nbrEdge[1] - start[1]) * f];
-    // seed wandert mit der Leistung -> die Blitze zappeln bei jedem Update.
+    const end = [start[0] + (nbrEdge[0] - start[0]) * f, start[1] + (nbrEdge[1] - start[1]) * f];
     a.el.setAttribute('d', jagPath(start, end, amp, 7, idx * 3 + 1 + Math.floor(magnitude / 500)));
     a.el.style.display = '';
     a.el.style.stroke = col;
@@ -1098,48 +1472,63 @@ function updateNodeAura(refs, magnitude, active, color) {
   });
 }
 
-// Zustand einer Speiche: Farbe, Flussrichtung und Tempo. Das Tempo folgt der
-// Leistung (Wurzel-Kennlinie), damit man auf einen Blick sieht, wo viel
-// fließt - die Spreizung ist über FLOW_REF_W einstellbar.
-function updateSpoke(sp, color, magnitude, active, dir) {
+function updateSpoke(sp, color, magnitude, active, flowing, dir, peakTodayW) {
   const col = rgb(color);
   const d = (dir === 'in') ? sp.dIn : sp.dOut;
-
   sp.core.style.stroke = col;
   sp.core.style.opacity = active ? '0.5' : '0';
-
   const k = Math.sqrt(Math.max(0, Math.min(1, magnitude / FLOW_REF_W)));
-  const dur = 3.0 - 2.6 * k;   // 3,0 s bei wenig Leistung ... 0,4 s am Referenzwert
+  const dur = 3.0 - 2.6 * k;
 
+  // Flussdicke (28.08.2026, Dietmar: "alles direkt umsetzen") - Speiche wird
+  // mit der Leistung dicker, nicht nur schneller animiert. Wurzel-Skala wie
+  // bei den anderen Leistungsmappings, damit kleine Lasten noch sichtbar
+  // bleiben statt im 1px-Minimum zu verschwinden.
+  const width = active ? (1.6 + 3.4 * k) : 1.6;
+  sp.wire.style.strokeWidth = width.toFixed(1);
+  sp.core.style.strokeWidth = Math.max(1, width - 1).toFixed(1);
+
+  // Peak-Marker: Querstrich an der Position der heutigen Tagesspitze
+  // entlang der Speiche (Anteil an FLOW_REF_W), senkrecht zur Speichenachse.
+  if (active && peakTodayW != null && sp.p1 && sp.p2) {
+    const f = Math.max(0, Math.min(1, peakTodayW / FLOW_REF_W));
+    const mx = sp.p1[0] + (sp.p2[0] - sp.p1[0]) * f;
+    const my = sp.p1[1] + (sp.p2[1] - sp.p1[1]) * f;
+    const dx = sp.p2[0] - sp.p1[0], dy = sp.p2[1] - sp.p1[1];
+    const len = Math.hypot(dx, dy) || 1;
+    const px = -dy / len, py = dx / len;
+    const half = 6;
+    sp.peakMark.setAttribute('x1', (mx - px * half).toFixed(1));
+    sp.peakMark.setAttribute('y1', (my - py * half).toFixed(1));
+    sp.peakMark.setAttribute('x2', (mx + px * half).toFixed(1));
+    sp.peakMark.setAttribute('y2', (my + py * half).toFixed(1));
+    sp.peakMark.style.stroke = col;
+    sp.peakMark.style.display = '';
+  } else {
+    sp.peakMark.style.display = 'none';
+  }
   sp.tris.forEach((t, i) => {
-    t.style.display = active ? '' : 'none';
-    if (!active) { return; }
+    t.style.display = flowing ? '' : 'none';
+    if (!flowing) { return; }
     t.style.offsetPath = 'path("' + d + '")';
     t.style.animationDuration = dur.toFixed(2) + 's';
-    // Negative Verzögerung startet mitten in der Bewegung -> die Dreiecke
-    // sind gleichmäßig über die Bahn verteilt, statt gemeinsam loszulaufen.
     t.style.animationDelay = (-dur * i / TRI_COUNT).toFixed(2) + 's';
     t.style.fill = col;
     t.style.filter = 'drop-shadow(0 0 3px rgba(' + color[0] + ',' + color[1] + ',' + color[2] + ',0.9))';
   });
-
   sp.bolts.forEach((b, i) => {
-    b.style.display = active ? '' : 'none';
-    if (!active) { return; }
+    b.style.display = flowing ? '' : 'none';
+    if (!flowing) { return; }
     b.style.stroke = col;
     b.style.animationDuration = (1.1 + i * 0.23).toFixed(2) + 's';
     b.style.animationDelay = (i * 0.37).toFixed(2) + 's';
   });
 }
 
-// Baut die Knoten nur dann (neu) auf, wenn sich die Menge der darzustellenden
-// Knoten tatsächlich geändert hat (Konfigurationsänderung) - im laufenden
-// Betrieb bleibt die Struktur stehen und wird nur aktualisiert.
 function ensureNodes(items) {
   const sig = items.map(x => x.key + ':' + x.label + ':' + x.icon).join(',');
   if (sig === builtSig) return;
   builtSig = sig;
-
   const nodesLayer = document.getElementById('nodes-layer');
   const wiresLayer = document.getElementById('wires-layer');
   nodesLayer.textContent = '';
@@ -1149,20 +1538,25 @@ function ensureNodes(items) {
   const n = items.length;
   const layout = computeLayout(n);
   items.forEach((item, i) => {
-    // Alle Knoten gleichmäßig radial um die Hauslast verteilen, in der
-    // Reihenfolge aus buildItems, beginnend oben (-90°) im Uhrzeigersinn.
-    const angleDeg = -90 + (360 / n) * i;
-    const refs = createOuterNode(item, angleDeg, layout);
-    refs.nodeR = layout.outerR;   // tatsächlicher Kreisradius auf dem Schirm
-    // Speichen liegen im eigenen Layer UNTER den Knoten.
-    refs.spoke = createSpoke(angleDeg, layout, wiresLayer);
+    const pt = layout.points[i];
+    const refs = createOuterNode(item, pt, layout);
+    refs.nodeR = layout.outerR;
+    // Klick auf den Knoten oeffnet die bildschirmfuellende Detailseite
+    // (WebHook) in einem neuen Tab - Diagramme + alle Vertragsfelder des
+    // Geraets. Bewusst nicht in der Kachel selbst (kann im Grid zu klein
+    // fuer Diagramme sein, Dietmar 28.08.2026).
+    if (item.detailKey) {
+      refs.g.style.cursor = 'pointer';
+      const tip = el('title', {});
+      tip.textContent = 'Details von „' + item.label + '“ öffnen';
+      refs.g.appendChild(tip);
+      refs.g.addEventListener('click', () => openDeviceDetail(item.detailKey, refs.g));
+    }
+    refs.spoke = createSpoke(pt, layout, wiresLayer);
     nodeRefs[item.key] = refs;
     nodesLayer.appendChild(refs.g);
   });
 
-  // Zweiter Durchgang: Reichweiten-Blitze je Knoten zu seinen Ring-Nachbarn.
-  // Jetzt sind alle Knotenmittelpunkte bekannt. Doppelte/sich selbst
-  // entfernen (bei n=2 zeigen beide Nachbarn auf denselben Knoten).
   items.forEach((item, i) => {
     const refs = nodeRefs[item.key];
     const nbr = (n <= 1) ? [] : [...new Set([(i - 1 + n) % n, (i + 1) % n])].filter(j => j !== i);
@@ -1176,88 +1570,494 @@ function ensureNodes(items) {
   });
 }
 
-// Gemeinsame Zustandslogik für äußere Knoten UND das Zentrum: Position und
-// Skalierung stecken in EINEM transform (nur der Skalenanteil ändert sich),
-// Farbe/Deckkraft/Corona werden gesetzt - das Ein-/Ausblenden der Münz-Ebenen
-// erledigt die Klasse .inactive per CSS. baseScale bringt die layoutbedingte
-// Größe ein (bei vielen Knoten werden alle Kreise kleiner).
-function applyNodeState(g, glow, color, magnitude, active, cx, cy, baseScale) {
-  const scale = baseScale * (active ? 1 : SCALE_INACTIVE);
+function applyNodeState(g, glow, color, magnitude, active, cx, cy, baseScale, hidden) {
+  // "hidden" nutzt dieselbe CSS-Transition wie active/inactive (transform/
+  // opacity, --trans) - der Knoten schrumpft/verblasst dorthin, statt hart
+  // aus dem DOM zu verschwinden (ensureNodes() baut bei gleichbleibender
+  // Geraeteliste unveraendert alle Knoten, HIDE_INACTIVE wirkt rein optisch).
+  const scale = hidden ? 0 : baseScale * (active ? 1 : SCALE_INACTIVE);
   g.classList.toggle('inactive', !active);
+  g.classList.toggle('hidden-node', !!hidden);
   g.style.transform = `translate(${cx}px, ${cy}px) scale(${scale})`;
-  g.style.opacity = active ? '1' : '0.32';
+  g.style.opacity = hidden ? '0' : (active ? '1' : '0.32');
   g.style.setProperty('--nc', rgb(color));
-  // Helligkeit der Kanten-Blitze am Knoten (leistungsabhängig).
   g.style.setProperty('--bmax', boltBrightness(magnitude, active).toFixed(2));
-  if (active) { applyGlow(glow, color, magnitude); }
+  if (active && !hidden) { applyGlow(glow, color, magnitude); }
   else { glow.style.opacity = '0'; }
 }
 
-function updateOuterNode(refs, item, d) {
+function updateOuterNode(refs, item) {
   const w = item.value ?? 0;
   const magnitude = Math.abs(w);
-  // Eine eingesteckte Wallbox (item.plugged) gilt als aktiv, auch ohne
-  // Ladeleistung - sie erscheint farbig mit Ladestand statt ausgegraut. Die
-  // Fluss-Animation (Blitze/Glow) bleibt trotzdem leistungsabhängig, ein
-  // ruhender Knoten bekommt sie über magnitude≈0 also nicht.
-  const active = magnitude > (item.minMagnitude ?? 20) || !!item.plugged;
-  const color = item.grey ? C_GREY : (active ? item.color(w) : C_GREY);
+  // "aktiv" (volle Farbe/Größe) darf auch ohne Leistung gelten, z.B.
+  // eingesteckte aber gerade nicht ladende Wallbox - "fließend" (animierte
+  // Pfeile/Blitze auf der Speiche) braucht dagegen tatsächlich Leistung,
+  // sonst würde ein Fluss angezeigt, wo keiner stattfindet.
+  const active = magnitude > 20 || !!item.plugged;
+  const flowing = magnitude > 20;
+  const hidden = HIDE_INACTIVE && !active;
+  const color = active ? item.color(w) : C_GREY;
 
-  applyNodeState(refs.g, refs.glow, color, magnitude, active,
-    refs.cx, refs.cy, refs.baseScale);
-  updateSpoke(refs.spoke, color, magnitude, active, item.dir(w));
+  applyNodeState(refs.g, refs.glow, color, magnitude, active, refs.cx, refs.cy, refs.baseScale, hidden);
+  refs.spoke.g.style.opacity = hidden ? '0' : '1';
+  updateSpoke(refs.spoke, color, magnitude, active, flowing, item.dir(w), item.peakTodayW);
   updateNodeAura(refs, magnitude, active, color);
 
-  // Icon neu zeichnen (Ladestände ändern sich laufend); die Farbe kommt
-  // geerbt über --nc und animiert dadurch weiterhin mit. item.key dient dem
-  // Auto-Icon als eindeutige ID für seinen Füllstands-Clip.
   refs.iconG.textContent = '';
-  ICONS[item.icon](refs.iconG, item.soc ?? null, item.key);
-  setValueText(refs.valText, magnitude, item.measured);
+  ICONS[item.icon](refs.iconG, item.soc ?? null);
+  refs.isGrid = item.function === 'grid';
+  refs.priceNow = item.priceNow != null ? item.priceNow : null;
+  refs.magnitude = magnitude;
+  refs.measured = item.measured;
+  refs.active = active;
+  renderValueDisplay(refs);
+
+  // SOC-Fuellstand (nur Batterie-Knoten mit bekanntem SOC) - Rechteck
+  // steigt von unten, Hoehe = SOC-Anteil der Coin-Flaeche (Durchmesser).
+  if (item.battery && item.soc != null) {
+    const r = refs.liquid.r;
+    const frac = Math.max(0, Math.min(100, item.soc)) / 100;
+    const h = r * 2 * frac;
+    refs.liquid.rect.setAttribute('y', (r - h).toFixed(1));
+    refs.liquid.rect.setAttribute('height', h.toFixed(1));
+    refs.liquid.rect.classList.toggle('node-liquid-low', item.soc < 20);
+    refs.liquid.group.style.display = hidden ? 'none' : '';
+  } else {
+    refs.liquid.group.style.display = 'none';
+  }
+
+  // Gestern-Geisterring: Radius kodiert das Verhaeltnis gestern/heute
+  // (gleiche Uhrzeit), gedaempft per Wurzel damit grosse Spruenge den Ring
+  // nicht sofort aus dem Coin heraustreiben.
+  if (item.yesterdayValue != null) {
+    const yMag = Math.abs(item.yesterdayValue);
+    const ratio = Math.sqrt(yMag / Math.max(magnitude, 50));
+    // Enger geklammert als der erste Wurf (28.08.2026, Dietmar: "die Kreise
+    // liegen zu eng beieinander") - bei extremen Verhaeltnissen (z.B.
+    // heute nahe 0, gestern gross) reichte der Ring vorher bis zu 60%
+    // ueber den Coin-Rand hinaus und stiess mit Nachbarknoten zusammen.
+    const clamped = Math.max(0.72, Math.min(1.22, ratio));
+    refs.ghostRing.setAttribute('r', (DESIGN_R * clamped).toFixed(1));
+    refs.ghostRing.style.display = hidden ? 'none' : '';
+  } else {
+    refs.ghostRing.style.display = 'none';
+  }
+
+  // PV-Prognose-Fortschrittsring: Bogenlaenge = min(1, ratio) der
+  // Ring-Umfangs, Farbe wechselt bei Uebererfuellung (ratio > 1).
+  if (item.forecastRatio != null) {
+    const circ = 2 * Math.PI * (DESIGN_R + 7);
+    const frac = Math.max(0, Math.min(1, item.forecastRatio));
+    refs.forecastRing.setAttribute('stroke-dashoffset', (circ * (1 - frac)).toFixed(1));
+    refs.forecastRing.classList.toggle('node-forecast-ring-over', item.forecastRatio > 1);
+    refs.forecastRing.style.display = hidden ? 'none' : '';
+  } else {
+    refs.forecastRing.style.display = 'none';
+  }
+
+  // Strompreis-Trend-Sparkline: einfache Polyline aus den Tages-Slotpreisen,
+  // Skala relativ zum Min/Max des Tages (nicht absolut) - zeigt die Form
+  // des Verlaufs, nicht den genauen Wert (der steht bereits als Zahl in der
+  // Detailansicht).
+  if (item.priceTrend && item.priceTrend.length > 1) {
+    const prices = item.priceTrend.map(p => p.price);
+    const lo = Math.min(...prices), hi = Math.max(...prices);
+    const span = Math.max(0.01, hi - lo);
+    const w = 36, h = 12;
+    const pts = item.priceTrend.map((p, i) => {
+      const x = (i / (item.priceTrend.length - 1)) * w;
+      const y = h - ((p.price - lo) / span) * h;
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    }).join(' ');
+    refs.priceSpark.setAttribute('points', pts);
+    refs.priceSpark.style.display = hidden ? 'none' : '';
+  } else {
+    refs.priceSpark.style.display = 'none';
+  }
+
+  // Diagnose-Warnsymbol (28.08.2026) - nur bei tatsaechlicher Warnstufe,
+  // Farbe nach Schwere ('kritisch' rot, 'auffaellig' gelb).
+  if (item.warnLevel === 'kritisch' || item.warnLevel === 'auffaellig') {
+    refs.warn.style.display = hidden ? 'none' : '';
+    refs.warn.setAttribute('class', 'node-warn node-warn-' + item.warnLevel);
+  } else {
+    refs.warn.style.display = 'none';
+  }
+
+  // Zugeordnetes Fahrzeug bekannt (item.sub) -> Fahrzeugname wird die
+  // groessere/farbige Zeile, Geraetename ruckt klein/grau darunter (statt
+  // umgekehrt) - identische Regel fuer jeden Knoten, wirkt sich aber nur
+  // dort sichtbar aus, wo item.sub tatsaechlich gesetzt ist.
+  const hasVehicle = !!item.sub;
+  // y=47 statt vorher 53 - bei DESIGN_R=56 blieben sonst nur ~3px Abstand
+  // zum unteren Ringrand, wirkte gequetscht (Dietmar, 05.08.2026).
+  const labelY = hasVehicle ? 43 : 33;
+  const subY = hasVehicle ? 28 : 45;
+  refs.labelText.setAttribute('class', hasVehicle ? 'node-device-name' : 'node-label');
+  refs.labelText.setAttribute('y', labelY);
+  refs.subText.setAttribute('class', hasVehicle ? 'node-vehicle-name' : 'node-sub');
+  refs.subText.setAttribute('y', subY);
   refs.subText.textContent = item.sub || '';
+  // Lange Namen (z.B. Fahrzeugnamen) sollen nicht ueber den Kreisrand
+  // hinaus/dagegen laufen - Breitenbudget haengt von der Sehnenlaenge des
+  // Kreises an der jeweiligen y-Position ab, je naeher am Rand desto
+  // schmaler. Nur eingreifen, wenn der Text tatsaechlich zu breit ist.
+  fitTextWidth(refs.labelText, labelY);
+  fitTextWidth(refs.subText, subY);
+}
+
+function fitTextWidth(textEl, y) {
+  textEl.removeAttribute('textLength');
+  textEl.removeAttribute('lengthAdjust');
+  const pad = 8; // Rand-/Stroke-Puffer innerhalb des Rings
+  const r = DESIGN_R - pad;
+  const maxW = Math.abs(y) >= r ? 20 : 2 * Math.sqrt(r * r - y * y);
+  let bbox;
+  try { bbox = textEl.getBBox(); } catch (e) { return; }
+  if (bbox.width > maxW) {
+    textEl.setAttribute('textLength', maxW.toFixed(1));
+    textEl.setAttribute('lengthAdjust', 'spacingAndGlyphs');
+  }
+}
+
+// -- Statusanzeige (eigenständig, nicht aus InverterHubTile).
+function renderStatus(renderedAtSec) {
+  const dot = document.getElementById('dot');
+  const label = document.getElementById('stateLabel');
+  if (!renderedAtSec) {
+    dot.className = 'status-dot';
+    label.textContent = 'noch nicht aktualisiert';
+    return;
+  }
+  // "fresh" bezieht sich jetzt auf den tatsaechlichen Push-Zeitpunkt (jedes
+  // MessageSink()/VM_UPDATE ruft buildPayload() neu auf) statt auf den
+  // seltenen Discover()-Takt - ein Wert gilt als veraltet, wenn seit 2
+  // Minuten kein Ereignis mehr eintraf (deutlich enger als die frueheren
+  // 10 Minuten, weil echte Aktualisierungen jetzt sekundennah sind).
+  const ageSec = (Date.now() / 1000) - renderedAtSec;
+  const fresh = ageSec < 120;
+  dot.className = 'status-dot ' + (fresh ? 'fresh pulse' : 'stale');
+  const d = new Date(renderedAtSec * 1000);
+  const hh = ('0' + d.getHours()).slice(-2), mm = ('0' + d.getMinutes()).slice(-2), ss = ('0' + d.getSeconds()).slice(-2);
+  label.textContent = 'aktualisiert ' + hh + ':' + mm + ':' + ss + (fresh ? '' : ' (veraltet)');
+}
+
+// -- Diagnose-Panel (IHUBMON_GetDiagnostics, siehe README "Diagnostik-
+// Vertrag"). type-neutral: kennt die drei aktuell existierenden Typen
+// (yield_vs_forecast/mppt_string_compare/riso) nur ueber ihre jeweiligen
+// Werte-Felder, die vom Backend (resolveDiagnostics()) schon aufgeloest
+// wurden - level/threshold/reason kommen unveraendert vom Anbieter, hier
+// wird NICHTS neu bewertet, nur dargestellt. Ein neuer Typ eines anderen
+// Partnermoduls braucht KEINE Aenderung an diesem Renderer, solange er
+// dem Grundschema (type/label/level/reason + einen der bekannten
+// Werte-Felder) folgt - er landet automatisch im "sonst"-Zweig unten.
+const DIAG_LEVEL_LABEL = { normal: 'unauffällig', 'auffaellig': 'auffällig', 'kritisch': 'kritisch' };
+const DIAG_LEVEL_RANK = { kritisch: 2, 'auffaellig': 1, normal: 0 };
+
+function fmtNum(v, unit) {
+  if (v === null || v === undefined || isNaN(v)) { return '–'; }
+  const n = Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 10) / 10;
+  return n + (unit ? ' ' + unit : '');
+}
+
+function diagValueText(e) {
+  if (e.type === 'yield_vs_forecast') {
+    return fmtNum(e.measured, e.unit) + ' / ' + fmtNum(e.expected, e.unit) + ' erwartet';
+  }
+  if (e.type === 'mppt_string_compare' && e.stringValues) {
+    return Object.keys(e.stringValues).sort().map(function (n) {
+      return 'Str.' + n + ': ' + fmtNum(e.stringValues[n], e.unit);
+    }).join(' · ');
+  }
+  if (e.type === 'riso') {
+    return fmtNum(e.measuredValue, e.unit) + (e.threshold ? ' (Grenze ' + e.threshold + ' ' + e.unit + ')' : '');
+  }
+  // Unbekannter kuenftiger Typ: zeige, was vorhanden ist, statt nichts.
+  if (e.expected !== undefined) { return fmtNum(e.expected, e.unit); }
+  return '';
+}
+
+// Einfuehrungs-Tour bei erster Benutzung (28.08.2026, Dietmar: "eine Tour
+// die bei der ersten Benutzung eingeblendet und nur per Haken ausgeblendet
+// werden kann"). TOUR_SHOWN_LOCAL verhindert ein erneutes Aufpoppen
+// innerhalb derselben Sitzung, bevor die Bestaetigung vom Server (naechster
+// Payload mit showTour=false) zurueckkommt - der Nutzer hat ja schon
+// bestaetigt, auch wenn der 30s-Refresh oder MessageSink() zwischendurch
+// noch den alten showTour=true-Stand liefert.
+let TOUR_SHOWN_LOCAL = false;
+let TOUR_STEP = 0;
+const TOUR_STEPS = [
+  {
+    title: 'Mehr als noch eine Energiefluss-Kachel',
+    text: 'Diese Kachel merkt sich, was gestern zur gleichen Uhrzeit los war, rechnet mit Ihren echten Strompreisen statt einem Pauschalwert, warnt direkt am betroffenen Gerät - und wächst automatisch von 3 auf 50+ Verbraucher, ohne dass die Knoten unlesbar klein werden. 15 kurze Schritte, jederzeit über „Einführungs-Tour erneut anzeigen" in der Konsole wiederholbar.'
+  },
+  {
+    title: 'Details zu jedem Gerät',
+    text: 'Ein Klick auf einen Knotenpunkt öffnet dessen vollständige, bildschirmfüllende Detailseite - komplett automatisch aus den vorhandenen Geräteverträgen erzeugt, kein Gerätetyp ist dafür fest verdrahtet.'
+  },
+  {
+    title: 'Vollständige Messwerte-Tabelle',
+    text: 'Auf der Detailseite stehen alle verfügbaren elektrischen Werte in automatisch gruppierten Tabellen - z. B. je Phase (L1-L3) bei Zählern, je MPPT-Strang unter Solar oder je Batterie-Turm bei Mehrblock-Anlagen.'
+  },
+  {
+    title: 'Echte Kostenersparnis',
+    text: 'Die Ersparnis-Berechnung auf der Detailseite nutzt echte Strompreise (Tibber Grid Rewards, sonst automatisch der BDEW-Haushaltsdurchschnitt) und schlüsselt sie nach Netzentgelt, dynamischem Tarif und Grid-Reward-Erlös auf - statt eines einzelnen pauschalen Werts.'
+  },
+  {
+    title: 'Batterie-Füllstand',
+    text: 'Der Batterie-Knoten zeigt den Ladestand zusätzlich als von unten steigendes Rechteck - zusätzlich zur genauen Prozentzahl im Icon.'
+  },
+  {
+    title: 'Diagnose-Warnsymbol',
+    text: 'Ein rotes oder gelbes Dreieck erscheint direkt an einem Knoten, sobald dort eine Diagnose auffällig oder kritisch wird - vorher nur im separaten, leicht zu übersehenden Diagnose-Badge unten rechts.'
+  },
+  {
+    title: 'Gestern-Vergleich',
+    text: 'Der gestrichelte „Geisterring" um jeden Knoten vergleicht die aktuelle Leistung mit dem Wert von gestern zur gleichen Uhrzeit - größer als der feste Ring bedeutet: gestern floss mehr, kleiner: weniger.'
+  },
+  {
+    title: 'PV-Prognose-Fortschritt',
+    text: 'Ist eine PV-Prognose-Instanz installiert, trägt der Solar-Knoten einen Fortschrittsring: wie viel vom heutigen prognostizierten Ertrag bereits erreicht ist.'
+  },
+  {
+    title: 'Strompreis am Netz-Knoten',
+    text: 'Bei installierter Preisquelle zeigt der Netz-Knoten eine kleine Sparkline des Tagespreisverlaufs und wechselt alle paar Sekunden zwischen Watt und Kosten pro Stunde.'
+  },
+  {
+    title: 'Autarkiegrad',
+    text: 'Der grüne Bogen um den Haus-Knoten zeigt den Anteil des heutigen Verbrauchs, der nicht aus dem Netz kam.'
+  },
+  {
+    title: 'Flussdicke & Tagesspitze',
+    text: 'Die Verbindungslinien werden mit der fließenden Leistung dicker, nicht nur schneller animiert - und tragen einen kleinen Querstrich an der Position der heutigen Tagesspitze.'
+  },
+  {
+    title: 'Netzampel-Hintergrund',
+    text: 'Ist eine StromGedacht-Instanz installiert, färbt ein sehr dezenter Farbverlauf im Hintergrund die aktuelle Netzampel-Stufe ein.'
+  },
+  {
+    title: 'Fahrzeug-Erkennung',
+    text: 'An Wallboxen wird ein angestecktes Tesla-Fahrzeug über Tessie automatisch erkannt - Name und Ladestand erscheinen direkt am Knoten, ohne manuelle Zuordnung.'
+  },
+  {
+    title: 'Chip-Form bei vielen Verbrauchern',
+    text: 'Ab einer größeren Anzahl an Verbraucher-Knoten wechselt der Haus-Knoten automatisch von der Kreis- in eine „Chip"-Form (Pille mit geraden Seiten) - so bleiben die einzelnen Knoten auch bei sehr vielen Geräten auf einer sinnvollen Größe.'
+  },
+  {
+    title: 'Eigene Anzeige-Einstellungen',
+    text: 'Ob inaktive Knotenpunkte aus- oder eingeblendet werden und wie stark Blitzbögen/Leuchtschein an die Leistung gekoppelt sind, stellen Sie selbst ein: Kachel über das Doppelpfeil-Symbol (Vollbild-Umschalten) aufziehen - dort erscheinen die passenden Schalter/Regler.'
+  }
+];
+
+function renderTour() {
+  const dots = document.getElementById('tourDots');
+  dots.innerHTML = '';
+  TOUR_STEPS.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'tour-dot' + (i === TOUR_STEP ? ' active' : '');
+    dots.appendChild(d);
+  });
+  const step = TOUR_STEPS[TOUR_STEP];
+  document.getElementById('tourTitle').textContent = step.title;
+  document.getElementById('tourText').textContent = step.text;
+  const prevBtn = document.getElementById('tourPrev');
+  const nextBtn = document.getElementById('tourNext');
+  prevBtn.disabled = TOUR_STEP === 0;
+  const isLast = TOUR_STEP === TOUR_STEPS.length - 1;
+  nextBtn.style.display = isLast ? 'none' : '';
+}
+
+function showTourOverlay() {
+  if (TOUR_SHOWN_LOCAL) { return; }
+  TOUR_SHOWN_LOCAL = true;
+  TOUR_STEP = 0;
+  renderTour();
+  document.getElementById('tourOverlay').classList.add('show');
+}
+
+// Bewusst KEIN X/Escape zum Wegklicken (Dietmar: "nur per Haken
+// ausgeblendet werden kann") - dismissTour() ist der EINZIGE Weg, die
+// Tour zu schliessen, und meldet das gleichzeitig per WebHook an die
+// Instanz zurueck (die Kachel selbst hat als sandboxed HTML-SDK-Tile
+// keinen anderen Rueckkanal, siehe module.php Create()).
+function dismissTour() {
+  document.getElementById('tourOverlay').classList.remove('show');
+  if (HOOK_PATH) {
+    fetch(HOOK_PATH + '?dismissTour=1').catch(() => {});
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('tourPrev').addEventListener('click', () => {
+    if (TOUR_STEP > 0) { TOUR_STEP--; renderTour(); }
+  });
+  document.getElementById('tourNext').addEventListener('click', () => {
+    if (TOUR_STEP < TOUR_STEPS.length - 1) { TOUR_STEP++; renderTour(); }
+  });
+  document.getElementById('tourDone').addEventListener('click', dismissTour);
+});
+
+function toggleDiagPanel() {
+  document.getElementById('diagPanel').classList.toggle('open');
+}
+
+function renderDiagnostics(entries) {
+  const badge = document.getElementById('diagBadge');
+  const panel = document.getElementById('diagPanel');
+  if (!Array.isArray(entries) || entries.length === 0) {
+    badge.classList.remove('show');
+    panel.classList.remove('open');
+    panel.innerHTML = '';
+    return;
+  }
+  let worst = 'normal';
+  entries.forEach(function (e) {
+    if (e.level && DIAG_LEVEL_RANK[e.level] > DIAG_LEVEL_RANK[worst]) { worst = e.level; }
+  });
+  badge.classList.add('show');
+  badge.classList.toggle('level-auffaellig', worst === 'auffaellig');
+  badge.classList.toggle('level-kritisch', worst === 'kritisch');
+  document.getElementById('diagBadgeText').textContent = entries.length;
+
+  panel.innerHTML = entries.map(function (e) {
+    const color = e.level ? ({ normal: '#3a3', 'auffaellig': '#c9a227', 'kritisch': '#c33' }[e.level] || '#999') : '#999';
+    const levelText = e.level ? (DIAG_LEVEL_LABEL[e.level] || e.level) : 'keine Bewertung';
+    return '<div class="diag-row">' +
+      '<div class="diag-label"><span style="width:8px;height:8px;border-radius:50%;background:' + color + ';flex:none;"></span>' +
+      (e.label || e.type) + '</div>' +
+      '<div class="diag-value">' + diagValueText(e) + ' — ' + levelText + '</div>' +
+      (e.reason ? '<div class="diag-reason">' + e.reason + '</div>' : '') +
+      '</div>';
+  }).join('');
 }
 
 function handleMessage(raw) {
-  fitViewBox();
   const d = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  renderStatus(d ? d.renderedAt : 0);
+  renderDiagnostics(d ? d.diagnostics : []);
 
-  if (d.font) document.documentElement.style.setProperty('--font', d.font);
-  if (d.bg)   document.body.style.background = d.bg;
-  if (d.transMs !== undefined && d.transMs !== null) {
-    document.documentElement.style.setProperty('--trans', (+d.transMs || 0) + 'ms');
+  // Darstellungs-Einstellungen (1:1 InverterHubTile-Muster, module.html:1224-1229)
+  if (d) {
+    if (d.font) document.documentElement.style.setProperty('--font', d.font);
+    if (d.bg)   document.body.style.background = d.bg;
+    if (d.transMs !== undefined && d.transMs !== null) {
+      document.documentElement.style.setProperty('--trans', (+d.transMs || 0) + 'ms');
+    }
+    if (d.flowRefW) { FLOW_REF_W = Math.max(500, +d.flowRefW); }
+    if (d.hookPath) { HOOK_PATH = d.hookPath; }
+    if (d.showTour) { showTourOverlay(); }
+
+    // Netzampel-Farbwaesche (28.08.2026, Dietmar: "alles direkt umsetzen") -
+    // sehr dezenter radialer Verlauf von der Ampelfarbe ins Transparente,
+    // nur sichtbar wenn eine StromGedacht-Instanz Daten liefert.
+    const wash = document.getElementById('ampelWash');
+    if (d.gridAmpel && d.gridAmpel.color) {
+      wash.style.background = 'radial-gradient(circle at 50% 40%, ' + d.gridAmpel.color + '22 0%, transparent 65%)';
+      wash.classList.add('show');
+      wash.title = 'Netzampel: ' + (d.gridAmpel.label || '');
+    } else {
+      wash.classList.remove('show');
+    }
   }
-  if (d.flowRefW) { FLOW_REF_W = Math.max(500, +d.flowRefW); }
 
-  const dot = document.getElementById('dot');
-  dot.setAttribute('class', 'status-dot' + (d.ok ? ' ok pulse' : ''));
-  document.getElementById('stateLabel').textContent = d.stateLabel ?? '–';
-  layoutStatus();   // Plakettenbreite folgt dem Text
+  const empty = document.getElementById('nrgdash-empty');
+  const devices = (d && Array.isArray(d.devices)) ? d.devices : [];
+  if (devices.length === 0) {
+    empty.style.display = 'flex';
+    document.getElementById('svg').style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  document.getElementById('svg').style.display = '';
 
-  // Ohne gültige Daten das Diagramm ausblenden, statt veraltete Werte
-  // stehenzulassen - es bleibt dann nur die Statusplakette sichtbar.
-  const diagram = ['wires-layer', 'nodes-layer', 'node-center'];
-  diagram.forEach(id => {
-    document.getElementById(id).style.display = d.ok ? '' : 'none';
-  });
-  if (!d.ok) return;
-
-  // --- Zentrum (Hauslast) ---
-  // Anteil des Netzbezugs am Verbrauch bestimmt die Farbe: vollständig lokal
-  // gedeckt = grün, vollständig aus dem Netz = rot.
-  const houseW = d.houseW ?? 0;
-  const gridImportW = (d.gridHave && (d.gridW ?? 0) < 0) ? Math.abs(d.gridW) : 0;
+  // Zentrum: bevorzugt eine echte Energiebilanz wie bei InverterHubTile
+  // (houseBalanceW = pvW - gridW + batW; gridW ist +Einspeisung/-Bezug,
+  // von InverterHub bestätigt, 27.07.2026) - NICHT mehr die grobe Summe nur
+  // der bekannten Einzelverbraucher (Wallboxen/Wärmepumpe), die die
+  // unsichtbare Grundlast (Kühlschrank, Standby-Geräte etc.) komplett
+  // ausließ und dadurch strukturell zu niedrig lag. Fällt nur zurück auf die
+  // Verbraucher-Summe, wenn keine InverterHub-Instanz (also kein pv/grid)
+  // vorhanden ist - reines MeterHub/ChargerHub-Setup ohne Wechselrichter.
+  const houseDevice = devices.find(x => x.function === 'house');
+  const pvDevice = devices.find(x => x.function === 'pv');
+  const gridDevice = devices.find(x => x.function === 'grid');
+  const batDevice = devices.find(x => x.function === 'battery');
+  let houseW;
+  if (houseDevice) {
+    houseW = houseDevice.value ?? 0;
+  } else if (pvDevice && gridDevice) {
+    houseW = (pvDevice.value ?? 0) - (gridDevice.value ?? 0) + (batDevice ? (batDevice.value ?? 0) : 0);
+  } else {
+    houseW = devices.filter(x => x.category === 'verbraucher').reduce((s, x) => s + (x.value || 0), 0);
+  }
+  // Farbe wie bei InverterHubTile: Anteil des Netzbezugs am Verbrauch
+  // bestimmt Grün (vollständig lokal gedeckt) bis Rot (vollständig aus dem
+  // Netz) - value < 0 = Bezug (dieselbe Vorzeichenkonvention wie oben).
+  const gridImportW = (gridDevice && (gridDevice.value ?? 0) < 0) ? Math.abs(gridDevice.value) : 0;
   const gridShare = houseW > 0 ? Math.min(1, gridImportW / houseW) : 0;
-  const consumerColor = lerp(C_GREEN, C_RED, gridShare);
-  const centerActive = !!d.houseHave && houseW > 20;
+  const centerColor = lerp(C_GREEN, C_RED, gridShare);
+  const centerActive = Math.abs(houseW) > 20;
   const centerG = document.getElementById('node-center');
   applyNodeState(centerG, centerG.querySelector('.node-glow'),
-    centerActive ? consumerColor : C_GREY, houseW, centerActive, CX, CY, 1);
-  setValueText(document.getElementById('lbl-center-val'), houseW);
+    centerActive ? centerColor : C_GREY, houseW, centerActive, CX, CY, 1);
+  setValueText(document.getElementById('lbl-center-val'), houseW, true);
+  // Haus-Knoten nur klickbar, wenn es ein ECHTES 'house'-Geraet gibt (also
+  // einen Backend-Datensatz mit detailKey) - die reine Naeherung
+  // (pv-grid+bat) ist kein Geraet und hat keine eigenen Vertragsfelder zum
+  // Anzeigen.
+  if (houseDevice && houseDevice.detailKey && !centerG.dataset.clickBound) {
+    centerG.dataset.clickBound = '1';
+    centerG.style.cursor = 'pointer';
+    const tip = el('title', {});
+    tip.textContent = 'Details von „Haus“ öffnen';
+    centerG.appendChild(tip);
+    centerG.addEventListener('click', () => openDeviceDetail(centerG.dataset.detailKey, centerG));
+  }
+  if (houseDevice && houseDevice.detailKey) {
+    centerG.dataset.detailKey = houseDevice.detailKey;
+    centerG.style.cursor = 'pointer';
+  } else {
+    centerG.style.cursor = '';
+    delete centerG.dataset.detailKey;
+  }
 
-  // --- Äußere Knoten (feste Knoten + konfigurierte Verbraucher) ---
-  const items = buildItems(d, consumerColor);
+  HIDE_INACTIVE = !!(d && d.hideInactive);
+  // "Hinter dem Doppelpfeil" (28.08.2026) - echte Instanz-Variablen, kommen
+  // serverseitig im Payload statt aus localStorage, siehe module.php.
+  COUPLE_BOLT = !(d && d.coupleBolt === false);
+  COUPLE_GLOW = !(d && d.coupleGlow === false);
+  EFFECT_INTENSITY = (d && d.effectIntensity != null) ? (d.effectIntensity / 100) : 1;
+  const items = buildItems(devices);
+  // Chip-Breite des Hausknotens haengt von der Verbraucherzahl ab (siehe
+  // CHIP_THRESHOLD/computeLayout()) - VOR ensureNodes() setzen, damit
+  // Chip und Speichen im selben Frame konsistent zueinander stehen.
+  const chipLayout = computeLayout(items.length);
+  layoutCenterChip(chipLayout.hw, chipLayout.hh);
+
+  // Autarkiegrad-Ringsegment - Bogenlaenge = tatsaechlicher Umfang der
+  // Pille (identische Formel wie pillPointPair()s perim2, siehe dort),
+  // damit die Strichlaenge zur sichtbaren Randform passt (Kreis ODER Chip).
+  const autRing = document.querySelector('#node-center .node-autarky-ring');
+  if (autRing) {
+    const rhw = chipLayout.hw + 7, rhh = chipLayout.hh + 7;
+    const perim = 4 * (rhw - rhh) + 2 * Math.PI * rhh;
+    autRing.setAttribute('stroke-dasharray', perim.toFixed(1));
+    if (houseDevice && houseDevice.autarkyRatio != null) {
+      const frac = Math.max(0, Math.min(1, houseDevice.autarkyRatio));
+      autRing.setAttribute('stroke-dashoffset', (perim * (1 - frac)).toFixed(1));
+      autRing.style.display = '';
+    } else {
+      autRing.style.display = 'none';
+    }
+  }
+  if (items.length === 0) {
+    document.getElementById('nodes-layer').textContent = '';
+    document.getElementById('wires-layer').textContent = '';
+    builtSig = null;
+    return;
+  }
   ensureNodes(items);
-  items.forEach(item => updateOuterNode(nodeRefs[item.key], item, d));
+  items.forEach(item => updateOuterNode(nodeRefs[item.key], item));
 }
 </script>
 </body>

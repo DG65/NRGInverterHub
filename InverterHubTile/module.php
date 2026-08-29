@@ -860,8 +860,18 @@ class InverterHubTile extends IPSModule
 
             if ($pv === null && $ac === null && $grid === null && $bat === null && $soc === null) {
                 return json_encode(array_merge($style, [
-                    'ok'         => false,
-                    'stateLabel' => 'Keine Datenquelle',
+                    'ok'          => false,
+                    'devices'     => [],
+                    'updatedAt'   => time(),
+                    'renderedAt'  => time(),
+                    'hideInactive' => false,
+                    'coupleBolt'  => true,
+                    'coupleGlow'  => true,
+                    'effectIntensity' => 100,
+                    'hookPath'    => '',
+                    'diagnostics' => [],
+                    'gridAmpel'   => null,
+                    'showTour'    => false,
                 ]));
             }
         }
@@ -956,22 +966,75 @@ class InverterHubTile extends IPSModule
             }
         }
 
+        // -------------------------------------------------------------------
+        // Adapter auf das Geraete-Schema der neuen Darstellungsschicht
+        // (module.html von NRGDashboardTile uebernommen, 29.08.2026, Schema
+        // laut Dashboard-Uebergabe): devices[] mit function/label/value/...
+        // statt des alten flachen pvHave/pvW-Payloads. Alle "NEU, optional"
+        // markierten Felder liefern wir bewusst als null/weg - module.html
+        // blendet die zugehoerigen Zusatzfeatures dann aus (1:1-Paritaet,
+        // Zusatzfeatures spaeter schrittweise). Konfigurationsmodell,
+        // Properties und alle Berechnungen oben bleiben unveraendert.
+        // -------------------------------------------------------------------
+        $srcID = $useInstance ? $src : 0;
+        $devices = [];
+        if ($pvHave) {
+            $devices[] = ['function' => 'pv', 'label' => 'Solar',
+                'value' => round($pvW), 'soc' => null, 'measured' => true,
+                'detailKey' => 'pv', 'instanceID' => $srcID, 'sub' => '', 'plugged' => null];
+        }
+        if ($batHave || $socHave) {
+            $devices[] = ['function' => 'battery', 'label' => 'Batterie',
+                'value' => $batHave ? round($batW) : 0,
+                'soc' => $socHave ? round((float)$soc) : null, 'measured' => true,
+                'detailKey' => 'battery', 'instanceID' => $srcID, 'sub' => '', 'plugged' => null];
+        }
+        if ($gridHave) {
+            $devices[] = ['function' => 'grid', 'label' => 'Netz',
+                'value' => round($gridW), 'soc' => null, 'measured' => true,
+                'detailKey' => 'grid', 'instanceID' => $srcID, 'sub' => '', 'plugged' => null];
+        }
+        if ($houseHave) {
+            $devices[] = ['function' => 'house', 'label' => 'Hauslast',
+                'value' => round($houseW), 'soc' => null,
+                'measured' => ($meterID > 0 && IPS_VariableExists($meterID)),
+                'detailKey' => 'house', 'instanceID' => $srcID, 'sub' => '', 'plugged' => null];
+        }
+        if ($lossHave && round($lossW) > 0) {
+            // 'loss' kennt FUNCTION_STYLE nicht -> DEFAULT_STYLE (grau,
+            // "other"-Icon) - bewusst akzeptiert, der alte Verluste-Kreis war
+            // ebenfalls grau.
+            $devices[] = ['function' => 'loss', 'label' => 'Verluste',
+                'value' => round($lossW), 'soc' => null, 'measured' => false,
+                'detailKey' => 'loss', 'instanceID' => $srcID, 'sub' => '', 'plugged' => null];
+        }
+        foreach ($this->BuildConsumers() as $c) {
+            $devices[] = [
+                'function'   => $c['type'],
+                'label'      => $c['label'],
+                'value'      => $c['w'],
+                'soc'        => $c['soc'] ?? null,
+                'measured'   => $c['measured'],
+                'detailKey'  => $c['key'],
+                'instanceID' => $srcID,
+                'sub'        => $c['sub'] ?? '',
+                'plugged'    => $c['plugged'] ?? null,
+            ];
+        }
+
         $payload = array_merge($style, [
-            'ok'         => $connected,
-            'stateLabel' => $connected ? 'Verbunden' : 'Getrennt',
-            'pvHave'     => $pvHave,
-            'pvW'        => round($pvW),
-            'gridHave'   => $gridHave,
-            'gridW'      => round($gridW),
-            'houseHave'  => $houseHave,
-            'houseW'     => round($houseW),
-            'batHave'    => $batHave,
-            'batW'       => round($batW),
-            'socHave'    => $socHave,
-            'soc'        => $socHave ? round((float)$soc) : null,
-            'lossHave'   => $lossHave,
-            'lossW'      => round($lossW),
-            'consumers'  => $this->BuildConsumers(),
+            'ok'              => $connected,
+            'devices'         => $devices,
+            'updatedAt'       => time(),
+            'renderedAt'      => time(),
+            'hideInactive'    => false,
+            'coupleBolt'      => true,
+            'coupleGlow'      => true,
+            'effectIntensity' => 100,
+            'hookPath'        => '',   // kein WebHook: Klick-Detailseite/Tour-Quittung bleiben aus
+            'diagnostics'     => [],
+            'gridAmpel'       => null,
+            'showTour'        => false,
         ]);
 
         return json_encode($payload);
@@ -989,6 +1052,7 @@ class InverterHubTile extends IPSModule
         foreach ($rows as $i => $row) {
             $entry = [
                 'key'   => 'c' . $i,
+                'type'  => $row['type'],
                 'label' => $row['name'],
                 'icon'  => $row['icon'],
                 'color' => $row['color'],

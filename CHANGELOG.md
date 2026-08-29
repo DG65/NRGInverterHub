@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.76.0-beta.1 (2026-08-29)
+
+- **Neue Energiefluss-Darstellung für die Stromflusskachel.** Die Darstellungsschicht
+  (`module.html`) der `InverterHubTile` wurde durch die neu arrangierte Energieflusskachel des
+  NRGDashboard-Projekts ersetzt (gemeinsame Weiterentwicklung im NRG-Stack). Die Konfiguration
+  bleibt vollständig erhalten: alle Einstellungen (Datenquelle, Verbraucher, Fahrzeuge,
+  Hauslastzähler, Farben) wirken unverändert weiter — es ändert sich nur Optik/Interaktion.
+  Technisch: `BuildPayload()` übersetzt das bestehende Konfigurationsmodell per Adapter in das
+  neue Geräte-Schema; Zusatzfeatures der neuen Kachel (Klick-Detailseiten, Diagnose-Hinweise,
+  Preis-Verlauf u. a.) sind vorbereitet, aber im ersten Wurf bewusst deaktiviert.
+
+
 ## 0.74.0-beta.1 (2026-07-25)
 
 - **Neuer Verbund-Vertrag `IHUBMON_GetDiagnostics($id)`**, mit NRGDashboard abgestimmt: Erster
