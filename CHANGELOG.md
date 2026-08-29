@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.76.0-beta.7 (2026-08-29)
+
+- **Tour-Text korrigiert (Batterie-Füllstand):** Der Knotenkreis füllt sich von unten — kein
+  „steigendes Rechteck" (die Beschreibung stammte aus einer älteren Darstellungsvariante).
+
 ## 0.76.0-beta.6 (2026-08-29)
 
 - **Tour-Text präzisiert:** Die Detailseite ist kachelfüllend, nicht bildschirmfüllend — je
