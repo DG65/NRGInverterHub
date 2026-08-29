@@ -1259,11 +1259,30 @@ Parameter, NIE mit der Variablen-ID (real verwechselt, siehe Abschnitt unten).
 | `ctl_internet` | Cloud-Verbindung | RW 47017 | bool |
 | `ctl_restart` | WR Neustart | WO 45220 | bool, nur schreibend |
 
-**Für normalen Automatikbetrieb** (WR aus Sonderzustand zurückholen) reicht üblicherweise:
+**⚠️ ÜBERHOLT — `ctl_ems_enable=true` destabilisiert die Modus-Steuerung (A/B-Test 29.08.2026):**
+Der frühere Rat, für Normalbetrieb `ctl_ems_enable=true` zu setzen, ist durch einen sauberen
+A/B-Test nach Dietmars Protokoll widerlegt (Instanz 52838, 10:22-10:44 Uhr):
+
+| Phase | enable | Modus | Ergebnis |
+|---|---|---|---|
+| A | false | 11 (Laden 3500 W) | hielt 9+ min stabil, Batterie lud real −3530 W |
+| B1 | **true** | 8 (Bereitschaft) | **Rückfall auf 255 nach ~100 s** |
+| B2 | false | 8 (Bereitschaft) | hält stabil (Rohwert 8 nach 4+ min) |
+
+Einzige Variable zwischen B1/B2 war `ctl_ems_enable`. **Der 255-Rückfall von Register 47511
+tritt nur bei `ctl_ems_enable=true` auf** — bei `false` halten alle getesteten Modi dauerhaft
+und der WR setzt sie real um. Empfehlung seither: EMS-Steuerung über
+`ctl_ems_mode`/`ctl_ems_power` grundsätzlich mit **`ctl_ems_enable=false`** fahren;
+`enable=true` nur bei konkretem Grund, dann zwingend mit aktivem Reassert. Reproduktions-Detail:
+die Flanken-Sequenz (Automatik → enable-Wechsel → Zielmodus) war der Schlüssel — s. auch die
+Flanken-vs-Pegel-Notfall-Erkenntnisse weiter oben. In SUITE.md als Verbund-Warnung eingetragen
+(via EMS-Sitzung, auf Dietmars Wunsch).
+
+Frühere (überholte) Empfehlung, nur noch als historische Referenz:
 ```php
 IPS_RequestAction($instanceID, 'ctl_work_mode', 0);   // Selbstverbrauch
 IPS_RequestAction($instanceID, 'ctl_ems_mode', 1);    // Automatik
-IPS_RequestAction($instanceID, 'ctl_ems_enable', true);
+IPS_RequestAction($instanceID, 'ctl_ems_enable', true);   // <- NICHT mehr empfohlen, s. o.
 ```
 
 `ctl_work_mode` (Steuermodus, Register 47000) und `ctl_ems_mode` (EMS Leistungsmodus, Register
