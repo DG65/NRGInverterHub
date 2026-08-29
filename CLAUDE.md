@@ -1285,6 +1285,19 @@ IPS_RequestAction($instanceID, 'ctl_ems_mode', 1);    // Automatik
 IPS_RequestAction($instanceID, 'ctl_ems_enable', true);   // <- NICHT mehr empfohlen, s. o.
 ```
 
+**Die 255 entschlüsselt (29.08.2026, OpenEMS-Quellcode-Recherche auf Dietmars Anregung):**
+OpenEMS' `EmsPowerMode.java` definiert `STOPPED(0xFF, "Stopped")` als OFFIZIELLEN Modus —
+Doku-Kommentar: "Scenario: System shutdown. Stop working and turn to wait mode." Die 255 ist
+also kein Fehler-Sentinel, sondern der WR-eigene Totmann-VOLLZUG: Bleibt bei `enable=true` der
+erwartete Heartbeat des externen EMS aus (~70-120 s), setzt sich die Firmware selbst aktiv auf
+STOPPED und parkt sicher. OpenEMS hat KEINEN "reagiere auf zurückgelesene 255"-Pfad (kompletter
+`ApplyPowerHandler` geprüft) — sie sehen die 255 schlicht nie, weil sie `EmsPowerMode` +
+`EmsPowerSet` in JEDEM Regelzyklus (~1 s) neu schreiben (Prävention statt Reaktion; bei
+fehlenden Messwerten explizit `AUTO+0` statt gar nichts). Unser Totmann-Empfänger
+(0.74.5-beta.1: 255 erkannt → `enable=false` → native Eigenregelung, mit Log-Warnung) ist die
+zur Nicht-Dauerschreib-Architektur passende Alternative dazu. Konsequenz für Konsumenten (EMS
+informiert): Wer `enable=true` fahren will, MUSS zyklisch (<~60 s) schreiben — sonst STOPPED.
+
 `ctl_work_mode` (Steuermodus, Register 47000) und `ctl_ems_mode` (EMS Leistungsmodus, Register
 47511) sind **unabhängige** Register/Variablen mit ähnlich klingenden Namen — real verwechselt
 (EMS-Sitzung, 27.07.2026): Ein Schreiben auf `ctl_ems_mode` verändert `ctl_work_mode` nicht und
