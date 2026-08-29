@@ -1240,6 +1240,49 @@ Zur Klarstellung: Unser Code schreibt `ctl_ems_enable` NIE periodisch (nicht in
 ausgeschlossen. Wie beim Modus-7-Trick: **nur merken, nicht als automatischen
 Wiederherstellungsmechanismus bauen** ohne Dietmars ausdrückliche Freigabe.
 
+## Heartbeat-/Totmann-Mechanismen ALLER unterstützten Hersteller (Recherche 29.08.2026)
+
+Auftrag Dietmar (via EMS): Für jeden unterstützten Hersteller klären, ob dessen Protokoll einen
+Heartbeat-/Watchdog-Mechanismus für externe EMS-Steuerung hat. Recherchiert über
+Hersteller-Dokus, OpenEMS, Home-Assistant-/evcc-Community-Code, Foren (3 parallele
+Recherchen, Quellen im Verbund-Vertrag in SUITE.md). Konfidenz je Zeile ehrlich markiert:
+**[Doku]** = offizielle Herstellerdoku, **[Comm]** = Community-Code/Reverse-Engineering,
+**[?]** = ungeklärt.
+
+| Hersteller | Totmann? | Mechanismus | Bei Timeout | Konfidenz |
+|---|---|---|---|---|
+| GoodWe | JA, fest | implizit: Modus-Register 47511 verfällt bei enable=true nach ~70-120s, nicht konfigurierbar | 255/STOPPED (Stillstand!) | [Doku+live] |
+| Sungrow SH | JA, konfigurierbar | dediziertes Heartbeat-Reg. 13080 (Wert = Timeout in s, 0-1000); EMS-Modus über 13050=3 | Rückfall Eigenverbrauch | [Doku] |
+| FoxESS H1/H3 | JA, konfigurierbar | Remote-Control-Block: 44000 Enable, 44001 Timeout (s), 44002/3 Sollwert; Countdown-Reload NUR beim Sollwert-Schreiben (44002), nicht bei 44000! | Rückfall Normalmodus ("HostOffline") | [Comm] |
+| SolarEdge | JA, konfigurierbar | 0xE00B CommandTimeout (s, Default 3600) + 0xE00D Default-Rückfallmodus — Timeout UND Rückfallziel frei wählbar | Rückfall auf konfigurierten Default (typ. Eigenverbrauch) | [Doku] |
+| Kostal PLENTICORE | JA (intern + G3-Register) | Sollwerte 1024ff. verfallen nach ~60s (firmwareintern, REST-konfigurierbar); G3 ab SW 03.05: 1288 "Time until fallback" (30-10800s) + Fallback-Limits 1284/1286 | Rückfall interne Regelung bzw. Fallback-Limits | [Doku], 60s-Wert [Comm] |
+| SolaX Hybrid | JA, konfigurierbar | Power-Control-Block ab 0x7C (FC16): Duration je Kommando + Timeout-Reg. (0-28800s) + "Timeout Next Motion" (Rückfallziel wählbar) | Rückfall Self-Use/"VPP Off" | [Comm], offiz. Doku existiert |
+| Victron ESS Mode 3 | JA, fest 60s | Setpoint-Register 37 (je Phase) muss <60s erneuert werden | **Passthru** (Quasi-Stopp der Batterie, KEIN Eigenverbrauch!) | [Doku] |
+| Victron ESS Mode 2 | NEIN | Grid-Setpoint 2700/2716 persistiert unbegrenzt | letzter Wert bleibt eingefroren | [Doku schweigt] |
+| Fronius GEN24 | JA, opt-in | SunSpec RvrtTms (Modell 123/124, z. B. InOutWRte_RvrtTms); **Default 0 = KEIN Timeout**; jede Modbus-Nachricht resettet den Timer | Rückfall interne Regelung | [Doku] |
+| SMA STP | JA, opt-in (nur P-Limit) | 41193 (2507=Fallback nutzen) + 41195 Timeout + 41197 Fallback-%; **Default "Werte beibehalten" = kein Totmann**; für Batterie-Register (40151/40149) KEIN Beleg | Fallback-P-Limit (nur wenn konfiguriert) | [Doku], Batterie [?] |
+| Huawei SUN2000 | teilweise, opt-in | 42019 "Schedule instruction valid duration" (s, **Default 0 = dauerhaft gültig**) + 42405 Failsafe-P-Limit; für LUNA-Batterie-Register kein Watchdog-Beleg | Ablauf des Befehls (Detail unklar) | [Doku], Verhalten [?] |
+| Growatt SPH/MOD/MIX | NEIN | persistente Holding-Register (TOU/AC-Charge), überleben sogar Neustarts; EEPROM-Verschleiß bei häufigem Schreiben! | letzter Befehl bleibt eingefroren | [Comm] |
+| Growatt WIT | JA (Ablaufzeit) | 30407 Enable + 30408 Dauer (0-1440 min) + 30409 Leistung | Rückfall TOU-Schedule | [Comm] |
+| Deye SG04LP3 | NEIN | persistente Register (TOU 146-172, Ein/Aus 80); EEPROM-Thema aktiv in Foren | letzter Befehl bleibt eingefroren (BMS-Grenzen gelten weiter) | [Comm] |
+| Solis | NEIN (öffentlich) | 43110 Bitfeld + Timed-Charge 43141ff. persistieren; vollständige Schreib-Doku nur unter NDA — NDA-Watchdog nicht ausschließbar | letzter Modus bleibt eingefroren | [Comm] |
+| Solplanet | UNKLAR | keine öffentliche Hybrid-Schreib-Doku; Doku bei AISWEI anfragbar | vermutlich eingefroren (unbelegt) | [?] |
+
+**Kernerkenntnis — zwei gegensätzliche Risikoklassen:**
+1. **Mit Totmann** (GoodWe, Sungrow, FoxESS, SolarEdge, Kostal, SolaX, Victron M3, Fronius/SMA/
+   Huawei sofern konfiguriert): EMS MUSS zyklisch schreiben, sonst Rückfall (bei GoodWe/Victron
+   M3 sogar Stillstand statt Eigenverbrauch).
+2. **Ohne Totmann** (Deye, Solis, Growatt SPH, Victron M2, Fronius/SMA/Huawei im
+   Default-Zustand!): Ein EMS-Ausfall friert den letzten Befehl UNBEGRENZT ein — das
+   umgekehrte Sicherheitsrisiko. EMS braucht dort eigene Absicherung (Zeitfenster statt
+   Dauerbefehle, definierter Neutralzustand beim Herunterfahren, sparsame Schreibzyklen
+   wegen EEPROM bei Deye/Growatt).
+
+Der daraus abgeleitete Verbund-Vertrag (inkl. EMS-Handlungsvorgaben je Hersteller) steht in
+SUITE.md (eingetragen von der EMS-Sitzung, 29.08.2026). Bei Implementierung neuer
+Steuer-Treiber hier: IMMER zuerst diese Tabelle konsultieren und den Mechanismus des
+Herstellers im Treiber-Kommentar vermerken.
+
 ## GoodWe-Steuervariablen (`GroupControl`): vollständige Ident-Tabelle
 
 Vollständige Referenz aller 9 Steuer-Idents des GoodWe-Treibers (Kategorie „EMS-Steuerung"),
