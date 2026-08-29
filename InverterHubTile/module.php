@@ -158,7 +158,51 @@ class InverterHubTile extends IPSModule
         // rechnerischen Bilanz und wird dann in der Mitte angezeigt.
         $this->RegisterPropertyInteger('HouseLoadID', 0);
 
+        // Einfuehrungs-Tour bei erster Benutzung (Verbund-Konvention
+        // "Einfuehrungs-Tour fuer Kacheln", SUITE.md 29.08.2026, Muster
+        // NRGDashboardTile): Bestaetigung kommt ueber den WebHook zurueck
+        // (?dismissTour=1), da die sandboxed HTML-SDK-Kachel keinen anderen
+        // Rueckkanal in die Instanz hat.
+        $this->RegisterAttributeBoolean('TourSeen', false);
+
+        // Anzeige-Feinheiten "hinter dem Doppelpfeil" (Muster NRGDashboardTile/
+        // Prognose-Energiebilanz): echte Instanz-Variablen mit EnableAction()
+        // statt Formular-Properties - der WebFront-Doppelpfeil zeigt die
+        // Instanz-Kinder, dort sind sie ohne Konsolenzugriff bedienbar.
+        // Steuervariablen, nie archiviert - RegisterVariableXXX unkritisch.
+        foreach ([
+            'CoupleBoltPower' => ['Blitzbögen an Leistung koppeln', 201, true],
+            'CoupleGlowPower' => ['Leuchtschein an Leistung koppeln', 202, true],
+        ] as $ident => [$caption, $pos, $default]) {
+            $isNew = @IPS_GetObjectIDByIdent($ident, $this->InstanceID) === false;
+            $this->RegisterVariableBoolean($ident, $caption, '', $pos);
+            $this->EnableAction($ident);
+            if ($isNew) {
+                $this->SetValue($ident, $default);
+            }
+        }
+        $isNewIntensity = @IPS_GetObjectIDByIdent('EffectIntensity', $this->InstanceID) === false;
+        $this->RegisterVariableInteger('EffectIntensity', 'Effekt-Intensität (Blitze/Leuchtschein)', '~Intensity.100', 203);
+        $this->EnableAction('EffectIntensity');
+        if ($isNewIntensity) {
+            $this->SetValue('EffectIntensity', 100);
+        }
+
         $this->SetVisualizationType(1);
+    }
+
+    // WebFront-Bedienung der Doppelpfeil-Variablen (s. Create()).
+    public function RequestAction($Ident, $Value)
+    {
+        if (in_array($Ident, ['CoupleBoltPower', 'CoupleGlowPower'], true)) {
+            $this->SetValue($Ident, (bool)$Value);
+            $this->UpdateVisualizationValue($this->BuildPayload());
+            return;
+        }
+        if ($Ident === 'EffectIntensity') {
+            $this->SetValue($Ident, max(50, min(150, (int)$Value)));
+            $this->UpdateVisualizationValue($this->BuildPayload());
+        }
     }
 
     public function Destroy()
@@ -170,6 +214,14 @@ class InverterHubTile extends IPSModule
     {
         parent::ApplyChanges();
         $this->SetVisualizationType(1);
+
+        // Eigener WebHook: Tour-Bestaetigung (?dismissTour=1) + Standalone-
+        // Ausgabe der Kachel fuer IPSView/Browser (Muster NRGDashboardTile).
+        if (IPS_GetKernelRunlevel() === KR_READY) {
+            $this->RegisterHook('/hook/ihubtile' . $this->InstanceID);
+        } else {
+            $this->RegisterMessage(0, IPS_KERNELMESSAGE);
+        }
 
         foreach ($this->GetMessageList() as $senderID => $messages) {
             foreach ($messages as $msg) {
@@ -615,9 +667,84 @@ class InverterHubTile extends IPSModule
 
     public function MessageSink($TimeStamp, $SenderID, $Message, $Data)
     {
+        if ($Message === IPS_KERNELMESSAGE && is_array($Data) && ($Data[0] ?? 0) === KR_READY) {
+            $this->RegisterHook('/hook/ihubtile' . $this->InstanceID);
+            return;
+        }
         if ($Message === VM_UPDATE) {
             $this->UpdateVisualizationValue($this->BuildPayload());
         }
+    }
+
+    /**
+     * Liefert die Kachel als eigenstaendige Webseite (IPSView-WebView/Browser)
+     * und nimmt die Tour-Bestaetigung entgegen. Muster: NRGDashboardTile.
+     */
+    public function ProcessHookData()
+    {
+        if (isset($_GET['dismissTour'])) {
+            $this->WriteAttributeBoolean('TourSeen', true);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => true]);
+            return;
+        }
+        if (isset($_GET['detail'])) {
+            // Klick-Detailseite: in dieser Kachel-Ausgabe (InverterHubTile)
+            // noch nicht umgesetzt - ehrliche Hinweisseite statt Fehler.
+            header('Content-Type: text/html; charset=utf-8');
+            echo '<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">'
+               . '<title>Detailansicht</title></head><body style="font-family:sans-serif;padding:2em;">'
+               . '<h3>Detailansicht noch nicht verfügbar</h3>'
+               . '<p>Die Geräte-Detailseite ist in dieser Kachel-Ausgabe noch nicht enthalten.</p>'
+               . '</body></html>';
+            return;
+        }
+        if (isset($_GET['json'])) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo $this->BuildPayload();
+            return;
+        }
+        header('Content-Type: text/html; charset=utf-8');
+        $html = file_get_contents(__DIR__ . '/module.html');
+        $html .= '<script>handleMessage(' . json_encode($this->BuildPayload()) . ');'
+               . 'setInterval(function(){fetch(window.location.pathname+"?json=1")'
+               . '.then(function(r){return r.text();}).then(function(t){handleMessage(t);})'
+               . '.catch(function(){});},30000);</script>';
+        echo $html;
+    }
+
+    /** Konsolen-Gegenstueck zur Tour-Bestaetigung (Doku-Panel-Button). */
+    public function ResetTour()
+    {
+        $this->WriteAttributeBoolean('TourSeen', false);
+        return '✅ Die Einführungs-Tour wird beim nächsten Öffnen der Kachel wieder angezeigt.';
+    }
+
+    /** WebHook beim WebHook-Control registrieren (Standard-Muster, 1:1 NRGDashboardTile). */
+    private function RegisterHook(string $WebHook)
+    {
+        $ids = IPS_GetInstanceListByModuleID('{015A6EB8-D6E5-4B93-B496-0D3F77AE9FE1}');
+        if (count($ids) === 0) {
+            return;
+        }
+        $hooks = json_decode(IPS_GetProperty($ids[0], 'Hooks'), true);
+        if (!is_array($hooks)) {
+            $hooks = [];
+        }
+        foreach ($hooks as $index => $hook) {
+            if ($hook['Hook'] === $WebHook) {
+                if ((int)$hook['TargetID'] === $this->InstanceID) {
+                    return;
+                }
+                $hooks[$index]['TargetID'] = $this->InstanceID;
+                IPS_SetProperty($ids[0], 'Hooks', json_encode($hooks));
+                IPS_ApplyChanges($ids[0]);
+                return;
+            }
+        }
+        $hooks[] = ['Hook' => $WebHook, 'TargetID' => $this->InstanceID];
+        IPS_SetProperty($ids[0], 'Hooks', json_encode($hooks));
+        IPS_ApplyChanges($ids[0]);
     }
 
     public function GetConfigurationForm()
@@ -670,6 +797,12 @@ class InverterHubTile extends IPSModule
         foreach ($form['elements'] as &$el) {
             if (($el['type'] ?? '') === 'ExpansionPanel' && str_contains($el['caption'] ?? '', 'Dokumentation')) {
                 array_unshift($el['items'], ['type' => 'Label', 'caption' => $verTxt]);
+                // Verbund-Konvention "Einfuehrungs-Tour fuer Kacheln"
+                // (SUITE.md 29.08.2026): Reset-Button gehoert IMMER ins
+                // Doku-Panel, mit sichtbarer Rueckmeldung (echo).
+                $el['items'][] = ['type' => 'Button',
+                    'caption' => 'Einführungs-Tour erneut anzeigen',
+                    'onClick' => 'echo IHUBTILE_ResetTour($id);'];
                 return;
             }
         }
@@ -865,13 +998,13 @@ class InverterHubTile extends IPSModule
                     'updatedAt'   => time(),
                     'renderedAt'  => time(),
                     'hideInactive' => false,
-                    'coupleBolt'  => true,
-                    'coupleGlow'  => true,
-                    'effectIntensity' => 100,
-                    'hookPath'    => '',
+                    'coupleBolt'  => (bool)$this->GetValue('CoupleBoltPower'),
+                    'coupleGlow'  => (bool)$this->GetValue('CoupleGlowPower'),
+                    'effectIntensity' => (int)$this->GetValue('EffectIntensity'),
+                    'hookPath'    => '/hook/ihubtile' . $this->InstanceID,
                     'diagnostics' => [],
                     'gridAmpel'   => null,
-                    'showTour'    => false,
+                    'showTour'    => !$this->ReadAttributeBoolean('TourSeen'),
                 ]));
             }
         }
@@ -1028,13 +1161,13 @@ class InverterHubTile extends IPSModule
             'updatedAt'       => time(),
             'renderedAt'      => time(),
             'hideInactive'    => false,
-            'coupleBolt'      => true,
-            'coupleGlow'      => true,
-            'effectIntensity' => 100,
-            'hookPath'        => '',   // kein WebHook: Klick-Detailseite/Tour-Quittung bleiben aus
+            'coupleBolt'      => (bool)$this->GetValue('CoupleBoltPower'),
+            'coupleGlow'      => (bool)$this->GetValue('CoupleGlowPower'),
+            'effectIntensity' => (int)$this->GetValue('EffectIntensity'),
+            'hookPath'        => '/hook/ihubtile' . $this->InstanceID,
             'diagnostics'     => [],
             'gridAmpel'       => null,
-            'showTour'        => false,
+            'showTour'        => !$this->ReadAttributeBoolean('TourSeen'),
         ]);
 
         return json_encode($payload);

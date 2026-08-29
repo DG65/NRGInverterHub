@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.76.0-beta.2 (2026-08-29)
+
+- **Einführungs-Tour und Doppelpfeil-Einstellungen der neuen Kachel angebunden.** Neu: eigener
+  WebHook (`/hook/ihubtile<InstanzID>`) für die Tour-Bestätigung und die Standalone-Ausgabe der
+  Kachel (IPSView/Browser, mit Auto-Aktualisierung), Konsolen-Button „Einführungs-Tour erneut
+  anzeigen" im Doku-Panel (Verbund-Konvention SUITE.md), sowie drei bedienbare Instanz-Variablen
+  hinter dem WebFront-Doppelpfeil: „Blitzbögen an Leistung koppeln", „Leuchtschein an Leistung
+  koppeln", „Effekt-Intensität" (50–150 %). Die Klick-Detailseite der Kachel bleibt vorerst
+  deaktiviert (ehrliche Hinweisseite statt Fehler).
+
 ## 0.76.0-beta.1 (2026-08-29)
 
 - **Neue Energiefluss-Darstellung für die Stromflusskachel.** Die Darstellungsschicht
