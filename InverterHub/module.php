@@ -690,8 +690,32 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
         // Abweichung reassertieren musste. Ein Read, deckt beide Register ab.
         $emsCtl = $mb->readHolding(self::REG_EMS_POWER_MODE, 2);
         if ($emsCtl !== null) {
-            $hub->SetVarInt('ctl_ems_mode', $mb->u16($emsCtl, 0));
+            $emsModeLive = $mb->u16($emsCtl, 0);
+            $hub->SetVarInt('ctl_ems_mode', $emsModeLive);
             $hub->SetVarInt('ctl_ems_power', $mb->u16($emsCtl, 1));
+
+            // Totmann-Empfaenger (29.08.2026, Dietmars Interpretation + A/B-Test):
+            // 255 auf 47511 ist mutmasslich das absichtliche "externe Steuerung
+            // ausgefallen"-Signal der GoodWe-Firmware - sie erwartet bei
+            // ctl_ems_enable=true einen zyklischen Heartbeat (OpenEMS schreibt
+            // deshalb jede Sekunde neu und sieht die 255 nie). Wir sind der
+            // Empfaenger: Bei erkannter 255 wird ctl_ems_enable auf false
+            // geschaltet, damit der WR in seine native Eigenregelung
+            // zurueckfaellt statt in einem undefinierten Zustand zu haengen.
+            // Live-Experiment auf Dietmars ausdrueckliche Anweisung
+            // ("Probieren wir es mal aktiv mit 2 und schauen zu was passiert").
+            if ($emsModeLive === 255) {
+                $enBlk = $mb->readHolding(self::REG_EMS_ENABLE, 1);
+                if ($enBlk !== null && $mb->u16($enBlk, 0) !== 0) {
+                    if ($mb->writeSingle(self::REG_EMS_ENABLE, 0)) {
+                        $hub->SetVarBool('ctl_ems_enable', false);
+                        $hub->WarnUser('GoodWe-Totmann ausgeloest: Register 47511 stand auf 255 '
+                            . '(externe Steuerung von der Firmware als ausgefallen markiert) - '
+                            . 'ctl_ems_enable wurde automatisch auf Aus geschaltet, der '
+                            . 'Wechselrichter regelt wieder eigenstaendig.');
+                    }
+                }
+            }
         }
 
         $bat2Active = $hub->GetPropBool('GroupBat2') && ($bat2blk !== null);

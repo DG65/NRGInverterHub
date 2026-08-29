@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.74.5-beta.1 (2026-08-29)
+
+- **GoodWe: Totmann-Empfänger für den 255-Rückfall (Live-Experiment auf Dietmars Anweisung).**
+  A/B-Test bestätigte: Register 47511 fällt NUR bei `ctl_ems_enable=true` auf 255 zurück
+  (~70-120 s ohne Heartbeat) — mutmaßlich ein absichtliches "externe Steuerung ausgefallen"-
+  Signal der Firmware (OpenEMS schreibt sekündlich neu und sieht die 255 deshalb nie). Neu:
+  Erkennt `readFast()` die 255 im zurückgelesenen Registerwert, schaltet das Modul
+  `ctl_ems_enable` automatisch auf Aus (WR fällt in native Eigenregelung zurück) und meldet das
+  als Warnung im Log. Zusätzlich wurde die Betriebsempfehlung gedreht: Steuerung über
+  `ctl_ems_mode`/`ctl_ems_power` grundsätzlich mit `ctl_ems_enable=false` fahren (hält stabil,
+  live verifiziert), `enable=true` nur mit aktivem Reassert.
+
 ## 0.74.4-beta.1 (2026-08-28)
 
 - **`IHUB_GetFunctions()`: Vertrag 1.1 → 1.2, MPPT-Strangdetails exponiert.** Drei weitere
