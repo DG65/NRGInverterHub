@@ -1228,6 +1228,18 @@ korrigiert wurden), ließ sich durch Umschalten von `ctl_ems_mode` auf `7` (Inse
 zuverlässig aus dem Standby holen. Dietmar hat ausdrücklich gesagt: nur merken, noch nicht als
 Feature/Wiederherstellungsmechanismus bauen.
 
+**Zweite Notfall-Erkenntnis derselben Kategorie (29.08.2026, Dietmar live via EMS-Sitzung):**
+Bei wiederholtem 255-Rückfall trotz durchgehendem `ctl_ems_enable=true` (mal nach ~70s, mal nach
+~2min) half ein bewusster **Aus/An-Zyklus** von `ctl_ems_enable` (echter Wechsel, kein bloßes
+Neuschreiben desselben Werts): danach hielt der anschließend gesetzte Modus (8,
+Batterie-Bereitschaft) stabil ohne weiteren Rückfall. Einordnung (mit EMS geteilt): Die
+GoodWe-Firmware scheint interne Zustände zu haben, die nur ein **Flanken-Ereignis** (Wechsel)
+zurücksetzt, nicht ein Pegel (konstanter Wert) — dasselbe Muster wie der Modus-7-Trick oben.
+Zur Klarstellung: Unser Code schreibt `ctl_ems_enable` NIE periodisch (nicht in
+`EMS_REASSERT_IDENTS`), ein versehentliches Dauer-Neuschreiben von enable ist also
+ausgeschlossen. Wie beim Modus-7-Trick: **nur merken, nicht als automatischen
+Wiederherstellungsmechanismus bauen** ohne Dietmars ausdrückliche Freigabe.
+
 ## GoodWe-Steuervariablen (`GroupControl`): vollständige Ident-Tabelle
 
 Vollständige Referenz aller 9 Steuer-Idents des GoodWe-Treibers (Kategorie „EMS-Steuerung"),
