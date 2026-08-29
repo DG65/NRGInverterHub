@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.74.5-beta.2 (2026-08-29)
+
+- **GoodWe: 255 bekommt eigene Anzeige „⚠️ Totmann: Steuerung verloren" (Warnrot).** Ohne
+  eigenen Profileintrag zeigte IP-Symcon für den zurückgelesenen Wert 255 irreführend die
+  letzte Assoziation („Batterie - Entladen") an — real auf falsche Fährte geführt. 255 ist der
+  offizielle STOPPED-Modus der Firmware (Totmann-Vollzug bei ausbleibendem EMS-Heartbeat) und
+  hat jetzt einen unmissverständlichen, rot markierten Eintrag im `GWH.EMSMode`-Profil. Kein
+  gültiger Setz-Wert — `writeControl()` erlaubt weiterhin nur 0–12. Der Profileintrag kommt bei
+  bestehenden Instanzen mit dem nächsten Übernehmen automatisch an.
+
 ## 0.74.5-beta.1 (2026-08-29)
 
 - **GoodWe: Totmann-Empfänger für den 255-Rückfall (Live-Experiment auf Dietmars Anweisung).**

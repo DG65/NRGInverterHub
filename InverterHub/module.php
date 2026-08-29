@@ -332,11 +332,21 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
         3 => 'Wirtschaftlich',  4 => 'Peak-Shaving',  5 => 'Erw. Selbstverbrauch',
     ];
 
+    // 255 (0xFF) ist der offizielle STOPPED-Modus der GoodWe-Firmware (OpenEMS
+    // EmsPowerMode.java: "System shutdown. Stop working and turn to wait mode").
+    // Die Firmware setzt ihn SELBST, wenn bei ctl_ems_enable=true der erwartete
+    // Heartbeat des externen EMS ausbleibt (~70-120s) - Totmann-Vollzug. Ohne
+    // eigenen Profileintrag zeigte IPS dafuer irrefuehrend die letzte
+    // Assoziation ("Batterie - Entladen") an - real passiert (29.08.2026,
+    // Dietmar auf falscher Faehrte). Deshalb eigener, unmissverstaendlicher
+    // Eintrag mit Warnfarbe. Kein gueltiger SETZ-Wert: writeControl() erlaubt
+    // weiterhin nur 0-12.
     const EMS_MODES = [
         0 => 'Gestoppt', 1 => 'Automatik', 2 => 'Laden - Solar', 3 => 'Entladen + Solar',
         4 => 'AC - Import', 5 => 'AC - Export', 6 => 'Energiesparen', 7 => 'Inselbetrieb',
         8 => 'Batterie - Bereitschaft', 9 => 'Stromeinkauf', 10 => 'Stromverkauf',
         11 => 'Batterie - Laden', 12 => 'Batterie - Entladen',
+        255 => '⚠️ Totmann: Steuerung verloren',
     ];
 
     const BAT_MODES = [0 => 'No Battery', 1 => 'Standby', 2 => 'entlädt', 3 => 'lädt'];
@@ -600,7 +610,8 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
         }
         $emsMode = [];
         foreach (self::EMS_MODES as $k => $label) {
-            $emsMode[$k] = [$label, 0x7A8A99];
+            // 255 = Totmann-Zustand in Warnrot, alle regulaeren Modi neutral.
+            $emsMode[$k] = [$label, $k === 255 ? 0xE74C3C : 0x7A8A99];
         }
         $batMode = [];
         foreach (self::BAT_MODES as $k => $label) {
