@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.76.0-beta.5 (2026-08-29)
+
+- **Tour-Startseite mit Ausblick-Hinweis:** Der erste Tour-Schritt sagt jetzt ausdrücklich,
+  dass die Tour auch ein Ausblick ist und einige gezeigte Funktionen (Preis-Verlauf, Netzampel,
+  „Für mich"-Kennzahlen) mangels angebundener Variablen/Partnermodul-Instanzen in dieser
+  Kachel-Ausgabe noch nicht erscheinen.
+
 ## 0.76.0-beta.4 (2026-08-29)
 
 - **Gesundheitsanzeige angebunden:** Die Diagnoseleiste (Warndreieck) der neuen Kachel zeigt
