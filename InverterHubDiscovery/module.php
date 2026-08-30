@@ -508,9 +508,19 @@ class InverterHubDiscovery extends IPSModule
                 // 29.07.2026): nur fuer Wechselrichter (nicht Zaehler), nur
                 // wenn MigrationsHub installiert ist, rein additiv.
                 if ($mighubId > 0 && ($found['kind'] ?? 'inverter') === 'inverter') {
-                    $legacy = @MIGHUB_FindLegacyCandidates($mighubId, $ip, $port, $found['unitId']);
-                    if (is_array($legacy) && count($legacy) > 0) {
-                        $found['legacyCandidates'] = $legacy;
+                    // 5. Argument seit MigrationsHub f5505c0 Pflicht
+                    // ($excludeInstanceID - hier 0: beim Scan existiert noch
+                    // keine eigene Zielinstanz, die sich selbst finden koennte).
+                    // try/catch: ein Vertragsbruch beim Partner darf die
+                    // Geraetesuche nicht toeten (MeterHub ist genau daran
+                    // gecrasht, deren Fix 25a2a83 als Vorbild).
+                    try {
+                        $legacy = @MIGHUB_FindLegacyCandidates($mighubId, $ip, $port, $found['unitId'], 0);
+                        if (is_array($legacy) && count($legacy) > 0) {
+                            $found['legacyCandidates'] = $legacy;
+                        }
+                    } catch (Throwable $e) {
+                        $this->LogMessage('Alt-Instanzen-Check uebersprungen (MigrationsHub-Aufruf fehlgeschlagen): ' . $e->getMessage(), KL_WARNING);
                     }
                 }
                 $results[] = $found;
