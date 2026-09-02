@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.76.1-beta.1 (2026-09-02)
+
+- **Fehlerhafte Modbus-Antworten (fehlende Transaktions-ID-Prüfung) behoben:** Im Batch-Modus
+  (eine wiederverwendete Verbindung für viele Reads pro Zyklus) prüfte `readHolding()`/
+  `readInput()` nicht, ob eine eingetroffene Antwort tatsächlich zur zuletzt gestellten Anfrage
+  gehört. Traf die Antwort eines vorherigen, bereits als fehlgeschlagen gewerteten Reads
+  verspätet doch noch ein, wurde sie dem nächsten Read im selben Zyklus als dessen Ergebnis
+  untergeschoben — zwei fremde Registerhälften konnten so fälschlich als High-/Low-Wort eines
+  32-Bit-Werts zusammengesetzt werden (real beobachtet: eine PV-Leistung von 261,5 MW nachts,
+  gemeldet von Dashboard, 02.09.2026). Fix: Jede Antwort wird jetzt per MBAP-Längenfeld
+  vollständig eingesammelt und ihre Transaktions-ID gegen die der Anfrage geprüft; ein
+  Nichttreffer wird verworfen statt verwertet. Betrifft alle 15 Treiber gemeinsam (geteilte
+  `IHUB_ModbusTcpClient`-Klasse).
+
 ## 0.76.0-beta.8 (2026-09-02)
 
 - **Zwei neue Verbraucher-Arten:** „Haushaltsgeräte (allgemein)" und „Unterhaltungsmedien" —

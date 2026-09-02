@@ -1,5 +1,26 @@
 # Hinweise für die Arbeit an diesem Repository
 
+## `IHUB_ModbusTcpClient` verwertete Antworten ohne Transaktions-ID-Prüfung (02.09.2026)
+
+Real gemeldet (Dashboard-Sitzung): Auf Dietmars Anlage (#52838) wurde nachts gegen 03:00 Uhr ein
+einzelner archivierter PV-Leistungswert von 261.554.185 W (261,5 MW) geloggt — physikalisch bei
+einer 9,18-kWp-Anlage unmöglich, hat Dashboards Tagesmittel-Näherung verzerrt. Zerlegt
+(`261554185 = 0x0F970009`): High-Wort 3991, Low-Wort 9 — zwei plausibel aussehende, aber
+zueinander unpassende Registerhälften, keine zufällige Bitkippung.
+
+**Root Cause:** `readHolding()`/`readInput()` in `IHUB_ModbusTcpClient` prüften die Modbus-TCP-
+Transaktions-ID (MBAP-Header) der Antwort **nie** gegen die der eigenen Anfrage. Im Batch-Modus
+(eine wiederverwendete Verbindung für alle Reads eines Zyklus) kann ein einzelner Read über sein
+3s-Zeitlimit laufen und als fehlgeschlagen gelten, während seine Antwort kurz danach doch noch
+auf derselben Verbindung eintrifft. Ohne TID-Prüfung wurde dieser verspätete Rest-Frame beim
+NÄCHSTEN Read desselben Zyklus als dessen eigene Antwort fehlinterpretiert. Betraf potenziell
+alle 15 Treiber (geteilte Basisklasse). Details/Fix identisch zur `ems-integration`-Notiz (nicht
+dupliziert, dort ausführlicher dokumentiert).
+
+**Fix (0.76.1-beta.1):** `readRegisters()`/`readMbapFrame()` sammeln jeden Frame vollständig über
+das MBAP-Längenfeld ein und prüfen die Transaktions-ID; Nichttreffer werden verworfen. Mit einem
+Socket-Pair-Testskript gegen die exakt gemeldeten Werte (3991/9) verifiziert.
+
 ## Der Modul-Verbund
 
 Dieses Repo gehört zu einer Gruppe eigenständiger IP-Symcon-Module, die zusammenwirken. An

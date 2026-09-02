@@ -27,6 +27,12 @@ class IHUB_ModbusTcpClient
     // schnelle Reconnects ab - dann fielen spätere Reads eines Zyklus aus.
     private $batchSock = null;
 
+    // Rest-Bytes eines bereits eingesammelten, aber noch nicht abgeholten
+    // MBAP-Frames auf der Batch-Verbindung (siehe readMbapFrame()) - muss dem
+    // naechsten Read auf derselben Verbindung vorangestellt werden, sonst
+    // gingen echte, nur etwas verspaetet eingetroffene Antworten verloren.
+    private $batchLeftover = '';
+
     // Öffnet eine wiederverwendbare Verbindung. Schlägt sie fehl, bleibt der
     // Per-Read-Modus aktiv (kein Fehler).
     public function beginBatch()
@@ -41,6 +47,7 @@ class IHUB_ModbusTcpClient
 
     public function endBatch()
     {
+        $this->batchLeftover = '';
         if ($this->batchSock !== null) {
             @fclose($this->batchSock);
             $this->batchSock = null;
@@ -61,6 +68,49 @@ class IHUB_ModbusTcpClient
 
     public function readHolding($startReg, $count)
     {
+        return $this->readRegisters(0x03, $startReg, $count);
+    }
+
+    // Liest eine vollstaendige MBAP-Antwort mit passender Transaktions-ID vom
+    // Socket. Wird im Batch-Modus dieselbe Verbindung fuer viele Reads
+    // wiederverwendet, kann ein einzelner Read ueber dem 3s-Zeitlimit haengen
+    // bleiben, waehrend seine Antwort kurz danach doch noch eintrifft - ohne
+    // TID-Pruefung wurde dieser "verspaetete" Rest-Frame dann still als
+    // Antwort des NAECHSTEN Reads im selben Zyklus fehlinterpretiert (real
+    // beobachtet: eine PV-Leistung von 261,5 MW nachts, siehe CLAUDE.md/
+    // Dashboard-Meldung 02.09.2026 - zwei fremde Registerhaelften wurden als
+    // High-/Low-Wort eines 32-Bit-Werts zusammengesetzt). Fix: jeden Frame per
+    // MBAP-Laengenfeld vollstaendig einsammeln, bei TID-Mismatch verwerfen und
+    // auf den naechsten warten statt ihn zu verwerten.
+    private function readMbapFrame($sock, $expectedTid, &$buffer)
+    {
+        $deadline = microtime(true) + 3.0;
+        while (microtime(true) < $deadline) {
+            while (strlen($buffer) >= 6) {
+                $tid    = (ord($buffer[0]) << 8) | ord($buffer[1]);
+                $length = (ord($buffer[4]) << 8) | ord($buffer[5]);
+                $frameLen = 6 + $length;
+                if (strlen($buffer) < $frameLen) {
+                    break; // Frame noch nicht vollstaendig - weiter lesen
+                }
+                $frame  = substr($buffer, 0, $frameLen);
+                $buffer = substr($buffer, $frameLen);
+                if ($tid === $expectedTid) {
+                    return substr($frame, 7); // PDU ab Function Code
+                }
+                // Fremder/veralteter Frame (falsche TID) - verwerfen, weiter warten.
+            }
+            $chunk = @fread($sock, 512);
+            if ($chunk === false || $chunk === '') {
+                break;
+            }
+            $buffer .= $chunk;
+        }
+        return null;
+    }
+
+    private function readRegisters($fc, $startReg, $count)
+    {
         $sock = $this->batchSock ?: @fsockopen($this->host, $this->port, $errno, $errstr, 3.0);
         if ($sock === false) {
             return null;
@@ -70,44 +120,35 @@ class IHUB_ModbusTcpClient
         }
 
         $tid  = mt_rand(1, 65535);
-        $pdu  = pack('Cnn', 0x03, $startReg, $count);
+        $pdu  = pack('Cnn', $fc, $startReg, $count);
         $mbap = pack('nnn', $tid, 0, strlen($pdu) + 1) . chr($this->unitId);
 
         @fwrite($sock, $mbap . $pdu);
 
-        $response = '';
-        $deadline = microtime(true) + 3.0;
-        while (microtime(true) < $deadline) {
-            $chunk = @fread($sock, 512);
-            if ($chunk === false || $chunk === '') {
-                break;
-            }
-            $response .= $chunk;
-            if (strlen($response) >= 9) {
-                if (ord($response[7]) & 0x80) {
-                    break; // Modbus-Exception (9-Byte-Antwort) - nicht auf mehr warten
-                }
-                $byteCount = ord($response[8]);
-                if (strlen($response) >= 9 + $byteCount) {
-                    break;
-                }
-            }
-        }
+        $buffer = ($this->batchSock !== null) ? $this->batchLeftover : '';
+        $this->batchLeftover = '';
+        $pdu = $this->readMbapFrame($sock, $tid, $buffer);
+
         if ($this->batchSock === null) {
             fclose($sock);
+        } elseif ($buffer !== '') {
+            // Ueberschuss (Rest eines noch nicht abgeholten spaeteren Frames)
+            // bleibt sonst unsichtbar zwischen den Reads liegen - fuer den
+            // naechsten Read auf dieser Verbindung merken.
+            $this->batchLeftover = $buffer;
         }
 
-        if (strlen($response) < 9) {
+        if ($pdu === null || strlen($pdu) < 2) {
             return null;
         }
 
-        $fc = ord($response[7]);
-        if ($fc & 0x80 || $fc !== 0x03) {
+        $respFc = ord($pdu[0]);
+        if ($respFc & 0x80 || $respFc !== $fc) {
             return null;
         }
 
-        $byteCount = ord($response[8]);
-        $data      = substr($response, 9, $byteCount);
+        $byteCount = ord($pdu[1]);
+        $data      = substr($pdu, 2, $byteCount);
 
         $regs = [];
         for ($i = 0; $i < $count && ($i * 2 + 1) < strlen($data); $i++) {
@@ -120,59 +161,7 @@ class IHUB_ModbusTcpClient
     // Mess-/Input-Register (0x04) von Holding-/Steuerregistern (0x03).
     public function readInput($startReg, $count)
     {
-        $sock = $this->batchSock ?: @fsockopen($this->host, $this->port, $errno, $errstr, 3.0);
-        if ($sock === false) {
-            return null;
-        }
-        if ($this->batchSock === null) {
-            stream_set_timeout($sock, 3);
-        }
-
-        $tid  = mt_rand(1, 65535);
-        $pdu  = pack('Cnn', 0x04, $startReg, $count);
-        $mbap = pack('nnn', $tid, 0, strlen($pdu) + 1) . chr($this->unitId);
-
-        @fwrite($sock, $mbap . $pdu);
-
-        $response = '';
-        $deadline = microtime(true) + 3.0;
-        while (microtime(true) < $deadline) {
-            $chunk = @fread($sock, 512);
-            if ($chunk === false || $chunk === '') {
-                break;
-            }
-            $response .= $chunk;
-            if (strlen($response) >= 9) {
-                if (ord($response[7]) & 0x80) {
-                    break; // Modbus-Exception (9-Byte-Antwort) - nicht auf mehr warten
-                }
-                $byteCount = ord($response[8]);
-                if (strlen($response) >= 9 + $byteCount) {
-                    break;
-                }
-            }
-        }
-        if ($this->batchSock === null) {
-            fclose($sock);
-        }
-
-        if (strlen($response) < 9) {
-            return null;
-        }
-
-        $fc = ord($response[7]);
-        if ($fc & 0x80 || $fc !== 0x04) {
-            return null;
-        }
-
-        $byteCount = ord($response[8]);
-        $data      = substr($response, 9, $byteCount);
-
-        $regs = [];
-        for ($i = 0; $i < $count && ($i * 2 + 1) < strlen($data); $i++) {
-            $regs[$i] = (ord($data[$i * 2]) << 8) | ord($data[$i * 2 + 1]);
-        }
-        return $regs;
+        return $this->readRegisters(0x04, $startReg, $count);
     }
 
     public function writeSingle($reg, $value)
