@@ -63,6 +63,8 @@ class InverterHubTile extends IPSModule
         'it'         => ['label' => 'Server / Netzwerk',  'icon' => 'it',         'color' => 0x7986CB],
         'workshop'   => ['label' => 'Werkstatt',          'icon' => 'workshop',   'color' => 0x8D6E63],
         'garage'     => ['label' => 'Garage',             'icon' => 'garage',     'color' => 0xB39DDB],
+        'appliances'    => ['label' => 'Haushaltsgeräte (allgemein)', 'icon' => 'appliances',    'color' => 0x90A4AE],
+        'entertainment' => ['label' => 'Unterhaltungsmedien',         'icon' => 'entertainment', 'color' => 0x7E57C2],
         'other'    => ['label' => 'Verbraucher',     'icon' => 'other',    'color' => 0x90A4AE],
     ];
 
@@ -100,6 +102,8 @@ class InverterHubTile extends IPSModule
         'light'       => 'light',
         'it'          => 'it',
         'workshop'    => 'workshop',
+        'appliances'    => 'appliances',
+        'entertainment' => 'entertainment',
         'other'       => 'other',
     ];
 

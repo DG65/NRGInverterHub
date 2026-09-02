@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.76.0-beta.8 (2026-09-02)
+
+- **Zwei neue Verbraucher-Arten:** „Haushaltsgeräte (allgemein)" und „Unterhaltungsmedien" —
+  nachgezogen aus dem MeterHub-Vokabular (`FUNCTIONS`-Einträge `appliances`/`entertainment`,
+  Commit `becfcaf` im MeterHub-Repo), damit entsprechend zugeordnete Sammelzähler in der
+  Stromflusskachel als eigener Verbraucher-Kreis statt gar nicht erscheinen.
+
 ## 0.76.0-beta.7 (2026-08-29)
 
 - **Tour-Text korrigiert (Batterie-Füllstand):** Der Knotenkreis füllt sich von unten — kein

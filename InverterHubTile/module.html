@@ -968,6 +968,18 @@ const ICONS = {
     [2.5, 6, 9.5].forEach(y => g.appendChild(el('line', { x1: -7, y1: y, x2: 7, y2: y })));
     g.appendChild(el('line', { x1: -7, y1: -0.5, x2: 7, y2: -0.5 }));
   },
+  appliances(g) {
+    g.appendChild(el('rect', { x: -10, y: -13, width: 20, height: 26, rx: 2.5, 'data-hollow': '1' }));
+    g.appendChild(el('line', { x1: -10, y1: -6, x2: 10, y2: -6, 'stroke-linecap': 'round' }));
+    g.appendChild(el('circle', { cx: 0, cy: 3.5, r: 5.5, 'data-hollow': '1' }));
+    g.appendChild(el('circle', { cx: 0, cy: 3.5, r: 1.4, stroke: 'none' }));
+    g.appendChild(el('circle', { cx: -6, cy: -9.5, r: 1.1, stroke: 'none' }));
+  },
+  entertainment(g) {
+    g.appendChild(el('rect', { x: -14, y: -10, width: 28, height: 18, rx: 2, 'data-hollow': '1' }));
+    g.appendChild(el('line', { x1: -6, y1: 12, x2: 6, y2: 12, 'stroke-linecap': 'round' }));
+    g.appendChild(el('line', { x1: 0, y1: 8, x2: 0, y2: 12, 'stroke-linecap': 'round' }));
+  },
 };
 
 // "#rrggbb" -> [r,g,b], von InverterHubTile uebernommen.
@@ -1003,6 +1015,8 @@ const CONSUMER_TYPES = {
   it:         { label: 'Server / Netzwerk',  icon: 'it',         color: hexToRgb('#7986CB') },
   workshop:   { label: 'Werkstatt',          icon: 'workshop',   color: hexToRgb('#8D6E63') },
   garage:     { label: 'Garage',             icon: 'garage',     color: hexToRgb('#B39DDB') },
+  appliances:    { label: 'Haushaltsgeräte (allgemein)', icon: 'appliances',    color: hexToRgb('#90A4AE') },
+  entertainment: { label: 'Unterhaltungsmedien',         icon: 'entertainment', color: hexToRgb('#7E57C2') },
   other:      { label: 'Verbraucher',        icon: 'other',      color: hexToRgb('#90A4AE') },
 };
 
