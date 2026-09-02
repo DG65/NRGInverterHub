@@ -1,5 +1,38 @@
 # Hinweise für die Arbeit an diesem Repository
 
+## `IHUB_ModbusTcpClient` verwertete Antworten ohne Transaktions-ID-Prüfung (02.09.2026)
+
+Real gemeldet (Dashboard-Sitzung, 02.09.2026): Auf Dietmars Anlage (#52838) wurde nachts gegen
+03:00 Uhr ein einzelner archivierter PV-Leistungswert von 261.554.185 W (261,5 MW) geloggt —
+physikalisch bei einer 9,18-kWp-Anlage unmöglich, hat Dashboards Tagesmittel-Näherung verzerrt.
+Zerlegt (`261554185 = 0x0F970009`): High-Wort 3991, Low-Wort 9 — zwei plausibel aussehende, aber
+zueinander unpassende Registerhälften, keine zufällige Bitkippung.
+
+**Root Cause gefunden:** `readHolding()`/`readInput()` in `IHUB_ModbusTcpClient` prüften die
+Modbus-TCP-Transaktions-ID (MBAP-Header) der Antwort **nie** gegen die der eigenen Anfrage. Im
+Batch-Modus (`beginBatch()`/`endBatch()`, eine wiederverwendete Verbindung für alle Reads eines
+Zyklus — s. u. „GoodWe reagiert schleppend...") kann ein einzelner Read über sein 3s-Zeitlimit
+laufen und als fehlgeschlagen gelten (`null`), während seine Antwort kurz danach doch noch auf
+derselben Verbindung eintrifft. Ohne TID-Prüfung wurde dieser verspätete Rest-Frame beim
+NÄCHSTEN Read desselben Zyklus als dessen eigene Antwort fehlinterpretiert — mit Registerwerten,
+die zu einer völlig anderen Messgröße gehörten. Nachts (WR im Schlafmodus, langsamer/inkonstant
+antwortend) ist ein solcher Timeout deutlich wahrscheinlicher als tagsüber, was zur beobachteten
+Uhrzeit passt. Betraf potenziell alle 15 Treiber (geteilte Basisklasse), nicht nur GoodWe.
+
+**Fix (0.75.1-beta.1):** `readHolding()`/`readInput()` laufen jetzt über eine gemeinsame
+`readRegisters()`/`readMbapFrame()`-Pfad, der jeden Frame vollständig über das MBAP-Längenfeld
+einsammelt und dessen Transaktions-ID gegen die der eigenen Anfrage prüft — bei Nichttreffer wird
+der Frame verworfen (nicht als Antwort verwertet) und auf den nächsten gewartet, bis das 3s-Limit
+abläuft. Ein bereits eingesammelter, aber nicht passender Rest-Frame bleibt für den nächsten Read
+derselben Batch-Verbindung erhalten (`batchLeftover`), damit eine nur leicht verspätete, aber
+inhaltlich korrekte Antwort nicht verloren geht. Mit einem Socket-Pair-Testskript verifiziert
+(simulierter Stale-Frame mit den exakt gemeldeten Werten 3991/9 wurde korrekt verworfen).
+
+**Nicht behoben, weil separates Thema:** Der ursprüngliche 32-Bit-Wert kam über `pv_total`
+(`pv_real`/`pv_total`-Fallback-Kette bei anderen Treibern betrifft dasselbe Muster). Dashboards
+eigener generischer Ausreißer-Schutz (>1 MW verwerfen) bleibt sinnvoll als zusätzliches
+Sicherheitsnetz beim Konsumenten — dieser Fix behebt nur die Quelle bei uns.
+
 ## ReassertEmsControl(): von blindem Zeit-Reassert auf Drift-Prüfung umgestellt (25.08.2026)
 
 Real beobachtet (Dietmars Anlage, live): `ctl_ems_mode`/`ctl_ems_power` wurden bislang NIE
