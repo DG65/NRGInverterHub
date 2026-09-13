@@ -133,7 +133,11 @@ class InverterHubDiscovery extends IPSModule
 
     public function GetConfigurationForm()
     {
-        $results = json_decode($this->ReadAttributeString('ResultsJSON'), true);
+        // Store-Checkliste 9c: ReadAttributeString() liefert waehrend eines
+        // Kernel-Reloads/Instanz-Uebergangs `false` statt string - ungecastet
+        // an json_decode() weitergereicht war das bislang stillschweigend
+        // falsch statt sauber leer (ChargerHub-Fund 13.09.2026, dasselbe Muster).
+        $results = json_decode((string)$this->ReadAttributeString('ResultsJSON'), true);
         if (!is_array($results)) {
             $results = [];
         }

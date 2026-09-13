@@ -754,7 +754,8 @@ class InverterHubTile extends IPSModule
             return null;
         }
         $now = time();
-        $cache = json_decode($this->ReadAttributeString('YesterdayCache'), true);
+        // Store-Checkliste 9c: (string)-Cast gegen `false` bei Kernel-Reload.
+        $cache = json_decode((string)$this->ReadAttributeString('YesterdayCache'), true);
         if (!is_array($cache)) { $cache = []; }
         $entry = $cache[(string)$id] ?? null;
         if (is_array($entry) && ($now - ($entry['fetchedAt'] ?? 0)) < self::YESTERDAY_CACHE_TTL_SEC) {

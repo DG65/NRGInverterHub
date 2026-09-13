@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.76.1-beta.6 (2026-09-13)
+
+- **Store-Checkliste 9c nachgezogen (ChargerHub-Fund):** Drei Stellen reichten
+  `ReadAttributeString()` ungecastet an `json_decode()` weiter (`InverterHubDiscovery`
+  `ResultsJSON`, `InverterHubTile` `YesterdayCache`, `InverterHub` `VictronYieldState`) — bei
+  `false` während eines Kernel-Reloads wäre das still zu leeren/verlorenen Zwischenergebnissen
+  geworden. Jetzt mit `(string)`-Cast abgesichert.
+
 ## 0.76.1-beta.5 (2026-09-13)
 
 - **Store-Checkliste 9d: keine Fehlerstatus für bewusst inaktive Instanzen.**

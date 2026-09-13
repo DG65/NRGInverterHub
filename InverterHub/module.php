@@ -5333,7 +5333,8 @@ class InverterHub extends IPSModule
             return $raw / 10.0;
         }
         if ($this->yieldState === null) {
-            $s = json_decode($this->ReadAttributeString('VictronYieldState'), true);
+            // Store-Checkliste 9c: (string)-Cast gegen `false` bei Kernel-Reload.
+            $s = json_decode((string)$this->ReadAttributeString('VictronYieldState'), true);
             $this->yieldState = is_array($s) ? $s : [];
         }
         $key = (string) $unitId;
