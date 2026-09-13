@@ -865,13 +865,15 @@ Kapazität interpretiert). Alles über `FindVarByIdent()` generisch gesucht — 
 Treiber-Sonderfall in `GetFunctions()` nötig, ein Treiber ohne den jeweiligen Ident liefert
 einfach `0`/ein leeres Array.
 
-**Offener Folgepunkt (noch nicht umgesetzt):** Ein generischer, manueller Fallback (Property
-„installierte Batteriekapazität (kWh)", vom Nutzer einmalig eingetragen, wirkt für JEDEN
-Treiber ohne eigenes Kapazitätsregister — nicht GoodWe-spezifisch) wäre die passende Lösung,
-da vermutlich die wenigsten Wechselrichter die Gesamtkapazität überhaupt per Modbus
-preisgeben. Bewusst nicht spontan umgesetzt (keine Eile laut EMS) — vorher klären, ob
-`batteryCapacityID` bei einem manuellen Wert weiterhin eine Variablen-ID zurückgibt (Vertrag
-bislang IMMER ID, nie Direktwert) oder der Vertrag dafür erweitert werden muss.
+**Kein manueller Fallback bei uns (EMS-Entscheidung, 13.09.2026, geklärt).** Ein zuerst
+erwogener generischer „installierte Batteriekapazität (kWh)"-Fallback bei uns entfällt bewusst:
+Die Anlagenstammdaten laufen zentral über EMS (`EMS_GetPlantInfo` 1.1, `BAT_Capacity_kWh`),
+`GetPlantInfo.speicherKwh` liefert die Kapazität mit Quelle „wechselrichter" (unser gemessener
+Wert, Vorrang) oder „einstellung" (Nutzereingabe bei EMS). Ein zweites Eingabefeld bei uns wäre
+dieselbe Dopplung, die bei der Einspeisevergütung (EMS/Szenariorechner/Dashboard) bereits
+aufgelöst wurde. `batteryCapacityID = 0` bei GoodWe ist also die korrekte, endgültige Aussage
+„liefert das nicht" — nur befüllen, wenn ein Treiber die Kapazität wirklich per eigenem
+Register meldet (wie SolaX).
 
 **`contractVersion` 1.1 → 1.2 (28.08.2026, additiv, kein Bruch):** drei neue Felder für
 MPPT-Stränge (NRGDashboard-Anfrage: "Tabelle mit allen relevanten Stromwerten ... auch für die
