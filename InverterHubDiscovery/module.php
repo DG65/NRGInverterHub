@@ -144,7 +144,7 @@ class InverterHubDiscovery extends IPSModule
 
     public function GetConfigurationForm()
     {
-        $results = json_decode($this->ReadAttributeString('ResultsJSON'), true);
+        $results = json_decode((string)$this->ReadAttributeString('ResultsJSON'), true);
         if (!is_array($results)) {
             $results = [];
         }
@@ -392,7 +392,7 @@ class InverterHubDiscovery extends IPSModule
             $this->LogMessage('MigrationsHub ist nicht (mehr) installiert - Migration nicht möglich.', KL_WARNING);
             return;
         }
-        $results = json_decode($this->ReadAttributeString('ResultsJSON'), true);
+        $results = json_decode((string)$this->ReadAttributeString('ResultsJSON'), true);
         if (!is_array($results) || !isset($results[$resultIndex])) {
             $this->LogMessage('Migration: Suchergebnis nicht mehr vorhanden - bitte erneut suchen.', KL_WARNING);
             return;

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.76.0-beta.9 (2026-09-13)
+
+- **Store-Checkliste 9c nachgezogen (ChargerHub-Fund):** `ReadAttributeString()` (ResultsJSON,
+  VictronYieldState) wurde ungecastet an `json_decode()` weitergereicht — bei `false` während
+  eines Kernel-Reloads wäre das still zu leeren/verlorenen Zwischenergebnissen geworden. Jetzt
+  mit `(string)`-Cast abgesichert.
+
 ## 0.76.0-beta.8 (2026-09-13)
 
 - **Verbund-Regel 9b (echte Umlaute) angewendet:** `InverterHubDiscovery` hatte eine
