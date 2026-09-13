@@ -164,7 +164,12 @@ class InverterHubMonitor extends IPSModule
             }
         }
         $ok = count($series) > 0;
-        $this->SetStatus($src <= 0 ? 202 : ($ok ? 102 : 201));
+        // Store-Checkliste 9d (13.09.2026): "keine Quelle gewählt"/"keine Werte
+        // angekreuzt" sind bewusst inaktive, keine Fehlerzustände - IS_INACTIVE
+        // (104) statt eines Fehlercodes > 200, sonst zaehlt ein systemweiter
+        // Integrity-Check/Watchdog das faelschlich als Fehler (Vorfall
+        // ModbusSlave/Solarpark).
+        $this->SetStatus($ok ? 102 : 104);
         $this->SetTimerInterval('Refresh', $ok ? 120000 : 0);
 
         $this->UpdateVisualizationValue($this->BuildPayload());
@@ -389,8 +394,7 @@ class InverterHubMonitor extends IPSModule
             'actions'  => [],
             'status'   => [
                 ['code' => 102, 'icon' => 'active', 'caption' => 'Monitoring aktiv'],
-                ['code' => 201, 'icon' => 'inactive', 'caption' => 'Keine Werte angekreuzt'],
-                ['code' => 202, 'icon' => 'inactive', 'caption' => 'Keine InverterHub-Instanz gewählt'],
+                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Keine InverterHub-Instanz gewählt oder keine Werte angekreuzt'],
             ],
         ]);
     }

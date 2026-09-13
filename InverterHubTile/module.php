@@ -279,7 +279,10 @@ class InverterHubTile extends IPSModule
                     $any = true;
                 }
             }
-            $this->SetStatus($any ? 102 : 201);
+            // Store-Checkliste 9d (13.09.2026): keine manuelle Variable
+            // zugewiesen ist bewusst inaktiv, kein Fehler - IS_INACTIVE (104)
+            // statt > 200.
+            $this->SetStatus($any ? 102 : 104);
         }
 
         // Zusätzliche Verbraucher (Wärmepumpe/Wallboxen) liegen außerhalb der

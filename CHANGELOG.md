@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.76.1-beta.5 (2026-09-13)
+
+- **Store-Checkliste 9d: keine Fehlerstatus für bewusst inaktive Instanzen.**
+  `InverterHubMonitor`, `InverterHubEnergy` und `InverterHubTile` meldeten „keine Quelle
+  gewählt"/„keine Datenpunkte zugewiesen" bisher mit Status 201/202 (Fehler-Bereich) —
+  ein systemweiter Integrity-Check/Watchdog kann das fälschlich als echten Fehler werten
+  (siehe der reale ModbusSlave/Solarpark-Vorfall). Jetzt einheitlich `IS_INACTIVE` (104).
+  `InverterHub` und `InverterHubDiscovery` hatten das bereits korrekt.
+
 ## 0.76.1-beta.4 (2026-09-12)
 
 - **Dauerhafter Regressionstest für `IHUB_ModbusTcpClient`:** `.tools/test-modbus-client.php`
