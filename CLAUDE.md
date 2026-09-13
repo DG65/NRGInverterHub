@@ -1,5 +1,16 @@
 # Hinweise für die Arbeit an diesem Repository
 
+## Migrationsvergleich vor jedem `beta`-Push (EMS-Werkzeug, SUITE.md 9e, 13.09.2026)
+
+`php /Users/dietmar/Nextcloud/Claude/.tools/migrationsvergleich.php . origin/beta HEAD` vor
+jedem Push auf `beta` laufen lassen — vergleicht Module/GUIDs, Idents+Typen, Properties+Typen,
+öffentliche Funktionen+Parameter, Profile, Attribute und Vertrags-Major gegen den zuletzt
+veröffentlichten Stand und meldet Brüche, die bestehende der ~240 Installationen zum Absturz
+bringen würden. Rückgabewert 1 = erst klären, nicht einfach pushen. Erkennt keine
+zusammengesetzten/dynamisch gebauten Idents — ersetzt keine eigene Prüfung, nur zusätzliches
+Netz. Kein separates `main` bei uns — `beta` ist der einzige Store-/Produktionskanal, daher
+immer `origin/beta` als Basis, nicht `ems-integration`.
+
 ## Offener Punkt für später: Fatal Error bei Alt-Instanzen, falls Tile-Entfernung je auf main/beta geht
 
 Real beobachtet (EMS-Meldung, 12.09.2026): Dietmar wechselte auf seiner Anlage manuell von
