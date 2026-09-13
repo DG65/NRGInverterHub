@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.76.0-beta.8 (2026-09-13)
+
+- **Verbund-Regel 9b (echte Umlaute) angewendet:** `InverterHubDiscovery` hatte eine
+  Log-Meldung mit „moeglich" statt „möglich". Durchsucht auf ASCII-Transliterationen
+  (fuer/ueber/koennen/waere/...) und ISO-Datumsformate in nutzersichtbaren Texten — sonst
+  keine weiteren Fundstellen, alle Formularcaptions/-labels nutzten bereits echte Umlaute und
+  nur Uhrzeit- (nicht Datums-)Ausgaben.
+
 ## 0.76.0-beta.7 (2026-09-13)
 
 - **Formular-Konvention „Feld-Hilfestellung" angewendet:** Der `PopupButton` bei „Steuerhoheit

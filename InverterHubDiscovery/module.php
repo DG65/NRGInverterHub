@@ -389,7 +389,7 @@ class InverterHubDiscovery extends IPSModule
     public function StartMigration($resultIndex, $legacyInstanceID)
     {
         if (!function_exists('MIGHUB_PrefillMigration')) {
-            $this->LogMessage('MigrationsHub ist nicht (mehr) installiert - Migration nicht moeglich.', KL_WARNING);
+            $this->LogMessage('MigrationsHub ist nicht (mehr) installiert - Migration nicht möglich.', KL_WARNING);
             return;
         }
         $results = json_decode($this->ReadAttributeString('ResultsJSON'), true);
