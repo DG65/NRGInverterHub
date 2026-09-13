@@ -853,9 +853,25 @@ Mehrblock-Batterien (auf NRGDashboard-Anfrage, Dietmars eigene Anlage hat 2 Batt
 `batteryTempIDs`/`batterySocIDs`/`batterySohIDs` (je ein flaches Array von Variablen-IDs, ein
 Eintrag pro erkanntem Block — leer, wenn der Treiber keine Block-Idents hat oder nur ein Block
 vorhanden ist) und `batteryCapacityID` (installierte Gesamtkapazität in kWh, 0 wenn unbekannt).
-Aktuell nur beim GoodWe-Treiber befüllt (`bat1_temp`/`bat1_soc`/`bat1_soh`/`bat2_*`/
-`bat_capacity`), generisch über `FindVarByIdent()` gesucht — kein Treiber-Sonderfall in
-`GetFunctions()` nötig, andere Treiber liefern einfach leere Arrays.
+`batteryTempIDs`/`batterySocIDs`/`batterySohIDs` (`bat1_temp`/`bat1_soc`/`bat1_soh`/`bat2_*`)
+sind aktuell nur beim GoodWe-Treiber befüllt. **Korrektur (EMS-Fund 13.09.2026):** Der Ident
+`bat_capacity`, auf den `batteryCapacityID` zeigt, existiert dagegen NUR beim SolaX-Treiber
+(eigenes Register 0x003A-0x003B) — beim GoodWe-Treiber wurde er nie implementiert, diese
+Zeile war schlicht falsch (Kopierfehler/Wunschdenken bei 1.1). Bei GoodWe liefert
+`batteryCapacityID` daher immer `0`, bestätigt an Dietmars Instanz #52838 (40 kWh installiert,
+laut Live-Registerabzug 47900-47933 kein plausibles Kapazitäts-Feld auffindbar — offsets 0/2
+je Batterie-Teilblock sind unbekannter Bedeutung, nicht dokumentiert, nicht ungeprüft als
+Kapazität interpretiert). Alles über `FindVarByIdent()` generisch gesucht — kein
+Treiber-Sonderfall in `GetFunctions()` nötig, ein Treiber ohne den jeweiligen Ident liefert
+einfach `0`/ein leeres Array.
+
+**Offener Folgepunkt (noch nicht umgesetzt):** Ein generischer, manueller Fallback (Property
+„installierte Batteriekapazität (kWh)", vom Nutzer einmalig eingetragen, wirkt für JEDEN
+Treiber ohne eigenes Kapazitätsregister — nicht GoodWe-spezifisch) wäre die passende Lösung,
+da vermutlich die wenigsten Wechselrichter die Gesamtkapazität überhaupt per Modbus
+preisgeben. Bewusst nicht spontan umgesetzt (keine Eile laut EMS) — vorher klären, ob
+`batteryCapacityID` bei einem manuellen Wert weiterhin eine Variablen-ID zurückgibt (Vertrag
+bislang IMMER ID, nie Direktwert) oder der Vertrag dafür erweitert werden muss.
 
 **`contractVersion` 1.1 → 1.2 (28.08.2026, additiv, kein Bruch):** drei neue Felder für
 MPPT-Stränge (NRGDashboard-Anfrage: "Tabelle mit allen relevanten Stromwerten ... auch für die
