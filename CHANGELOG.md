@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.76.0-beta.7 (2026-09-13)
+
+- **Formular-Konvention „Feld-Hilfestellung" angewendet:** Der `PopupButton` bei „Steuerhoheit
+  dieser Instanz" zeigte bisher nur „?" (70px) statt der vollen Frage. Jetzt Caption = „Steuerhoheit
+  — was bedeutet das?" (480px), passend zur seit 01.09.2026 verbundweit geltenden Konvention.
+
 ## 0.76.0-beta.6 (2026-09-12)
 
 - **Dauerhafter Regressionstest für `IHUB_ModbusTcpClient`:** `.tools/test-modbus-client.php`

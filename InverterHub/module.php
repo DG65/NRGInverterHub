@@ -5352,8 +5352,8 @@ class InverterHub extends IPSModule
                         ],
                         [
                             'type'    => 'PopupButton',
-                            'caption' => '?',
-                            'width'   => '70px',
+                            'caption' => 'Steuerhoheit — was bedeutet das?',
+                            'width'   => '480px',
                             'popup'   => [
                                 'caption' => 'Steuerhoheit — was bedeutet das?',
                                 'items'   => [
