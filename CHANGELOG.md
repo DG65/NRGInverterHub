@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.76.1-beta.13 (2026-09-14)
+
+- **Doku-Panel-Text nachgezogen (Dietmars zweiter Blick vor dem Store-Launch):** Die
+  Herstellerliste im "📖 Dokumentation & Hilfe"-Panel von `InverterHub` nannte FoxESS nicht,
+  obwohl es seit 0.74.1 unterstützt wird. Ergänzt, zusammen mit einem Hinweis, dass Huawei
+  SUN2000 inzwischen an einer echten Anlage live bestätigt ist (nicht mehr nur "im Test").
+
 ## 0.76.1-beta.12 (2026-09-14)
 
 - **Neues Panel „👋 Wozu dieses Modul?"** in `InverterHub`, `InverterHubDiscovery`,
