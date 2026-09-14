@@ -493,12 +493,17 @@ class InverterHubEnergy extends IPSModule
 
     // Jüngster geloggter Wert bei/vor Zeitpunkt $t (mit Request-Cache, da sich
     // aufeinanderfolgende Perioden ihre Grenzwerte teilen).
-    // Store-Checkliste 9g (13.09.2026, Dashboard-Fund): AC_GetLoggedValues
-    // bricht ab, wenn intern mehr als ~50.000 Werte im ABGEFRAGTEN ZEITRAUM
-    // liegen ("Zu viele Werte (>50000)...") und liefert dann `false` - der
-    // Limit-Parameter begrenzt nur die AUSGABE, nicht den internen Scan. Eine
-    // Abfrage ab Epoche (0) war bei einem haeufig geschriebenen Zaehler schon
-    // nach 7 Tagen ueber der Grenze. Deshalb NIE ab 0 abfragen, sondern mit
+    // Store-Checkliste 9g (13.09.2026, Dashboard-Fund): AC_GetAggregatedValues
+    // mit Limit=0 bricht ab, wenn intern mehr als ~50.000 Werte im
+    // ABGEFRAGTEN ZEITRAUM liegen ("Zu viele Werte (>50000)...") und liefert
+    // dann `false` - belegt bei ArchiveEarliest() weiter unten (dort echtes
+    // Limit=0). Fuer ArchiveValueAt() hier (immer schon Limit=1) ist das laut
+    // Gegentest von MeterHub (13.09.2026, direkter Vergleich an einer sehr
+    // dicht geloggten Variable) vermutlich UNKRITISCH - ein kleines Limit
+    // schuetzt demnach auch ueber unbegrenzte Zeitraeume zuverlaessig, ohne
+    // teuren Vollscan vor der Kuerzung. Die folgende Fenster-Logik ist daher
+    // eher Vorsichtsmassnahme als belegte Notwendigkeit, aendert aber nichts
+    // am Verhalten und schadet nicht. NIE mit Limit=0 ab Epoche abfragen, mit
     // einem engen Fenster vor dem Zielzeitpunkt beginnen und nur bei Bedarf
     // schrittweise verdoppeln (max. ~1 Jahr zurueck, dann aufgeben).
     private function ArchiveValueAt(int $aid, int $vid, int $t): ?float

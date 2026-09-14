@@ -1,16 +1,27 @@
 # Changelog
 
+## 0.76.1-beta.8 (2026-09-14)
+
+- **Doku-Korrektur zu 9g (MeterHub-Gegentest):** Die vorige Version behauptete, der 9g-Fund
+  betreffe `ArchiveValueAt()` UND `ArchiveEarliest()` gleichermaßen. Tatsächlich belegt war nur
+  `ArchiveEarliest()` (echtes `Limit=0`) — `ArchiveValueAt()` hatte bereits `Limit=1`, und ein
+  Gegentest von MeterHub zeigt, dass ein kleines `Limit` auch über unbegrenzte Zeiträume
+  zuverlässig schützt. Kein Code-/Verhaltensunterschied, nur Kommentare/Changelog korrigiert.
+
 ## 0.76.1-beta.7 (2026-09-14)
 
-- **Store-Checkliste 9g (Dashboard-Fund):** `AC_GetLoggedValues`/`AC_GetAggregatedValues`
-  brechen ab, wenn intern mehr als ~50.000 Werte im abgefragten Zeitraum liegen, und liefern
-  dann `false` — mit `@` unterdrückt verschwindet das bisher still. Betraf uns konkret in
-  `InverterHubEnergy::ArchiveValueAt()`/`ArchiveEarliest()`, die beide seit Register-Epoche
-  (Zeitstempel 0) abfragten — bei einem häufig geschriebenen Zähler reißt das schon nach
-  wenigen Tagen die Grenze. Beide fragen jetzt in engen, wachsenden Fenstern bzw. erst per
-  billiger Tages-Aggregation den ersten Tag mit Daten und dann nur diesen einen Tag ab. Alle
-  Archivabfragen in `InverterHubEnergy`/`InverterHubMonitor`/`InverterHubTile` melden `false`
-  jetzt zusätzlich als Warnung im Instanz-Log statt es als "keine Daten" zu werten.
+- **Store-Checkliste 9g (Dashboard-Fund):** `AC_GetAggregatedValues` mit `Limit=0` (unbegrenzt)
+  bricht ab, wenn intern mehr als ~50.000 Werte im abgefragten Zeitraum liegen, und liefert
+  dann `false` — mit `@` unterdrückt verschwindet das bisher still. Bestätigt betraf uns
+  `InverterHubEnergy::ArchiveEarliest()`, die genau mit diesem `Limit=0` seit Register-Epoche
+  (Zeitstempel 0) abfragte. Fragt jetzt erst per billiger Tages-Aggregation den ersten Tag mit
+  Daten ab und dann nur diesen einen Tag roh. `ArchiveValueAt()` (bereits mit `Limit=1`) lief
+  ebenfalls auf enge, wachsende Fenster statt Epoche um, als Vorsichtsmaßnahme — nach einem
+  Gegentest von MeterHub (direkter Vergleich an einer sehr dicht geloggten Variable) schützt
+  ein kleines `Limit` aber offenbar zuverlässig auch über unbegrenzte Zeiträume; dieser Teil war
+  vermutlich keine Voraussetzung, schadet aber nicht. Alle Archivabfragen in
+  `InverterHubEnergy`/`InverterHubMonitor`/`InverterHubTile` melden `false` zusätzlich als
+  Warnung im Instanz-Log statt es als "keine Daten" zu werten.
 
 ## 0.76.1-beta.6 (2026-09-13)
 
