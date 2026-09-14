@@ -493,6 +493,14 @@ class InverterHubEnergy extends IPSModule
 
     // Jüngster geloggter Wert bei/vor Zeitpunkt $t (mit Request-Cache, da sich
     // aufeinanderfolgende Perioden ihre Grenzwerte teilen).
+    // Store-Checkliste 9g (13.09.2026, Dashboard-Fund): AC_GetLoggedValues
+    // bricht ab, wenn intern mehr als ~50.000 Werte im ABGEFRAGTEN ZEITRAUM
+    // liegen ("Zu viele Werte (>50000)...") und liefert dann `false` - der
+    // Limit-Parameter begrenzt nur die AUSGABE, nicht den internen Scan. Eine
+    // Abfrage ab Epoche (0) war bei einem haeufig geschriebenen Zaehler schon
+    // nach 7 Tagen ueber der Grenze. Deshalb NIE ab 0 abfragen, sondern mit
+    // einem engen Fenster vor dem Zielzeitpunkt beginnen und nur bei Bedarf
+    // schrittweise verdoppeln (max. ~1 Jahr zurueck, dann aufgeben).
     private function ArchiveValueAt(int $aid, int $vid, int $t): ?float
     {
         if ($t <= 0) {
@@ -502,15 +510,46 @@ class InverterHubEnergy extends IPSModule
         if (array_key_exists($key, $this->valCache)) {
             return $this->valCache[$key];
         }
-        $r = @AC_GetLoggedValues($aid, $vid, 0, $t, 1);
-        $v = (is_array($r) && count($r)) ? (float)$r[0]['Value'] : null;
+        $v = null;
+        $windowDays = 1;
+        while ($windowDays <= 365) {
+            $start = $t - $windowDays * 86400;
+            $r = @AC_GetLoggedValues($aid, $vid, $start, $t, 1);
+            if ($r === false) {
+                $this->LogMessage('AC_GetLoggedValues (ArchiveValueAt) hat abgebrochen (vermutlich >50000 Werte im Fenster) - Wert gilt als nicht ermittelbar statt fälschlich als "kein Wert".', KL_WARNING);
+                break;
+            }
+            if (is_array($r) && count($r)) {
+                $v = (float)$r[0]['Value'];
+                break;
+            }
+            $windowDays *= 4; // kein Treffer -> Fenster vergroessern, nicht ab 0 lesen
+        }
         return $this->valCache[$key] = $v;
     }
 
     // Ältester geloggter Wert (für „Gesamt"/Zeitraum ohne Wert vor Beginn).
+    // Erst per Tages-Aggregation (billig, feste Zeilenzahl = Anzahl Tage) den
+    // ersten Tag mit Daten finden, dann NUR diesen einen Tag roh abfragen -
+    // nie den ganzen Zeitraum seit Epoche auf einmal (s. o., 9g).
     private function ArchiveEarliest(int $aid, int $vid, int $end): ?float
     {
-        $r = @AC_GetLoggedValues($aid, $vid, 0, $end, 0);
+        $rangeStart = strtotime('-10 years', $end);
+        $days = @AC_GetAggregatedValues($aid, $vid, 1 /* taeglich */, $rangeStart, $end, 0);
+        if ($days === false) {
+            $this->LogMessage('AC_GetAggregatedValues (ArchiveEarliest, Tagesuebersicht) hat abgebrochen - ältester Wert nicht ermittelbar statt fälschlich als "kein Wert".', KL_WARNING);
+            return null;
+        }
+        if (!is_array($days) || count($days) === 0) {
+            return null;
+        }
+        usort($days, function ($a, $b) { return (int)$a['TimeStamp'] <=> (int)$b['TimeStamp']; });
+        $firstDay = (int)$days[0]['TimeStamp'];
+        $r = @AC_GetLoggedValues($aid, $vid, $firstDay, min($firstDay + 86400, $end), 0);
+        if ($r === false) {
+            $this->LogMessage('AC_GetLoggedValues (ArchiveEarliest, erster Tag) hat abgebrochen - ältester Wert nicht ermittelbar statt fälschlich als "kein Wert".', KL_WARNING);
+            return null;
+        }
         return (is_array($r) && count($r)) ? (float)$r[count($r) - 1]['Value'] : null;
     }
 

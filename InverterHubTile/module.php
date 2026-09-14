@@ -765,6 +765,9 @@ class InverterHubTile extends IPSModule
         if ($arch <= 0) { return null; }
         $target = strtotime('-1 day', $now);
         $rows = @AC_GetLoggedValues($arch, $id, $target - 900, $target + 900, 0);
+        if ($rows === false) {
+            $this->LogMessage('AC_GetLoggedValues (GetYesterdayValue) hat abgebrochen - Gestern-Wert fehlt statt fälschlich null zu sein.', KL_WARNING);
+        }
         $value = null;
         if (is_array($rows) && count($rows) > 0) {
             $best = null; $bestDiff = PHP_INT_MAX;
@@ -928,6 +931,9 @@ class InverterHubTile extends IPSModule
             return [];
         }
         $agg = @AC_GetAggregatedValues($arch, $vid, 5, $from, $to, 0);
+        if ($agg === false) {
+            $this->LogMessage('AC_GetAggregatedValues (DetailDaySeries) hat abgebrochen - Tagesverlauf fehlt statt fälschlich leer zu sein.', KL_WARNING);
+        }
         if (!is_array($agg)) { return []; }
         $out = [];
         foreach ($agg as $row) {
@@ -951,6 +957,9 @@ class InverterHubTile extends IPSModule
         $from = strtotime('-13 day', $dayStart);
         $to = min(time(), strtotime('+1 day', $dayStart));
         $agg = @AC_GetAggregatedValues($arch, $powerID, 1, $from, $to, 0);
+        if ($agg === false) {
+            $this->LogMessage('AC_GetAggregatedValues (DetailEnergyBars) hat abgebrochen - Energiebalken fehlen statt fälschlich leer zu sein.', KL_WARNING);
+        }
         if (!is_array($agg)) { return ['bars' => [], 'unit' => '', 'approx' => false]; }
         $bars = [];
         foreach ($agg as $row) {

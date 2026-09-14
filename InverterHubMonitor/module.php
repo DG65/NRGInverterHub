@@ -870,6 +870,12 @@ class InverterHubMonitor extends IPSModule
             return [];
         }
         $data = @AC_GetAggregatedValues($aid, $vid, self::AGG_DAY, $start, $end, 0);
+        if ($data === false) {
+            // Store-Checkliste 9g: false (z.B. >50000-Werte-Abbruch) nicht
+            // still als "keine Daten" werten, sondern sichtbar loggen.
+            $this->LogMessage('AC_GetAggregatedValues (ComputeDailyMap) hat abgebrochen - Tageswerte fehlen statt fälschlich leer zu sein.', KL_WARNING);
+            return [];
+        }
         if (!is_array($data) || count($data) === 0) {
             return [];
         }
@@ -937,6 +943,10 @@ class InverterHubMonitor extends IPSModule
             return [];
         }
         $data = @AC_GetAggregatedValues($aid, $vid, self::AGG_5MIN, $start, $end, 0);
+        if ($data === false) {
+            $this->LogMessage('AC_GetAggregatedValues (DaySeries) hat abgebrochen - Tagesverlauf fehlt statt fälschlich leer zu sein.', KL_WARNING);
+            return [];
+        }
         if (!is_array($data)) {
             return [];
         }
@@ -973,6 +983,10 @@ class InverterHubMonitor extends IPSModule
             return [];
         }
         $data = @AC_GetAggregatedValues($aid, $vid, self::AGG_5MIN, $start, $end, 0);
+        if ($data === false) {
+            $this->LogMessage('AC_GetAggregatedValues (SlotEnergyBars) hat abgebrochen - Netzbezug-Balken fehlen statt fälschlich leer zu sein.', KL_WARNING);
+            return [];
+        }
         if (!is_array($data)) {
             return [];
         }

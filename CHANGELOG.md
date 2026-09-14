@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.76.1-beta.7 (2026-09-14)
+
+- **Store-Checkliste 9g (Dashboard-Fund):** `AC_GetLoggedValues`/`AC_GetAggregatedValues`
+  brechen ab, wenn intern mehr als ~50.000 Werte im abgefragten Zeitraum liegen, und liefern
+  dann `false` — mit `@` unterdrückt verschwindet das bisher still. Betraf uns konkret in
+  `InverterHubEnergy::ArchiveValueAt()`/`ArchiveEarliest()`, die beide seit Register-Epoche
+  (Zeitstempel 0) abfragten — bei einem häufig geschriebenen Zähler reißt das schon nach
+  wenigen Tagen die Grenze. Beide fragen jetzt in engen, wachsenden Fenstern bzw. erst per
+  billiger Tages-Aggregation den ersten Tag mit Daten und dann nur diesen einen Tag ab. Alle
+  Archivabfragen in `InverterHubEnergy`/`InverterHubMonitor`/`InverterHubTile` melden `false`
+  jetzt zusätzlich als Warnung im Instanz-Log statt es als "keine Daten" zu werten.
+
 ## 0.76.1-beta.6 (2026-09-13)
 
 - **Store-Checkliste 9c nachgezogen (ChargerHub-Fund):** Drei Stellen reichten
