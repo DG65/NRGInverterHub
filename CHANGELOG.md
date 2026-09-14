@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.76.0-beta.10 (2026-09-14)
+
+- **Neues Panel „👋 Wozu dieses Modul?"** in `InverterHub` und `InverterHubDiscovery`, ganz
+  oben im Formular, noch vor „Was ist Neu?" (Store-Checkliste Punkt 0, Verbund-Konvention,
+  Referenzimplementierung MeterHub). Einmalig dismissible, kein Versionsbezug. Ausblenden
+  teilt sich wie bei „Was ist Neu?"/Forum-Hinweis über alle Geschwister-Instanzen desselben
+  Moduls (`PropagateDismiss()`/`AdoptDismissState()`/`GetDismissState()`).
+
 ## 0.76.0-beta.9 (2026-09-13)
 
 - **Store-Checkliste 9c nachgezogen (ChargerHub-Fund):** `ReadAttributeString()` (ResultsJSON,

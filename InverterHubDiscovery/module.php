@@ -65,6 +65,9 @@ class InverterHubDiscovery extends IPSModule
 
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-inverterhub-multi-wechselrichter-ein-modbus-tcp-modul-fuer-goodwe-sma-fronius-sungrow-solis-growatt-solax/144121';
     private const ATTR_REVIEW_HINT_GONE = 'ReviewHintDismissed';
+    // Eigene Modul-GUID (module.json 'id') fuer die Geschwister-Suche beim
+    // geteilten Ausblenden (SUITE.md, Referenz MeterHub, EMS 14.09.2026).
+    private const SELF_MODULE = '{447C2BD6-5299-445A-9A08-5F29C50C9DB1}';
 
     // „Was ist neu"-Banner (siehe newsBanner()/AckNews()).
     private const NEWS_VERSION = '0.46';
@@ -89,6 +92,7 @@ class InverterHubDiscovery extends IPSModule
         $this->RegisterPropertyString('IgnoreIPs', '');
         $this->RegisterAttributeString('ResultsJSON', '[]');
         $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
+        $this->RegisterAttributeBoolean('PurposeIntroGone', false);
         // Verbund-Konvention "Einheitliche Verbund-Status-Kopfzeile" (20.08.2026,
         // SUITE.md) - Zeitstempel der letzten Suche fuer DiscoverySummaryLine().
         $this->RegisterAttributeInteger('LastDiscoveryTs', 0);
@@ -125,6 +129,7 @@ class InverterHubDiscovery extends IPSModule
         // registriert, damit auch bestehende Instanzen sie nach dem Update haben.
         $this->RegisterVariableBoolean('ScanAbort', 'Scan-Abbruch', '', 100);
         IPS_SetHidden($this->GetIDForIdent('ScanAbort'), true);
+        $this->AdoptDismissFromSibling();
     }
 
     // true, wenn während eines laufenden Scans „Abbrechen" geklickt wurde.
@@ -338,7 +343,111 @@ class InverterHubDiscovery extends IPSModule
             array_unshift($form['elements'], $banner);
         }
 
+        // „Wozu dieses Modul?" ganz vorn, noch vor dem News-Banner (Store-
+        // Checkliste Punkt 0, EMS 14.09.2026, Referenz MeterHub::PurposeIntro()).
+        $purpose = $this->PurposeIntro();
+        if ($purpose !== null) {
+            array_unshift($form['elements'], $purpose);
+        }
+
         return json_encode($form);
+    }
+
+    /** Siehe MeterHub::PurposeIntro() fuer die volle Herleitung. */
+    private function PurposeIntro(): ?array
+    {
+        if ($this->ReadAttributeBoolean('PurposeIntroGone')) {
+            return null;
+        }
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true,
+            'caption' => '👋  Wozu dieses Modul?',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'InverterHubDiscovery durchsucht dein lokales Netz nach Wechselrichtern und legt dafür passend konfigurierte InverterHub-Instanzen an — auch mehrere auf einmal.'],
+                ['type' => 'Label', 'caption' => 'Der Nutzen: kein manuelles Eintragen von IP-Adresse, Hersteller und Registerbelegung je Gerät — die Suche erkennt den Hersteller selbst und übernimmt die Ersteinrichtung.'],
+                ['type' => 'Label', 'caption' => 'Dieses Modul legt selbst keine Messwerte an, sondern nur InverterHub-Instanzen dafür — die eigentliche Anzeige und Steuerung übernehmen die dabei erzeugten Instanzen.'],
+                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'IHUBD_AckPurposeIntro($id);'],
+            ],
+        ];
+    }
+
+    public function AckPurposeIntro()
+    {
+        $this->WriteAttributeBoolean('PurposeIntroGone', true);
+        $this->UpdateFormField('PurposeIntroPanel', 'visible', false);
+        $this->PropagateDismiss('PurposeIntro');
+    }
+
+    /** Siehe InverterHub::PropagateDismiss() fuer die volle Herleitung. */
+    private function PropagateDismiss(string $what, string $value = ''): void
+    {
+        foreach (IPS_GetInstanceListByModuleID(self::SELF_MODULE) as $sib) {
+            if ($sib === $this->InstanceID) {
+                continue;
+            }
+            try {
+                IHUBD_AdoptDismissState($sib, $what, $value);
+            } catch (\Throwable $e) {
+            }
+        }
+    }
+
+    public function AdoptDismissState(string $what, string $value)
+    {
+        switch ($what) {
+            case 'PurposeIntro':
+                $this->WriteAttributeBoolean('PurposeIntroGone', true);
+                $this->UpdateFormField('PurposeIntroPanel', 'visible', false);
+                break;
+            case 'ReviewHint':
+                $this->WriteAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, true);
+                $this->UpdateFormField('ReviewHint', 'visible', false);
+                break;
+            case 'News':
+                $this->WriteAttributeString('SeenNews', $value);
+                $this->UpdateFormField('NewsPanel', 'visible', false);
+                break;
+        }
+    }
+
+    public function GetDismissState(): array
+    {
+        return [
+            'purposeIntroGone' => $this->ReadAttributeBoolean('PurposeIntroGone'),
+            'reviewHintGone'   => $this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE),
+            'seenNews'         => $this->ReadAttributeString('SeenNews'),
+        ];
+    }
+
+    private function AdoptDismissFromSibling(): void
+    {
+        if ($this->ReadAttributeBoolean('PurposeIntroGone') && $this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)
+            && $this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {
+            return;
+        }
+        foreach (IPS_GetInstanceListByModuleID(self::SELF_MODULE) as $sib) {
+            if ($sib === $this->InstanceID) {
+                continue;
+            }
+            try {
+                $state = IHUBD_GetDismissState($sib);
+            } catch (\Throwable $e) {
+                continue;
+            }
+            if (!is_array($state)) {
+                continue;
+            }
+            if (!$this->ReadAttributeBoolean('PurposeIntroGone') && !empty($state['purposeIntroGone'])) {
+                $this->WriteAttributeBoolean('PurposeIntroGone', true);
+            }
+            if (!$this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE) && !empty($state['reviewHintGone'])) {
+                $this->WriteAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, true);
+            }
+            if ($this->ReadAttributeString('SeenNews') !== self::NEWS_VERSION && ($state['seenNews'] ?? '') === self::NEWS_VERSION) {
+                $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
+            }
+            break;
+        }
     }
 
     // Versionszeile im Doku-Panel (Verbund-Konvention, EMS 24.07.2026): das
@@ -372,12 +481,14 @@ class InverterHubDiscovery extends IPSModule
     {
         $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
         $this->UpdateFormField('NewsPanel', 'visible', false);
+        $this->PropagateDismiss('News', self::NEWS_VERSION);
     }
 
     public function DismissReviewHint()
     {
         $this->WriteAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, true);
         $this->UpdateFormField('ReviewHint', 'visible', false);
+        $this->PropagateDismiss('ReviewHint');
     }
 
     // Legt die neue InverterHub-Instanz fuer das Ergebnis $resultIndex an

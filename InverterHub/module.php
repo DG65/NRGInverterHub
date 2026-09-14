@@ -4814,6 +4814,10 @@ class InverterHub extends IPSModule
 
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-inverterhub-multi-wechselrichter-ein-modbus-tcp-modul-fuer-goodwe-sma-fronius-sungrow-solis-growatt-solax/144121';
     private const ATTR_REVIEW_HINT_GONE = 'ReviewHintDismissed';
+    // Eigene Modul-GUID (module.json 'id') - fuer die Geschwister-Suche beim
+    // geteilten Ausblenden (SUITE.md "Ausblenden ueber mehrere Instanzen
+    // desselben Moduls teilen", Referenzimplementierung MeterHub, EMS 14.09.2026).
+    private const SELF_MODULE = '{BBE2C593-1A91-426D-A714-29A9C7E87589}';
 
     // „Was ist neu"-Banner (siehe newsBanner()/AckNews()). Vergleich laeuft
     // gegen den STRING NEWS_VERSION - jede Erhoehung zeigt den Banner erneut,
@@ -4906,6 +4910,7 @@ class InverterHub extends IPSModule
         $this->RegisterPropertyInteger('IntervalFast', 5);
         $this->RegisterPropertyInteger('IntervalSlow', 300);
         $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
+        $this->RegisterAttributeBoolean('PurposeIntroGone', false);
 
         // Treiber-spezifische Properties werden hier für ALLE Treiber (nicht nur
         // den aktuell gewählten) registriert. Grund: Create() legt die Properties
@@ -5007,6 +5012,9 @@ class InverterHub extends IPSModule
         $this->reprofileEnergy = ($this->ReadAttributeBoolean('LastEnergyUnitWh') !== $wh);
         $this->RegisterVariables();
         $this->WriteAttributeBoolean('LastEnergyUnitWh', $wh);
+        // Vor der Bereitschaftspruefung (die bei inaktiven Instanzen frueh
+        // zurueckkehrt) - das Ausblenden gilt unabhaengig davon.
+        $this->AdoptDismissFromSibling();
 
         if (!$this->ReadPropertyBoolean('Active')) {
             $this->SetStatus(104);
@@ -5635,7 +5643,132 @@ class InverterHub extends IPSModule
             array_unshift($form['elements'], $banner);
         }
 
+        // „Wozu dieses Modul?" ganz vorn, noch vor dem News-Banner (Store-
+        // Checkliste Punkt 0, EMS 14.09.2026, Referenz MeterHub::PurposeIntro()).
+        $purpose = $this->PurposeIntro();
+        if ($purpose !== null) {
+            array_unshift($form['elements'], $purpose);
+        }
+
         return json_encode($form);
+    }
+
+    /** Siehe MeterHub::PurposeIntro() fuer die volle Herleitung - steht ganz vorn, noch vor dem News-Panel. */
+    private function PurposeIntro(): ?array
+    {
+        if ($this->ReadAttributeBoolean('PurposeIntroGone')) {
+            return null;
+        }
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true,
+            'caption' => '👋  Wozu dieses Modul?',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'InverterHub liest Wechselrichter verschiedener Hersteller direkt per Modbus TCP aus — Solarertrag, Batterie, Netzbezug und -einspeisung als normale IP-Symcon-Variablen, bei unterstützten Geräten auch mit Schreibzugriff für ein Energiemanagement-System (EMS).'],
+                ['type' => 'Label', 'caption' => 'Der Nutzen: reale Messwerte statt Schätzung — als Grundlage für Dashboards, Lastmanagement oder ein EMS, und bei steuerbaren Wechselrichtern die Möglichkeit, Lade-/Entladevorgaben tatsächlich umzusetzen.'],
+                ['type' => 'Label', 'caption' => 'Mehrere Wechselrichter oder willst du gleich mehrere Geräte auf einmal einrichten? InverterHubDiscovery durchsucht dafür das lokale Netz.'],
+                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'IHUB_AckPurposeIntro($id);'],
+            ],
+        ];
+    }
+
+    public function AckPurposeIntro()
+    {
+        $this->WriteAttributeBoolean('PurposeIntroGone', true);
+        $this->UpdateFormField('PurposeIntroPanel', 'visible', false);
+        $this->PropagateDismiss('PurposeIntro');
+    }
+
+    /**
+     * Ausblenden von "Wozu dieses Modul?"/"Was ist Neu?"/Forum-Hinweis ueber
+     * alle Geschwister-Instanzen dieses Moduls teilen (SUITE.md "Ausblenden
+     * ueber mehrere Instanzen desselben Moduls teilen", Referenz MeterHub,
+     * EMS 14.09.2026). Ruft bei jeder Geschwister-Instanz NUR den reinen
+     * Uebernahme-Schritt auf (AdoptDismissState), nicht erneut die volle
+     * Ack-Methode - dadurch kein Ping-Pong moeglich, ganz ohne Prozessmerker.
+     */
+    private function PropagateDismiss(string $what, string $value = ''): void
+    {
+        foreach (IPS_GetInstanceListByModuleID(self::SELF_MODULE) as $sib) {
+            if ($sib === $this->InstanceID) {
+                continue;
+            }
+            try {
+                IHUB_AdoptDismissState($sib, $what, $value);
+            } catch (\Throwable $e) {
+                // Eine Geschwister-Instanz mitten im Reload/Loeschen darf das
+                // Ausblenden der aufrufenden Instanz nicht mitreissen - @ haelt
+                // Fatals bekanntlich nicht auf.
+            }
+        }
+    }
+
+    /** Reiner Uebernahme-Schritt fuer eine Geschwister-Instanz - siehe PropagateDismiss(). */
+    public function AdoptDismissState(string $what, string $value)
+    {
+        switch ($what) {
+            case 'PurposeIntro':
+                $this->WriteAttributeBoolean('PurposeIntroGone', true);
+                $this->UpdateFormField('PurposeIntroPanel', 'visible', false);
+                break;
+            case 'ReviewHint':
+                $this->WriteAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, true);
+                $this->UpdateFormField('ReviewHint', 'visible', false);
+                break;
+            case 'News':
+                $this->WriteAttributeString('SeenNews', $value);
+                $this->UpdateFormField('NewsPanel', 'visible', false);
+                break;
+        }
+    }
+
+    /** Fuer Geschwister-Instanzen, die beim erstmaligen Kontakt den Ausblenden-Stand uebernehmen wollen. */
+    public function GetDismissState(): array
+    {
+        return [
+            'purposeIntroGone' => $this->ReadAttributeBoolean('PurposeIntroGone'),
+            'reviewHintGone'   => $this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE),
+            'seenNews'         => $this->ReadAttributeString('SeenNews'),
+        ];
+    }
+
+    /**
+     * Gegenrichtung zu PropagateDismiss(): eine Instanz sieht bei jedem
+     * ApplyChanges() bei einer beliebigen Geschwister-Instanz nach und
+     * uebernimmt deren Stand, statt "Wozu dieses Modul?"/"Was ist Neu?"/
+     * Forum-Hinweis erneut zu zeigen, obwohl der Nutzer sie an anderer Stelle
+     * schon bestaetigt hat. Zieht nur vor (false->true, aeltere->neuere
+     * News-Version), ueberschreibt nie einen schon weiter fortgeschrittenen
+     * eigenen Stand.
+     */
+    private function AdoptDismissFromSibling(): void
+    {
+        if ($this->ReadAttributeBoolean('PurposeIntroGone') && $this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)
+            && $this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {
+            return;
+        }
+        foreach (IPS_GetInstanceListByModuleID(self::SELF_MODULE) as $sib) {
+            if ($sib === $this->InstanceID) {
+                continue;
+            }
+            try {
+                $state = IHUB_GetDismissState($sib);
+            } catch (\Throwable $e) {
+                continue;
+            }
+            if (!is_array($state)) {
+                continue;
+            }
+            if (!$this->ReadAttributeBoolean('PurposeIntroGone') && !empty($state['purposeIntroGone'])) {
+                $this->WriteAttributeBoolean('PurposeIntroGone', true);
+            }
+            if (!$this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE) && !empty($state['reviewHintGone'])) {
+                $this->WriteAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, true);
+            }
+            if ($this->ReadAttributeString('SeenNews') !== self::NEWS_VERSION && ($state['seenNews'] ?? '') === self::NEWS_VERSION) {
+                $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
+            }
+            break;
+        }
     }
 
     // Versionszeile im Doku-Panel (Verbund-Konvention, Teil 2 der einheitlichen
@@ -5671,12 +5804,14 @@ class InverterHub extends IPSModule
     {
         $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
         $this->UpdateFormField('NewsPanel', 'visible', false);
+        $this->PropagateDismiss('News', self::NEWS_VERSION);
     }
 
     public function DismissReviewHint()
     {
         $this->WriteAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, true);
         $this->UpdateFormField('ReviewHint', 'visible', false);
+        $this->PropagateDismiss('ReviewHint');
     }
 
     // -----------------------------------------------------------------------
