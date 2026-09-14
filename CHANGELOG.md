@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.76.1-beta.10 (2026-09-14)
+
+- **Store-Checkliste Punkt 12: kein Hersteller mehr vorausgewählt.** `Manufacturer` defaultete
+  bisher auf `goodwe` (erster Listeneintrag, zufällig auch Dietmars eigene Anlage) — ein Nutzer
+  mit anderem Wechselrichter, der Host einträgt und die Auswahl übersieht, hätte ggf. eine
+  „erfolgreiche" Verbindung mit unsinnigen Werten bekommen (analoger Fund bei ChargerHub am
+  selben Muster). Jetzt „— bitte wählen —" als Vorgabe; ohne aktive Wahl bleibt die Instanz
+  inaktiv (Status 104, klarer Hinweistext) statt still mit GoodWe-Registern gegen ein fremdes
+  Gerät zu sprechen. Bestehende Installationen mit bereits gewähltem Hersteller sind unberührt
+  (Default wirkt nur bei Neuanlage). Migrationsvergleich: kein Bruch.
+
 ## 0.76.1-beta.9 (2026-09-14)
 
 - **`ArchiveValueAt()` vereinfacht:** Die Fenster-Logik aus beta.7 war laut MeterHubs Gegentest

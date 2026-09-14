@@ -4649,7 +4649,14 @@ class InverterHub extends IPSModule
         $this->RegisterAttributeString('VictronYieldState', '{}');
 
         $this->RegisterPropertyBoolean('Active', true);
-        $this->RegisterPropertyString('Manufacturer', 'goodwe');
+        // Store-Checkliste Punkt 12 (13.09.2026, ChargerHub-Befund am eigenen
+        // identischen Muster: erster Listeneintrag als Default laedt zum
+        // Uebersehen ein statt zu schuetzen - TCP/Modbus-Verbindung zu einem
+        // FALSCHEN Hersteller kann trotzdem "erfolgreich" aussehen, nur mit
+        // unsinnigen Werten). Kein Hersteller vorausgewaehlt - der Nutzer
+        // MUSS aktiv waehlen, sonst bleibt die Instanz inaktiv (104) statt
+        // couragiert mit GoodWe-Registern gegen ein fremdes Geraet zu sprechen.
+        $this->RegisterPropertyString('Manufacturer', '');
         $this->RegisterPropertyBoolean('MeterInvert', false);
         $this->RegisterPropertyBoolean('BatInvert', false);
         // Steuerhoheit dieser Instanz (Verbund-Vertrag IHUB_GetFunctions,
@@ -4792,6 +4799,18 @@ class InverterHub extends IPSModule
     public function ApplyChanges()
     {
         parent::ApplyChanges();
+
+        // Store-Checkliste Punkt 12: kein Hersteller gewaehlt -> Instanz bleibt
+        // inaktiv statt mit einem falschen Default-Treiber (z. B. GoodWe) gegen
+        // ein fremdes Geraet zu sprechen. Muss VOR RegisterVariables() greifen,
+        // da GetDriver() sonst mangels Auswahl auf GoodWe zurueckfallen wuerde.
+        if ($this->ReadPropertyString('Manufacturer') === '') {
+            $this->SetStatus(104);
+            $this->SetTimerInterval('FastTimer', 0);
+            $this->SetTimerInterval('SlowTimer', 0);
+            $this->SetTimerInterval('EnableActionsTimer', 0);
+            return;
+        }
 
         $this->CreateProfiles();
         // Energie-Profile nur neu setzen, wenn der Wh-Schalter umgelegt wurde -
@@ -5130,6 +5149,7 @@ class InverterHub extends IPSModule
                     'name'    => 'Manufacturer',
                     'caption' => 'Hersteller',
                     'options' => [
+                        ['label' => '— bitte wählen —', 'value' => ''],
                         ['label' => 'GoodWe',  'value' => 'goodwe'],
                         ['label' => 'Sungrow', 'value' => 'sungrow'],
                         ['label' => 'Solis',   'value' => 'solis'],
@@ -5190,7 +5210,7 @@ class InverterHub extends IPSModule
                 ['type' => 'Button', 'caption' => 'Verbindung testen / Daten sofort lesen', 'onClick' => 'IHUB_ReadFast($id);'],
             ],
             'status' => [
-                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte IP-Adresse oder Hostname eintragen.'],
+                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte Hersteller wählen und IP-Adresse/Hostname eintragen.'],
                 ['code' => 102, 'icon' => 'active',   'caption' => 'Verbindung aktiv.'],
                 ['code' => 201, 'icon' => 'error',     'caption' => 'Verbindungsfehler – Wechselrichter nicht erreichbar.'],
             ],
@@ -5268,6 +5288,11 @@ class InverterHub extends IPSModule
         if ($this->driver !== null) {
             return $this->driver;
         }
+        // Kein stiller GoodWe-Fallback mehr bei leerer/unbekannter Auswahl -
+        // ApplyChanges() faengt den Leerfall bereits vorher ab (Store-
+        // Checkliste Punkt 12); ein hier verbleibender ungueltiger Wert
+        // (z. B. Migrationsrest) landet ebenfalls bei GoodWe, aber bewusst
+        // als letzte Absicherung, nicht als beworbener Normalfall.
         $key   = $this->ReadPropertyString('Manufacturer');
         $class = self::DRIVERS[$key] ?? self::DRIVERS['goodwe'];
         $this->driver = new $class();
