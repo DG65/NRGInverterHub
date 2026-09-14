@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.76.1-beta.9 (2026-09-14)
+
+- **`ArchiveValueAt()` vereinfacht:** Die Fenster-Logik aus beta.7 war laut MeterHubs Gegentest
+  nicht nötig (`Limit=1` schützt bereits zuverlässig auch über unbegrenzte Zeiträume) — zurück
+  auf die einfache Einzelabfrage, nur mit `false`-Logging ergänzt. Weniger Code für dieselbe
+  Sicherheit.
+
 ## 0.76.1-beta.8 (2026-09-14)
 
 - **Doku-Korrektur zu 9g (MeterHub-Gegentest):** Die vorige Version behauptete, der 9g-Fund

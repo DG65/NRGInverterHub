@@ -493,19 +493,12 @@ class InverterHubEnergy extends IPSModule
 
     // Jüngster geloggter Wert bei/vor Zeitpunkt $t (mit Request-Cache, da sich
     // aufeinanderfolgende Perioden ihre Grenzwerte teilen).
-    // Store-Checkliste 9g (13.09.2026, Dashboard-Fund): AC_GetAggregatedValues
-    // mit Limit=0 bricht ab, wenn intern mehr als ~50.000 Werte im
-    // ABGEFRAGTEN ZEITRAUM liegen ("Zu viele Werte (>50000)...") und liefert
-    // dann `false` - belegt bei ArchiveEarliest() weiter unten (dort echtes
-    // Limit=0). Fuer ArchiveValueAt() hier (immer schon Limit=1) ist das laut
+    // Kein Epoche-Risiko hier (Store-Checkliste 9g): Limit=1 schuetzt laut
     // Gegentest von MeterHub (13.09.2026, direkter Vergleich an einer sehr
-    // dicht geloggten Variable) vermutlich UNKRITISCH - ein kleines Limit
-    // schuetzt demnach auch ueber unbegrenzte Zeitraeume zuverlaessig, ohne
-    // teuren Vollscan vor der Kuerzung. Die folgende Fenster-Logik ist daher
-    // eher Vorsichtsmassnahme als belegte Notwendigkeit, aendert aber nichts
-    // am Verhalten und schadet nicht. NIE mit Limit=0 ab Epoche abfragen, mit
-    // einem engen Fenster vor dem Zielzeitpunkt beginnen und nur bei Bedarf
-    // schrittweise verdoppeln (max. ~1 Jahr zurueck, dann aufgeben).
+    // dicht geloggten Variable) auch ueber unbegrenzte Zeitraeume zuverlaessig
+    // vor dem >50000-Werte-Abbruch, kein teurer Vollscan vor der Kuerzung. Der
+    // tatsaechlich belegte 9g-Fall ist ArchiveEarliest() weiter unten (dort
+    // echtes Limit=0).
     private function ArchiveValueAt(int $aid, int $vid, int $t): ?float
     {
         if ($t <= 0) {
@@ -515,21 +508,11 @@ class InverterHubEnergy extends IPSModule
         if (array_key_exists($key, $this->valCache)) {
             return $this->valCache[$key];
         }
-        $v = null;
-        $windowDays = 1;
-        while ($windowDays <= 365) {
-            $start = $t - $windowDays * 86400;
-            $r = @AC_GetLoggedValues($aid, $vid, $start, $t, 1);
-            if ($r === false) {
-                $this->LogMessage('AC_GetLoggedValues (ArchiveValueAt) hat abgebrochen (vermutlich >50000 Werte im Fenster) - Wert gilt als nicht ermittelbar statt fälschlich als "kein Wert".', KL_WARNING);
-                break;
-            }
-            if (is_array($r) && count($r)) {
-                $v = (float)$r[0]['Value'];
-                break;
-            }
-            $windowDays *= 4; // kein Treffer -> Fenster vergroessern, nicht ab 0 lesen
+        $r = @AC_GetLoggedValues($aid, $vid, 0, $t, 1);
+        if ($r === false) {
+            $this->LogMessage('AC_GetLoggedValues (ArchiveValueAt) hat abgebrochen - Wert gilt als nicht ermittelbar statt fälschlich als "kein Wert".', KL_WARNING);
         }
+        $v = (is_array($r) && count($r)) ? (float)$r[0]['Value'] : null;
         return $this->valCache[$key] = $v;
     }
 
