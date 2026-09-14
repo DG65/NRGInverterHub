@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.76.0-beta.11 (2026-09-14)
+
+- **Doku-Panel-Text nachgezogen (Dietmars zweiter Blick vor dem Store-Launch):** Huawei
+  SUN2000 ist inzwischen an einer echten Anlage live bestätigt — Hinweis dazu im
+  "📖 Dokumentation & Hilfe"-Panel von `InverterHub` ergänzt.
+
 ## 0.76.0-beta.10 (2026-09-14)
 
 - **Neues Panel „👋 Wozu dieses Modul?"** in `InverterHub` und `InverterHubDiscovery`, ganz
