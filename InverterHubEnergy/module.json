@@ -1,0 +1,16 @@
+{
+  "id": "{C3E7A1F4-9B2D-4E6A-8F1C-7A5B3D9E2C08}",
+  "name": "InverterHubEnergy",
+  "type": 3,
+  "vendor": "",
+  "aliases": [
+    "InverterHub Energiefluss",
+    "Energiefluss",
+    "Energiebilanz"
+  ],
+  "url": "https://github.com/DG65/InverterHub",
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "IHUBNRG"
+}

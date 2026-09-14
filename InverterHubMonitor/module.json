@@ -1,0 +1,16 @@
+{
+  "id": "{7B1F9A34-6C52-4E8D-9A1B-4F3E2D7C6A19}",
+  "name": "InverterHubMonitor",
+  "type": 3,
+  "vendor": "",
+  "aliases": [
+    "InverterHub Monitoring",
+    "Monitoring",
+    "Leistung & Einstrahlung"
+  ],
+  "url": "https://github.com/DG65/InverterHub",
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "IHUBMON"
+}

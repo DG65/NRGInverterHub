@@ -1,0 +1,15 @@
+{
+  "id": "{9A2E5C7F-3B1D-4A6E-8C9F-2D5B7E1A4C8F}",
+  "name": "InverterHubTile",
+  "type": 3,
+  "vendor": "",
+  "aliases": [
+    "InverterHub Kachel",
+    "Wechselrichter Kachel"
+  ],
+  "url": "https://github.com/DG65/InverterHub",
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "IHUBTILE"
+}

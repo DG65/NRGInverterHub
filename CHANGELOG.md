@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.76.0-beta.13 (2026-09-14)
+
+- **Uebergangs-Huellen fuer `InverterHubTile`/`InverterHubMonitor`/`InverterHubEnergy`
+  gebaut** (EMS-Vorschlag, Dietmar-Freigabe): Gleiche Modul-GUID/Klasse/Ident-Praefix wie auf
+  `beta`, aber komplett entkernt — zeigen nur noch einen Hinweis, dass NRGDashboard die
+  Funktion übernommen hat, statt bei einem künftigen `ems-integration`→`beta`-Merge mit
+  Fatal Error abzubrechen. Der Merge selbst ist noch nicht erfolgt.
+
 ## 0.76.0-beta.12 (2026-09-14)
 
 - **"🧡 Über dieses Modul"-Panel ergänzt** (Verbund-Konvention Formularpunkt 5, "Variante A",

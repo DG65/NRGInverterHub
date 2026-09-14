@@ -11,7 +11,30 @@ zusammengesetzten/dynamisch gebauten Idents — ersetzt keine eigene Prüfung, n
 Netz. Kein separates `main` bei uns — `beta` ist der einzige Store-/Produktionskanal, daher
 immer `origin/beta` als Basis, nicht `ems-integration`.
 
-## Offener Punkt für später: Fatal Error bei Alt-Instanzen, falls Tile-Entfernung je auf main/beta geht
+## Uebergangs-Huellen fuer InverterHubTile/Monitor/Energy gebaut (14.09.2026, EMS-Vorschlag, Dietmar-Freigabe)
+
+**Umgesetzt, siehe unten stehenden Abschnitt fuer den urspruenglichen Befund.** Auf
+`ems-integration` liegen jetzt wieder drei Modulordner `InverterHubTile`/`InverterHubMonitor`/
+`InverterHubEnergy` — gleiche Modul-GUID/Klassenname/Ident-Praefix wie auf `beta`, aber komplett
+entkernt: `Create()`/`ApplyChanges()` tun nichts mehr ausser `SetStatus(104)`,
+`GetConfigurationForm()` zeigt nur einen Hinweistext ("Kachel entfallen, bitte NRGDashboard-
+Kachel X installieren, diese Instanz danach loeschen"), `module.html` zeigt denselben Hinweis
+statt der frueheren SVG-Kachel. Kein `form.json` mehr (wird von der Huelle nicht gelesen).
+
+**Zweck:** Wird `ems-integration` je nach `beta` gemergt, ersetzt diese Huelle die echten
+Module dort — bestehende Instanzen (~240 Installationen potenziell betroffen) bekommen dann
+eine klare Handlungsanweisung in der Konsole statt eines Fatal Error. **Der Merge selbst ist
+noch nicht erfolgt** — diese Huellen liegen bisher nur auf `ems-integration`, `beta` fuehrt
+weiterhin die vollen, funktionsfaehigen Module.
+
+**Noch offen:** Der exakte Name der NRGDashboard-Nachfolgekachel fuer `InverterHubEnergy`
+(Sankey) war bei der Umsetzung noch nicht von der Dashboard-Sitzung bestaetigt (Tile→
+`NRGDashboardTile` und Monitor→`NRGDashboardPVMonitor` sind bestaetigt) — `InverterHubEnergy`s
+Hinweistext ist deshalb bewusst generisch ("die passende Energiefluss-Kachel") statt einen
+falschen Namen zu nennen. Sobald Dashboard antwortet, den Text in
+`InverterHubEnergy/module.php` und `module.html` nachziehen.
+
+## Offener Punkt für später (ORIGINALBEFUND, jetzt oben umgesetzt): Fatal Error bei Alt-Instanzen, falls Tile-Entfernung je auf main/beta geht
 
 Real beobachtet (EMS-Meldung, 12.09.2026): Dietmar wechselte auf seiner Anlage manuell von
 `beta` (0.76.1-beta.1) auf `ems-integration` (0.76.0-beta.4). Seine dort noch vorhandenen
