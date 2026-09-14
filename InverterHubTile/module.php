@@ -123,6 +123,8 @@ class InverterHubTile extends IPSModule
     // aber EINMALIG statt versionsscharf - der Forum-Link ändert sich normalerweise nicht.
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-inverterhub-multi-wechselrichter-ein-modbus-tcp-modul-fuer-goodwe-sma-fronius-sungrow-solis-growatt-solax/144121';
     private const ATTR_REVIEW_HINT_GONE = 'ReviewHintDismissed';
+    private const LICENSE_URL = 'https://github.com/DG65/NRGInverterHub/blob/beta/LICENSE';
+    private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
 
     public function Create()
     {
@@ -1068,17 +1070,11 @@ class InverterHubTile extends IPSModule
         if ($purpose !== null) {
             array_unshift($form['elements'], $purpose);
         }
-        if (!$this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)) {
-            $form['elements'][] = [
-                'type' => 'RowLayout',
-                'name' => 'ReviewHint',
-                'items' => [
-                    ['type' => 'Label', 'caption' => '🧪 InverterHubTile ist Beta — Rückmeldungen und Testberichte sind im Symcon-Forum-Thread willkommen:'],
-                    ['type' => 'Label', 'link' => true, 'caption' => self::FORUM_THREAD_URL],
-                    ['type' => 'Button', 'caption' => 'Nicht mehr anzeigen', 'onClick' => 'IHUBTILE_DismissReviewHint($id);'],
-                ],
-            ];
+        $forumHint = $this->ForumHint();
+        if ($forumHint !== null) {
+            $form['elements'][] = $forumHint;
         }
+        $form['elements'][] = $this->LicenseHint();
         return json_encode($form);
     }
 
@@ -1159,6 +1155,40 @@ class InverterHubTile extends IPSModule
         $this->WriteAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, true);
         $this->UpdateFormField('ReviewHint', 'visible', false);
         $this->PropagateDismissToSiblings('IHUBTILE_DismissReviewHint');
+    }
+
+    /** Siehe MeterHub::ForumHint() fuer die volle Herleitung. */
+    private function ForumHint(): ?array
+    {
+        if ($this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)) {
+            return null;
+        }
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'ReviewHint', 'expanded' => true,
+            'caption' => '💬  Feedback im Symcon-Forum',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'InverterHubTile ist Beta — Rückmeldungen und Testberichte sind im Symcon-Forum-Thread willkommen.'],
+                ['type' => 'Button', 'caption' => 'Zum Forums-Thread', 'onClick' => "echo '" . self::FORUM_THREAD_URL . "';", 'link' => true],
+                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'IHUBTILE_DismissReviewHint($id);'],
+            ],
+        ];
+    }
+
+    /** Siehe MeterHub::LicenseHint() fuer die volle Herleitung. */
+    private function LicenseHint(): array
+    {
+        return [
+            'type' => 'ExpansionPanel', 'expanded' => false,
+            'caption' => '🧡  Über dieses Modul',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'Entstanden aus echter Begeisterung für die eigene Anlage — und ein paar durchgetippten Abenden. Trotzdem: Software-Hobby hin oder her, das hier ist geistiges Eigentum und echte Arbeit steckt drin.'],
+                ['type' => 'Label', 'caption' => 'Lizenz: PolyForm Noncommercial 1.0.0 — privat und nicht-kommerziell frei nutzbar, für den gewerblichen Einsatz braucht es eine gesonderte Lizenz vom Rechteinhaber.'],
+                ['type' => 'Button', 'caption' => 'Lizenztext ansehen', 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'Gewerbliche Nutzung oder Fragen zur Lizenz? Einfach melden: dietmar@gureth.eu'],
+                ['type' => 'Label', 'caption' => 'Gefällt dir das Modul und du möchtest trotzdem etwas dalassen? Über eine kleine Spende freue ich mich — völlig freiwillig, keine Gegenleistung nötig.'],
+                ['type' => 'Button', 'caption' => '☕  Spenden via PayPal', 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
+            ],
+        ];
     }
 
     // Ausblenden ueber alle anderen InverterHubTile-Instanzen teilen (SUITE.md

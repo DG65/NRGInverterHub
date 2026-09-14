@@ -61,6 +61,8 @@ class InverterHubDiscovery extends IPSModule
     // Eigene Modul-GUID (module.json 'id') fuer die Geschwister-Suche beim
     // geteilten Ausblenden (SUITE.md, Referenz MeterHub, EMS 14.09.2026).
     private const SELF_MODULE = '{447C2BD6-5299-445A-9A08-5F29C50C9DB1}';
+    private const LICENSE_URL = 'https://github.com/DG65/NRGInverterHub/blob/beta/LICENSE';
+    private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
 
     // „Was ist neu"-Banner (siehe newsBanner()/AckNews()).
     private const NEWS_VERSION = '0.45';
@@ -280,19 +282,14 @@ class InverterHubDiscovery extends IPSModule
             ],
         ];
 
-        // Einmaliger Beta-Hinweis mit Link zum Symcon-Forum-Thread, bis er
-        // per Button ausgeblendet wird (Attribut, kein Übernehmen nötig).
-        if (!$this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)) {
-            $form['elements'][] = [
-                'type' => 'RowLayout',
-                'name' => 'ReviewHint',
-                'items' => [
-                    ['type' => 'Label', 'caption' => '🧪 InverterHubDiscovery ist Beta — Rückmeldungen und Testberichte sind im Symcon-Forum-Thread willkommen:'],
-                    ['type' => 'Label', 'link' => true, 'caption' => self::FORUM_THREAD_URL],
-                    ['type' => 'Button', 'caption' => 'Nicht mehr anzeigen', 'onClick' => 'IHUBD_DismissReviewHint($id);'],
-                ],
-            ];
+        // Symcon-Forum-Hinweis, einmalig dismissible (Referenz MeterHub::ForumHint()).
+        $forumHint = $this->ForumHint();
+        if ($forumHint !== null) {
+            $form['elements'][] = $forumHint;
         }
+
+        // "Über dieses Modul" (Lizenz/Spenden, Verbund-Konvention Formularpunkt 5).
+        $form['elements'][] = $this->LicenseHint();
 
         // „Was ist neu"-Banner nach einem Update ganz oben.
         $banner = $this->newsBanner();
@@ -445,6 +442,40 @@ class InverterHubDiscovery extends IPSModule
         $this->WriteAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, true);
         $this->UpdateFormField('ReviewHint', 'visible', false);
         $this->PropagateDismiss('ReviewHint');
+    }
+
+    /** Siehe MeterHub::ForumHint() fuer die volle Herleitung. */
+    private function ForumHint(): ?array
+    {
+        if ($this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)) {
+            return null;
+        }
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'ReviewHint', 'expanded' => true,
+            'caption' => '💬  Feedback im Symcon-Forum',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'InverterHubDiscovery ist Beta — Rückmeldungen und Testberichte sind im Symcon-Forum-Thread willkommen.'],
+                ['type' => 'Button', 'caption' => 'Zum Forums-Thread', 'onClick' => "echo '" . self::FORUM_THREAD_URL . "';", 'link' => true],
+                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'IHUBD_DismissReviewHint($id);'],
+            ],
+        ];
+    }
+
+    /** Siehe MeterHub::LicenseHint() fuer die volle Herleitung. */
+    private function LicenseHint(): array
+    {
+        return [
+            'type' => 'ExpansionPanel', 'expanded' => false,
+            'caption' => '🧡  Über dieses Modul',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'Entstanden aus echter Begeisterung für die eigene Anlage — und ein paar durchgetippten Abenden. Trotzdem: Software-Hobby hin oder her, das hier ist geistiges Eigentum und echte Arbeit steckt drin.'],
+                ['type' => 'Label', 'caption' => 'Lizenz: PolyForm Noncommercial 1.0.0 — privat und nicht-kommerziell frei nutzbar, für den gewerblichen Einsatz braucht es eine gesonderte Lizenz vom Rechteinhaber.'],
+                ['type' => 'Button', 'caption' => 'Lizenztext ansehen', 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'Gewerbliche Nutzung oder Fragen zur Lizenz? Einfach melden: dietmar@gureth.eu'],
+                ['type' => 'Label', 'caption' => 'Gefällt dir das Modul und du möchtest trotzdem etwas dalassen? Über eine kleine Spende freue ich mich — völlig freiwillig, keine Gegenleistung nötig.'],
+                ['type' => 'Button', 'caption' => '☕  Spenden via PayPal', 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
+            ],
+        ];
     }
 
     // -----------------------------------------------------------------------
