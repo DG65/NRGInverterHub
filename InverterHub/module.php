@@ -4818,6 +4818,8 @@ class InverterHub extends IPSModule
     // geteilten Ausblenden (SUITE.md "Ausblenden ueber mehrere Instanzen
     // desselben Moduls teilen", Referenzimplementierung MeterHub, EMS 14.09.2026).
     private const SELF_MODULE = '{BBE2C593-1A91-426D-A714-29A9C7E87589}';
+    private const LICENSE_URL = 'https://github.com/DG65/NRGInverterHub/blob/beta/LICENSE';
+    private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
 
     // „Was ist neu"-Banner (siehe newsBanner()/AckNews()). Vergleich laeuft
     // gegen den STRING NEWS_VERSION - jede Erhoehung zeigt den Banner erneut,
@@ -5623,19 +5625,17 @@ class InverterHub extends IPSModule
             ],
         ];
 
-        // Einmaliger Beta-Hinweis mit Link zum Symcon-Forum-Thread, bis er
-        // per Button ausgeblendet wird (Attribut, kein Übernehmen nötig).
-        if (!$this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)) {
-            $form['elements'][] = [
-                'type' => 'RowLayout',
-                'name' => 'ReviewHint',
-                'items' => [
-                    ['type' => 'Label', 'caption' => '🧪 InverterHub ist Beta — Rückmeldungen und Testberichte sind im Symcon-Forum-Thread willkommen:'],
-                    ['type' => 'Label', 'link' => true, 'caption' => self::FORUM_THREAD_URL],
-                    ['type' => 'Button', 'caption' => 'Nicht mehr anzeigen', 'onClick' => 'IHUB_DismissReviewHint($id);'],
-                ],
-            ];
+        // Symcon-Forum-Hinweis, einmalig dismissible (Verbund-Konvention Formularpunkt 4,
+        // Referenz MeterHub::ForumHint(), EMS 14.09.2026 - eigenes ExpansionPanel statt
+        // Label mitten im Formular, mit echtem "Zum Forums-Thread"-Knopf).
+        $forumHint = $this->ForumHint();
+        if ($forumHint !== null) {
+            $form['elements'][] = $forumHint;
         }
+
+        // "Über dieses Modul" (Lizenz/Spenden, Verbund-Konvention Formularpunkt 5,
+        // "Variante A", ganz unten, NICHT dismissible).
+        $form['elements'][] = $this->LicenseHint();
 
         // „Was ist neu"-Banner nach einem Update ganz oben.
         $banner = $this->newsBanner();
@@ -5812,6 +5812,40 @@ class InverterHub extends IPSModule
         $this->WriteAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, true);
         $this->UpdateFormField('ReviewHint', 'visible', false);
         $this->PropagateDismiss('ReviewHint');
+    }
+
+    /** Siehe MeterHub::ForumHint() fuer die volle Herleitung. */
+    private function ForumHint(): ?array
+    {
+        if ($this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)) {
+            return null;
+        }
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'ReviewHint', 'expanded' => true,
+            'caption' => '💬  Feedback im Symcon-Forum',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'InverterHub ist Beta — Rückmeldungen und Testberichte sind im Symcon-Forum-Thread willkommen.'],
+                ['type' => 'Button', 'caption' => 'Zum Forums-Thread', 'onClick' => "echo '" . self::FORUM_THREAD_URL . "';", 'link' => true],
+                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'IHUB_DismissReviewHint($id);'],
+            ],
+        ];
+    }
+
+    /** Siehe MeterHub::LicenseHint() fuer die volle Herleitung - Verbund-Konvention "Variante A". */
+    private function LicenseHint(): array
+    {
+        return [
+            'type' => 'ExpansionPanel', 'expanded' => false,
+            'caption' => '🧡  Über dieses Modul',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'Entstanden aus echter Begeisterung für die eigene Anlage — und ein paar durchgetippten Abenden. Trotzdem: Software-Hobby hin oder her, das hier ist geistiges Eigentum und echte Arbeit steckt drin.'],
+                ['type' => 'Label', 'caption' => 'Lizenz: PolyForm Noncommercial 1.0.0 — privat und nicht-kommerziell frei nutzbar, für den gewerblichen Einsatz braucht es eine gesonderte Lizenz vom Rechteinhaber.'],
+                ['type' => 'Button', 'caption' => 'Lizenztext ansehen', 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'Gewerbliche Nutzung oder Fragen zur Lizenz? Einfach melden: dietmar@gureth.eu'],
+                ['type' => 'Label', 'caption' => 'Gefällt dir das Modul und du möchtest trotzdem etwas dalassen? Über eine kleine Spende freue ich mich — völlig freiwillig, keine Gegenleistung nötig.'],
+                ['type' => 'Button', 'caption' => '☕  Spenden via PayPal', 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
+            ],
+        ];
     }
 
     // -----------------------------------------------------------------------

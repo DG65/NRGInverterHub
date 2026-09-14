@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.76.0-beta.12 (2026-09-14)
+
+- **"🧡 Über dieses Modul"-Panel ergänzt** (Verbund-Konvention Formularpunkt 5, "Variante A",
+  EMS-Auftrag) — Lizenzhinweis (PolyForm Noncommercial 1.0.0), Kontakt für gewerbliche
+  Anfragen, PayPal-Spendenlink, ganz unten im Formular, nicht dismissible. In `InverterHub`
+  und `InverterHubDiscovery`.
+- **Symcon-Forum-Hinweis auf MeterHubs Muster umgestellt:** eigenes dismissibles
+  ExpansionPanel "💬 Feedback im Symcon-Forum" mit echtem "Zum Forums-Thread"-Knopf statt
+  eines Labels mitten im Formular.
+
 ## 0.76.0-beta.11 (2026-09-14)
 
 - **Doku-Panel-Text nachgezogen (Dietmars zweiter Blick vor dem Store-Launch):** Huawei
