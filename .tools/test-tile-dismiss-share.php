@@ -35,6 +35,7 @@ class IPSModule
 function IPS_GetInstanceListByModuleID($guid) { global $registry; return array_keys($registry); }
 function IHUBTILE_DismissReviewHint($id) { global $registry; return $registry[$id]->DismissReviewHint(); }
 function IHUBTILE_AckNews($id) { global $registry; return $registry[$id]->AckNews(); }
+function IHUBTILE_AckPurposeIntro($id) { global $registry; return $registry[$id]->AckPurposeIntro(); }
 function IHUBTILE_GetDismissState($id) { global $registry; return $registry[$id]->GetDismissState(); }
 
 $src = file_get_contents(dirname(__DIR__) . '/InverterHubTile/module.php');
@@ -45,14 +46,15 @@ preg_match('/public function GetDismissState\(\).*?\n    \}/s', $src, $mGet);
 preg_match('/public function DismissReviewHint\(\).*?\n    \}/s', $src, $mDismiss);
 preg_match('/private function PropagateDismissToSiblings.*?\n    \}/s', $src, $mProp);
 preg_match('/public function AckNews\(\).*?\n    \}/s', $src, $mAck);
+preg_match('/public function AckPurposeIntro\(\).*?\n    \}/s', $src, $mPurpose);
 
-foreach (['ATTR_REVIEW_HINT_GONE' => $m1, 'NEWS_VERSION' => $m2, 'SELF_MODULE' => $m3, 'GetDismissState' => $mGet, 'DismissReviewHint' => $mDismiss, 'PropagateDismissToSiblings' => $mProp, 'AckNews' => $mAck] as $label => $m) {
+foreach (['ATTR_REVIEW_HINT_GONE' => $m1, 'NEWS_VERSION' => $m2, 'SELF_MODULE' => $m3, 'GetDismissState' => $mGet, 'DismissReviewHint' => $mDismiss, 'PropagateDismissToSiblings' => $mProp, 'AckNews' => $mAck, 'AckPurposeIntro' => $mPurpose] as $label => $m) {
     if (empty($m)) { fwrite(STDERR, "Extraktion fehlgeschlagen: $label (Methode/Konstante umbenannt oder umformatiert?)\n"); exit(1); }
 }
 
 eval("class InverterHubTile extends IPSModule {\n"
     . $m1[0] . "\n" . $m2[0] . "\n" . $m3[0] . "\n"
-    . $mGet[0] . "\n" . $mDismiss[0] . "\n" . $mProp[0] . "\n" . $mAck[0] . "\n"
+    . $mGet[0] . "\n" . $mDismiss[0] . "\n" . $mProp[0] . "\n" . $mAck[0] . "\n" . $mPurpose[0] . "\n"
     . "}\n");
 
 $fails = 0;
@@ -80,16 +82,28 @@ echo "3) Neue Instanz uebernimmt Ausblenden-Stand einer vorhandenen Geschwister-
 $registry = [301 => new InverterHubTile(301)];
 $registry[301]->DismissReviewHint();
 $registry[301]->AckNews();
+$registry[301]->AckPurposeIntro();
 $registry[302] = new InverterHubTile(302);
 foreach (IPS_GetInstanceListByModuleID('x') as $sib) {
     if ($sib === 302) { continue; }
     $state = IHUBTILE_GetDismissState($sib);
     if (!empty($state['reviewGone'])) { $registry[302]->WriteAttributeBoolean('ReviewHintDismissed', true); }
+    if (!empty($state['purposeGone'])) { $registry[302]->WriteAttributeBoolean('PurposeIntroGone', true); }
     if (!empty($state['seenNews'])) { $registry[302]->WriteAttributeString('SeenNews', $state['seenNews']); }
     break;
 }
 check('neue Instanz uebernimmt ReviewHint-Stand', $registry[302]->ReadAttributeBoolean('ReviewHintDismissed') === true);
+check('neue Instanz uebernimmt PurposeIntro-Stand', $registry[302]->ReadAttributeBoolean('PurposeIntroGone') === true);
 check('neue Instanz uebernimmt SeenNews-Stand', $registry[302]->ReadAttributeString('SeenNews') === $registry[301]->ReadAttributeString('SeenNews'));
+
+echo "4) AckPurposeIntro propagiert auf Geschwister-Instanz, terminiert sauber (Ping-Pong-Schutz)\n";
+$registry = [401 => new InverterHubTile(401), 402 => new InverterHubTile(402)];
+$registry[401]->AckPurposeIntro();
+check('A selbst ausgeblendet', $registry[401]->ReadAttributeBoolean('PurposeIntroGone') === true);
+check('B per Propagation ausgeblendet', $registry[402]->ReadAttributeBoolean('PurposeIntroGone') === true);
+$registry[402]->WriteAttributeBoolean('PurposeIntroGone', false);
+$registry[401]->AckPurposeIntro();
+check('bereits ausgeblendete Instanz propagiert nicht erneut (Ping-Pong-Schutz)', $registry[402]->ReadAttributeBoolean('PurposeIntroGone') === false);
 
 echo "\n" . ($fails === 0 ? "ALLE PRUEFUNGEN BESTANDEN\n" : "$fails PRUEFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

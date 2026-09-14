@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.76.1-beta.12 (2026-09-14)
+
+- **Neues Panel „👋 Wozu dieses Modul?"** in `InverterHub`, `InverterHubDiscovery`,
+  `InverterHubTile`, `InverterHubMonitor` und `InverterHubEnergy` — ganz oben im Formular,
+  noch vor „Was ist Neu?" (Store-Checkliste Punkt 0, Verbund-Konvention, EMS 14.09.2026,
+  Referenzimplementierung MeterHub). Einmalig dismissible, kein Versionsbezug. Bei
+  `InverterHub`/`InverterHubDiscovery`/`InverterHubTile` (potenziell mehrere Instanzen)
+  teilt sich das Ausblenden wie bei „Was ist Neu?"/Forum-Hinweis über alle Geschwister-
+  Instanzen desselben Moduls; `InverterHubMonitor`/`InverterHubEnergy` sind typischerweise
+  Einzelinstanzen und bekommen daher nur das einfache Ausblenden ohne Geschwister-Abgleich.
+  Permanenter Regressionstest `.tools/test-tile-dismiss-share.php` um die neuen
+  `AckPurposeIntro()`-Fälle erweitert.
+
 ## 0.76.1-beta.11 (2026-09-14)
 
 - **`InverterHubTile`: Ausblenden von "Was ist Neu?" und dem Forum-Hinweis über mehrere

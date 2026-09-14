@@ -128,6 +128,7 @@ class InverterHubTile extends IPSModule
     {
         parent::Create();
         $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
+        $this->RegisterAttributeBoolean('PurposeIntroGone', false);
         $this->RegisterAttributeString('SeenNews', '');
         // Neu angelegte Instanz uebernimmt einmalig den Ausblenden-Stand einer
         // beliebigen bereits vorhandenen Geschwister-Instanz (SUITE.md,
@@ -150,6 +151,9 @@ class InverterHubTile extends IPSModule
                 if (is_array($state)) {
                     if (!empty($state['reviewGone'])) {
                         $this->WriteAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, true);
+                    }
+                    if (!empty($state['purposeGone'])) {
+                        $this->WriteAttributeBoolean('PurposeIntroGone', true);
                     }
                     if (!empty($state['seenNews']) && is_string($state['seenNews'])) {
                         $this->WriteAttributeString('SeenNews', $state['seenNews']);
@@ -1060,6 +1064,10 @@ class InverterHubTile extends IPSModule
         if ($banner !== null) {
             array_unshift($form['elements'], $banner);
         }
+        $purpose = $this->PurposeIntro();
+        if ($purpose !== null) {
+            array_unshift($form['elements'], $purpose);
+        }
         if (!$this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)) {
             $form['elements'][] = [
                 'type' => 'RowLayout',
@@ -1104,9 +1112,39 @@ class InverterHubTile extends IPSModule
     public function GetDismissState(): array
     {
         return [
-            'reviewGone' => $this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE),
-            'seenNews'   => $this->ReadAttributeString('SeenNews'),
+            'reviewGone'  => $this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE),
+            'purposeGone' => $this->ReadAttributeBoolean('PurposeIntroGone'),
+            'seenNews'    => $this->ReadAttributeString('SeenNews'),
         ];
+    }
+
+    /** Siehe MeterHub::PurposeIntro() fuer die volle Herleitung - steht ganz vorn, noch vor dem News-Panel (Store-Checkliste Punkt 0, EMS 14.09.2026). */
+    private function PurposeIntro(): ?array
+    {
+        if ($this->ReadAttributeBoolean('PurposeIntroGone')) {
+            return null;
+        }
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true,
+            'caption' => '👋  Wozu dieses Modul?',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'InverterHubTile zeigt Solarertrag, Netzbezug/-einspeisung, Batterie und Verbraucher als animierte Stromfluss-Kachel — auf Basis der Werte einer InverterHub-Instanz oder frei zugewiesener Variablen.'],
+                ['type' => 'Label', 'caption' => 'Der Nutzen: die Anlage auf einen Blick verstehen, statt einzelne Zahlen in Variablenlisten zu suchen — inklusive Verbrauchern, Wallboxen und Fahrzeugen.'],
+                ['type' => 'Label', 'caption' => 'Ohne InverterHub-Instanz lassen sich die Werte auch manuell zuweisen; MeterHub- und HeishaMon-Instanzen liefern zusätzliche Verbraucherkreise.'],
+                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'IHUBTILE_AckPurposeIntro($id);'],
+            ],
+        ];
+    }
+
+    public function AckPurposeIntro()
+    {
+        if ($this->ReadAttributeBoolean('PurposeIntroGone')) {
+            $this->UpdateFormField('PurposeIntroPanel', 'visible', false);
+            return;
+        }
+        $this->WriteAttributeBoolean('PurposeIntroGone', true);
+        $this->UpdateFormField('PurposeIntroPanel', 'visible', false);
+        $this->PropagateDismissToSiblings('IHUBTILE_AckPurposeIntro');
     }
 
     public function DismissReviewHint()

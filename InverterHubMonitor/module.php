@@ -110,6 +110,7 @@ class InverterHubMonitor extends IPSModule
     {
         parent::Create();
         $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
+        $this->RegisterAttributeBoolean('PurposeIntroGone', false);
         $this->RegisterAttributeString('SeenNews', '');
         $this->RegisterPropertyInteger('SourceInstance', 0);
         // Schwelle fuer die Riso-Bewertung in GetDiagnostics() (kOhm). 0 = aus
@@ -188,6 +189,12 @@ class InverterHubMonitor extends IPSModule
         $this->UpdateFormField('NewsPanel', 'visible', false);
     }
 
+    public function AckPurposeIntro()
+    {
+        $this->WriteAttributeBoolean('PurposeIntroGone', true);
+        $this->UpdateFormField('PurposeIntroPanel', 'visible', false);
+    }
+
     // Schaltet die Archivierung der Preisvariable ein. Sie gehört einem FREMDEN
     // Modul - deshalb passiert das ausdrücklich NUR auf Knopfdruck des Nutzers
     // und niemals automatisch: Ungefragt eine Variable in die Datenbank zu
@@ -237,6 +244,21 @@ class InverterHubMonitor extends IPSModule
     {
         $src = $this->ReadPropertyInteger('SourceInstance');
         $elements = [];
+
+        // „Wozu dieses Modul?" ganz vorn, noch vor dem News-Banner (Store-
+        // Checkliste Punkt 0, EMS 14.09.2026, Referenz MeterHub::PurposeIntro()).
+        if (!$this->ReadAttributeBoolean('PurposeIntroGone')) {
+            $elements[] = [
+                'type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true,
+                'caption' => '👋  Wozu dieses Modul?',
+                'items' => [
+                    ['type' => 'Label', 'caption' => 'InverterHubMonitor stellt archivierte Wechselrichter-Werte als Diagramme dar — Leistungsverlauf, Monats-/Jahresenergie, Batterie, MPP-Tracker und optional Strompreis oder PV-Prognose.'],
+                    ['type' => 'Label', 'caption' => 'Der Nutzen: Anlagenverhalten über Zeit einschätzen (z. B. Verschmutzung/Defekt anhand Einstrahlung vs. Erzeugung erkennen), ohne die Werte selbst aus dem Archiv zusammenzusuchen.'],
+                    ['type' => 'Label', 'caption' => 'Voraussetzung ist eine InverterHub-Instanz als Quelle — dort werden die Werte gemessen und archiviert, dieses Modul stellt sie nur dar.'],
+                    ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'IHUBMON_AckPurposeIntro($id);'],
+                ],
+            ];
+        }
 
         // „Was ist neu"-Banner nach einem Update (nicht bei Neuinstallation).
         if ($this->ReadAttributeString('SeenNews') !== self::NEWS_VERSION) {

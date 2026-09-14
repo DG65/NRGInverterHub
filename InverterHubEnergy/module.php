@@ -97,6 +97,7 @@ class InverterHubEnergy extends IPSModule
     {
         parent::Create();
         $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
+        $this->RegisterAttributeBoolean('PurposeIntroGone', false);
         $this->RegisterAttributeString('SeenNews', '');
 
         // Zeitraum: day | week | month | year | all | custom
@@ -189,6 +190,10 @@ class InverterHubEnergy extends IPSModule
         if ($banner !== null) {
             array_unshift($form['elements'], $banner);
         }
+        $purpose = $this->PurposeIntro();
+        if ($purpose !== null) {
+            array_unshift($form['elements'], $purpose);
+        }
         if (!$this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)) {
             $form['elements'][] = [
                 'type' => 'RowLayout',
@@ -224,6 +229,30 @@ class InverterHubEnergy extends IPSModule
     {
         $this->WriteAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, true);
         $this->UpdateFormField('ReviewHint', 'visible', false);
+    }
+
+    /** Siehe MeterHub::PurposeIntro() fuer die volle Herleitung - steht ganz vorn, noch vor dem News-Panel (Store-Checkliste Punkt 0, EMS 14.09.2026). */
+    private function PurposeIntro(): ?array
+    {
+        if ($this->ReadAttributeBoolean('PurposeIntroGone')) {
+            return null;
+        }
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true,
+            'caption' => '👋  Wozu dieses Modul?',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'InverterHubEnergy zeigt Energieflüsse (PV, Netz, Batterie, Verbraucher) als Sankey-Diagramm über einen wählbaren Zeitraum — auf Basis der archivierten Werte einer InverterHub-Instanz.'],
+                ['type' => 'Label', 'caption' => 'Der Nutzen: auf einen Blick sehen, wohin Solarertrag tatsächlich fließt (Eigenverbrauch, Einspeisung, Batterie), statt einzelne Energiewerte zu vergleichen.'],
+                ['type' => 'Label', 'caption' => 'Voraussetzung ist eine InverterHub-Instanz als Quelle; MeterHub- und HeishaMon-Instanzen liefern zusätzliche Verbraucherzweige.'],
+                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'IHUBNRG_AckPurposeIntro($id);'],
+            ],
+        ];
+    }
+
+    public function AckPurposeIntro()
+    {
+        $this->WriteAttributeBoolean('PurposeIntroGone', true);
+        $this->UpdateFormField('PurposeIntroPanel', 'visible', false);
     }
 
     // Setzt die Optionen der Spalte „Art" in der Verbraucher-Liste aus
