@@ -23,12 +23,12 @@ class InverterHubMonitor extends IPSModule
         return json_encode([
             'elements' => [
                 ['type' => 'Label', 'caption' => '⚠️  Diese Kachel ist entfallen'],
-                ['type' => 'Label', 'caption' => 'InverterHubMonitor wird nicht mehr weiterentwickelt — NRGDashboard hat die Diagramm-/Diagnostik-Darstellung übernommen.'],
-                ['type' => 'Label', 'caption' => 'Bitte installiere die Kachel „NRGDashboardPVMonitor" aus dem Modul NRGDashboard und richte sie dort neu ein.'],
+                ['type' => 'Label', 'caption' => 'InverterHubMonitor wird nicht mehr weiterentwickelt — NRGDashboardPVMonitor (Bibliothek „NRG-Stack Dashboard") übernimmt die PV-/Batterie-/Netz-Diagramme, die Energiebilanz (Sankey-Nachfolge) und die MPPT-Diagnostik in eigenen Reitern.'],
+                ['type' => 'Label', 'caption' => 'Bitte die Bibliothek „NRG-Stack Dashboard" installieren, dort die Kachel „NRGDashboardPVMonitor" anlegen und einrichten.'],
                 ['type' => 'Label', 'caption' => 'Diese Instanz hier kannst du danach löschen (Rechtsklick im Objektbaum → Löschen).'],
             ],
             'status' => [
-                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Entfallen — durch NRGDashboardPVMonitor ersetzt.'],
+                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Entfallen — durch NRGDashboardPVMonitor (NRG-Stack Dashboard) ersetzt.'],
             ],
         ]);
     }

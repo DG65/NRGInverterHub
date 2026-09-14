@@ -33,12 +33,13 @@ class InverterHubTile extends IPSModule
         return json_encode([
             'elements' => [
                 ['type' => 'Label', 'caption' => '⚠️  Diese Kachel ist entfallen'],
-                ['type' => 'Label', 'caption' => 'InverterHubTile wird nicht mehr weiterentwickelt — NRGDashboard hat die Stromfluss-Anzeige übernommen.'],
-                ['type' => 'Label', 'caption' => 'Bitte installiere die Kachel „NRGDashboardTile" aus dem Modul NRGDashboard und richte sie dort neu ein.'],
+                ['type' => 'Label', 'caption' => 'InverterHubTile wird nicht mehr weiterentwickelt — NRGDashboardTile (Bibliothek „NRG-Stack Dashboard") deckt Stromfluss, Verbraucherzuordnung und Diagnose-Anzeige inzwischen ab.'],
+                ['type' => 'Label', 'caption' => 'Bitte die Bibliothek „NRG-Stack Dashboard" installieren, dort die Kachel „NRGDashboardTile" anlegen und einrichten.'],
+                ['type' => 'Label', 'caption' => 'Einzige bekannte Lücke: Wer hier ausschließlich die eigene manuelle Hauslast-Zuordnung (ManualHouseID/HouseLoadMeterID) genutzt hat, muss sie bei NRGDashboardTile neu eintragen oder auf ein MeterHub-Gerät mit Funktion „Hausanschluss" umstellen — sonst zeigt Dashboard dort nur die rechnerische Näherung.'],
                 ['type' => 'Label', 'caption' => 'Diese Instanz hier kannst du danach löschen (Rechtsklick im Objektbaum → Löschen).'],
             ],
             'status' => [
-                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Entfallen — durch NRGDashboardTile ersetzt.'],
+                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Entfallen — durch NRGDashboardTile (NRG-Stack Dashboard) ersetzt.'],
             ],
         ]);
     }

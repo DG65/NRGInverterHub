@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.76.0-beta.14 (2026-09-14)
+
+- **Übergangs-Hüllen-Hinweistexte mit den von Dashboard bestätigten Nachfolgekacheln
+  präzisiert:** `InverterHubTile` → `NRGDashboardTile`; `InverterHubMonitor`/
+  `InverterHubEnergy` → `NRGDashboardPVMonitor` (Reiter „MPP-Tracker" bzw. „Energiebilanz"),
+  beide aus der Bibliothek „NRG-Stack Dashboard". Bekannte kleine Lücke (rein manuelle
+  Hauslast-Zuordnung ohne MeterHub) im `InverterHubTile`-Hinweistext ergänzt.
+
 ## 0.76.0-beta.13 (2026-09-14)
 
 - **Uebergangs-Huellen fuer `InverterHubTile`/`InverterHubMonitor`/`InverterHubEnergy`

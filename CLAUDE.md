@@ -27,12 +27,17 @@ eine klare Handlungsanweisung in der Konsole statt eines Fatal Error. **Der Merg
 noch nicht erfolgt** — diese Huellen liegen bisher nur auf `ems-integration`, `beta` fuehrt
 weiterhin die vollen, funktionsfaehigen Module.
 
-**Noch offen:** Der exakte Name der NRGDashboard-Nachfolgekachel fuer `InverterHubEnergy`
-(Sankey) war bei der Umsetzung noch nicht von der Dashboard-Sitzung bestaetigt (Tile→
-`NRGDashboardTile` und Monitor→`NRGDashboardPVMonitor` sind bestaetigt) — `InverterHubEnergy`s
-Hinweistext ist deshalb bewusst generisch ("die passende Energiefluss-Kachel") statt einen
-falschen Namen zu nennen. Sobald Dashboard antwortet, den Text in
-`InverterHubEnergy/module.php` und `module.html` nachziehen.
+**Nachfolgekacheln von Dashboard bestaetigt (14.09.2026), alle Hinweistexte nachgezogen:**
+`InverterHubTile` → `NRGDashboardTile`; `InverterHubMonitor` UND `InverterHubEnergy` (Sankey)
+→ `NRGDashboardPVMonitor` (Reiter „MPP-Tracker" bzw. „Energiebilanz"). Beide Dashboard-Module
+sind Teil derselben Bibliothek „NRG-Stack Dashboard" (ein Store-Eintrag). Laut Dashboard kein
+Funktionsverlust bis auf eine kleine Luecke: Wer bei `InverterHubTile` NUR die eigene manuelle
+Hauslast-Zuordnung (`ManualHouseID`/`HouseLoadMeterID`) genutzt hatte (kein MeterHub-Geraet mit
+`function='house'`), muss sie bei `NRGDashboardTile` neu eintragen — im Hinweistext erwaehnt.
+`InverterHub` selbst (die Kerninstanz, nicht Tile/Monitor/Energy) MUSS mit `IHUB_GetFunctions()`
+und den `mppt*_power`-Variablen unveraendert bestehen bleiben, da alle drei Dashboard-Ersatz-
+Kacheln direkt darauf aufbauen — das ist bereits der Fall (nur die drei Visualisierungsmodule
+wurden entkernt, das Kernmodul lief nie auf `ems-integration`).
 
 ## Offener Punkt für später (ORIGINALBEFUND, jetzt oben umgesetzt): Fatal Error bei Alt-Instanzen, falls Tile-Entfernung je auf main/beta geht
 
