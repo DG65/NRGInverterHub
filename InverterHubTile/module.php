@@ -16,6 +16,11 @@
 class InverterHubTile extends IPSModule
 {
     private const SOURCE_MODULE = '{BBE2C593-1A91-426D-A714-29A9C7E87589}';
+    // Eigene Modul-GUID (aus module.json) - fuer das Teilen des Ausblendens
+    // ueber mehrere InverterHubTile-Instanzen hinweg (SUITE.md, Dietmar
+    // 14.09.2026): mehrere Kacheln sollen "Was ist Neu?"/den Forum-Hinweis
+    // nicht je Instanz einzeln wegklicken muessen.
+    private const SELF_MODULE = '{9A2E5C7F-3B1D-4A6E-8C9F-2D5B7E1A4C8F}';
 
     // Ident-Fallback-Ketten je Größe (erster gefundener Ident gewinnt).
     // pv_real (berechnete PV-Erzeugung, z. B. SolarEdge StorEdge) hat Vorrang
@@ -124,6 +129,35 @@ class InverterHubTile extends IPSModule
         parent::Create();
         $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
         $this->RegisterAttributeString('SeenNews', '');
+        // Neu angelegte Instanz uebernimmt einmalig den Ausblenden-Stand einer
+        // beliebigen bereits vorhandenen Geschwister-Instanz (SUITE.md,
+        // 14.09.2026) - sonst muesste jede neue Kachel dieselben Hinweise
+        // erneut wegklicken, obwohl eine andere Kachel sie schon gesehen hat.
+        // Create() laeuft ohnehin nur einmalig bei der Instanzanlage, keine
+        // zusaetzliche "ist das wirklich neu?"-Pruefung noetig (Attribute
+        // haben anders als Variablen keine Objekt-ID, ueber die man das vor
+        // der Registrierung unterscheiden koennte).
+        if (function_exists('IHUBTILE_GetDismissState')) {
+            foreach (IPS_GetInstanceListByModuleID(self::SELF_MODULE) as $siblingID) {
+                if ($siblingID === $this->InstanceID) {
+                    continue;
+                }
+                // Attribute sind reine Instanz-interne Daten, von aussen nur
+                // ueber eine eigene Methode der Instanz lesbar (kein
+                // IPS_GetObjectIDByIdent/GetValue - Attribute haben keine
+                // Objekt-ID) - deshalb der Umweg ueber GetDismissState().
+                $state = @IHUBTILE_GetDismissState($siblingID);
+                if (is_array($state)) {
+                    if (!empty($state['reviewGone'])) {
+                        $this->WriteAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, true);
+                    }
+                    if (!empty($state['seenNews']) && is_string($state['seenNews'])) {
+                        $this->WriteAttributeString('SeenNews', $state['seenNews']);
+                    }
+                }
+                break; // eine Geschwister-Instanz reicht als Referenz
+            }
+        }
 
         $this->RegisterPropertyInteger('SourceInstance', 0);
         // Manueller Modus (ohne InverterHub-Instanz): einzelne Variablen direkt
@@ -1065,10 +1099,51 @@ class InverterHubTile extends IPSModule
         unset($el);
     }
 
+    // Liefert den eigenen Ausblenden-Stand an eine neu angelegte Geschwister-
+    // Instanz (siehe Create()) - Attribute sind sonst von aussen nicht lesbar.
+    public function GetDismissState(): array
+    {
+        return [
+            'reviewGone' => $this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE),
+            'seenNews'   => $this->ReadAttributeString('SeenNews'),
+        ];
+    }
+
     public function DismissReviewHint()
     {
+        // Bereits ausgeblendet (z. B. gerade erst per Geschwister-Instanz
+        // propagiert)? Dann nicht erneut weiterreichen - verhindert
+        // Ping-Pong zwischen zwei Instanzen, die sich gegenseitig aufrufen.
+        if ($this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)) {
+            $this->UpdateFormField('ReviewHint', 'visible', false);
+            return;
+        }
         $this->WriteAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, true);
         $this->UpdateFormField('ReviewHint', 'visible', false);
+        $this->PropagateDismissToSiblings('IHUBTILE_DismissReviewHint');
+    }
+
+    // Ausblenden ueber alle anderen InverterHubTile-Instanzen teilen (SUITE.md
+    // "Ausblenden ueber mehrere Instanzen desselben Moduls teilen",
+    // 14.09.2026) - kein neuer Speicher-Mechanismus, ruft schlicht dieselbe
+    // bereits vorhandene Methode auf jeder Geschwister-Instanz auf. Die
+    // aufgerufene Methode selbst entscheidet per eigenem Idempotenz-Check
+    // (s. o.), ob sie ihrerseits weiterpropagiert.
+    private function PropagateDismissToSiblings(string $globalFunction): void
+    {
+        if (!function_exists($globalFunction)) {
+            return;
+        }
+        foreach (IPS_GetInstanceListByModuleID(self::SELF_MODULE) as $siblingID) {
+            if ($siblingID === $this->InstanceID) {
+                continue;
+            }
+            try {
+                $globalFunction($siblingID);
+            } catch (Throwable $e) {
+                $this->LogMessage('Ausblenden konnte nicht an Instanz ' . $siblingID . ' weitergereicht werden: ' . $e->getMessage(), KL_WARNING);
+            }
+        }
     }
 
     // Setzt die Optionen der Spalte „Art" in der Verbraucher-Liste aus
@@ -1117,8 +1192,18 @@ class InverterHubTile extends IPSModule
 
     public function AckNews()
     {
+        // Idempotenz-Guard wie bei DismissReviewHint() - verhindert Ping-Pong
+        // beim Cross-Instanz-Propagieren. "Was ist Neu?" ist versionsbezogen:
+        // jede Instanz schreibt beim Aufruf ihre EIGENE NEWS_VERSION, nicht
+        // eine von aussen mitgegebene - korrekt, solange alle Geschwister-
+        // Instanzen denselben Codestand haben (Normalfall), s. SUITE.md.
+        if ($this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {
+            $this->UpdateFormField('NewsPanel', 'visible', false);
+            return;
+        }
         $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
         $this->UpdateFormField('NewsPanel', 'visible', false);
+        $this->PropagateDismissToSiblings('IHUBTILE_AckNews');
     }
 
     // Idents der Quell-Instanz liegen ggf. in Unterkategorien, daher

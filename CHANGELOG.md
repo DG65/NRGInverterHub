@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.76.1-beta.11 (2026-09-14)
+
+- **`InverterHubTile`: Ausblenden von "Was ist Neu?" und dem Forum-Hinweis über mehrere
+  Kacheln-Instanzen geteilt** (Verbund-Konvention, Dietmar 14.09.2026). Wer mehrere
+  InverterHubTile-Kacheln hat, musste bislang jeden Hinweis in jeder Kachel einzeln
+  wegklicken. Ein Klick auf "Nicht mehr anzeigen"/"Verstanden" wirkt jetzt automatisch auf
+  alle anderen InverterHubTile-Instanzen mit; eine neu angelegte Kachel übernimmt beim
+  Erstellen einmalig den Stand einer vorhandenen. Mit einem dauerhaften Regressionstest
+  (`.tools/test-tile-dismiss-share.php`) gegen Ping-Pong-Endlosschleifen abgesichert.
+
 ## 0.76.1-beta.10 (2026-09-14)
 
 - **Store-Checkliste Punkt 12: kein Hersteller mehr vorausgewählt.** `Manufacturer` defaultete

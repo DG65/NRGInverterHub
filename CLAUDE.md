@@ -1,5 +1,35 @@
 # Hinweise für die Arbeit an diesem Repository
 
+## Geteiltes Ausblenden über mehrere Instanzen desselben Moduls (14.09.2026)
+
+Verbund-Konvention (Dietmar, SUITE.md 14.09.2026): "Was ist Neu?" und der Forum-Hinweis liegen
+als `RegisterAttributeBoolean`/`-String` IMMER pro Instanz — Symcon kennt keinen modulweiten
+Speicher. Bei `InverterHubTile` (mehrere Kacheln möglich) musste der Nutzer denselben Hinweis
+sonst mehrfach wegklicken. Umgesetzt ohne neuen Speicher-Mechanismus:
+
+- `DismissReviewHint()`/`AckNews()` rufen nach dem eigenen Ausblenden zusätzlich
+  `PropagateDismissToSiblings()` auf: alle `InverterHubTile`-Geschwister-Instanzen
+  (`IPS_GetInstanceListByModuleID(self::SELF_MODULE)`, sich selbst ausgenommen) über die
+  globale Wrapper-Funktion (`IHUBTILE_DismissReviewHint($siblingID)` bzw. `IHUBTILE_AckNews`).
+- **Idempotenz-Guard gegen Ping-Pong ist Pflicht:** Beide Methoden prüfen VOR dem Schreiben, ob
+  der Zustand schon gesetzt ist — nur dann wird propagiert. Ohne diesen Guard riefen sich zwei
+  Instanzen gegenseitig endlos auf (A→B→A→B→...).
+- **Attribute sind von außen NICHT über `IPS_GetObjectIDByIdent`/`GetValue*` lesbar** (anders
+  als Variablen — Attribute haben keine Objekt-ID). Für Punkt „neue Instanz übernimmt Stand
+  einer Geschwister-Instanz" (in `Create()`) gibt es deshalb eine eigene öffentliche Methode
+  `GetDismissState()`, die über den globalen Wrapper `IHUBTILE_GetDismissState($siblingID)`
+  aufgerufen wird.
+- „Was ist Neu?" ist versionsbezogen: Jede Instanz schreibt beim Propagieren ihre EIGENE
+  `NEWS_VERSION`-Konstante (nicht eine mitgegebene), korrekt solange alle Geschwister-Instanzen
+  denselben Codestand haben.
+- Dauerhafter Regressionstest: `.tools/test-tile-dismiss-share.php` (extrahiert nur die
+  betroffenen Methoden, simuliert mehrere Instanzen in einem Prozess) — prüft explizit die
+  Ping-Pong-Terminierung bei 2 und 3 Instanzen. `php .tools/test-tile-dismiss-share.php` vor
+  jeder Änderung an dieser Logik laufen lassen.
+- Gilt NUR innerhalb eines Moduls (alle `InverterHubTile`-Instanzen untereinander), nie
+  modulübergreifend. Betrifft nur `InverterHubTile` (mehrere Instanzen möglich), nicht die
+  Hauptinstanz `InverterHub` (üblicherweise nur eine pro Wechselrichter).
+
 ## Branch-Drift `ems-integration` → `beta`: Batch-Fix + Diagnostik nachgezogen (12.09.2026)
 
 Beim Diffen für die EMS-Sitzung (Anlass: neuer `gridServiceCapabilities`-Vertrag) aufgefallen:
