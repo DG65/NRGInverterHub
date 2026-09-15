@@ -1,134 +1,143 @@
 # Changelog
 
-## 0.76.1-beta.14 (2026-09-14)
+## 0.77.0-beta.1 (2026-09-15)
+
+**Konsolidierungs-Release: `ems-integration` löst den bisherigen `beta`-Stand vollständig ab.**
+Dietmars Entscheidung, nachdem alle Store-Checkliste-Punkte und die Kachel-Konsolidierung
+abgeschlossen waren. Für bestehende Installationen wichtig:
+
+- **`InverterHubTile`/`InverterHubMonitor`/`InverterHubEnergy` sind ab jetzt reine
+  Übergangs-Hüllen** — sie zeigen nur noch einen Hinweis, ihre Funktion ist zu **NRG-Stack
+  Dashboard** gewandert (`NRGDashboardTile` bzw. `NRGDashboardPVMonitor`, Reiter „MPP-Tracker"/
+  „Energiebilanz"). Bestehende Instanzen dieser drei Module bekommen dadurch **keinen Fatal
+  Error**, sondern eine Anleitung in der Konsole, wie auf die Dashboard-Kacheln umgestellt
+  wird. Bekannte kleine Lücke: rein manuelle Hauslast-Zuordnung (`ManualHouseID`/
+  `HouseLoadMeterID`) ohne MeterHub-Gerät muss bei Dashboard neu eingetragen werden.
+- **`InverterHub`/`InverterHubDiscovery` bringen alle bisher nur auf `ems-integration`
+  gelaufenen Erweiterungen mit**, u. a. `gridServiceCapabilities`/`svc_*` (netzdienliche
+  EMS-Bausteine, aktuell nur GoodWe), Mehrblock-Batterie-Felder (`batteryTempIDs`/
+  `batterySocIDs`/`batterySohIDs`/`batteryCapacityID`) und MPPT-Strang-Felder
+  (`mpptPowerIDs`/`mpptCurrentIDs`/`mpptVoltageIDs`) im `IHUB_GetFunctions`-Vertrag, sowie
+  diverse Treiber-Fixes (Modbus-Transaktions-ID-Prüfung, GoodWe-Verbindungs-Batching,
+  255/STOPPED-Totmann-Erkennung).
+- Alle darüber liegenden Änderungen aus den vorherigen `ems-integration`-Einträgen unten
+  (Kachel-Hüllen, Lizenz-/Forum-Panel, "Wozu dieses Modul?", FoxESS/Huawei-Doku) sind
+  ebenfalls Teil dieses Releases.
+
+`migrationsvergleich.php` gegen den vorherigen `beta`-Stand zeigt daher einen großen, aber
+**bewussten und beabsichtigten** Bruch bei den drei entkernten Modulen — kein Versehen.
+
+## 0.76.0-beta.14 (2026-09-14)
+
+- **Übergangs-Hüllen-Hinweistexte mit den von Dashboard bestätigten Nachfolgekacheln
+  präzisiert:** `InverterHubTile` → `NRGDashboardTile`; `InverterHubMonitor`/
+  `InverterHubEnergy` → `NRGDashboardPVMonitor` (Reiter „MPP-Tracker" bzw. „Energiebilanz"),
+  beide aus der Bibliothek „NRG-Stack Dashboard". Bekannte kleine Lücke (rein manuelle
+  Hauslast-Zuordnung ohne MeterHub) im `InverterHubTile`-Hinweistext ergänzt.
+
+## 0.76.0-beta.13 (2026-09-14)
+
+- **Uebergangs-Huellen fuer `InverterHubTile`/`InverterHubMonitor`/`InverterHubEnergy`
+  gebaut** (EMS-Vorschlag, Dietmar-Freigabe): Gleiche Modul-GUID/Klasse/Ident-Praefix wie auf
+  `beta`, aber komplett entkernt — zeigen nur noch einen Hinweis, dass NRGDashboard die
+  Funktion übernommen hat, statt bei einem künftigen `ems-integration`→`beta`-Merge mit
+  Fatal Error abzubrechen. Der Merge selbst ist noch nicht erfolgt.
+
+## 0.76.0-beta.12 (2026-09-14)
 
 - **"🧡 Über dieses Modul"-Panel ergänzt** (Verbund-Konvention Formularpunkt 5, "Variante A",
-  EMS-Auftrag 14.09.2026) — Lizenzhinweis (PolyForm Noncommercial 1.0.0), Kontakt für
-  gewerbliche Anfragen und PayPal-Spendenlink, ganz unten im Formular, nicht dismissible.
-  In allen 5 Modulen (`InverterHub`, `InverterHubDiscovery`, `InverterHubTile`,
-  `InverterHubMonitor`, `InverterHubEnergy`).
-- **Symcon-Forum-Hinweis auf MeterHubs Muster umgestellt:** statt eines Labels mitten im
-  Formular jetzt ein eigenes, dismissibles ExpansionPanel "💬 Feedback im Symcon-Forum" mit
-  einem echten "Zum Forums-Thread"-Knopf (`onClick`-Echo + `link: true`, das dokumentiert
-  verlässliche Muster für Link-Buttons statt eines reinen `Label` mit `link: true`).
+  EMS-Auftrag) — Lizenzhinweis (PolyForm Noncommercial 1.0.0), Kontakt für gewerbliche
+  Anfragen, PayPal-Spendenlink, ganz unten im Formular, nicht dismissible. In `InverterHub`
+  und `InverterHubDiscovery`.
+- **Symcon-Forum-Hinweis auf MeterHubs Muster umgestellt:** eigenes dismissibles
+  ExpansionPanel "💬 Feedback im Symcon-Forum" mit echtem "Zum Forums-Thread"-Knopf statt
+  eines Labels mitten im Formular.
 
-## 0.76.1-beta.13 (2026-09-14)
+## 0.76.0-beta.11 (2026-09-14)
 
-- **Doku-Panel-Text nachgezogen (Dietmars zweiter Blick vor dem Store-Launch):** Die
-  Herstellerliste im "📖 Dokumentation & Hilfe"-Panel von `InverterHub` nannte FoxESS nicht,
-  obwohl es seit 0.74.1 unterstützt wird. Ergänzt, zusammen mit einem Hinweis, dass Huawei
-  SUN2000 inzwischen an einer echten Anlage live bestätigt ist (nicht mehr nur "im Test").
+- **Doku-Panel-Text nachgezogen (Dietmars zweiter Blick vor dem Store-Launch):** Huawei
+  SUN2000 ist inzwischen an einer echten Anlage live bestätigt — Hinweis dazu im
+  "📖 Dokumentation & Hilfe"-Panel von `InverterHub` ergänzt.
 
-## 0.76.1-beta.12 (2026-09-14)
+## 0.76.0-beta.10 (2026-09-14)
 
-- **Neues Panel „👋 Wozu dieses Modul?"** in `InverterHub`, `InverterHubDiscovery`,
-  `InverterHubTile`, `InverterHubMonitor` und `InverterHubEnergy` — ganz oben im Formular,
-  noch vor „Was ist Neu?" (Store-Checkliste Punkt 0, Verbund-Konvention, EMS 14.09.2026,
-  Referenzimplementierung MeterHub). Einmalig dismissible, kein Versionsbezug. Bei
-  `InverterHub`/`InverterHubDiscovery`/`InverterHubTile` (potenziell mehrere Instanzen)
-  teilt sich das Ausblenden wie bei „Was ist Neu?"/Forum-Hinweis über alle Geschwister-
-  Instanzen desselben Moduls; `InverterHubMonitor`/`InverterHubEnergy` sind typischerweise
-  Einzelinstanzen und bekommen daher nur das einfache Ausblenden ohne Geschwister-Abgleich.
-  Permanenter Regressionstest `.tools/test-tile-dismiss-share.php` um die neuen
-  `AckPurposeIntro()`-Fälle erweitert.
+- **Neues Panel „👋 Wozu dieses Modul?"** in `InverterHub` und `InverterHubDiscovery`, ganz
+  oben im Formular, noch vor „Was ist Neu?" (Store-Checkliste Punkt 0, Verbund-Konvention,
+  Referenzimplementierung MeterHub). Einmalig dismissible, kein Versionsbezug. Ausblenden
+  teilt sich wie bei „Was ist Neu?"/Forum-Hinweis über alle Geschwister-Instanzen desselben
+  Moduls (`PropagateDismiss()`/`AdoptDismissState()`/`GetDismissState()`).
 
-## 0.76.1-beta.11 (2026-09-14)
+## 0.76.0-beta.9 (2026-09-13)
 
-- **`InverterHubTile`: Ausblenden von "Was ist Neu?" und dem Forum-Hinweis über mehrere
-  Kacheln-Instanzen geteilt** (Verbund-Konvention, Dietmar 14.09.2026). Wer mehrere
-  InverterHubTile-Kacheln hat, musste bislang jeden Hinweis in jeder Kachel einzeln
-  wegklicken. Ein Klick auf "Nicht mehr anzeigen"/"Verstanden" wirkt jetzt automatisch auf
-  alle anderen InverterHubTile-Instanzen mit; eine neu angelegte Kachel übernimmt beim
-  Erstellen einmalig den Stand einer vorhandenen. Mit einem dauerhaften Regressionstest
-  (`.tools/test-tile-dismiss-share.php`) gegen Ping-Pong-Endlosschleifen abgesichert.
+- **Store-Checkliste 9c nachgezogen (ChargerHub-Fund):** `ReadAttributeString()` (ResultsJSON,
+  VictronYieldState) wurde ungecastet an `json_decode()` weitergereicht — bei `false` während
+  eines Kernel-Reloads wäre das still zu leeren/verlorenen Zwischenergebnissen geworden. Jetzt
+  mit `(string)`-Cast abgesichert.
 
-## 0.76.1-beta.10 (2026-09-14)
+## 0.76.0-beta.8 (2026-09-13)
 
-- **Store-Checkliste Punkt 12: kein Hersteller mehr vorausgewählt.** `Manufacturer` defaultete
-  bisher auf `goodwe` (erster Listeneintrag, zufällig auch Dietmars eigene Anlage) — ein Nutzer
-  mit anderem Wechselrichter, der Host einträgt und die Auswahl übersieht, hätte ggf. eine
-  „erfolgreiche" Verbindung mit unsinnigen Werten bekommen (analoger Fund bei ChargerHub am
-  selben Muster). Jetzt „— bitte wählen —" als Vorgabe; ohne aktive Wahl bleibt die Instanz
-  inaktiv (Status 104, klarer Hinweistext) statt still mit GoodWe-Registern gegen ein fremdes
-  Gerät zu sprechen. Bestehende Installationen mit bereits gewähltem Hersteller sind unberührt
-  (Default wirkt nur bei Neuanlage). Migrationsvergleich: kein Bruch.
+- **Verbund-Regel 9b (echte Umlaute) angewendet:** `InverterHubDiscovery` hatte eine
+  Log-Meldung mit „moeglich" statt „möglich". Durchsucht auf ASCII-Transliterationen
+  (fuer/ueber/koennen/waere/...) und ISO-Datumsformate in nutzersichtbaren Texten — sonst
+  keine weiteren Fundstellen, alle Formularcaptions/-labels nutzten bereits echte Umlaute und
+  nur Uhrzeit- (nicht Datums-)Ausgaben.
 
-## 0.76.1-beta.9 (2026-09-14)
+## 0.76.0-beta.7 (2026-09-13)
 
-- **`ArchiveValueAt()` vereinfacht:** Die Fenster-Logik aus beta.7 war laut MeterHubs Gegentest
-  nicht nötig (`Limit=1` schützt bereits zuverlässig auch über unbegrenzte Zeiträume) — zurück
-  auf die einfache Einzelabfrage, nur mit `false`-Logging ergänzt. Weniger Code für dieselbe
-  Sicherheit.
+- **Formular-Konvention „Feld-Hilfestellung" angewendet:** Der `PopupButton` bei „Steuerhoheit
+  dieser Instanz" zeigte bisher nur „?" (70px) statt der vollen Frage. Jetzt Caption = „Steuerhoheit
+  — was bedeutet das?" (480px), passend zur seit 01.09.2026 verbundweit geltenden Konvention.
 
-## 0.76.1-beta.8 (2026-09-14)
-
-- **Doku-Korrektur zu 9g (MeterHub-Gegentest):** Die vorige Version behauptete, der 9g-Fund
-  betreffe `ArchiveValueAt()` UND `ArchiveEarliest()` gleichermaßen. Tatsächlich belegt war nur
-  `ArchiveEarliest()` (echtes `Limit=0`) — `ArchiveValueAt()` hatte bereits `Limit=1`, und ein
-  Gegentest von MeterHub zeigt, dass ein kleines `Limit` auch über unbegrenzte Zeiträume
-  zuverlässig schützt. Kein Code-/Verhaltensunterschied, nur Kommentare/Changelog korrigiert.
-
-## 0.76.1-beta.7 (2026-09-14)
-
-- **Store-Checkliste 9g (Dashboard-Fund):** `AC_GetAggregatedValues` mit `Limit=0` (unbegrenzt)
-  bricht ab, wenn intern mehr als ~50.000 Werte im abgefragten Zeitraum liegen, und liefert
-  dann `false` — mit `@` unterdrückt verschwindet das bisher still. Bestätigt betraf uns
-  `InverterHubEnergy::ArchiveEarliest()`, die genau mit diesem `Limit=0` seit Register-Epoche
-  (Zeitstempel 0) abfragte. Fragt jetzt erst per billiger Tages-Aggregation den ersten Tag mit
-  Daten ab und dann nur diesen einen Tag roh. `ArchiveValueAt()` (bereits mit `Limit=1`) lief
-  ebenfalls auf enge, wachsende Fenster statt Epoche um, als Vorsichtsmaßnahme — nach einem
-  Gegentest von MeterHub (direkter Vergleich an einer sehr dicht geloggten Variable) schützt
-  ein kleines `Limit` aber offenbar zuverlässig auch über unbegrenzte Zeiträume; dieser Teil war
-  vermutlich keine Voraussetzung, schadet aber nicht. Alle Archivabfragen in
-  `InverterHubEnergy`/`InverterHubMonitor`/`InverterHubTile` melden `false` zusätzlich als
-  Warnung im Instanz-Log statt es als "keine Daten" zu werten.
-
-## 0.76.1-beta.6 (2026-09-13)
-
-- **Store-Checkliste 9c nachgezogen (ChargerHub-Fund):** Drei Stellen reichten
-  `ReadAttributeString()` ungecastet an `json_decode()` weiter (`InverterHubDiscovery`
-  `ResultsJSON`, `InverterHubTile` `YesterdayCache`, `InverterHub` `VictronYieldState`) — bei
-  `false` während eines Kernel-Reloads wäre das still zu leeren/verlorenen Zwischenergebnissen
-  geworden. Jetzt mit `(string)`-Cast abgesichert.
-
-## 0.76.1-beta.5 (2026-09-13)
-
-- **Store-Checkliste 9d: keine Fehlerstatus für bewusst inaktive Instanzen.**
-  `InverterHubMonitor`, `InverterHubEnergy` und `InverterHubTile` meldeten „keine Quelle
-  gewählt"/„keine Datenpunkte zugewiesen" bisher mit Status 201/202 (Fehler-Bereich) —
-  ein systemweiter Integrity-Check/Watchdog kann das fälschlich als echten Fehler werten
-  (siehe der reale ModbusSlave/Solarpark-Vorfall). Jetzt einheitlich `IS_INACTIVE` (104).
-  `InverterHub` und `InverterHubDiscovery` hatten das bereits korrekt.
-
-## 0.76.1-beta.4 (2026-09-12)
+## 0.76.0-beta.6 (2026-09-12)
 
 - **Dauerhafter Regressionstest für `IHUB_ModbusTcpClient`:** `.tools/test-modbus-client.php`
   (Aufbau von MeterHub übernommen) — echter Modbus-TCP-Testserver, prüft Batch- vs.
-  Einzel-Verbindungsmodus und explizit den Transaktions-ID-Fund vom 02./12.09.2026 (fremder
-  Frame mit falscher TID vor der echten Antwort). Keine Verhaltensänderung am Modul.
+  Einzel-Verbindungsmodus und explizit den Transaktions-ID-Fund vom 12.09.2026 (fremder Frame
+  mit falscher TID vor der echten Antwort). Kein Verhaltensänderung am Modul, nur Testabdeckung.
 
-## 0.76.1-beta.3 (2026-09-12)
+## 0.76.0-beta.5 (2026-09-12)
 
-- **GoodWe: Batch-Modus gegen Verbindungs-Konkurrenz bei Schaltbefehlen** (nachgezogen aus
-  `ems-integration`, dort seit 24.08.2026): `readFast()` öffnete bisher für jeden der ~15-20
-  Register-Blöcke eine eigene, frisch geöffnete Verbindung — fiel ein Schaltbefehl
-  (`RequestAction`) in dieses mehrere Sekunden lange Lesefenster, konkurrierte er mit den
-  laufenden Lese-Verbindungen um die GoodWe-Firmware (Symptom: Schaltbefehl laut IPS-Variable
-  sofort übernommen, reale Batterieleistung blieb aber 20-50+ Sekunden bei ~0 W). `readFast()`
-  läuft jetzt wie beim Sungrow-Treiber in `beginBatch()`/`endBatch()` — eine wiederverwendete
-  Verbindung für den gesamten Lesezyklus.
-- **GoodWe: zusätzliche Diagnostik nachgezogen** — `diag_status_l` (Bitfeld-Diagnose, Register
-  35220, u. a. Batterieüberladung/BMS-Überladung), `bms1_err_code`/`bms1_warn_code` (separater
-  BMS-Fehler-/Warncode-Block, erfasst Batteriestring-Schutzereignisse, die die
-  wechselrichterseitigen `warn_code`/`err_msg`-Register nicht zeigen) und `derate_pct`
-  (70%-Regel-Abregelung, rein anzeigend).
+- **Anzeigename im Modulbaum gekürzt:** „NRG-Stack InverterHub for IP-Symcon" → „NRG-Stack
+  InverterHub" (Anglizismus/Redundanz entfernt, Symcon zeigt ohnehin nur IP-Symcon-Module an).
 
-## 0.76.1-beta.2 (2026-09-12)
+## 0.76.0-beta.4 (2026-09-12)
 
-- **Anzeigename im Modulbaum gekürzt:** „InverterHub for IP-Symcon" → „InverterHub"
-  (Anglizismus/Redundanz entfernt, Symcon zeigt ohnehin nur IP-Symcon-Module an).
+- **`svc_*`: Abbruch bei fehlgeschlagenem Null-Schritt (EMS-Fund):** Scheiterte bislang der
+  Null-Schritt (Leistung vorab auf 0) bei einem echten Moduswechsel, wurde der Modus trotzdem
+  geschrieben — genau der Zwischenzustand (neuer Modus mit alter Leistung), den der Null-Schritt
+  verhindern soll. `writeGridService()` bricht jetzt in diesem Fall sofort ab (Modus/Leistung/
+  enable bleiben unangetastet, Wechselrichter bleibt im alten Zustand) und meldet es sichtbar.
 
-## 0.76.1-beta.1 (2026-09-02)
+## 0.76.0-beta.3 (2026-09-12)
+
+- **`svc_*`-Schreibreihenfolge erneut korrigiert (EMS-Fund, zweite Runde):** Die vorige
+  Reihenfolge (enable → Leistung → Modus) hatte dasselbe Loch in der Gegenrichtung — kurz galt
+  der ALTE Modus mit der NEUEN Leistung. Da Modus 3 ein erzwungener Sollwert ist, hat jede feste
+  Zwei-Schritt-Reihenfolge für irgendeinen Übergang ein Loch. Neu: Übergang über Null, aber nur
+  bei echtem Moduswechsel — Leistung=0 → Modus=Ziel → Leistung=Zielwert (falls >0) → enable=false.
+  Bleibt der Modus gleich (nur die Leistung ändert sich), entfällt der Null-Schritt.
+
+## 0.76.0-beta.2 (2026-09-12)
+
+- **`svc_*`-Schreibreihenfolge korrigiert (EMS-Fund):** `writeGridService()` schrieb bisher
+  Modus → Leistung → enable. Da Modus 3 ein erzwungener Sollwert ist (keine Obergrenze), galt
+  zwischen Modus- und Leistungs-Schreibvorgang kurz die ALTE Leistung unter dem NEUEN Modus —
+  ein Wechsel aus Modus 4/9 in Modus 3 konnte so kurzzeitig mit der alten (ggf. hohen) Leistung
+  entladen. Neue Reihenfolge: enable=false → Leistung → Modus.
+- **Teilerfolg wird nicht mehr als „aktiv" angezeigt:** Scheitert einer der drei Schreibvorgänge,
+  bleibt der bisherige `svc_*`-Anzeigezustand stehen und eine Warnung wird sichtbar gemeldet,
+  statt einen ungewissen Wechselrichter-Zustand als aktiv zu behaupten.
+
+## 0.76.0-beta.1 (2026-09-12)
+
+- **`IHUB_GetFunctions` 1.2 → 1.3: `gridServiceCapabilities`.** Neuer, additiver Verbund-Vertrag
+  mit EMS für dessen netzdienliche Bausteine (Mittagsspitze in die Batterie, Netzladen bei
+  Netzüberschuss, Einspeisen aus der Batterie bei Netzknappheit). Vier generische Steuer-Idents
+  (`svc_charge_inhibit`, `svc_grid_charge_w`, `svc_discharge_to_grid_w`, `svc_release`), aktuell
+  nur beim GoodWe-Treiber umgesetzt — die übrigen 14 Treiber melden weiterhin eine leere
+  Fähigkeitenliste. Details/Register-Mapping in `CLAUDE.md`.
+
+## 0.75.1-beta.1 (2026-09-02)
 
 - **Fehlerhafte Modbus-Antworten (fehlende Transaktions-ID-Prüfung) behoben:** Im Batch-Modus
   (eine wiederverwendete Verbindung für viele Reads pro Zyklus) prüfte `readHolding()`/
@@ -142,71 +151,139 @@
   Nichttreffer wird verworfen statt verwertet. Betrifft alle 15 Treiber gemeinsam (geteilte
   `IHUB_ModbusTcpClient`-Klasse).
 
-## 0.76.0-beta.8 (2026-09-02)
+## 0.75.0-beta.2 (2026-08-29)
 
-- **Zwei neue Verbraucher-Arten:** „Haushaltsgeräte (allgemein)" und „Unterhaltungsmedien" —
-  nachgezogen aus dem MeterHub-Vokabular (`FUNCTIONS`-Einträge `appliances`/`entertainment`,
-  Commit `becfcaf` im MeterHub-Repo), damit entsprechend zugeordnete Sammelzähler in der
-  Stromflusskachel als eigener Verbraucher-Kreis statt gar nicht erscheinen.
+- **Formular-Gate wieder entfernt (Dietmar: „nicht doppelt gemoppelt").** Nach der Übergabe
+  der Steuerungs-Politik ans EMS blieben hinter dem Freischalt-Haken nur noch zwei harmlose
+  Kommunikations-Einstellungen (Datenpunkt-Gruppe „EMS-Steuerung", Steuerhoheit) — die
+  Absicherung passiert jetzt im EMS, das Gate war Redundanz. Beide Felder stehen wieder
+  direkt im Datenpunkte-Panel.
 
-## 0.76.0-beta.7 (2026-08-29)
+## 0.75.0-beta.1 (2026-08-29)
 
-- **Tour-Text korrigiert (Batterie-Füllstand):** Der Knotenkreis füllt sich von unten — kein
-  „steigendes Rechteck" (die Beschreibung stammte aus einer älteren Darstellungsvariante).
+- **Architektur-Schnitt: InverterHub ist reine Kommunikationsschicht — jede Steuerungs-Politik
+  liegt beim EMS.** Auf Dietmars Entscheidung wurden alle in den letzten Builds entstandenen
+  Politik-Mechanismen wieder ENTFERNT: `EmsReassertEnabled`/`EmsWriteMode` (Reassert/Heartbeat),
+  `DeadmanBehavior` (automatischer Fallback auf `ctl_ems_enable=false`), Pendel-Bremse. Die
+  Konzepte sind an das EMS-Modul übergeben, das sie in seiner Regelschleife umsetzt (dort mit
+  vollem Zustandswissen besser aufgehoben — OpenEMS macht es genauso: Heartbeat aus dem
+  Controller, nicht aus dem Modbus-Treiber).
+  Bei InverterHub bleiben nur Kommunikation und ehrliches Reporting: Rücklesen von
+  `ctl_ems_mode`/`ctl_ems_power` je Zyklus, der 255-Profileintrag „⚠️ Totmann: Steuerung
+  verloren", eine einmalige Log-Warnung beim Übergang auf 255 sowie der Steuerhoheits-Guard.
+- **Neues Formular-Gate:** Alle Steuerungsoptionen (Datenpunkt-Gruppe „EMS-Steuerung",
+  Steuerhoheit) sind standardmäßig ausgeblendet — für reines Monitoring bleibt das Formular
+  frei davon. Ein Haken „🛑 Steuerungsfunktionen anzeigen (auf eigene Gefahr)" blendet die
+  Sektion samt deutlichem Gefahrenhinweis live ein.
 
-## 0.76.0-beta.6 (2026-08-29)
+## 0.74.6-beta.1 (2026-08-29)
 
-- **Tour-Text präzisiert:** Die Detailseite ist kachelfüllend, nicht bildschirmfüllend — je
-  größer die Kachel, desto größer die Ansicht.
+- **GoodWe: Totmann-Verhalten und Schreibstrategie als bewusste Nutzerentscheidung.** Der
+  Firmware-Totmann (Selbst-Stopp auf 255 bei ausbleibendem EMS-Heartbeat) ist ein
+  beabsichtigter Sicherheitsmechanismus — je nach Anlage/Gebäude ist mal der Stopp, mal die
+  Verfügbarkeit das richtige Verhalten. Deshalb zwei neue Auswahlfelder (nur GoodWe):
+  - **„Verhalten bei Totmann-Auslösung"**: „Sicherheits-Stopp beibehalten" (Standard — WR
+    bleibt gestoppt, nur einmalige Log-Warnung beim Übergang) oder „Automatisch in
+    Eigenregelung zurückfallen" (Modul schaltet `ctl_ems_enable` aus, WR regelt selbst weiter).
+  - **„Schreibstrategie für die EMS-Vorgabe"**: „Nur auf Befehl" (Standard, Totmann voll
+    wirksam), „Bei Abweichung nachschreiben" (sparsame Selbstheilung, ersetzt die bisherige
+    Reassert-Checkbox) oder „Dauer-Heartbeat" (OpenEMS-Stil, jeden Zyklus — der Totmann feuert
+    damit NIE; der WR läuft bei Ausfall der Steuerlogik im letzten Modus weiter, Hilfetext
+    warnt ausdrücklich).
+  Die alte Checkbox „EMS-Vorgabe automatisch wiederholen" ist durch die Schreibstrategie
+  ersetzt (wer sie aktiv hatte: „Bei Abweichung nachschreiben" wählen).
 
-## 0.76.0-beta.5 (2026-08-29)
+## 0.74.5-beta.2 (2026-08-29)
 
-- **Tour-Startseite mit Ausblick-Hinweis:** Der erste Tour-Schritt sagt jetzt ausdrücklich,
-  dass die Tour auch ein Ausblick ist und einige gezeigte Funktionen (Preis-Verlauf, Netzampel,
-  „Für mich"-Kennzahlen) mangels angebundener Variablen/Partnermodul-Instanzen in dieser
-  Kachel-Ausgabe noch nicht erscheinen.
+- **GoodWe: 255 bekommt eigene Anzeige „⚠️ Totmann: Steuerung verloren" (Warnrot).** Ohne
+  eigenen Profileintrag zeigte IP-Symcon für den zurückgelesenen Wert 255 irreführend die
+  letzte Assoziation („Batterie - Entladen") an — real auf falsche Fährte geführt. 255 ist der
+  offizielle STOPPED-Modus der Firmware (Totmann-Vollzug bei ausbleibendem EMS-Heartbeat) und
+  hat jetzt einen unmissverständlichen, rot markierten Eintrag im `GWH.EMSMode`-Profil. Kein
+  gültiger Setz-Wert — `writeControl()` erlaubt weiterhin nur 0–12. Der Profileintrag kommt bei
+  bestehenden Instanzen mit dem nächsten Übernehmen automatisch an.
 
-## 0.76.0-beta.4 (2026-08-29)
+## 0.74.5-beta.1 (2026-08-29)
 
-- **Gesundheitsanzeige angebunden:** Die Diagnoseleiste (Warndreieck) der neuen Kachel zeigt
-  jetzt die Einträge des `IHUBMON_GetDiagnostics`-Vertrags (Ertrag vs. Prognose,
-  MPPT-Strangvergleich, Isolationswiderstand), sofern eine `InverterHubMonitor`-Instanz mit
-  derselben Datenquelle existiert — optionale Kopplung, ohne Monitor bleibt die Leiste aus.
-- **Geisterringe angebunden:** Jeder Knoten zeigt als zweiten Ring den Wert von gestern zur
-  selben Uhrzeit (aus dem Archiv, 5-Minuten-Cache) — nur bei archivierten Variablen.
+- **GoodWe: Totmann-Empfänger für den 255-Rückfall (Live-Experiment auf Dietmars Anweisung).**
+  A/B-Test bestätigte: Register 47511 fällt NUR bei `ctl_ems_enable=true` auf 255 zurück
+  (~70-120 s ohne Heartbeat) — mutmaßlich ein absichtliches "externe Steuerung ausgefallen"-
+  Signal der Firmware (OpenEMS schreibt sekündlich neu und sieht die 255 deshalb nie). Neu:
+  Erkennt `readFast()` die 255 im zurückgelesenen Registerwert, schaltet das Modul
+  `ctl_ems_enable` automatisch auf Aus (WR fällt in native Eigenregelung zurück) und meldet das
+  als Warnung im Log. Zusätzlich wurde die Betriebsempfehlung gedreht: Steuerung über
+  `ctl_ems_mode`/`ctl_ems_power` grundsätzlich mit `ctl_ems_enable=false` fahren (hält stabil,
+  live verifiziert), `enable=true` nur mit aktivem Reassert.
 
-## 0.76.0-beta.3 (2026-08-29)
+## 0.74.4-beta.1 (2026-08-28)
 
-- **Klick-Detailseite mit echtem Inhalt** (vorher Platzhalter-Hinweis): Klick auf einen
-  Knoten öffnet jetzt die Geräte-Detailseite mit aktuellem Leistungswert, Variablenwerten,
-  5-Minuten-Tagesverlauf und 14-Tage-Energiebalken (aus der Leistung integriert, als
-  Näherung gekennzeichnet — die Kachel kennt nur Leistungsvariablen, keine Zähler) inkl.
-  Tages-Navigation. „Für mich"-Kennzahlen und Unterzähler der NRGDashboard-Fassung bleiben
-  vorerst aus.
-- **Vierter Doppelpfeil-Regler ergänzt:** „Inaktive Knotenpunkte ausblenden statt nur
-  ausgrauen" fehlte in beta.2 — jetzt vollständige Parität mit der NRGDashboard-Kachel.
+- **`IHUB_GetFunctions()`: Vertrag 1.1 → 1.2, MPPT-Strangdetails exponiert.** Drei weitere
+  additive Felder `mpptPowerIDs`/`mpptCurrentIDs`/`mpptVoltageIDs` (je ein Array von
+  Variablen-IDs, ein Eintrag pro Strang) auf Anfrage von NRGDashboard für eine
+  Stromwerte-Tabelle je MPPT-Strang. Generisch über `FindVarByIdent()` je Treiber-Idiom
+  (`mpptN_current` vs. `mpptN_curr`) gesucht, kein Bruch für bestehende Konsumenten.
 
-## 0.76.0-beta.2 (2026-08-29)
+## 0.74.3-beta.1 (2026-08-28)
 
-- **Einführungs-Tour und Doppelpfeil-Einstellungen der neuen Kachel angebunden.** Neu: eigener
-  WebHook (`/hook/ihubtile<InstanzID>`) für die Tour-Bestätigung und die Standalone-Ausgabe der
-  Kachel (IPSView/Browser, mit Auto-Aktualisierung), Konsolen-Button „Einführungs-Tour erneut
-  anzeigen" im Doku-Panel (Verbund-Konvention SUITE.md), sowie drei bedienbare Instanz-Variablen
-  hinter dem WebFront-Doppelpfeil: „Blitzbögen an Leistung koppeln", „Leuchtschein an Leistung
-  koppeln", „Effekt-Intensität" (50–150 %). Die Klick-Detailseite der Kachel bleibt vorerst
-  deaktiviert (ehrliche Hinweisseite statt Fehler).
+- **`IHUB_GetFunctions()`: Vertrag 1.0 → 1.1, Mehrblock-Batterien exponiert.** Auf Anfrage von
+  NRGDashboard (Detailansicht der Energiefluss-Kachel) vier neue additive Felder:
+  `batteryTempIDs`/`batterySocIDs`/`batterySohIDs` (je ein Array von Variablen-IDs, ein Eintrag
+  pro erkanntem Batterie-Block) und `batteryCapacityID` (installierte Gesamtkapazität in kWh).
+  Aktuell nur beim GoodWe-Treiber befüllt (Dietmars eigene Anlage hat 2 Batterie-Türme mit
+  eigener Temperatur/SOC/SOH je Block, bisher nur intern verfügbar) — andere Treiber liefern
+  einfach leere Arrays, kein Bruch für bestehende Konsumenten.
 
-## 0.76.0-beta.1 (2026-08-29)
+## 0.74.2-beta.2 (2026-08-25)
 
-- **Neue Energiefluss-Darstellung für die Stromflusskachel.** Die Darstellungsschicht
-  (`module.html`) der `InverterHubTile` wurde durch die neu arrangierte Energieflusskachel des
-  NRGDashboard-Projekts ersetzt (gemeinsame Weiterentwicklung im NRG-Stack). Die Konfiguration
-  bleibt vollständig erhalten: alle Einstellungen (Datenquelle, Verbraucher, Fahrzeuge,
-  Hauslastzähler, Farben) wirken unverändert weiter — es ändert sich nur Optik/Interaktion.
-  Technisch: `BuildPayload()` übersetzt das bestehende Konfigurationsmodell per Adapter in das
-  neue Geräte-Schema; Zusatzfeatures der neuen Kachel (Klick-Detailseiten, Diagnose-Hinweise,
-  Preis-Verlauf u. a.) sind vorbereitet, aber im ersten Wurf bewusst deaktiviert.
+- **`ReassertEmsControl()`: von blindem Zeit-Reassert auf Drift-Prüfung umgestellt.** Real
+  beobachtet: Mit `EmsReassertEnabled=true` wurde der zuletzt kommandierte Wert (z. B.
+  "Entladen 10000 W") alle 60s stur neu geschrieben — auch wenn das Register längst korrekt
+  stand oder die Batterie im Standby war (dort wirkungslos). `readFast()` liest
+  `ctl_ems_mode`/`ctl_ems_power` jetzt jeden Zyklus tatsächlich zurück; reassertiert wird nur
+  noch bei tatsächlicher Abweichung vom kommandierten Wert. Reduziert unnötigen Modbus-Traffic
+  UND macht den gesetzten Modus zuverlässiger sticky (echte Selbstheilung bei Drift, z. B. dem
+  bekannten Rückfall auf 255, statt reiner Zeitsteuerung). **Noch nicht live gegengetestet.**
 
+## 0.74.2-beta.1 (2026-08-24)
+
+- **GoodWe: Lesezyklus auf Batch-Verbindung umgestellt.** Real beobachtet (Dietmars Anlage,
+  unabhängig auch von der EMS-Sitzung bestätigt): Schaltbefehle (`ctl_ems_mode`/`ctl_ems_power`)
+  wurden laut IPS-Variable sofort übernommen, die reale Batterieleistung blieb aber 20-50+
+  Sekunden bei ~0 W. Ursache: `readFast()` öffnete für jeden der ~15-20 Register-Blöcke eine
+  eigene, frische Modbus-Verbindung (kein Batch-Modus, anders als beim Sungrow-Treiber) —
+  konkurrierte mit der ebenfalls frisch geöffneten Verbindung eines gleichzeitigen
+  Schaltbefehls. Jetzt wie beim Sungrow-Treiber: eine wiederverwendete Verbindung für den
+  gesamten Lesezyklus. **Noch nicht live gegengetestet**, siehe CLAUDE.md.
+
+## 0.74.1-beta.3 (2026-08-21)
+
+- **FoxESS-Erkennung: zweite, komplett andere Registerwelt ergänzt.** Neuere Modelle mit
+  eingebautem WLAN-/LAN-Modbus-TCP-Server (H1-Gen2-WL, H3 Smart) nutzen einen anderen
+  Registerblock (31000er statt 10000/11000er) über FC03. `probeVendor('foxess')` prüft jetzt
+  beide Welten nacheinander. Unit-ID 247 durch ein reales FoxESS-Community-Forum-Fehlerprotokoll
+  bestätigt. **Achtung:** Der Kerntreiber `IHUB_FoxEssDriver` liest bislang nur den alten
+  10000/11000er-Block — für WLAN-Serie-Geräte zeigt eine gefundene Instanz aktuell vermutlich
+  noch keine echten Werte. Das ist ein separater, noch offener Folgefehler (siehe CLAUDE.md).
+
+## 0.74.1-beta.2 (2026-08-21)
+
+- **FoxESS-Erkennung: FC03-Fallback ergänzt.** Rückmeldung vom selben Beta-Tester: Port offen,
+  echtes Gerät vorhanden, aber die FC04-Erkennung aus 0.74.1-beta.1 fand es trotzdem nicht —
+  exakt das Muster der SMA-FC03/FC04-Falle (siehe CLAUDE.md). Die Erkennung versucht jetzt
+  zusätzlich FC03 (Holding) auf denselben Adressen, bevor der Hersteller als nicht erkannt
+  gilt. **Weiterhin unverifiziert an echter Hardware** — falls das immer noch nichts findet,
+  ist vermutlich die Unit-ID falsch, nicht der Funktionscode.
+
+## 0.74.1-beta.1 (2026-08-21)
+
+- **FoxESS in der Gerätesuche (`InverterHubDiscovery`) ergänzt.** Real gemeldet im Forum
+  (Beta-Tester "hbraun"/Horst): Das Kernmodul hat seit 0.74.0-beta.1 einen vollständigen
+  Read-Only-FoxESS-Treiber (H1/H3), die Gerätesuche kannte den Hersteller aber nicht — jeder
+  Scan endete mit „0 Geräte gefunden", unabhängig vom versuchten Port. Erkennungsmerkmal:
+  Betriebsstatus-Register (Input 11056, plausibler Enum-Wert 0–5) + Modellname (Input
+  10000–10007, ASCII), beide per FC04 wie im Kerntreiber. **Unit-ID-Kandidaten `247, 1` sind
+  eine Annahme** (analog zu GoodWes Konvention derselben Dokumentationsfamilie) — **noch nicht
+  an echter FoxESS-Hardware verifiziert**, siehe CLAUDE.md.
 
 ## 0.74.0-beta.1 (2026-07-25)
 

@@ -11,7 +11,12 @@
 
 class InverterHubDiscovery extends IPSModule
 {
-    private const INVERTERHUB_GUID = '{BBE2C593-1A91-426D-A714-29A9C7E87589}';
+    private const INVERTERHUB_GUID  = '{BBE2C593-1A91-426D-A714-29A9C7E87589}';
+    // Verbund-Absprache mit MigrationsHub (29.07.2026): Migration als Teil
+    // des normalen Scans statt separates Werkzeug. Rein additiv, komplett
+    // hinter function_exists() - ohne MigrationsHub installiert entfaellt
+    // nur der Migrations-Hinweis, der Rest der Suche bleibt unveraendert.
+    private const MIGRATIONSHUB_GUID = '{330717BB-E309-41A2-90A8-FDA3179ED948}';
     // MeterHub-Zählermodul: Ist es installiert, bietet die Suche gefundene
     // Energiezähler gleich als MeterHub-Instanz zum Anlegen an (kombinierter
     // Scan: Wechselrichter + Zähler in einem Durchgang).
@@ -38,6 +43,7 @@ class InverterHubDiscovery extends IPSModule
         'kostal'    => [71, 1],
         'victron'   => [100],
         'huawei'    => [1, 0, 16],
+        'foxess'    => [247, 1],
     ];
 
     private const VENDOR_LABELS = [
@@ -54,6 +60,7 @@ class InverterHubDiscovery extends IPSModule
         'kostal'    => 'Kostal',
         'victron'   => 'Victron GX',
         'huawei'    => 'Huawei SUN2000',
+        'foxess'    => 'FoxESS',
     ];
 
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-inverterhub-multi-wechselrichter-ein-modbus-tcp-modul-fuer-goodwe-sma-fronius-sungrow-solis-growatt-solax/144121';
@@ -65,8 +72,9 @@ class InverterHubDiscovery extends IPSModule
     private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
 
     // „Was ist neu"-Banner (siehe newsBanner()/AckNews()).
-    private const NEWS_VERSION = '0.45';
+    private const NEWS_VERSION = '0.46';
     private const NEWS_ITEMS = [
+        'FoxESS wird jetzt mit erkannt (Unit-ID-Kandidaten noch unbestätigt, Rückmeldung willkommen).',
         'Victron und Huawei werden jetzt mit erkannt.',
         'Freie Namensvorlage für neue Instanzen mit Platzhaltern ({hersteller}, {ip}, {unitid}, {nr}).',
     ];
@@ -87,6 +95,9 @@ class InverterHubDiscovery extends IPSModule
         $this->RegisterAttributeString('ResultsJSON', '[]');
         $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
         $this->RegisterAttributeBoolean('PurposeIntroGone', false);
+        // Verbund-Konvention "Einheitliche Verbund-Status-Kopfzeile" (20.08.2026,
+        // SUITE.md) - Zeitstempel der letzten Suche fuer DiscoverySummaryLine().
+        $this->RegisterAttributeInteger('LastDiscoveryTs', 0);
     }
 
     // Ermittelt heuristisch die ersten drei Oktette des lokalen Subnetzes
@@ -140,10 +151,6 @@ class InverterHubDiscovery extends IPSModule
 
     public function GetConfigurationForm()
     {
-        // Store-Checkliste 9c: ReadAttributeString() liefert waehrend eines
-        // Kernel-Reloads/Instanz-Uebergangs `false` statt string - ungecastet
-        // an json_decode() weitergereicht war das bislang stillschweigend
-        // falsch statt sauber leer (ChargerHub-Fund 13.09.2026, dasselbe Muster).
         $results = json_decode((string)$this->ReadAttributeString('ResultsJSON'), true);
         if (!is_array($results)) {
             $results = [];
@@ -242,6 +249,7 @@ class InverterHubDiscovery extends IPSModule
                                 ['type' => 'Button', 'name' => 'BtnAbort', 'caption' => '✖  Suche abbrechen', 'onClick' => 'IHUBD_AbortScan($id);', 'visible' => false],
                             ],
                         ],
+                        $this->DiscoverySummaryLine(count($results)),
                         [
                             'type'          => 'ProgressBar',
                             'name'          => 'ScanProgress',
@@ -276,10 +284,45 @@ class InverterHubDiscovery extends IPSModule
                     ],
                 ],
             ],
-            'status' => [
-                ['code' => 102, 'icon' => 'active',   'caption' => 'Bereit.'],
-                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte den IP-Bereich für die Suche eintragen.'],
-            ],
+        ];
+
+        // Migrations-Hinweise (Verbund-Absprache mit MigrationsHub,
+        // 29.07.2026): nur, wenn beim Scan tatsaechlich Alt-Instanzen
+        // gefunden wurden - rein additiv, keine eigene Konfiguration noetig.
+        $migrationItems = [];
+        foreach ($results as $idx => $r) {
+            foreach (($r['legacyCandidates'] ?? []) as $cand) {
+                $candName = (string)($cand['name'] ?? ('Instanz #' . ($cand['instanceID'] ?? '?')));
+                $migrationItems[] = [
+                    'type'  => 'RowLayout',
+                    'items' => [
+                        ['type' => 'Label', 'caption' => $r['label'] . ' @ ' . $r['ip'] . ' (Unit ' . $r['unitId'] . ') — mögliche Alt-Instanz: ' . $candName],
+                        ['type' => 'Button', 'caption' => '🔀 Migration vorbereiten', 'onClick' => 'IHUBD_StartMigration($id, ' . $idx . ', ' . (int)($cand['instanceID'] ?? 0) . ');'],
+                    ],
+                ];
+            }
+        }
+        if (count($migrationItems) > 0) {
+            $migrationItems[] = [
+                'type'    => 'OpenObjectButton',
+                'name'    => 'BtnOpenMigration',
+                'caption' => '➡️ Migration in MigrationsHub öffnen',
+                'objectID' => 0,
+                'visible' => false,
+            ];
+            $form['elements'][] = [
+                'type'     => 'ExpansionPanel',
+                'caption'  => '🔀  Migration von Altinstanzen',
+                'expanded' => true,
+                'items'    => array_merge([
+                    ['type' => 'Label', 'caption' => 'Für diese gefundenen Geräte existiert vermutlich schon eine ältere Instanz eines anderen Moduls. „Migration vorbereiten" legt die neue InverterHub-Instanz an und öffnet anschließend MigrationsHub mit vorbelegter Quelle/Ziel — der eigentliche Übernahme-Ablauf (Simulieren/Übernehmen) läuft dort wie gewohnt.'],
+                ], $migrationItems),
+            ];
+        }
+
+        $form['status'] = [
+            ['code' => 102, 'icon' => 'active',   'caption' => 'Bereit.'],
+            ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte den IP-Bereich für die Suche eintragen.'],
         ];
 
         // Symcon-Forum-Hinweis, einmalig dismissible (Referenz MeterHub::ForumHint()).
@@ -332,6 +375,7 @@ class InverterHubDiscovery extends IPSModule
         $this->PropagateDismiss('PurposeIntro');
     }
 
+    /** Siehe InverterHub::PropagateDismiss() fuer die volle Herleitung. */
     private function PropagateDismiss(string $what, string $value = ''): void
     {
         foreach (IPS_GetInstanceListByModuleID(self::SELF_MODULE) as $sib) {
@@ -478,6 +522,49 @@ class InverterHubDiscovery extends IPSModule
         ];
     }
 
+    // Legt die neue InverterHub-Instanz fuer das Ergebnis $resultIndex an
+    // (dieselbe Konfiguration wie der normale "Erstellen"-Button waere) und
+    // stoesst danach die Migration von der Alt-Instanz $legacyInstanceID
+    // ueber MigrationsHub an (Verbund-Absprache, 29.07.2026). Der eigentliche
+    // Simulieren/Uebernehmen-Ablauf laeuft in MigrationsHub selbst - wir
+    // legen nur an, befuellen vor und navigieren dorthin.
+    public function StartMigration($resultIndex, $legacyInstanceID)
+    {
+        if (!function_exists('MIGHUB_PrefillMigration')) {
+            $this->LogMessage('MigrationsHub ist nicht (mehr) installiert - Migration nicht möglich.', KL_WARNING);
+            return;
+        }
+        $results = json_decode((string)$this->ReadAttributeString('ResultsJSON'), true);
+        if (!is_array($results) || !isset($results[$resultIndex])) {
+            $this->LogMessage('Migration: Suchergebnis nicht mehr vorhanden - bitte erneut suchen.', KL_WARNING);
+            return;
+        }
+        $r = $results[$resultIndex];
+        $instanceName = $r['label'] . ' ' . ($r['ip'] ?? '');
+
+        $newId = @IPS_CreateInstance(self::INVERTERHUB_GUID);
+        if (!$newId) {
+            $this->LogMessage('Migration: Neue InverterHub-Instanz konnte nicht angelegt werden.', KL_ERROR);
+            return;
+        }
+        IPS_SetName($newId, $instanceName);
+        @IPS_SetProperty($newId, 'Host', $r['ip']);
+        @IPS_SetProperty($newId, 'Port', $this->ReadPropertyInteger('Port'));
+        @IPS_SetProperty($newId, 'UnitId', $r['unitId']);
+        @IPS_SetProperty($newId, 'Manufacturer', $r['vendor']);
+        IPS_ApplyChanges($newId);
+
+        $mighubId = $this->MigrationsHubInstanceID();
+        if ($mighubId <= 0) {
+            $this->LogMessage('Migration: MigrationsHub-Instanz konnte nicht gefunden/angelegt werden.', KL_ERROR);
+            return;
+        }
+        MIGHUB_PrefillMigration($mighubId, (int)$legacyInstanceID, $newId);
+
+        @$this->UpdateFormField('BtnOpenMigration', 'objectID', $mighubId);
+        @$this->UpdateFormField('BtnOpenMigration', 'visible', true);
+    }
+
     // -----------------------------------------------------------------------
     // Discovery
     // -----------------------------------------------------------------------
@@ -549,12 +636,35 @@ class InverterHubDiscovery extends IPSModule
         $total    = count($openIps);
         $i        = 0;
         $aborted  = $this->scanAborted();
+        // MigrationsHub-Instanz nur EINMAL je Scan-Lauf ermitteln/anlegen,
+        // nicht pro Treffer - und ueberhaupt nur, wenn MigrationsHub
+        // installiert ist (sonst entfaellt der ganze Migrations-Check).
+        $mighubId = function_exists('MIGHUB_FindLegacyCandidates') ? $this->MigrationsHubInstanceID() : 0;
         foreach ($openIps as $ip) {
             if ($this->scanAborted()) { $aborted = true; break; }
             $i++;
             $this->ShowProgress("Prüfe Hersteller: $ip ($i von $total offenen Ports) …", (int)round(($i / max(1, $total)) * 100));
             $found = $this->identifyVendor($ip, $port);
             if ($found !== null) {
+                // Alt-Instanzen-Check (Verbund-Absprache mit MigrationsHub,
+                // 29.07.2026): nur fuer Wechselrichter (nicht Zaehler), nur
+                // wenn MigrationsHub installiert ist, rein additiv.
+                if ($mighubId > 0 && ($found['kind'] ?? 'inverter') === 'inverter') {
+                    // 5. Argument seit MigrationsHub f5505c0 Pflicht
+                    // ($excludeInstanceID - hier 0: beim Scan existiert noch
+                    // keine eigene Zielinstanz, die sich selbst finden koennte).
+                    // try/catch: ein Vertragsbruch beim Partner darf die
+                    // Geraetesuche nicht toeten (MeterHub ist genau daran
+                    // gecrasht, deren Fix 25a2a83 als Vorbild).
+                    try {
+                        $legacy = @MIGHUB_FindLegacyCandidates($mighubId, $ip, $port, $found['unitId'], 0);
+                        if (is_array($legacy) && count($legacy) > 0) {
+                            $found['legacyCandidates'] = $legacy;
+                        }
+                    } catch (Throwable $e) {
+                        $this->LogMessage('Alt-Instanzen-Check uebersprungen (MigrationsHub-Aufruf fehlgeschlagen): ' . $e->getMessage(), KL_WARNING);
+                    }
+                }
                 $results[] = $found;
             }
         }
@@ -566,8 +676,42 @@ class InverterHubDiscovery extends IPSModule
         }
 
         $this->WriteAttributeString('ResultsJSON', json_encode($results));
+        $this->WriteAttributeInteger('LastDiscoveryTs', time());
         $this->SetStatus(102);
         $this->ReloadForm();
+    }
+
+    // Verbund-Konvention "Einheitliche Verbund-Status-Kopfzeile" (20.08.2026,
+    // SUITE.md, Referenz EMS' getDiscoverySummaryLine()): EINE Kopfzeile
+    // direkt unter dem Such-Button - Icon + Kernzahl + Zeitstempel der letzten
+    // Suche, kein Aufzaehlungssatz. Technische Details bleiben in den
+    // bestehenden Panels darunter.
+    private function DiscoverySummaryLine(int $count): array
+    {
+        $ts = $this->ReadAttributeInteger('LastDiscoveryTs');
+        if ($ts === 0) {
+            $caption = 'ℹ️ Noch nicht gesucht.';
+        } elseif ($count > 0) {
+            $caption = '✅ ' . $count . ' Gerät' . ($count === 1 ? '' : 'e') . ' gefunden (zuletzt ' . date('H:i:s', $ts) . ' Uhr).';
+        } else {
+            $caption = '⚠️ 0 Geräte gefunden (zuletzt ' . date('H:i:s', $ts) . ' Uhr).';
+        }
+        return ['type' => 'Label', 'caption' => $caption];
+    }
+
+    // Findet die (einzige sinnvolle) MigrationsHub-Instanz oder legt eine an,
+    // falls keine existiert - MigrationsHub braucht keine Konfiguration, um
+    // MIGHUB_FindLegacyCandidates() beantworten zu koennen. Wird nur
+    // aufgerufen, wenn MigrationsHub ueberhaupt installiert ist
+    // (function_exists-Check beim Aufrufer).
+    private function MigrationsHubInstanceID(): int
+    {
+        $ids = @IPS_GetInstanceListByModuleID(self::MIGRATIONSHUB_GUID);
+        if (is_array($ids) && count($ids) > 0) {
+            return (int)$ids[0];
+        }
+        $newId = @IPS_CreateInstance(self::MIGRATIONSHUB_GUID);
+        return $newId ?: 0;
     }
 
     // Gleicht Suchergebnisse gegen bereits existierende InverterHub- UND
@@ -958,6 +1102,43 @@ class InverterHubDiscovery extends IPSModule
                 }
                 $name = $this->readHolding($ip, $port, $unitId, 30000, 10, 1.0);
                 return $this->looksLikeAsciiText($name, 5);
+
+            case 'foxess':
+                // Zwei GRUNDVERSCHIEDENE Registerwelten, je nach Anbindungsart -
+                // real durch zwei Fehlschlaege desselben Testers (21.08.2026,
+                // Forum "hbraun") aufgedeckt: Port offen, echtes Geraet ("INVERTER-
+                // ...") vorhanden, aber weder FC04 noch FC03 auf den alten Adressen
+                // fanden es.
+                //
+                // 1) Aeltere/RS485-ueber-TCP-Gateway-Anbindung: Betriebsstatus
+                //    (11056, Enum 0-5) + Modellname (10000-10007, ASCII), laut
+                //    "Fox Hybrid/AC Modbus Protocol" (V1.01) per FC04 - hier
+                //    zusaetzlich FC03 versucht (SMA-FC03/FC04-Falle, s. CLAUDE.md).
+                foreach ([0x04, 0x03] as $fc) {
+                    $s = $this->modbusRead($ip, $port, $unitId, $fc, 11056, 1, 1.0);
+                    if ($s === null || $s[0] < 0 || $s[0] > 5) {
+                        continue;
+                    }
+                    $model = $this->modbusRead($ip, $port, $unitId, $fc, 10000, 8, 1.0);
+                    if ($this->looksLikeAsciiText($model, 4)) {
+                        return true;
+                    }
+                }
+                // 2) Eingebauter WLAN-/LAN-Modbus-TCP-Server neuerer Modelle
+                //    (H1-Gen2-WL, H3 Smart) - KOMPLETT ANDERER Registerblock
+                //    (31000er statt 10000/11000er), FC03 (Holding). Adressen
+                //    community-vermessen (nathanmarlor/foxess_modbus), nicht aus
+                //    der offiziellen RS485-Doku. Netzspannung (31006, x0.1 V) auf
+                //    plausiblen Bereich pruefen, Wechselrichterleistung (31008,
+                //    x0,001 kW, signed) nur auf Lesbarkeit als zweites Merkmal.
+                $gridV = $this->readHolding($ip, $port, $unitId, 31006, 1, 1.0);
+                if ($gridV !== null && $gridV[0] >= 1500 && $gridV[0] <= 3000) {
+                    $pwr = $this->readHolding($ip, $port, $unitId, 31008, 1, 1.0);
+                    if ($pwr !== null) {
+                        return true;
+                    }
+                }
+                return false;
         }
         return false;
     }

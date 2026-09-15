@@ -310,6 +310,7 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
     const REG_EMS_POWER_MODE    = 47511;
     const REG_EMS_POWER_SET     = 47512;
     const REG_SOC_MIN           = 45356;
+    const REG_SOC_MAX           = 45559;
     const REG_INTERNET_MODE     = 47017;
     const REG_RESTART           = 45220;
 
@@ -320,11 +321,21 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
         3 => 'Wirtschaftlich',  4 => 'Peak-Shaving',  5 => 'Erw. Selbstverbrauch',
     ];
 
+    // 255 (0xFF) ist der offizielle STOPPED-Modus der GoodWe-Firmware (OpenEMS
+    // EmsPowerMode.java: "System shutdown. Stop working and turn to wait mode").
+    // Die Firmware setzt ihn SELBST, wenn bei ctl_ems_enable=true der erwartete
+    // Heartbeat des externen EMS ausbleibt (~70-120s) - Totmann-Vollzug. Ohne
+    // eigenen Profileintrag zeigte IPS dafuer irrefuehrend die letzte
+    // Assoziation ("Batterie - Entladen") an - real passiert (29.08.2026,
+    // Dietmar auf falscher Faehrte). Deshalb eigener, unmissverstaendlicher
+    // Eintrag mit Warnfarbe. Kein gueltiger SETZ-Wert: writeControl() erlaubt
+    // weiterhin nur 0-12.
     const EMS_MODES = [
         0 => 'Gestoppt', 1 => 'Automatik', 2 => 'Laden - Solar', 3 => 'Entladen + Solar',
         4 => 'AC - Import', 5 => 'AC - Export', 6 => 'Energiesparen', 7 => 'Inselbetrieb',
         8 => 'Batterie - Bereitschaft', 9 => 'Stromeinkauf', 10 => 'Stromverkauf',
         11 => 'Batterie - Laden', 12 => 'Batterie - Entladen',
+        255 => '⚠️ Totmann: Steuerung verloren',
     ];
 
     const BAT_MODES = [0 => 'No Battery', 1 => 'Standby', 2 => 'entlädt', 3 => 'lädt'];
@@ -541,8 +552,36 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 ['ctl_export_enable', 'Einspeisebegrenzung aktiv', 'B', '~Switch',      false, 'control', 'RW 47509 (Feed_Power_Enable: EIN = Begrenzung aus 47510 gilt)'],
                 ['ctl_export_limit',  'Einspeisegrenze (W)',       'I', 'GWH.WattEMS',  false, 'control', 'RW 47510 (wirkt nur bei aktiver Begrenzung)'],
                 ['ctl_soc_min',       'SOC Min. Entladung',   'I', 'GWH.Percent',  false, 'control', 'RW 45356'],
+                // Live getestet und WIDERLEGT (28.07.2026, EMS-Sitzung): Register
+                // 45559 "Max Charge SOC" nimmt den geschriebenen Wert an (roh
+                // gegengelesen, 97 wurde uebernommen), verhindert das Laden
+                // ueber die Grenze hinaus aber NICHT - bei SOC 98%, Grenze 97,
+                // Automatik-Modus lud die Batterie trotzdem sofort mit -4559W
+                // weiter. Genau dasselbe Muster wie ctl_soc_min (45356, s. o.):
+                // Register laesst sich schreiben, hat aber keine beobachtbare
+                // Wirkung auf das tatsaechliche Ladeverhalten. NICHT als
+                // funktionierenden Kontrollmechanismus behandeln oder Nutzern
+                // als Loesung gegen Ueberladung nahe 100% SOC empfehlen.
+                ['ctl_soc_max',       'SOC Max. Ladung (bestätigt wirkungslos)', 'I', 'GWH.Percent', false, 'control', 'RW 45559'],
                 ['ctl_internet',      'Cloud-Verbindung',     'B', '~Switch',      false, 'control', 'RW 47017'],
                 ['ctl_restart',       'WR Neustart',          'B', '~Switch',      false, 'control', 'WO 45220'],
+                // Generische Netzdienlichkeits-Operationen (Verbund-Vertrag mit
+                // EMS, IHUB_GetFunctions 1.2 -> 1.3, "gridServiceCapabilities" -
+                // 12.09.2026). Schreiben dieselben Register wie die ctl_*-Idents
+                // oben - EMS nutzt fuer eine Instanz entweder ctl_* (heutige
+                // Automatik-/Grid-Rewards-/Tagesplan-Steuerung) ODER svc_*
+                // (neue netzdienliche Bausteine), nie beide gleichzeitig auf
+                // derselben Instanz (sonst zwei Regler auf einer Batterie -
+                // das durchzusetzen liegt bei EMS, nicht hier). Alle drei
+                // Sollwert-Operationen fahren bewusst mit enable=false (47505)
+                // statt true: Der 255/STOPPED-Ruecklauf tritt laut unserem
+                // A/B-Test (29.08.2026) nur bei enable=true ohne Heartbeat
+                // auf - mit enable=false haelt der gesetzte Modus dauerhaft,
+                // ohne dass EMS selbst einen Totmann-Heartbeat bauen muesste.
+                ['svc_charge_inhibit',      'Netzdienlich: Laden sperren',            'B', '~Switch',     false, 'control', 'schreibt 47511=3 (Entladen+Solar), 47512=0, 47505=false'],
+                ['svc_grid_charge_w',       'Netzdienlich: Netzladen (W)',             'I', 'GWH.WattEMS', false, 'control', 'schreibt 47511=9 (Stromeinkauf, NAP-geregelt), 47512=W, 47505=false; 0 = Freigabe'],
+                ['svc_discharge_to_grid_w', 'Netzdienlich: Einspeisen aus Batterie (W)', 'I', 'GWH.WattEMS', false, 'control', 'schreibt 47511=3 (Entladen+Solar, Xmax = W), 47512=W, 47505=false; 0 = Freigabe'],
+                ['svc_release',             'Netzdienlich: Freigeben (Automatik)',     'B', '~Switch',     false, 'control', 'schreibt 47511=1 (Automatik), 47512=0, 47505=false'],
             ]],
         ];
     }
@@ -577,7 +616,8 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
         }
         $emsMode = [];
         foreach (self::EMS_MODES as $k => $label) {
-            $emsMode[$k] = [$label, 0x7A8A99];
+            // 255 = Totmann-Zustand in Warnrot, alle regulaeren Modi neutral.
+            $emsMode[$k] = [$label, $k === 255 ? 0xE74C3C : 0x7A8A99];
         }
         $batMode = [];
         foreach (self::BAT_MODES as $k => $label) {
@@ -658,6 +698,28 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
         $wm = $mb->readHolding(47000, 1);
         if ($wm !== null) {
             $hub->SetVarInt('work_mode', $mb->u16($wm, 0));
+        }
+
+        // Rueckgelesener IST-Zustand von ctl_ems_mode/ctl_ems_power - reines
+        // Reporting (Architektur-Entscheidung Dietmar, 29.08.2026: InverterHub
+        // ist NUR Kommunikationsschicht; jede Steuerungs-POLITIK - Heartbeat,
+        // Totmann-Fallback, Reassert - liegt beim EMS). Die 255 (offizieller
+        // STOPPED-Modus, Firmware-Totmann bei ausbleibendem EMS-Heartbeat,
+        // per OpenEMS-Quelle bestaetigt) wird hier nur sichtbar gemacht:
+        // eigener Profileintrag (s. EMS_MODES) + einmalige Log-Warnung beim
+        // Uebergang. KEIN automatischer Eingriff - das entscheidet das EMS.
+        $prevEmsMode = $hub->GetVarInt('ctl_ems_mode');
+        $emsCtl = $mb->readHolding(self::REG_EMS_POWER_MODE, 2);
+        if ($emsCtl !== null) {
+            $emsModeLive = $mb->u16($emsCtl, 0);
+            $hub->SetVarInt('ctl_ems_mode', $emsModeLive);
+            $hub->SetVarInt('ctl_ems_power', $mb->u16($emsCtl, 1));
+            if ($emsModeLive === 255 && $prevEmsMode !== 255) {
+                $hub->WarnUser('GoodWe-Totmann ausgeloest: Register 47511 steht auf 255 '
+                    . '(Steuerung verloren, Wechselrichter im Sicherheits-Stopp/Wartemodus). '
+                    . 'InverterHub greift nicht ein - die Reaktion (erneut kommandieren, '
+                    . 'ctl_ems_enable aus, Heartbeat) ist Sache des EMS bzw. des Nutzers.');
+            }
         }
 
         $bat2Active = $hub->GetPropBool('GroupBat2') && ($bat2blk !== null);
@@ -987,6 +1049,13 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 }
                 break;
 
+            case 'ctl_soc_max':
+                $val = max(0, min(100, (int)$value));
+                if ($mb->writeSingle(self::REG_SOC_MAX, $val)) {
+                    $hub->SetVarInt('ctl_soc_max', $val);
+                }
+                break;
+
             case 'ctl_internet':
                 $val = (bool)$value ? 0 : 1;
                 if ($mb->writeSingle(self::REG_INTERNET_MODE, $val)) {
@@ -1001,6 +1070,137 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                     $hub->SetVarBool('ctl_restart', false);
                 }
                 break;
+
+            // Generische Netzdienlichkeits-Operationen (EMS-Vertrag, s. o. bei
+            // GroupControl). Die jeweils ANDEREN svc_*-Statusvariablen werden
+            // nur bei vollstaendigem Erfolg auf ihren Neutralzustand
+            // zurueckgesetzt, damit nie mehrere gleichzeitig "aktiv" anzeigen
+            // (immer nur eine Operation kann real gelten) - misslingt ein
+            // Schreibvorgang, bleibt der bisherige Anzeigezustand stehen,
+            // statt einen ungewissen WR-Zustand als "aktiv" zu behaupten.
+            case 'svc_charge_inhibit':
+                if ((bool)$value) {
+                    if ($this->writeGridService($mb, $hub, self::EMS_MODE_DISCHARGE_PV, 0)) {
+                        $hub->SetVarBool('svc_charge_inhibit', true);
+                        $hub->SetVarInt('svc_grid_charge_w', 0);
+                        $hub->SetVarInt('svc_discharge_to_grid_w', 0);
+                    } else {
+                        $hub->WarnUser('Netzdienlich "Laden sperren" nur teilweise geschrieben - Wechselrichter-Zustand ungewiss, Register gegenlesen.');
+                    }
+                } else {
+                    $this->releaseGridService($mb, $hub);
+                }
+                break;
+
+            case 'svc_grid_charge_w':
+                $val = max(0, min(self::EMS_POWER_MAX, (int)$value));
+                if ($val === 0) {
+                    $this->releaseGridService($mb, $hub);
+                    break;
+                }
+                if ($this->writeGridService($mb, $hub, self::EMS_MODE_GRID_BUY, $val)) {
+                    $hub->SetVarInt('svc_grid_charge_w', $val);
+                    $hub->SetVarBool('svc_charge_inhibit', false);
+                    $hub->SetVarInt('svc_discharge_to_grid_w', 0);
+                } else {
+                    $hub->WarnUser('Netzdienlich "Netzladen" nur teilweise geschrieben - Wechselrichter-Zustand ungewiss, Register gegenlesen.');
+                }
+                break;
+
+            case 'svc_discharge_to_grid_w':
+                $val = max(0, min(self::EMS_POWER_MAX, (int)$value));
+                if ($val === 0) {
+                    $this->releaseGridService($mb, $hub);
+                    break;
+                }
+                if ($this->writeGridService($mb, $hub, self::EMS_MODE_DISCHARGE_PV, $val)) {
+                    $hub->SetVarInt('svc_discharge_to_grid_w', $val);
+                    $hub->SetVarBool('svc_charge_inhibit', false);
+                    $hub->SetVarInt('svc_grid_charge_w', 0);
+                } else {
+                    $hub->WarnUser('Netzdienlich "Einspeisen aus Batterie" nur teilweise geschrieben - Wechselrichter-Zustand ungewiss, Register gegenlesen.');
+                }
+                break;
+
+            case 'svc_release':
+                if ((bool)$value) {
+                    $this->releaseGridService($mb, $hub);
+                }
+                break;
+        }
+    }
+
+    // EMS-Leistungsmodi, die die generischen svc_*-Operationen ansteuern
+    // (Auszug aus EMS_MODES, hier benannt statt als Magic Number).
+    const EMS_MODE_DISCHARGE_PV = 3; // "Entladen + Solar" - Xset ist Sollwert, keine Obergrenze (EMS-Fund 12.09.2026)
+    const EMS_MODE_GRID_BUY     = 9; // "Stromeinkauf" - Netzbezug am Netzanschlusspunkt geregelt, sicherer als 11 (EMS-Test 24.08.2026)
+    const EMS_MODE_AUTO         = 1; // "Automatik" - WR-Eigenregelung, Ziel von svc_release
+
+    // Uebergang ueber Null, aber NUR bei echtem Moduswechsel (EMS-Fund
+    // 13.09.2026, zweite Korrektur - jede feste Zwei-Schritt-Reihenfolge
+    // (Modus->Leistung oder Leistung->Modus) hat fuer irgendeinen Uebergang
+    // ein Loch: Modus 3 ist ein erzwungener Sollwert (Xset), keine Obergrenze,
+    // also gilt zwischen den beiden Schreibvorgaengen kurz entweder der ALTE
+    // Modus mit der NEUEN Leistung oder der NEUE Modus mit der ALTEN Leistung
+    // - je nach Reihenfolge ein Entladestoss in die eine oder andere Richtung.
+    // Sicher ist nur: Leistung erst auf 0 (harmlos unter JEDEM Modus - Modus 3
+    // mit 0 sperrt das Laden, Modus 9 mit 0 hat keinen Netzbezug-Sollwert,
+    // Modus 1 ignoriert den Wert ohnehin), dann Modus wechseln, dann die
+    // Zielleistung setzen. Bleibt der Modus gleich (nur die Leistung aendert
+    // sich, z. B. Grid-Rewards-Nachfuehren), entfaellt der Null-Schritt - er
+    // wuerde nur unnoetig auf 0 flackern. enable=false zuletzt, unabhaengig
+    // vom Zweig (idempotent, kein Modus-/Leistungswechsel dadurch). EMS
+    // uebernimmt dieselbe Logik in setGoodweMode().
+    private function writeGridService($mb, $hub, int $mode, int $powerW): bool
+    {
+        $modeChanges = $hub->GetVarInt('ctl_ems_mode') !== $mode;
+        $ok = true;
+
+        if ($modeChanges) {
+            if ($mb->writeSingle(self::REG_EMS_POWER_SET, 0)) {
+                $hub->SetVarInt('ctl_ems_power', 0);
+            } else {
+                // Null-Schritt fehlgeschlagen (EMS-Fund 13.09.2026): den
+                // Moduswechsel HIER abbrechen statt trotzdem fortzufahren -
+                // sonst liefe genau der Zwischenzustand, den der Null-Schritt
+                // verhindern soll (neuer Modus mit der alten Leistung). WR
+                // bleibt im alten, bekannten Zustand; EMS versucht es im
+                // naechsten Zyklus erneut.
+                $hub->WarnUser('Netzdienlich: Moduswechsel abgebrochen - Leistung konnte nicht vorab auf 0 gesetzt werden, Wechselrichter bleibt im bisherigen Modus.');
+                return false;
+            }
+            if ($mb->writeSingle(self::REG_EMS_POWER_MODE, $mode)) {
+                $hub->SetVarInt('ctl_ems_mode', $mode);
+            } else {
+                $ok = false;
+            }
+        }
+
+        if (!$modeChanges || $powerW > 0) {
+            if ($mb->writeSingle(self::REG_EMS_POWER_SET, $powerW)) {
+                $hub->SetVarInt('ctl_ems_power', $powerW);
+            } else {
+                $ok = false;
+            }
+        }
+
+        if ($mb->writeSingle(self::REG_EMS_ENABLE, 0)) {
+            $hub->SetVarBool('ctl_ems_enable', false);
+        } else {
+            $ok = false;
+        }
+
+        return $ok;
+    }
+
+    private function releaseGridService($mb, $hub): void
+    {
+        if ($this->writeGridService($mb, $hub, self::EMS_MODE_AUTO, 0)) {
+            $hub->SetVarBool('svc_charge_inhibit', false);
+            $hub->SetVarInt('svc_grid_charge_w', 0);
+            $hub->SetVarInt('svc_discharge_to_grid_w', 0);
+        } else {
+            $hub->WarnUser('Netzdienlich "Freigeben" nur teilweise geschrieben - Wechselrichter-Zustand ungewiss, Register gegenlesen.');
         }
     }
 }
@@ -4618,9 +4818,6 @@ class InverterHub extends IPSModule
     // geteilten Ausblenden (SUITE.md "Ausblenden ueber mehrere Instanzen
     // desselben Moduls teilen", Referenzimplementierung MeterHub, EMS 14.09.2026).
     private const SELF_MODULE = '{BBE2C593-1A91-426D-A714-29A9C7E87589}';
-    // "Über dieses Modul" (Verbund-Konvention Formularpunkt 5, "Variante A").
-    // beta ist der Branch, dessen LICENSE tatsaechlich PolyForm traegt (geprueft
-    // 14.09.2026, kein main-Branch vorhanden) - nicht blind main verlinken.
     private const LICENSE_URL = 'https://github.com/DG65/NRGInverterHub/blob/beta/LICENSE';
     private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
 
@@ -4658,13 +4855,9 @@ class InverterHub extends IPSModule
         $this->RegisterAttributeString('VictronYieldState', '{}');
 
         $this->RegisterPropertyBoolean('Active', true);
-        // Store-Checkliste Punkt 12 (13.09.2026, ChargerHub-Befund am eigenen
-        // identischen Muster: erster Listeneintrag als Default laedt zum
-        // Uebersehen ein statt zu schuetzen - TCP/Modbus-Verbindung zu einem
-        // FALSCHEN Hersteller kann trotzdem "erfolgreich" aussehen, nur mit
-        // unsinnigen Werten). Kein Hersteller vorausgewaehlt - der Nutzer
-        // MUSS aktiv waehlen, sonst bleibt die Instanz inaktiv (104) statt
-        // couragiert mit GoodWe-Registern gegen ein fremdes Geraet zu sprechen.
+        // Store-Checkliste Punkt 12 (keine eigene Anlage als Norm): kein Hersteller
+        // vorausgewaehlt - eine neue Instanz bleibt inaktiv, bis der Nutzer bewusst
+        // waehlt, statt stillschweigend gegen ein GoodWe-Geraet zu sprechen.
         $this->RegisterPropertyString('Manufacturer', '');
         $this->RegisterPropertyBoolean('MeterInvert', false);
         $this->RegisterPropertyBoolean('BatInvert', false);
@@ -4676,6 +4869,12 @@ class InverterHub extends IPSModule
         // Nur relevant, wenn der Treiber ueberhaupt Steuerregister hat
         // (GroupControl); bei reinen Lesetreibern wirkungslos, aber schadet nicht.
         $this->RegisterPropertyString('ControlAuthority', 'ems');
+        // Architektur-Entscheidung (Dietmar, 29.08.2026): InverterHub ist REINE
+        // Kommunikationsschicht. Jede Steuerungs-POLITIK - Heartbeat/Reassert
+        // gegen den GoodWe-255-Totmann, automatischer Fallback auf enable=false,
+        // Pendel-Erkennung - liegt beim EMS (dorthin uebergeben), NICHT hier.
+        // Frueher hier vorhandene Politik-Properties (EmsReassertEnabled,
+        // EmsWriteMode, DeadmanBehavior) wurden ersatzlos entfernt.
         // Anzahl tatsächlich vorhandener MPPT-Eingänge / Solarladeregler.
         // 0 = alle anlegen, die der Treiber kennt (bisheriges Verhalten und
         // Vorgabe, damit bestehende Instanzen unverändert bleiben).
@@ -4861,6 +5060,28 @@ class InverterHub extends IPSModule
 
     // Wird kurz nach ApplyChanges einmalig vom EnableActionsTimer aufgerufen,
     // sobald die Instanz die Erstellungstransaktion sicher verlassen hat.
+    //
+    // Live-Fehler (25./26.07.2026): IPS_SetVariableCustomAction() ist die
+    // falsche API fuer Variablen, die die eigene Instanz selbst per
+    // RegisterVariableXXX angelegt hat - sie schlaegt fuer diese immer fehl
+    // (auch ausserhalb jeder Transaktion, auch bei druck-frisch angelegten
+    // Variablen), weil eine modul-eigene Variable ihren nativen Action-Slot
+    // ueber $this->EnableAction() bekommt, nicht ueber die globale Funktion.
+    // IPS_SetVariableCustomAction() ist fuer FREMDE/nicht modul-eigene
+    // Variablen gedacht. Ohne diesen Fix blieb "VariableAction" dauerhaft 0,
+    // WebFront-Klicks auf die Steuer-Schalter scheiterten mit "Action is
+    // invalid" - waehrend IPS_RequestAction() aus einem Skript (Kernel-Aufruf
+    // direkt an die Instanz) unbeeinflusst funktionierte.
+    //
+    // Live-Fehler (26.07.2026, EMS/Dietmar): Der einmalige Kurz-Timer-Aufruf
+    // wirkte "fragil" (Bindung nach GroupControl/ControlAuthority-Aenderung
+    // wieder weg) - ein periodischer ReadFast()-Aufruf wurde testweise
+    // eingefuehrt (228a6b4) und wieder entfernt, weil er selbst spontane
+    // ID-Vergabe-Probleme reproduzierte (2e5d0aa). Tatsaechliche Ursache erst
+    // spaeter gefunden: EnableAction() findet die Variable nur als DIREKTES
+    // Kind der Instanz, aber Steuervariablen werden in die Unterkategorie
+    // "EMS-Steuerung" verschoben - jede (Re-)Bindung nach Reparenting schlug
+    // dadurch fehl. Fix s. u. (kurz zurueckhaengen, binden, zurueck).
     public function EnableActions()
     {
         $this->SetTimerInterval('EnableActionsTimer', 0);
@@ -4870,25 +5091,74 @@ class InverterHub extends IPSModule
             foreach ($group['vars'] as $v) {
                 if ($v[5] === 'control') {
                     $vid = $this->FindVarByIdent($v[0]);
-                    if ($vid) {
-                        IPS_SetVariableCustomAction($vid, $this->InstanceID);
+                    if ($vid && @IPS_GetVariable($vid)['VariableAction'] !== $this->InstanceID) {
+                        // EnableAction() findet die Variable intern nur als
+                        // DIREKTES Kind der Instanz (IPS_GetObjectIDByIdent()
+                        // ohne Rekursion) - Steuervariablen liegen aber in der
+                        // Unterkategorie "EMS-Steuerung". Deshalb kurz
+                        // zurueckhaengen, binden, wieder zurueck - die Bindung
+                        // (VariableAction) bleibt beim Reparenting erhalten.
+                        // Live verifiziert 26.07.2026: ohne diesen Schritt
+                        // bleibt VariableAction dauerhaft 0, egal wie oft
+                        // EnableActions() aufgerufen wird.
+                        $originalParent = IPS_GetObject($vid)['ParentID'];
+                        IPS_SetParent($vid, $this->InstanceID);
+                        $this->EnableAction($v[0]);
+                        IPS_SetParent($vid, $originalParent);
                     }
                 }
             }
         }
     }
 
-    public function ReadFast()
+    // Hinweis (Architektur-Entscheidung Dietmar, 29.08.2026): Der fruehere
+    // Reassert-/Heartbeat-Mechanismus gegen den GoodWe-255-Totmann
+    // (EMS_REASSERT_IDENTS, ReassertEmsControl(), LastCommanded_/
+    // LastCommandTime-Attribute) wurde ersatzlos ENTFERNT - InverterHub ist
+    // reine Kommunikationsschicht, jede Steuerungs-Politik liegt beim EMS.
+    // Historie/Begruendung: CLAUDE.md, Abschnitt "255 entschluesselt".
+
+    // Verbund-Konvention "Sichtbare Rueckmeldung bei jeder Aktion" (20.08.2026,
+    // SUITE.md Punkt 13, Referenz EMS BuildDayPlan): der "Verbindung testen /
+    // Daten sofort lesen"-Button ruft dieselbe Methode wie der periodische
+    // FastTimer auf - der Rueckgabewert wird dabei stumm verworfen, das
+    // Button-onClick nutzt ihn per echo als sichtbaren Erfolgs-/Fehlertext.
+    public function ReadFast(): string
     {
         if (!$this->ReadPropertyBoolean('Active')) {
-            return;
+            return 'ℹ️ Instanz ist deaktiviert ("Aktiv"-Schalter).';
         }
-        $driver = $this->GetDriver();
-        if (!$this->ReadAttributeBoolean('DeviceInfoRead')) {
-            $driver->readDeviceInfo($this->GetModbusClient(), $this);
-            $this->WriteAttributeBoolean('DeviceInfoRead', true);
+        try {
+            $driver = $this->GetDriver();
+            if (!$this->ReadAttributeBoolean('DeviceInfoRead')) {
+                $driver->readDeviceInfo($this->GetModbusClient(), $this);
+                $this->WriteAttributeBoolean('DeviceInfoRead', true);
+            }
+            $driver->readFast($this->GetModbusClient(), $this);
+        } catch (Throwable $e) {
+            return '⚠️ Verbindung fehlgeschlagen: ' . $e->getMessage();
         }
-        $driver->readFast($this->GetModbusClient(), $this);
+        // Periodische Selbstheilung der Steuer-Bindung (wieder eingefuehrt
+        // 27.07.2026, mit Dietmars/EMS' ausdruecklicher Freigabe, nach
+        // mehrstuendiger Beobachtung vor Entfernung des SUITE.md-Warnhinweises
+        // geplant). Vorgeschichte: Ein erster Versuch (228a6b4, 26.07.2026)
+        // wurde wieder entfernt (2e5d0aa), weil damals der Verdacht bestand,
+        // wiederholte EnableAction()-Aufrufe koennten selbst Neuanlagen/
+        // ID-Churn ausloesen - Ursache damals nicht verstanden.
+        // Inzwischen IST die Ursache bekannt und behoben (2d8228f):
+        // EnableAction() bindet eine Variable nur, wenn sie DIREKTES Kind der
+        // Instanz ist; RegisterVar() verschiebt Steuervariablen aber sofort
+        // in die Unterkategorie "EMS-Steuerung" - jede Bindung nach diesem
+        // Verschieben schlug deshalb fehl, unabhaengig von der Aufrufhaeufigkeit.
+        // EnableActions() selbst legt NIE eine Variable an (nur FindVarByIdent
+        // + bedingtes EnableAction), ist bei bereits korrekt gebundenen
+        // Variablen ein reiner, billiger No-Op (VariableAction-Pruefung) und
+        // kann daher sicher jeden Zyklus laufen - zieht eine verlorene Bindung
+        // (z. B. nach einer Property-Aenderung wie ControlAuthority) spaetestens
+        // beim naechsten ReadFast (typ. 5 s) automatisch nach, ohne dass dafuer
+        // eine Diagnose-Sitzung noetig ist (Verbund-Ziel 3, SUITE.md).
+        $this->EnableActions();
+        return '✅ Verbindung ok, Daten gelesen (' . date('H:i:s') . ' Uhr).';
     }
 
     public function ReadSlow()
@@ -4925,6 +5195,32 @@ class InverterHub extends IPSModule
         $this->GetDriver()->writeControl($this->GetModbusClient(), $this, $Ident, $Value);
     }
 
+    // Verbund-Vertrag mit MigrationsHub (29.07.2026): liefert je Fremdmodul-GUID
+    // eine Alt-Ident -> Neu-Ident/-Typ-Zuordnung, damit MigrationsHub Alt-
+    // Variablen VOR unserem eigenen ApplyChanges()-Zyklus per IPS_SetParent/
+    // IPS_SetIdent korrekt umbenennen kann - unsere eigene RegisterVariables()
+    // (Reihenfolge: $valid berechnen -> PruneForeignObjects($valid) ->
+    // RegisterVar() je Variable) erkennt bereits korrekt benannte Variablen
+    // dann selbst als "existiert schon", ohne dass wir selbst reparenten
+    // muessen (s. Absprache im Verbund-Chat). Rein informativ, keine
+    // Objektaenderung hier.
+    //
+    // GoodweET (unser einziger bisheriger Migrationsfall, unser GoodWe-Treiber
+    // wurde daraus 1:1 portiert): Zuordnung hier BEWUSST NOCH LEER - das
+    // GoodweET-Repository ist inzwischen entfernt/nicht mehr erreichbar
+    // (Adoption war laut SUITE.md bereits vollstaendig abgeschlossen), wir
+    // haben also keine verifizierbare Quelle mehr fuer die exakte GUID und
+    // die tatsaechlichen Alt-Idents. Lieber eine ehrliche Leermeldung als
+    // eine geratene, unverifizierte Zuordnung - MigrationsHubs Preflight-
+    // Sonde bleibt bis dahin der Sicherheitsweg. Sollte die GoodweET-GUID/
+    // ihre Ident-Namen irgendwann verifiziert vorliegen (z. B. von Dietmar
+    // oder aus einer alten Sicherung), hier ergaenzen.
+    public function GetIdentMapping(string $foreignModuleGUID, array $foreignIdents): array
+    {
+        // Noch keine verifizierten Zuordnungen hinterlegt (s. Kommentar oben).
+        return [];
+    }
+
     // Verbund-Vertrag fuer das EMS und andere Konsumenten (analog MHUB_GetFunctions).
     // Liefert Identitaet, Steuerfaehigkeit und die wichtigsten Variablen-IDs dieser
     // InverterHub-Instanz, damit ein Konsument nicht selbst nach Idents suchen muss.
@@ -4936,8 +5232,86 @@ class InverterHub extends IPSModule
             $vid = $this->FindVarByIdent($ident);
             return $vid ?: 0;
         };
+        // Batterie-Block-Details (Dietmar, 28.08.2026, ueber NRGDashboard
+        // angefragt: bei Mehrblock-Batterien - z.B. Dietmars eigene Anlage
+        // mit 2 Tuermen - interessieren Temperatur/SOC/SOH je Block, nicht
+        // nur der aggregierte Gesamtwert). bat1_*/bat2_*-Idents existieren
+        // bislang nur beim GoodWe-Treiber; FindVarByIdent() sucht generisch
+        // im gesamten Objektbaum der Instanz, liefert bei anderen Treibern
+        // schlicht 0 zurueck - kein Treiber-Sonderfall noetig. Bis zu 4
+        // Bloecke vorgesehen (aktuell keine bat3_/bat4_-Idents vorhanden,
+        // defensiv fuer kuenftige Treiber mit mehr Bloecken). Nur belegte
+        // IDs (> 0) landen im Ergebnis - additiv, kein Konsument muss auf
+        // fehlende Bloecke pruefen, ein leeres Array ist der Normalfall bei
+        // Einzelblock-/Nicht-GoodWe-Anlagen.
+        $batteryTempIDs = [];
+        $batterySocIDs = [];
+        $batterySohIDs = [];
+        for ($i = 1; $i <= 4; $i++) {
+            $t = $find('bat' . $i . '_temp');
+            $s = $find('bat' . $i . '_soc');
+            $h = $find('bat' . $i . '_soh');
+            if ($t > 0) {
+                $batteryTempIDs[] = $t;
+            }
+            if ($s > 0) {
+                $batterySocIDs[] = $s;
+            }
+            if ($h > 0) {
+                $batterySohIDs[] = $h;
+            }
+        }
+        // MPPT-Strang-Details (Dietmar, 28.08.2026, ueber NRGDashboard
+        // angefragt: "eine Tabelle mit allen relevanten Stromwerten ...
+        // z.B. auch fuer die MPPTs"). Ident-Schreibweise unterscheidet sich
+        // je Treiber (GoodWe: mppt1_current, Sungrow/Victron: mppt1_curr/
+        // mppt1_volt) - beide Varianten je Index probieren, $find() liefert
+        // bei Nichttreffer ohnehin 0. Bis zu 4 Straenge (aktuell hoechste
+        // beobachtete Anzahl, z.B. Sungrow).
+        $mpptPowerIDs = [];
+        $mpptCurrentIDs = [];
+        $mpptVoltageIDs = [];
+        for ($i = 1; $i <= 4; $i++) {
+            $p = $find('mppt' . $i . '_power');
+            $c = $find('mppt' . $i . '_current') ?: $find('mppt' . $i . '_curr');
+            $v = $find('mppt' . $i . '_volt');
+            if ($p > 0) {
+                $mpptPowerIDs[] = $p;
+            }
+            if ($c > 0) {
+                $mpptCurrentIDs[] = $c;
+            }
+            if ($v > 0) {
+                $mpptVoltageIDs[] = $v;
+            }
+        }
+        // Netzdienlichkeits-Faehigkeiten (EMS-Vertrag, 12.09.2026): generisch
+        // ueber die Existenz der svc_*-Idents erkannt, kein Treiber-Sonderfall
+        // noetig - ein neuer Treiber, der diese Idents registriert (siehe
+        // GoodWe GroupControl), taucht automatisch mit auf. Aktuell nur beim
+        // GoodWe-Treiber vorhanden; leeres Array bei allen anderen 14.
+        $gridServiceCapabilities = [];
+        if ($find('svc_charge_inhibit') > 0) {
+            $gridServiceCapabilities[] = 'chargeInhibit';
+        }
+        if ($find('svc_grid_charge_w') > 0) {
+            $gridServiceCapabilities[] = 'gridCharge';
+        }
+        if ($find('svc_discharge_to_grid_w') > 0) {
+            $gridServiceCapabilities[] = 'dischargeToGrid';
+        }
+        if ($find('svc_release') > 0) {
+            $gridServiceCapabilities[] = 'release';
+        }
         return [
-            'contractVersion'  => '1.0',
+            // 1.0 -> 1.1: batteryTempIDs/batterySocIDs/batterySohIDs/
+            // batteryCapacityID. 1.1 -> 1.2: mpptPowerIDs/mpptCurrentIDs/
+            // mpptVoltageIDs. 1.2 -> 1.3: gridServiceCapabilities (EMS-Vertrag,
+            // 12.09.2026, Netzdienlich-Konzept). Alles additiv, kein Feld
+            // entfernt/umbenannt/umgedeutet, Major bleibt unveraendert (siehe
+            // CLAUDE.md "Vertragsversionierung").
+            'contractVersion'  => '1.3',
+            'gridServiceCapabilities' => $gridServiceCapabilities,
             'instanceID'       => $this->InstanceID,
             'manufacturer'     => $this->ReadPropertyString('Manufacturer'),
             // Immer false bei einer PHYSISCHEN Instanz (dieses Modul). Reserviert
@@ -4960,6 +5334,13 @@ class InverterHub extends IPSModule
             'gridPowerID'      => $find('meter_total'),
             'socID'            => $find('bat_soc') ?: $find('soc'),
             'connectedID'      => $find('connected'),
+            'batteryTempIDs'   => $batteryTempIDs,
+            'batterySocIDs'    => $batterySocIDs,
+            'batterySohIDs'    => $batterySohIDs,
+            'batteryCapacityID' => $find('bat_capacity'),
+            'mpptPowerIDs'     => $mpptPowerIDs,
+            'mpptCurrentIDs'   => $mpptCurrentIDs,
+            'mpptVoltageIDs'   => $mpptVoltageIDs,
         ];
     }
 
@@ -4979,16 +5360,44 @@ class InverterHub extends IPSModule
             // existiert). Reine Lesetreiber bekommen das Feld nicht - es waere
             // dort wirkungslos und nur Ballast im Formular.
             if ($propName === 'GroupControl') {
+                // Erklaerungsbeduerftiges Feld - Symcon kennt kein Hover-Tooltip
+                // (Verbund-Konvention, EMS 27.07.2026), deshalb PopupButton statt
+                // Mouseover fuer den Hintergrund (Situation A/B, Prioritaetsregel).
                 $groupItems[] = [
-                    'type'    => 'Select',
-                    'name'    => 'ControlAuthority',
-                    'caption' => 'Steuerhoheit dieser Instanz',
-                    'options' => [
-                        ['label' => 'EMS (Normalfall — das EMS darf hier schreiben)', 'value' => 'ems'],
-                        ['label' => 'Extern (ein anderer Akteur schreibt, z. B. Sunny Home Manager) — EMS darf NICHT schreiben', 'value' => 'external'],
-                        ['label' => 'Keine (niemand soll hier steuern)', 'value' => 'none'],
+                    'type'  => 'RowLayout',
+                    'items' => [
+                        [
+                            'type'    => 'Select',
+                            'name'    => 'ControlAuthority',
+                            'caption' => 'Steuerhoheit dieser Instanz',
+                            'options' => [
+                                ['label' => 'EMS (Normalfall — das EMS darf hier schreiben)', 'value' => 'ems'],
+                                ['label' => 'Extern (ein anderer Akteur schreibt, z. B. Sunny Home Manager) — EMS darf NICHT schreiben', 'value' => 'external'],
+                                ['label' => 'Keine (niemand soll hier steuern)', 'value' => 'none'],
+                            ],
+                        ],
+                        [
+                            'type'    => 'PopupButton',
+                            'caption' => 'Steuerhoheit — was bedeutet das?',
+                            'width'   => '480px',
+                            'popup'   => [
+                                'caption' => 'Steuerhoheit — was bedeutet das?',
+                                'items'   => [
+                                    ['type' => 'Label', 'caption' => '„EMS": Normalfall, das EMS besitzt den Schreibkanal auf diese Instanz (eigene Optimierung, §14a, Direktvermarktung) und darf hier schreiben.'],
+                                    ['type' => 'Label', 'caption' => '„Extern": ein anderer Akteur besitzt den Schreibkanal komplett außerhalb des EMS (z. B. Sunny Home Manager). InverterHub setzt dann KEINE EMS-Vorgabe um, egal ob das EMS den Eingriff bemerkt.'],
+                                    ['type' => 'Label', 'caption' => '„Keine": niemand soll hier steuern, RequestAction verweigert jeden Schreibzugriff.'],
+                                    ['type' => 'Label', 'caption' => 'Falsch gesetzt führt entweder zu zwei gleichzeitigen Reglern auf derselben Batterie oder dazu, dass das EMS gar nicht schreiben kann, ohne dass das sofort auffällt.'],
+                                ],
+                            ],
+                        ],
                     ],
                 ];
+                // Live bestaetigt (26.07.2026): Register ctl_ems_mode/ctl_ems_power
+                // fallen ohne periodische Neubestaetigung auf einen ungueltigen
+                // Wert zurueck (GoodWes interner SMART-Automatikmodus uebernimmt
+                // sonst wieder). Default AUS, damit einmaliges manuelles Schalten
+                // (Steuerungs-POLITIK - Schreibstrategie/Totmann-Verhalten -
+                // liegt seit 29.08.2026 komplett beim EMS, s. Create()-Kommentar.)
             }
         }
         // Invers-Schalter: die Vorzeichen von Netz- und Batterieleistung hängen
@@ -5149,7 +5558,8 @@ class InverterHub extends IPSModule
                         ['type' => 'Label', 'caption' => '• Fronius: Der Smart Meter ist ein eigenes Modbus-Gerät mit eigener Unit-ID – über das Feld „Smart-Meter-Adresse" einstellbar (Vorgabe 200, je nach Konfiguration z. B. 240).'],
                         ['type' => 'Label', 'caption' => '• SolaX: Der Wechselrichter selbst spricht nur Modbus RTU. Modbus TCP läuft nur über ein zusätzliches SolaX-Monitoring-Modul (Pocket WiFi/LAN) als Gateway – dessen IP-Adresse eintragen, nicht die des Wechselrichters.'],
                         ['type' => 'Label', 'caption' => 'ℹ️ Vorzeichen-Konvention (modulweit): Batterie + = Entladen / − = Laden; Netz-Meter + = Einspeisung / − = Bezug. Stimmt eine Richtung an der eigenen Anlage nicht, hilft der jeweilige Invers-Schalter unten – die InverterHubTile-Kachel bleibt dabei automatisch korrekt.'],
-                        ['type' => 'Label', 'caption' => '🛡️ Isolationswiderstand (Riso): bei GoodWe, Huawei, Sungrow, SMA und Kostal verfügbar; bei Growatt optional (modellabhängig). Reine SunSpec-Geräte (Fronius/SolarEdge) liefern ihn nicht.'],
+                        ['type' => 'Label', 'caption' => '🔄 Falls eine Migration auf ein anderes Hub-Modul geplant ist: Kommunikation (Modbus/EMS-Steuerung) vorerst deaktiviert lassen, bis die Migration abgeschlossen ist – Details siehe MigrationsHub.'],
+                        ['type' => 'Label', 'caption' => '🛡️ Isolationswiderstand (Riso): bei GoodWe, Huawei, Sungrow, SMA und Kostal verfügbar; bei Growatt und Fronius optional (modellabhängig, je nach SunSpec-Register). Solis, SolaX, SolarEdge, Deye, Solplanet, Victron GX und FoxESS liefern ihn nicht.'],
                         ['type' => 'Label', 'caption' => 'Registeradressen stehen im Beschreibungsfeld jeder Variable (Objekt-Manager, Spalte „Beschreibung").'],
                     ]),
                 ],
@@ -5201,6 +5611,7 @@ class InverterHub extends IPSModule
                     'items' => [
                         ['type' => 'Label', 'caption' => 'Eingang, nicht Ausgang: Hier optional eine bereits vorhandene Variable mit real GEMESSENER Hauslast auswählen (z. B. ein separater Energiezähler/Shelly am Hausanschluss). Bitte einen echten Verbrauchszähler wählen (immer positiv) — kein Netz-/Einspeisezähler, der negativ werden kann. Ist ein Zähler gewählt, zeigt die InverterHubTile-Kachel damit eine genauere Last sowie die Differenz zur PV/Netz/Batterie-Bilanz als „Wandlungsverluste" (Wechselrichter-Eigenverbrauch, Leitungsverluste). Ohne Auswahl bleibt es bei der reinen Bilanzschätzung.'],
                         ['type' => 'Label', 'caption' => 'Hinweis: Die vom Modul BERECHNETE Hauslast als eigene Variable AUSGEBEN kannst du dagegen in der Kachel-Instanz (InverterHubTile) → Panel „Datenquelle" → „Berechnete Hauslast … in eine Variable schreiben".'],
+                        ['type' => 'Label', 'caption' => 'Priorität, falls beide Felder gesetzt sind: Ein an der InverterHubTile-Instanz selbst eingetragener „Echter Hausverbrauch" hat immer Vorrang vor diesem Feld hier.'],
                         ['type' => 'SelectVariable', 'name' => 'HouseLoadMeterID', 'caption' => 'Externe Hauslast-Messvariable (Eingang)'],
                     ],
                 ],
@@ -5221,10 +5632,11 @@ class InverterHub extends IPSModule
                 ],
             ],
             'actions' => [
-                ['type' => 'Button', 'caption' => 'Verbindung testen / Daten sofort lesen', 'onClick' => 'IHUB_ReadFast($id);'],
+                ['type' => 'Button', 'caption' => 'Verbindung testen / Daten sofort lesen', 'onClick' => 'echo IHUB_ReadFast($id);'],
+                ['type' => 'Button', 'caption' => '🔄 Übernehmen erzwingen (ohne Formularänderung)', 'onClick' => "IPS_ApplyChanges(\$id); echo '✅ ApplyChanges() ausgeführt.';"],
             ],
             'status' => [
-                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte Hersteller wählen und IP-Adresse/Hostname eintragen.'],
+                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte IP-Adresse oder Hostname eintragen.'],
                 ['code' => 102, 'icon' => 'active',   'caption' => 'Verbindung aktiv.'],
                 ['code' => 201, 'icon' => 'error',     'caption' => 'Verbindungsfehler – Wechselrichter nicht erreichbar.'],
             ],
@@ -5270,7 +5682,7 @@ class InverterHub extends IPSModule
             'items' => [
                 ['type' => 'Label', 'caption' => 'InverterHub liest Wechselrichter verschiedener Hersteller direkt per Modbus TCP aus — Solarertrag, Batterie, Netzbezug und -einspeisung als normale IP-Symcon-Variablen, bei unterstützten Geräten auch mit Schreibzugriff für ein Energiemanagement-System (EMS).'],
                 ['type' => 'Label', 'caption' => 'Der Nutzen: reale Messwerte statt Schätzung — als Grundlage für Dashboards, Lastmanagement oder ein EMS, und bei steuerbaren Wechselrichtern die Möglichkeit, Lade-/Entladevorgaben tatsächlich umzusetzen.'],
-                ['type' => 'Label', 'caption' => 'Mehrere Wechselrichter oder willst du gleich mehrere Geräte auf einmal einrichten? InverterHubDiscovery durchsucht dafür das lokale Netz. Die Stromflusskachel InverterHubTile und die Sankey-Ansicht InverterHubEnergy zeigen die Werte anschaulich an.'],
+                ['type' => 'Label', 'caption' => 'Mehrere Wechselrichter oder willst du gleich mehrere Geräte auf einmal einrichten? InverterHubDiscovery durchsucht dafür das lokale Netz.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'IHUB_AckPurposeIntro($id);'],
             ],
         ];
@@ -5285,8 +5697,11 @@ class InverterHub extends IPSModule
 
     /**
      * Ausblenden von "Wozu dieses Modul?"/"Was ist Neu?"/Forum-Hinweis ueber
-     * alle Geschwister-Instanzen dieses Moduls teilen (SUITE.md, Referenz
-     * MeterHub, EMS 14.09.2026).
+     * alle Geschwister-Instanzen dieses Moduls teilen (SUITE.md "Ausblenden
+     * ueber mehrere Instanzen desselben Moduls teilen", Referenz MeterHub,
+     * EMS 14.09.2026). Ruft bei jeder Geschwister-Instanz NUR den reinen
+     * Uebernahme-Schritt auf (AdoptDismissState), nicht erneut die volle
+     * Ack-Methode - dadurch kein Ping-Pong moeglich, ganz ohne Prozessmerker.
      */
     private function PropagateDismiss(string $what, string $value = ''): void
     {
@@ -5297,10 +5712,14 @@ class InverterHub extends IPSModule
             try {
                 IHUB_AdoptDismissState($sib, $what, $value);
             } catch (\Throwable $e) {
+                // Eine Geschwister-Instanz mitten im Reload/Loeschen darf das
+                // Ausblenden der aufrufenden Instanz nicht mitreissen - @ haelt
+                // Fatals bekanntlich nicht auf.
             }
         }
     }
 
+    /** Reiner Uebernahme-Schritt fuer eine Geschwister-Instanz - siehe PropagateDismiss(). */
     public function AdoptDismissState(string $what, string $value)
     {
         switch ($what) {
@@ -5319,6 +5738,7 @@ class InverterHub extends IPSModule
         }
     }
 
+    /** Fuer Geschwister-Instanzen, die beim erstmaligen Kontakt den Ausblenden-Stand uebernehmen wollen. */
     public function GetDismissState(): array
     {
         return [
@@ -5328,6 +5748,15 @@ class InverterHub extends IPSModule
         ];
     }
 
+    /**
+     * Gegenrichtung zu PropagateDismiss(): eine Instanz sieht bei jedem
+     * ApplyChanges() bei einer beliebigen Geschwister-Instanz nach und
+     * uebernimmt deren Stand, statt "Wozu dieses Modul?"/"Was ist Neu?"/
+     * Forum-Hinweis erneut zu zeigen, obwohl der Nutzer sie an anderer Stelle
+     * schon bestaetigt hat. Zieht nur vor (false->true, aeltere->neuere
+     * News-Version), ueberschreibt nie einen schon weiter fortgeschrittenen
+     * eigenen Stand.
+     */
     private function AdoptDismissFromSibling(): void
     {
         if ($this->ReadAttributeBoolean('PurposeIntroGone') && $this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)
@@ -5419,7 +5848,7 @@ class InverterHub extends IPSModule
         ];
     }
 
-    /** Siehe MeterHub::LicenseHint() fuer die volle Herleitung - Verbund-Konvention "Variante A", ganz unten, NICHT dismissible. */
+    /** Siehe MeterHub::LicenseHint() fuer die volle Herleitung - Verbund-Konvention "Variante A". */
     private function LicenseHint(): array
     {
         return [
@@ -5444,11 +5873,6 @@ class InverterHub extends IPSModule
         if ($this->driver !== null) {
             return $this->driver;
         }
-        // Kein stiller GoodWe-Fallback mehr bei leerer/unbekannter Auswahl -
-        // ApplyChanges() faengt den Leerfall bereits vorher ab (Store-
-        // Checkliste Punkt 12); ein hier verbleibender ungueltiger Wert
-        // (z. B. Migrationsrest) landet ebenfalls bei GoodWe, aber bewusst
-        // als letzte Absicherung, nicht als beworbener Normalfall.
         $key   = $this->ReadPropertyString('Manufacturer');
         $class = self::DRIVERS[$key] ?? self::DRIVERS['goodwe'];
         $this->driver = new $class();
@@ -5514,7 +5938,6 @@ class InverterHub extends IPSModule
             return $raw / 10.0;
         }
         if ($this->yieldState === null) {
-            // Store-Checkliste 9c: (string)-Cast gegen `false` bei Kernel-Reload.
             $s = json_decode((string)$this->ReadAttributeString('VictronYieldState'), true);
             $this->yieldState = is_array($s) ? $s : [];
         }
@@ -5738,11 +6161,77 @@ class InverterHub extends IPSModule
             @IPS_DeleteVariable($vid);
             $vid = 0;
         }
-        $created = false;
-        if (!$vid) {
-            $vid = IPS_CreateVariable($vtype);
-            IPS_SetIdent($vid, $ident);
-            $created = true;
+
+        // Live-Fehler (26.07.2026): Steuervariablen wurden bisher per rohem
+        // IPS_CreateVariable()+IPS_SetIdent() angelegt. Solche Variablen sind
+        // fuer den Kernel NIE ueber diese Instanz "registriert" (das passiert
+        // nur ueber RegisterVariableXXX) - EnableAction() findet dafuer keinen
+        // Action-Slot und bleibt wirkungslos (meldet trotzdem `true`, ohne
+        // etwas zu bewirken). Klick in WebFront/App scheiterte mit "Action is
+        // invalid". Beschraenkt auf group==='control': Fuer alle uebrigen
+        // (Mess-)Variablen bliebe ein Umstieg auf RegisterVariableXXX ein
+        // Delete+Neuanlage-Vorgang mit NEUER Variablen-ID - das wuerde die
+        // Archivhistorie jeder geloggten Messvariable in jeder Installation
+        // kappen. Steuervariablen werden nicht archiviert, das Risiko
+        // existiert dort nicht.
+        //
+        // Zweiter Live-Fehler, real aufgetreten: RegisterVariableXXX() erkennt
+        // eine schon existierende eigene Variable NUR, wenn sie aktuell noch
+        // DIREKTES Kind der Instanz ist. Da wir jede Variable sofort danach in
+        // eine Unterkategorie verschieben (pv/bat/grid/control/...), fand
+        // RegisterVariableXXX sie beim naechsten ApplyChanges() nicht wieder
+        // und legte STATT DESSEN eine weitere neue Variable an - bei jedem
+        // Reload eine neue ID, Action erneut auf 0. Deshalb: RegisterVariableXXX
+        // nur beim EINMALIGEN Erzeugen aufrufen (per eigener, rekursiver
+        // FindVarByIdent-Suche erkannt, die auch in Unterkategorien findet).
+        // Existiert die Variable schon, wird der gefundene $vid unveraendert
+        // weiterverwendet - keine erneute Registrierung, kein ID-Churn.
+        //
+        // Dritter Live-Fehler, real aufgetreten (EMS, 26.07.2026): Die
+        // Einmaligkeit wurde zunaechst ueber ein persistentes Attribut
+        // (ControlVarsRegistered) abgesichert - das ueberlebt aber KEINEN
+        // vollen Modul-Reload (MC_DeleteModule+MC_CreateModule loescht
+        // Instanz-Attribute, dieselbe Nebenwirkung, die auch Tibbers
+        // OAuth-Passwort gekippt hat). Ergebnis: Bei jedem vollen Reload lief
+        // die Migration erneut, neue Variablen-ID bei jedem Mal - fuer
+        // Nutzer inakzeptabel (feste WebFront-Widget-Referenzen brechen).
+        // Deshalb KEIN Attribut/Flag mehr: Die Pruefung ist selbstverifizierend
+        // ueber den ECHTEN, kernel-verwalteten Zustand der Variable selbst
+        // (VariableAction), der - anders als ein Attribut - einen vollen
+        // Modul-Reload uebersteht, solange die Variable selbst nicht geloescht
+        // wird.
+        if ($group === 'control' && $vid) {
+            $alreadyBound = (@IPS_GetVariable($vid)['VariableAction'] === $this->InstanceID);
+            if (!$alreadyBound) {
+                // Alte, roh erzeugte oder noch nicht registrierte Variable -
+                // erst loeschen, dann sauber ueber RegisterVariableXXX neu
+                // anlegen (sonst "Ident muss fuer jede Ebene eindeutig sein").
+                @IPS_DeleteVariable($vid);
+                $vid = 0;
+            }
+        }
+        $created = !$vid;
+
+        if ($created) {
+            if ($group === 'control') {
+                switch ($type) {
+                    case 'F':
+                        $vid = $this->RegisterVariableFloat($ident, $caption, '', $pos);
+                        break;
+                    case 'I':
+                        $vid = $this->RegisterVariableInteger($ident, $caption, '', $pos);
+                        break;
+                    case 'B':
+                        $vid = $this->RegisterVariableBoolean($ident, $caption, '', $pos);
+                        break;
+                    case 'S':
+                        $vid = $this->RegisterVariableString($ident, $caption, '', $pos);
+                        break;
+                }
+            } else {
+                $vid = IPS_CreateVariable($vtype);
+                IPS_SetIdent($vid, $ident);
+            }
         }
 
         $catID = $this->EnsureCategory($group);
@@ -5951,6 +6440,15 @@ class InverterHub extends IPSModule
     public function GetPropBool(string $name)
     {
         return $this->ReadPropertyBoolean($name);
+    }
+
+    // Aktueller Wert einer eigenen Integer-Variable (rekursive Ident-Suche) -
+    // Treiber nutzen das z. B. fuer Flanken-Erkennung (nur beim UEBERGANG auf
+    // 255 warnen, nicht in jedem 5s-Zyklus erneut). -1, wenn nicht vorhanden.
+    public function GetVarInt(string $ident)
+    {
+        $vid = $this->FindVarByIdent($ident);
+        return $vid ? GetValueInteger($vid) : -1;
     }
 
     // -----------------------------------------------------------------------

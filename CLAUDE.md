@@ -1,81 +1,346 @@
 # Hinweise für die Arbeit an diesem Repository
 
-## Geteiltes Ausblenden über mehrere Instanzen desselben Moduls (14.09.2026)
+## Migrationsvergleich vor jedem `beta`-Push (EMS-Werkzeug, SUITE.md 9e, 13.09.2026)
 
-Verbund-Konvention (Dietmar, SUITE.md 14.09.2026): "Was ist Neu?" und der Forum-Hinweis liegen
-als `RegisterAttributeBoolean`/`-String` IMMER pro Instanz — Symcon kennt keinen modulweiten
-Speicher. Bei `InverterHubTile` (mehrere Kacheln möglich) musste der Nutzer denselben Hinweis
-sonst mehrfach wegklicken. Umgesetzt ohne neuen Speicher-Mechanismus:
+`php /Users/dietmar/Nextcloud/Claude/.tools/migrationsvergleich.php . origin/beta HEAD` vor
+jedem Push auf `beta` laufen lassen — vergleicht Module/GUIDs, Idents+Typen, Properties+Typen,
+öffentliche Funktionen+Parameter, Profile, Attribute und Vertrags-Major gegen den zuletzt
+veröffentlichten Stand und meldet Brüche, die bestehende der ~240 Installationen zum Absturz
+bringen würden. Rückgabewert 1 = erst klären, nicht einfach pushen. Erkennt keine
+zusammengesetzten/dynamisch gebauten Idents — ersetzt keine eigene Prüfung, nur zusätzliches
+Netz. Kein separates `main` bei uns — `beta` ist der einzige Store-/Produktionskanal, daher
+immer `origin/beta` als Basis, nicht `ems-integration`.
 
-- `DismissReviewHint()`/`AckNews()` rufen nach dem eigenen Ausblenden zusätzlich
-  `PropagateDismissToSiblings()` auf: alle `InverterHubTile`-Geschwister-Instanzen
-  (`IPS_GetInstanceListByModuleID(self::SELF_MODULE)`, sich selbst ausgenommen) über die
-  globale Wrapper-Funktion (`IHUBTILE_DismissReviewHint($siblingID)` bzw. `IHUBTILE_AckNews`).
-- **Idempotenz-Guard gegen Ping-Pong ist Pflicht:** Beide Methoden prüfen VOR dem Schreiben, ob
-  der Zustand schon gesetzt ist — nur dann wird propagiert. Ohne diesen Guard riefen sich zwei
-  Instanzen gegenseitig endlos auf (A→B→A→B→...).
-- **Attribute sind von außen NICHT über `IPS_GetObjectIDByIdent`/`GetValue*` lesbar** (anders
-  als Variablen — Attribute haben keine Objekt-ID). Für Punkt „neue Instanz übernimmt Stand
-  einer Geschwister-Instanz" (in `Create()`) gibt es deshalb eine eigene öffentliche Methode
-  `GetDismissState()`, die über den globalen Wrapper `IHUBTILE_GetDismissState($siblingID)`
-  aufgerufen wird.
-- „Was ist Neu?" ist versionsbezogen: Jede Instanz schreibt beim Propagieren ihre EIGENE
-  `NEWS_VERSION`-Konstante (nicht eine mitgegebene), korrekt solange alle Geschwister-Instanzen
-  denselben Codestand haben.
-- Dauerhafter Regressionstest: `.tools/test-tile-dismiss-share.php` (extrahiert nur die
-  betroffenen Methoden, simuliert mehrere Instanzen in einem Prozess) — prüft explizit die
-  Ping-Pong-Terminierung bei 2 und 3 Instanzen. `php .tools/test-tile-dismiss-share.php` vor
-  jeder Änderung an dieser Logik laufen lassen.
-- Gilt NUR innerhalb eines Moduls (alle `InverterHubTile`-Instanzen untereinander), nie
-  modulübergreifend. Betrifft nur `InverterHubTile` (mehrere Instanzen möglich), nicht die
-  Hauptinstanz `InverterHub` (üblicherweise nur eine pro Wechselrichter).
+## Uebergangs-Huellen fuer InverterHubTile/Monitor/Energy gebaut (14.09.2026, EMS-Vorschlag, Dietmar-Freigabe)
 
-## Branch-Drift `ems-integration` → `beta`: Batch-Fix + Diagnostik nachgezogen (12.09.2026)
+**Umgesetzt, siehe unten stehenden Abschnitt fuer den urspruenglichen Befund.** Auf
+`ems-integration` liegen jetzt wieder drei Modulordner `InverterHubTile`/`InverterHubMonitor`/
+`InverterHubEnergy` — gleiche Modul-GUID/Klassenname/Ident-Praefix wie auf `beta`, aber komplett
+entkernt: `Create()`/`ApplyChanges()` tun nichts mehr ausser `SetStatus(104)`,
+`GetConfigurationForm()` zeigt nur einen Hinweistext ("Kachel entfallen, bitte NRGDashboard-
+Kachel X installieren, diese Instanz danach loeschen"), `module.html` zeigt denselben Hinweis
+statt der frueheren SVG-Kachel. Kein `form.json` mehr (wird von der Huelle nicht gelesen).
 
-Beim Diffen für die EMS-Sitzung (Anlass: neuer `gridServiceCapabilities`-Vertrag) aufgefallen:
-mehrere echte GoodWe-Treiber-Verbesserungen waren nur auf `ems-integration` entstanden und nie
-auf `beta` (Produktion, 240 Installationen) portiert worden. Nachgezogen (0.76.1-beta.3):
-Batch-Modus-Fix (s. u. „GoodWe reagiert schleppend..."), `diag_status_l`/`bms1_err_code`/
-`bms1_warn_code` (Bitfeld-/BMS-Diagnostik), `derate_pct` (70%-Regel-Anzeige).
+**Zweck:** Wird `ems-integration` je nach `beta` gemergt, ersetzt diese Huelle die echten
+Module dort — bestehende Instanzen (~240 Installationen potenziell betroffen) bekommen dann
+eine klare Handlungsanweisung in der Konsole statt eines Fatal Error. **Der Merge selbst ist
+noch nicht erfolgt** — diese Huellen liegen bisher nur auf `ems-integration`, `beta` fuehrt
+weiterhin die vollen, funktionsfaehigen Module.
 
-**Bewusst NICHT mitgezogen** (auf Dietmars Anweisung, nur „Batch-Fix und Diagnostik"):
-`ctl_soc_max` (bestätigt wirkungsloses Steuerregister, s. u.), das komplette
-`gridServiceCapabilities`/`svc_*`-Feature (neuer, noch nicht production-reifer EMS-Vertrag,
-Live-Verifikation läuft aktuell nur auf `ems-integration`) sowie der 255/STOPPED-Totmann-
-Profileintrag samt `ctl_ems_mode`/`ctl_ems_power`-Rücklesung (an die `svc_*`-Architektur
-gekoppelt). Diese Lücke ist also weiterhin bewusst vorhanden, nicht übersehen.
+**Nachfolgekacheln von Dashboard bestaetigt (14.09.2026), alle Hinweistexte nachgezogen:**
+`InverterHubTile` → `NRGDashboardTile`; `InverterHubMonitor` UND `InverterHubEnergy` (Sankey)
+→ `NRGDashboardPVMonitor` (Reiter „MPP-Tracker" bzw. „Energiebilanz"). Beide Dashboard-Module
+sind Teil derselben Bibliothek „NRG-Stack Dashboard" (ein Store-Eintrag). Laut Dashboard kein
+Funktionsverlust bis auf eine kleine Luecke: Wer bei `InverterHubTile` NUR die eigene manuelle
+Hauslast-Zuordnung (`ManualHouseID`/`HouseLoadMeterID`) genutzt hatte (kein MeterHub-Geraet mit
+`function='house'`), muss sie bei `NRGDashboardTile` neu eintragen — im Hinweistext erwaehnt.
+`InverterHub` selbst (die Kerninstanz, nicht Tile/Monitor/Energy) MUSS mit `IHUB_GetFunctions()`
+und den `mppt*_power`-Variablen unveraendert bestehen bleiben, da alle drei Dashboard-Ersatz-
+Kacheln direkt darauf aufbauen — das ist bereits der Fall (nur die drei Visualisierungsmodule
+wurden entkernt, das Kernmodul lief nie auf `ems-integration`).
 
-**Lehre für künftige Sitzungen:** Bei Arbeit auf `ems-integration`, die reine Bugfixes/Diagnostik
-am Kerntreiber betrifft (nicht EMS-spezifische Steuerlogik), prüfen, ob dieselbe Änderung auch
-auf `beta` gehört — sonst driften die Branches unbemerkt auseinander und Produktionsnutzer
-verpassen echte Fehlerbehebungen.
+## Offener Punkt für später (ORIGINALBEFUND, jetzt oben umgesetzt): Fatal Error bei Alt-Instanzen, falls Tile-Entfernung je auf main/beta geht
+
+Real beobachtet (EMS-Meldung, 12.09.2026): Dietmar wechselte auf seiner Anlage manuell von
+`beta` (0.76.1-beta.1) auf `ems-integration` (0.76.0-beta.4). Seine dort noch vorhandenen
+`InverterHubTile`-/`InverterHubMonitor`-Instanzen stürzten mit `Fatal error: require_once ...
+Failed opening required` ab — beide Module sind auf `ems-integration` bewusst entfernt
+(NRGDashboard übernimmt die Anzeige, s. u. „`InverterHubTile`/`InverterHubMonitor`/
+`InverterHubEnergy` entfernt"), aber die Instanzen existieren noch und finden ihren Code nicht.
+
+**Kein aktuelles Store-Risiko:** `ems-integration` ist kein Verteilungskanal — nur `main`/`beta`
+gehen über den Symcon Module Store an echte Nutzer, und dort existieren die beiden Module
+unverändert weiter. Betrifft also ausschließlich Dietmars eigenes manuelles Branch-Wechseln.
+
+**Wird aber real, sobald/falls die Tile-Entfernung je auf `main`/`beta` ausgerollt wird** — dann
+träfe jeder Nutzer mit einer bestehenden Tile-/Monitor-Instanz denselben Fatal Error beim
+Update. Für DIESEN Tag vormerken (noch nicht umgesetzt, keine Entscheidung nötig, solange die
+Module auf `beta`/`main` bleiben):
+- Denkbar: eine Übergangsversion beider Module, die nur noch eine Instanz-Registrierung ohne
+  echte Logik enthält („ersetzt durch NRGDashboard, bitte löschen") statt hart zu fehlen.
+- Denkbar: Hinweis im „Was ist neu"-Panel VOR der eigentlichen Entfernung, mit Anleitung zum
+  Löschen der Alt-Instanzen.
+- Von EMS vorgeschlagen, hier nur gesammelt — Entscheidung liegt bei Dietmar, wenn die
+  Migration ansteht.
+
+## `gridServiceCapabilities` — generische Netzdienlichkeits-Operationen (EMS-Vertrag, 12.09.2026)
+
+Verbund-Vertrag mit EMS für dessen netzdienliche Bausteine (Mittagsspitze in die Batterie,
+Netzladen bei Überschuss, Netzbezug bei Knappheit vermeiden, Einspeisen aus der Batterie bei
+Rot — Details: EMS/`EMS-Netzdienlich-Konzept.md`, Abschnitt 6). EMS fragt nur „kannst du das?",
+der Treiber übersetzt intern — genau das Muster von `controllable`/`controlAuthority`.
+
+**`IHUB_GetFunctions` 1.2 → 1.3 (additiv):** neues Feld `gridServiceCapabilities` (Array aus
+`chargeInhibit`, `gridCharge`, `dischargeToGrid`, `release`, leer wenn der Treiber nichts davon
+kann). Generisch über die Existenz der `svc_*`-Idents erkannt (`FindVarByIdent()`), kein
+Treiber-Sonderfall — ein künftiger Treiber mit denselben Idents taucht automatisch mit auf.
+
+**Nur beim GoodWe-Treiber implementiert** (Stand 12.09.2026). Sungrow (nur Start/Stop) und Deye
+(nur Ein/Aus) haben aktuell keine passenden Sollwert-Register gebaut, die übrigen 12 Treiber
+sind reine Lesetreiber — alle melden `gridServiceCapabilities: []`, EMS lässt den jeweiligen
+Baustein dort ohne Fehler aus.
+
+**Register-Mapping GoodWe** (`IHUB_GoodweDriver::writeControl()`, neue `svc_*`-Idents in der
+`GroupControl`-Gruppe):
+
+| Ident | Wirkung | Register-Schreibvorgang |
+|---|---|---|
+| `svc_charge_inhibit` (bool) | Laden sperren, Überschuss ins Netz | `true`: 47511=3 ("Entladen+Solar"), 47512=0, 47505=0 (enable aus). `false`: wie `svc_release`. |
+| `svc_grid_charge_w` (int, W) | Batterie lädt mit W aus dem Netz, Hausanschluss von EMS zu respektieren | `W>0`: 47511=9 ("Stromeinkauf", Netzbezug am NAP geregelt — sicherer als Modus 11, EMS-Test 24.08.), 47512=W, 47505=0. `0`: wie `svc_release`. |
+| `svc_discharge_to_grid_w` (int, W) | Einspeisen aus der Batterie (nur B4/Rot, von EMS begrenzt) | `W>0`: 47511=3 ("Entladen+Solar" — Xset ist echter Sollwert, KEINE Obergrenze, EMS-Fund 12.09.), 47512=W, 47505=0. `0`: wie `svc_release`. |
+| `svc_release` (bool) | zurück in WR-Eigenregelung | 47511=1 ("Automatik"), 47512=0, 47505=0. |
+
+**Bewusst `enable`(47505)=0 bei allen drei Sollwert-Operationen, nie 1.** Der 255/STOPPED-
+Totmann-Rückfall tritt laut unserem A/B-Test (29.08.2026, s. u.) nur bei `enable=true` ohne
+zyklischen Heartbeat auf — mit `enable=false` hält der gesetzte Modus dauerhaft, ohne dass EMS
+selbst einen Heartbeat bauen müsste. Das war die zentrale Absicherung, die wir EMS empfohlen
+haben (`ctl_ems_enable=false` ist seit dem A/B-Test ohnehin die generelle Empfehlung, s. u.).
+
+**Schreibreihenfolge in `writeGridService()`: Übergang über Null, aber NUR bei echtem
+Moduswechsel** (EMS-Fund 13.09.2026, zweite Korrektur — die erste eigene Korrektur
+„enable → Leistung → Modus" war noch falsch, siehe unten). Modus 3 ist ein erzwungener
+Sollwert (Xset), keine Obergrenze — deshalb hat **jede** feste Zwei-Schritt-Reihenfolge
+(Modus→Leistung oder Leistung→Modus) für irgendeinen Übergang ein Loch:
+
+- Modus zuerst: kurz gilt der NEUE Modus mit der ALTEN Leistung (Vorfall 12.09.2026 00:02 Uhr,
+  12 kW davon 9 kW ins Netz beim Wechsel aus Modus 4/9 mit 7400 W nach Modus 3).
+- Leistung zuerst (unsere erste, ebenfalls falsche Korrektur): kurz gilt der ALTE Modus mit der
+  NEUEN Leistung — z. B. von `svc_discharge_to_grid_w=500` (Modus 3) nach `svc_grid_charge_w=7400`
+  liefe Modus 3 kurz mit Xset 7400 W, derselbe Entladestoß nur andersherum ausgelöst.
+
+**Sicher ist nur ein Übergang über Null**, und zwar nur beim Moduswechsel selbst:
+1. Leistung (47512) = 0 — harmlos unter jedem Modus (Modus 3+0 = Laden sperren, Modus 9+0 = kein
+   Netzbezug-Sollwert, Modus 1 ignoriert den Wert ohnehin).
+2. Modus (47511) = Ziel.
+3. Leistung (47512) = Zielwert, falls > 0.
+4. `enable` (47505) = false.
+
+**Der Null-Schritt entfällt, wenn der Modus gleich bleibt** (nur die Leistung ändert sich, z. B.
+Grid-Rewards-Nachführen alle 30s) — sonst würde jeder Nachführ-Zyklus unnötig kurz auf 0 W
+flackern. `writeGridService()` liest dafür den zuletzt bekannten Modus aus `ctl_ems_mode`
+(`GetVarInt`, vom letzten `readFastInner()`-Zyklus) und vergleicht ihn gegen den Zielmodus.
+`enable=false` wird in beiden Zweigen zuletzt geschrieben (idempotent, verändert für sich genommen
+weder Modus noch Leistung). EMS übernimmt dieselbe Logik in `setGoodweMode()`.
+
+**Scheitert der Null-Schritt, wird der Moduswechsel abgebrochen, nicht fortgesetzt** (EMS-Fund
+13.09.2026, dritte Runde). Schriebe man den Modus trotzdem, liefe genau der Zwischenzustand, den
+der Null-Schritt verhindern soll (neuer Modus mit der alten Leistung). `writeGridService()` gibt
+in diesem Fall sofort `false` zurück, ohne Modus/Leistung/enable weiter anzufassen — der
+Wechselrichter bleibt im alten, bekannten Zustand, EMS versucht es im nächsten Zyklus erneut.
+
+**Teilerfolg wird nicht als „aktiv" gemeldet.** Scheitert einer der drei Schreibvorgänge, bleibt
+der bisherige `svc_*`-Anzeigezustand stehen (statt einen ungewissen WR-Zustand als aktiv zu
+behaupten) und `WarnUser()` meldet den Teilerfolg sichtbar. `writeGridService()` gibt dafür
+`bool` zurück (alle drei Schreibvorgänge erfolgreich); die Statusvariablen werden nur bei `true`
+gesetzt.
+
+**Ein Steuerpfad je Instanz — von EMS selbst durchzusetzen, nicht hier.** `svc_*` und `ctl_*`
+schreiben bei GoodWe dieselben Register (47511/47512/47505). EMS hat zugesichert, pro Instanz
+entweder `ctl_*` (heutige Automatik-/Grid-Rewards-/Tagesplan-Steuerung) oder `svc_*`
+(netzdienliche Bausteine) zu nutzen, nie beide gleichzeitig — wir erzwingen das nicht
+zusätzlich (kein Konflikt-Lock), das widerspräche „InverterHub trifft keine Steuerungspolitik".
+
+**Sicherheitsgrenzen (Hausanschluss, SOC-Reserve, Rückfall bei Kommunikationsausfall, Stopp am
+SOC-Limit bei erzwungenem Entladen) liegen vollständig bei EMS** — konsistent mit der
+Architekturentscheidung vom 29.08.2026 (s. u.): InverterHub ist reine Ausführungs-/
+Meldeschicht, setzt eine Operation einmal um und liest zurück, ohne eigene Wiederholung oder
+Watchdog.
 
 ## `IHUB_ModbusTcpClient` verwertete Antworten ohne Transaktions-ID-Prüfung (02.09.2026)
 
-Real gemeldet (Dashboard-Sitzung): Auf Dietmars Anlage (#52838) wurde nachts gegen 03:00 Uhr ein
-einzelner archivierter PV-Leistungswert von 261.554.185 W (261,5 MW) geloggt — physikalisch bei
-einer 9,18-kWp-Anlage unmöglich, hat Dashboards Tagesmittel-Näherung verzerrt. Zerlegt
-(`261554185 = 0x0F970009`): High-Wort 3991, Low-Wort 9 — zwei plausibel aussehende, aber
+Real gemeldet (Dashboard-Sitzung, 02.09.2026): Auf Dietmars Anlage (#52838) wurde nachts gegen
+03:00 Uhr ein einzelner archivierter PV-Leistungswert von 261.554.185 W (261,5 MW) geloggt —
+physikalisch bei einer 9,18-kWp-Anlage unmöglich, hat Dashboards Tagesmittel-Näherung verzerrt.
+Zerlegt (`261554185 = 0x0F970009`): High-Wort 3991, Low-Wort 9 — zwei plausibel aussehende, aber
 zueinander unpassende Registerhälften, keine zufällige Bitkippung.
 
-**Root Cause:** `readHolding()`/`readInput()` in `IHUB_ModbusTcpClient` prüften die Modbus-TCP-
-Transaktions-ID (MBAP-Header) der Antwort **nie** gegen die der eigenen Anfrage. Im Batch-Modus
-(eine wiederverwendete Verbindung für alle Reads eines Zyklus) kann ein einzelner Read über sein
-3s-Zeitlimit laufen und als fehlgeschlagen gelten, während seine Antwort kurz danach doch noch
-auf derselben Verbindung eintrifft. Ohne TID-Prüfung wurde dieser verspätete Rest-Frame beim
-NÄCHSTEN Read desselben Zyklus als dessen eigene Antwort fehlinterpretiert. Betraf potenziell
-alle 15 Treiber (geteilte Basisklasse). Details/Fix identisch zur `ems-integration`-Notiz (nicht
-dupliziert, dort ausführlicher dokumentiert).
+**Root Cause gefunden:** `readHolding()`/`readInput()` in `IHUB_ModbusTcpClient` prüften die
+Modbus-TCP-Transaktions-ID (MBAP-Header) der Antwort **nie** gegen die der eigenen Anfrage. Im
+Batch-Modus (`beginBatch()`/`endBatch()`, eine wiederverwendete Verbindung für alle Reads eines
+Zyklus — s. u. „GoodWe reagiert schleppend...") kann ein einzelner Read über sein 3s-Zeitlimit
+laufen und als fehlgeschlagen gelten (`null`), während seine Antwort kurz danach doch noch auf
+derselben Verbindung eintrifft. Ohne TID-Prüfung wurde dieser verspätete Rest-Frame beim
+NÄCHSTEN Read desselben Zyklus als dessen eigene Antwort fehlinterpretiert — mit Registerwerten,
+die zu einer völlig anderen Messgröße gehörten. Nachts (WR im Schlafmodus, langsamer/inkonstant
+antwortend) ist ein solcher Timeout deutlich wahrscheinlicher als tagsüber, was zur beobachteten
+Uhrzeit passt. Betraf potenziell alle 15 Treiber (geteilte Basisklasse), nicht nur GoodWe.
 
-**Fix (0.76.1-beta.1):** `readRegisters()`/`readMbapFrame()` sammeln jeden Frame vollständig über
-das MBAP-Längenfeld ein und prüfen die Transaktions-ID; Nichttreffer werden verworfen. Mit einem
-Socket-Pair-Testskript gegen die exakt gemeldeten Werte (3991/9) verifiziert.
+**Fix (0.75.1-beta.1):** `readHolding()`/`readInput()` laufen jetzt über eine gemeinsame
+`readRegisters()`/`readMbapFrame()`-Pfad, der jeden Frame vollständig über das MBAP-Längenfeld
+einsammelt und dessen Transaktions-ID gegen die der eigenen Anfrage prüft — bei Nichttreffer wird
+der Frame verworfen (nicht als Antwort verwertet) und auf den nächsten gewartet, bis das 3s-Limit
+abläuft. Ein bereits eingesammelter, aber nicht passender Rest-Frame bleibt für den nächsten Read
+derselben Batch-Verbindung erhalten (`batchLeftover`), damit eine nur leicht verspätete, aber
+inhaltlich korrekte Antwort nicht verloren geht. Mit einem Socket-Pair-Testskript verifiziert
+(simulierter Stale-Frame mit den exakt gemeldeten Werten 3991/9 wurde korrekt verworfen).
 
 **Dauerhafter Regressionstest (12.09.2026):** `.tools/test-modbus-client.php` — Muster von
 MeterHubs gleichnamigem Prüfstand übernommen (echter Modbus-TCP-Server per `proc_open`, Modi
-normal/dropafter1/exception/silent/stray). Prüft Batch- vs. Einzel-Verbindungsmodus und explizit
-den `stray`-Fall (fremder Frame mit falscher TID, Wert `0xDEAD`) gegen genau dieses Fehlerbild.
-`php .tools/test-modbus-client.php` vor jeder Änderung an `IHUB_ModbusTcpClient` laufen lassen.
+normal/dropafter1/exception/silent/stray), statt den Ad-hoc-Socket-Pair-Test wegzuwerfen. Prüft
+u. a. Batch- vs. Einzel-Verbindungsmodus (Server-seitige Verbindungszählung) und explizit den
+`stray`-Fall (fremder Frame mit falscher TID vor der echten Antwort, Wert `0xDEAD`) gegen genau
+dieses Fehlerbild. `php .tools/test-modbus-client.php` vor jeder Änderung an
+`IHUB_ModbusTcpClient` laufen lassen, 0 = bestanden.
+
+**Nicht behoben, weil separates Thema:** Der ursprüngliche 32-Bit-Wert kam über `pv_total`
+(`pv_real`/`pv_total`-Fallback-Kette bei anderen Treibern betrifft dasselbe Muster). Dashboards
+eigener generischer Ausreißer-Schutz (>1 MW verwerfen) bleibt sinnvoll als zusätzliches
+Sicherheitsnetz beim Konsumenten — dieser Fix behebt nur die Quelle bei uns.
+
+## ReassertEmsControl(): von blindem Zeit-Reassert auf Drift-Prüfung umgestellt (25.08.2026)
+
+Real beobachtet (Dietmars Anlage, live): `ctl_ems_mode`/`ctl_ems_power` wurden bislang NIE
+zurückgelesen — `readFast()` schrieb sie nur beim Kommandieren, `ReassertEmsControl()`
+schrieb den zuletzt kommandierten Wert stur alle `EMS_REASSERT_DEADMAN_SEC` (60s) erneut,
+unabhängig davon, ob das Register längst korrekt stand. Konkret beobachtet: Mit
+`EmsReassertEnabled=true` wurde "Entladen 10000 W" wiederholt in eine Batterie geschrieben, die
+gerade im **Standby** stand (`bat1_mode`/`bat2_mode` beide "Standby") — wirkungsloser, aber
+nicht harmloser Dauer-Traffic ("Käse"): Bei ohnehin instabiler Netzwerkverbindung zum WR (s.
+Abschnitt unten) kann jeder dieser unnötigen Schreibversuche selbst hängenbleiben und über
+synchrone `IPS_RequestAction()`-Aufrufe (z. B. von EMS, alle 30s) fremde Skript-Threads
+blockieren.
+
+**Fix:**
+1. `readFastInner()` liest `ctl_ems_mode`/`ctl_ems_power` (Register 47511+47512, ein
+   zusammenhängender Read) jetzt **jeden Zyklus tatsächlich zurück** und schreibt den echten
+   IST-Wert in die Variablen — vorher konnten diese Variablen nur den zuletzt kommandierten
+   SOLL-Wert zeigen, nie den tatsächlichen Registerstand (z. B. den bekannten Rückfall auf 255
+   war bisher gar nicht sichtbar, außer über einen externen Akteur, der selbst zurückliest).
+2. `ReassertEmsControl()` vergleicht jetzt den frisch zurückgelesenen IST-Wert gegen den
+   kommandierten SOLL-Wert (`LastCommanded_<ident>`) und schreibt **nur noch bei tatsächlicher
+   Abweichung** — steht das Register schon korrekt, bleibt der Zyklus komplett stumm. Das
+   behebt sowohl das Sinnlos-Schreiben in den Standby-Fall als auch die generelle
+   Traffic-Reduktion, UND macht den Modus gleichzeitig zuverlässiger sticky (echte
+   Selbstheilung bei Drift, z. B. dem 255-Rückfall, statt reiner Zeitsteuerung).
+
+**Noch nicht live gegengetestet.** Nächster Schritt: nach Modul-Update beobachten, ob a) der
+gesetzte Modus jetzt zuverlässig ankommt/bleibt (kein Rückfall auf 255 mehr unbemerkt) und b)
+keine unnötigen Schreibversuche mehr im Standby-Fall auftreten.
+
+## GoodWe reagiert schleppend auf Schaltbefehle — Verbindungs-Konkurrenz mit dem Lesezyklus
+
+Real beobachtet (24.08.2026, Dietmars Anlage #52838, unabhängig auch von der EMS-Sitzung an
+derselben Instanz bestätigt): `IPS_RequestAction()` auf `ctl_ems_mode`/`ctl_ems_power` übernimmt
+den Wert in der IPS-Variable sofort (Schreibvorgang laut `writeSingle()` erfolgreich), die reale
+Batterieleistung bleibt aber **20-50+ Sekunden** bei ~0 W/Rauschen, unabhängig vom gesetzten
+Xset. Betroffen waren die Modi 4 (AC-Import), 5 (AC-Export), 6 (Energiesparen), 9
+(Stromeinkauf), 11 (Batterie-Laden) — praktisch jeder Xset-Modus, nicht nur gelegentlich.
+
+**Zuverlässiger Workaround (mehrfach reproduziert, EMS-Sitzung):** Kommunikation an der
+InverterHub-Instanz kurz deaktivieren und wieder aktivieren, danach den Modus erneut setzen —
+dann reagiert die Batterie regelmäßig binnen 5-20 Sekunden. Musste bei (fast) jedem einzelnen
+Moduswechsel wiederholt werden, nicht nur einmal täglich.
+
+**Ursache gefunden:** `GetModbusClient()` erzeugt bei **jedem** Aufruf ein neues
+`IHUB_ModbusTcpClient`-Objekt — sowohl `RequestAction()`/`writeControl()` als auch der
+periodische `FastTimer` (`IntervalFast`, Standard 5 s) öffnen also unabhängig voneinander eigene
+Verbindungen. Der GoodWe-Treiber nutzte dabei — anders als der Sungrow-Treiber (dort schon mit
+Batch-Modus wegen des WiNet-S-Einzelverbindungslimits) — **keinen** Batch-Modus: `readFast()`
+öffnete für **jeden** der ~15-20 Register-Blöcke eine eigene, frisch geöffnete Verbindung. Fällt
+ein Schaltbefehl in dieses mehrere Sekunden lange Lesefenster, konkurriert die Schreibverbindung
+mit den laufenden Lese-Verbindungen um die GoodWe-Firmware.
+
+**Fix (24.08.2026):** `readFast()` läuft jetzt wie beim Sungrow-Treiber in `beginBatch()`/
+`endBatch()` — eine wiederverwendete Verbindung für den gesamten Lesezyklus statt 15-20
+einzelner. Verkürzt das Konfliktfenster von mehreren Sekunden auf einen Bruchteil, beseitigt es
+aber nicht zwingend vollständig (der Schaltbefehl selbst öffnet weiterhin eine eigene, separate
+Verbindung — echte Serialisierung bräuchte eine geteilte/gesperrte Verbindung über
+Skript-Ausführungen hinweg, was IPS' Architektur so nicht ohne Weiteres hergibt). **Auf Dietmars
+Anlage noch nicht live gegengetestet** — nächster Schritt: nach einem Modul-Update beobachten,
+ob das "20-50+ Sekunden Nullleistung"-Muster seltener/kürzer auftritt.
+
+Vorläufige Fehleinschätzung (21.08.2026, FoxESS-Fall unten, Beta-Tester "hbraun") aus der
+Ferne, ohne Zugriff auf das reale System — beim Nachfassen widerlegt, hier als Lehre
+festgehalten:
+
+1. **Der scheinbare Bibliotheks-„Flap" im Log** ("InverterHub for IP-Symcon" wechselte sich mit
+   "NRG-Stack InverterHub for IP-Symcon" ab) war **kein simultanes Duplikat**, sondern schlicht
+   **zeitlich nacheinander** derselbe Log-Ausschnitt über Horsts eigene Lösch-/Neuinstallations-
+   Schritte hinweg (alter Stand vor seinem Aufräumen, dann sein frischer Neustart). Ein
+   Screenshot des Modul-Ordners bestätigte zu diesem Zeitpunkt bereits nur eine Kopie auf
+   Platte — es gab also gar keine zwei Registrierungen gleichzeitig zu bereinigen.
+2. **"InverterHub Suche" und "NRG-Stack InverterHub Suche" als zwei Auswahlpunkte beim
+   Instanz-Anlegen sind KEIN Duplikat, sondern beabsichtigt:** `InverterHubDiscovery/module.json`
+   hat bewusst drei `aliases` (`"NRG-Stack InverterHub Suche"`, `"InverterHub Suche"`,
+   `"Wechselrichter Suche"`) für **dieselbe** Modul-GUID — Symcon zeigt beim Anlegen jeden Alias
+   als eigene Zeile, alle erzeugen aber identische Instanzen. Reine Auffindbarkeits-Konvenienz
+   (Nutzer kann nach "InverterHub" ODER "NRG-Stack" ODER "Wechselrichter" suchen), kein Bug.
+
+**Lehre für künftige Ferndiagnosen im Verbund:** Log-Auszüge über mehrere Minuten können
+mehrere Nutzeraktionen (Löschen, Neuinstallieren) verschachtelt enthalten — vor einer
+"Duplikat"/"Kollision"-Diagnose die Zeitstempel gegen die vom Nutzer beschriebenen eigenen
+Schritte abgleichen, statt zwei verschiedene Namen im selben Log-Dump vorschnell als
+gleichzeitig zu werten.
+
+## FoxESS fehlte in der Gerätesuche (21.08.2026, Forum-Meldung "hbraun"/Horst)
+
+Real gemeldet: Ein FoxESS-Nutzer fand über `InverterHubDiscovery` "0 Geräte", egal welchen Port
+er versuchte (245 wie in Home Assistant, dann 502). Ursache: Das Kernmodul hat seit
+0.74.0-beta.1 einen vollständigen `IHUB_FoxEssDriver` (Read-Only-MVP), aber `foxess` fehlte
+komplett in `InverterHubDiscovery`s `VENDOR_UNIT_IDS`/`VENDOR_LABELS`/`probeVendor()` — die
+Suche konnte den Hersteller also unabhängig vom Port gar nicht erkennen. Nachgezogen
+(0.74.1-beta.1): Erkennung über Input-Register 11056 (Betriebsstatus, Enum 0–5) + 10000-10007
+(Modellname, ASCII), beide FC04 wie im Kerntreiber dokumentiert.
+
+**Unit-ID-Kandidaten `[247, 1]` sind eine Annahme, KEINE bestätigte Tatsache** — im Gegensatz
+zu den anderen Treibern in `probeVendor()`, die alle an echter Hardware verifiziert wurden. Der
+FoxESS-Kerntreiber selbst ist ebenfalls explizit als "Read-Only-Vorabversion, Beta, ungetestet"
+markiert.
+
+**Zweite Rückmeldung desselben Testers (21.08.2026, gleicher Tag):** Port offen, ein echtes
+Gerät antwortet (Netzwerk-Scan zeigt „INVERTER-60HD1030638"), aber die FC04-Erkennung fand es
+trotzdem nicht. Genau das Muster der SMA-FC03/FC04-Falle (s. u.) — TCP-Gateways proxien nicht
+immer denselben Funktionscode wie die RTU-Dokumentation vorgibt. Fix (0.74.1-beta.2):
+`probeVendor('foxess')` versucht jetzt zusätzlich FC03 (Holding) auf denselben Adressen, bevor
+der Hersteller als nicht erkannt gilt.
+
+**Dritte Rückmeldung, entscheidender Fund (21.08.2026):** Horst nutzt Home Assistant mit
+FoxESS erfolgreich — auf Nachfrage recherchiert (`nathanmarlor/foxess_modbus`, die
+verbreitetste FoxESS-HA-Integration, plus ein reales Fehlerprotokoll aus dem offiziellen
+FoxESS-Community-Forum): **Neuere Modelle mit eingebautem WLAN-/LAN-Modbus-TCP-Server**
+(H1-Gen2-WL, H3 Smart) sprechen ein **komplett anderes Registerschema** — Block **31000+**
+statt 10000/11000er —, per **FC03 (Holding)**, nicht FC04. Die Unit-ID **247 ist bestätigt
+richtig** (im Forum-Fehlerprotokoll wörtlich `slave: 247` bei genau diesem Registerblock).
+Belegte Adressen (community-vermessen, nicht aus der offiziellen RS485-Doku): Netzspannung
+Holding 31006 (×0,1 V), Wechselrichterleistung Holding 31008 (×0,001 kW, signed, H1) bzw.
+31012-31014 je Phase (H3), Batterie-SOC Holding 31024 (H1) / 31038 (H3-Pro).
+
+Fix (0.74.1-beta.3): `probeVendor('foxess')` prüft jetzt BEIDE Registerwelten nacheinander —
+zuerst die alte RS485/10000er-Welt (FC04+FC03-Fallback), dann bei Fehlschlag den neuen
+31000er-Block (Netzspannung 31006 auf plausiblen Bereich, Wechselrichterleistung 31008 nur
+auf Lesbarkeit).
+
+**WICHTIGER, NOCH OFFENER Folgefehler:** Selbst wenn die Gerätesuche das Gerät jetzt findet,
+liest der **Kerntreiber `IHUB_FoxEssDriver`** (`InverterHub/module.php`) weiterhin
+AUSSCHLIESSLICH den alten 10000/11000er-Block per FC04 — für ein Gerät der WLAN-Serie würde
+die angelegte Instanz vermutlich nur Nullen/Fehler zeigen, keine echten Werte. Das ist ein
+SEPARATER, noch nicht behobener Fehler im Kerntreiber, nicht nur in der Suche. Nicht als
+vollständig gelöst kommunizieren, bevor jemand mit einem WLAN-Serie-Gerät bestätigt, dass nach
+dem Anlegen echte Werte ankommen — sonst wiederholt sich dieselbe Enttäuschung eine Stufe
+später.
+
+## `InverterHubTile`/`InverterHubMonitor`/`InverterHubEnergy` entfernt (nur `ems-integration`, 20.08.2026)
+
+Auf Anweisung Dietmars entfernt: Die drei Visualisierungs-Kacheln (Stromfluss, Sankey,
+Monitoring/Diagnostik) sind auf diesem Zweig gelöscht — NRGDashboard hat diese Aufgabe
+übernommen. **Betrifft ausdrücklich nur `ems-integration`**, nicht `main`/`beta` (dort laufen
+reale Store-Nutzer, die diese Kacheln ggf. noch verwenden — kein Löschen dort ohne separate
+Absprache). Mit `InverterHubMonitor` ist auch der Diagnostik-Vertrag `IHUBMON_GetDiagnostics`
+entfallen.
+
+**Bekannte Restabhängigkeit bei Dashboard:** `NRGDashboardTile`/`NRGDashboardPVMonitor` riefen
+(Stand vor der Löschung) `IHUBTILE_GetConsumers()`, `IHUBTILE_GetHouseLoad()` und
+`IHUBMON_GetDiagnostics()` als **optionale** Datenquelle auf (hinter `function_exists()`, mit
+Rückfall auf eine gröbere Näherung). Nach dieser Löschung degradiert das still auf den
+Rückfallpfad — kein Absturz, aber ein Funktionsverlust (Verbraucherzuordnung, echte
+Hauslast-Messvariable, Diagnostik-Icon). Dashboard-Sitzung wurde informiert.
+
+Alle historischen Abschnitte weiter unten in dieser Datei, die sich auf diese drei Module
+beziehen (Browser-Eigenheiten der Kacheln, Datumssteuerungs-Konvention, MeterInvert/BatInvert-
+Vorfall, Fahrzeug-/Wallbox-Kopplung, Diagnostik-Vertrag usw.), sind bewusst **nicht entfernt**
+— sie bleiben als Vorfall-/Entscheidungs-Dokumentation gültig, auch wenn der betroffene Code auf
+diesem Zweig nicht mehr existiert (z. B. falls die Module auf `main`/`beta` einmal wieder
+angefasst werden oder als Referenz für NRGDashboards Nachbau).
 
 ## Der Modul-Verbund
 
@@ -85,7 +350,7 @@ gemeinsame Regeln und dokumentierte Schnittstellen geeinigt haben.
 
 | Modul | Rolle | Repo / lokale Kopie | Vertrag zu uns |
 |---|---|---|---|
-| **InverterHub** (dieses Repo) | Wechselrichter messen, darstellen, steuern | `DG65/InverterHub` | — |
+| **InverterHub** (dieses Repo) | Wechselrichter messen, darstellen, steuern | `DG65/NRGInverterHub` | — |
 | **MeterHub** | Energiezähler (Modbus TCP) | `DG65/MeterHub` · `../MeterHub` | `MHUB_GetFunctions($id)` |
 | **Prognose** (EnergiePrognose) | PV- und Verbrauchsprognose | `DG65/Prognose` · `../Prognose` | `PVF_GetGenerators`, `PVF_GetModuleArea(s)`, `PVF_GetForecast` |
 | **HeishaMon** | Panasonic-Wärmepumpe | `DG65/HeishaMon` | `HEISHA_GetFunctions($id)` (ab v1.1.1) |
@@ -360,7 +625,7 @@ Fahrzeug-Tabelle (`Vehicles`: Bezeichnung, Verbunden-Bedingung, `SocID`) ist
 **herstellerneutral**; `AssignVehicles()` ordnet Fahrzeug und Wallbox über die zeitliche
 Korrelation der beiden Verbinden-Meldungen zu, ohne dass eine Seite die andere kennen muss.
 
-**Es gibt keine Code-Abhängigkeit zu [Tessie](https://github.com/DG65/Tessie)** — kein
+**Es gibt keine Code-Abhängigkeit zu [Tessie](https://github.com/DG65/NRGTessie)** — kein
 `TESSIE_`-Aufruf, keine GUID. Tessie ist lediglich eine mögliche Quelle für die eingetragenen
 Variablen (dort u. a. eine `Soc`-Variable). Das ist Absicht: Jede andere Wallbox-/Fahrzeug-
 Quelle funktioniert genauso.
@@ -369,6 +634,15 @@ Quelle funktioniert genauso.
 bestimmtes Fahrzeugmodul wäre nur dann sinnvoll, wenn sie — wie bei MeterHub — rein additiv
 ist und hinter einem `function_exists`-Guard liegt, sodass die manuelle Konfiguration
 unverändert weiterfunktioniert.
+
+**Zuständigkeit ab 28.07.2026 zusätzlich bei Dashboard:** Die Dashboard-Sitzung hat
+`AssignVehicles()`/`Vehicles`-Property/`CondMet`-Helfer 1:1 nach `NRGDashboardTile` portiert
+(deren Commit 849363b), damit ihre eigene Stromflusskachel dieselbe Fahrzeug-Zuordnung zeigt.
+Es gibt dafür **keinen Verbund-Vertrag/SUITE.md-Eintrag** — reine Musterübernahme, keine
+Abhängigkeit zwischen den Modulen. Der Code hier in `InverterHubTile` bleibt unverändert
+bestehen (Dietmars eigene Kachel nutzt ihn weiterhin) — bei künftigen Änderungen an diesem
+Mechanismus **beide Stellen im Blick behalten**, sie können sonst unbemerkt auseinanderlaufen,
+genau wie bei `CONSUMER_TYPES`/`MHUB_TYPE_MAP` (s. Schwester-Repository-Abschnitt).
 
 ## Schwester-Repository MeterHub
 
@@ -589,7 +863,7 @@ gegengeprüften Umstellungs-Build mit Vorher/Nachher-Test an mindestens einer Li
 
 ## Vertragsversionierung (Verbund-Konvention, 23.07.2026)
 
-Manifest: https://github.com/DG65/EMS/blob/main/SUITE.md. Betrifft uns bei jeder angebotenen und
+Manifest: lokale SUITE.md (siehe oben). Betrifft uns bei jeder angebotenen und
 konsumierten Schnittstelle. **Bestehendes muss nicht umgebaut werden** — anwenden, sobald neue
 Verträge entstehen.
 
@@ -601,6 +875,40 @@ generisch über die `GroupControl`-Gruppe erkannt), `controlAuthority` (`ems`/`e
 Nutzereinstellung), sowie `pvPowerID`/`acPowerID`/`batPowerID`/`gridPowerID`/`socID`/
 `connectedID`. Aktuell `controllable === true` nur bei GoodWe (9 Steuerpunkte), Deye (Ein/Aus),
 Sungrow (Start/Stop) — die übrigen 13 Treiber sind reine Lesepfade.
+
+**`contractVersion` 1.0 → 1.1 (28.08.2026, additiv, kein Bruch):** vier neue Felder für
+Mehrblock-Batterien (auf NRGDashboard-Anfrage, Dietmars eigene Anlage hat 2 Batterie-Türme):
+`batteryTempIDs`/`batterySocIDs`/`batterySohIDs` (je ein flaches Array von Variablen-IDs, ein
+Eintrag pro erkanntem Block — leer, wenn der Treiber keine Block-Idents hat oder nur ein Block
+vorhanden ist) und `batteryCapacityID` (installierte Gesamtkapazität in kWh, 0 wenn unbekannt).
+`batteryTempIDs`/`batterySocIDs`/`batterySohIDs` (`bat1_temp`/`bat1_soc`/`bat1_soh`/`bat2_*`)
+sind aktuell nur beim GoodWe-Treiber befüllt. **Korrektur (EMS-Fund 13.09.2026):** Der Ident
+`bat_capacity`, auf den `batteryCapacityID` zeigt, existiert dagegen NUR beim SolaX-Treiber
+(eigenes Register 0x003A-0x003B) — beim GoodWe-Treiber wurde er nie implementiert, diese
+Zeile war schlicht falsch (Kopierfehler/Wunschdenken bei 1.1). Bei GoodWe liefert
+`batteryCapacityID` daher immer `0`, bestätigt an Dietmars Instanz #52838 (40 kWh installiert,
+laut Live-Registerabzug 47900-47933 kein plausibles Kapazitäts-Feld auffindbar — offsets 0/2
+je Batterie-Teilblock sind unbekannter Bedeutung, nicht dokumentiert, nicht ungeprüft als
+Kapazität interpretiert). Alles über `FindVarByIdent()` generisch gesucht — kein
+Treiber-Sonderfall in `GetFunctions()` nötig, ein Treiber ohne den jeweiligen Ident liefert
+einfach `0`/ein leeres Array.
+
+**Kein manueller Fallback bei uns (EMS-Entscheidung, 13.09.2026, geklärt).** Ein zuerst
+erwogener generischer „installierte Batteriekapazität (kWh)"-Fallback bei uns entfällt bewusst:
+Die Anlagenstammdaten laufen zentral über EMS (`EMS_GetPlantInfo` 1.1, `BAT_Capacity_kWh`),
+`GetPlantInfo.speicherKwh` liefert die Kapazität mit Quelle „wechselrichter" (unser gemessener
+Wert, Vorrang) oder „einstellung" (Nutzereingabe bei EMS). Ein zweites Eingabefeld bei uns wäre
+dieselbe Dopplung, die bei der Einspeisevergütung (EMS/Szenariorechner/Dashboard) bereits
+aufgelöst wurde. `batteryCapacityID = 0` bei GoodWe ist also die korrekte, endgültige Aussage
+„liefert das nicht" — nur befüllen, wenn ein Treiber die Kapazität wirklich per eigenem
+Register meldet (wie SolaX).
+
+**`contractVersion` 1.1 → 1.2 (28.08.2026, additiv, kein Bruch):** drei neue Felder für
+MPPT-Stränge (NRGDashboard-Anfrage: "Tabelle mit allen relevanten Stromwerten ... auch für die
+MPPTs"): `mpptPowerIDs`/`mpptCurrentIDs`/`mpptVoltageIDs`, je ein flaches Array, ein Eintrag pro
+Strang (bis zu 4). Ident-Schreibweise unterscheidet sich je Treiber (GoodWe: `mpptN_power`/
+`mpptN_current`; Sungrow/Victron: `mpptN_power`/`mpptN_curr`/`mpptN_volt`) — beide Varianten
+werden anhand des Idents probiert, generisch über `FindVarByIdent()`, kein Treiber-Sonderfall.
 
 **`controlAuthority` wird durchgesetzt, nicht nur gemeldet.** `RequestAction` verweigert jeden
 Schreibzugriff, wenn die Instanz nicht auf `ems` steht (Verteidigung in der Tiefe — das EMS soll
@@ -773,6 +1081,24 @@ Feldliste im README, Abschnitt „Diagnostik-Vertrag". Kurzfassung:
 Falls NRGDashboard-Feedback zum Format kommt: additiv erweitern, nicht umbenennen (Vertrag ist
 schon veröffentlicht, sobald ein Konsument darauf aufbaut).
 
+## MigrationsHub-Integration in InverterHubDiscovery (29.07.2026, verdrahtet/ungetestet)
+
+Verbund-Absprache: Migration von Altinstanzen ist jetzt Teil des normalen Discovery-Scans statt
+separates Werkzeug (`InverterHubDiscovery/module.php`, Commit 36f9180). Ablauf: Scan findet ein
+Gerät → ruft additiv `MIGHUB_FindLegacyCandidates($mighubId, $host, $port, $unitId)` auf (hinter
+`function_exists`, MigrationsHub-Instanz wird bei Bedarf einmalig je Scanlauf angelegt) → bei
+Treffern erscheint ein Panel „Migration von Altinstanzen" → Klick auf „Migration vorbereiten"
+(`StartMigration()`) legt die neue InverterHub-Instanz an, ruft `MIGHUB_PrefillMigration()` auf,
+zeigt einen `OpenObjectButton` zu MigrationsHub, wo der bestehende Simulieren/Übernehmen-Ablauf
+läuft. Matching ausschließlich über Host+Port+UnitId, nie über Namen (MigrationsHub-Konvention).
+
+**Status: verdrahtet, aber mangels echtem Testfall NICHT end-to-end getestet** (nur `php -l` +
+Code-Review). Grund: GoodweET — das einzige bisherige Alt-Modul, das InverterHub abgelöst hat —
+ist bei Dietmar inzwischen komplett deinstalliert (Adoption war bereits vollständig
+abgeschlossen), es gibt also keinen echten Alt-Instanz-Kandidaten mehr zum Durchklicken. Auf
+Dietmars ausdrücklichen Wunsch (29.07.2026) **kein künstlicher Wegwerf-Test erzwungen** — echter
+Test folgt bei der nächsten realen Alt-Modul-Ablösung im Verbund, dann diesen Hinweis entfernen.
+
 ## InverterHubVirtual — Anlagen-Summe mehrerer Wechselrichter (Designstand)
 
 Mehr-WR-Anlagen (z. B. sirkentucky: zwei getrennte SMA → zwei InverterHub-Instanzen, EINE
@@ -819,6 +1145,32 @@ virtuelle WR ist der instanzübergreifende Fall.
 Feldnamen (von Dietmar bestätigt 2026-07-23; mit MeterHub kompatibel, MeterHub übernimmt sie):
 `activeSourceCount`, `aggregation` (sum|mean|plant|device), `virtual`.
 
+**Extern validiert (27.07.2026, Recherche auf Dietmars Wunsch nach mehr Eigeninitiative statt nur
+Ticket-Reaktion):** Das Muster „PV summieren, Netz/Hauslast NUR EINMAL auf Anlagenebene" deckt
+sich mit etablierten Open-Source-EMS-Projekten, kein Sonderweg:
+- **OpenEMS** trennt exakt so: eine `Sum`-Komponente aggregiert anlagenweit, `GridActivePower`
+  kommt von GENAU EINEM Meter mit Rolle `GRID`. Verbrauch wird dort **nicht** aus
+  Einzelgeräte-Hauslastwerten summiert, sondern zentral **abgeleitet**:
+  `Consumption = Production + ESS-Entladung − Netzeinspeisung`. Mehrere Batterie-WR fasst ein
+  explizites ESS-Cluster zusammen — Analogie zu unserem `IHUBV`.
+  (https://community.openems.io/t/ess-with-multiple-inverters/2333,
+  https://openems.github.io/openems.io/openems/latest/coreconcepts.html)
+- **evcc** erlaubt mehrere PV-Meter (automatisch summiert, `site.meters.pvs: [...]`), aber
+  **nur einen** Netz-Meter je Anlage — bei mehreren physischen Zählpunkten muss der Nutzer sie
+  VOR der Site-Konfiguration selbst zu einem virtuellen Meter zusammenfassen, die Anlage sieht
+  danach wieder nur einen. (https://docs.evcc.io/en/meters/)
+- **Home-Assistant-Energiedashboard** hat dagegen KEINEN strukturellen Schutz — es summiert
+  blind, was zugewiesen wird; Nutzer laufen dort real in genau unsere „gefährlichste Falle"
+  (mehrfach gezählte Hauslast bei mehreren WR), weil nichts das verhindert. Negativbeispiel,
+  keine Blaupause.
+
+**Verdikt:** unser Design ist bestätigt, keine Änderung am Grundmuster nötig. Eine Verfeinerung
+von OpenEMS aber als Fallback vormerken, WENN kein Inexogy-Zähler vorhanden ist: Hauslast dann
+nicht von irgendeinem WR erfragen (kein Treiber soll das je müssen), sondern zentral in
+`IHUBV` ableiten: `Hauslast = Σ(PV) + Σ(Batterie-Entladung) − Netzbezug`. Das entfernt die Falle
+strukturell statt nur per Dokumentation zu warnen — passt zu `plant`, ändert aber nichts an der
+Umsetzung (weiterhin offen, s. o.).
+
 ## Verbund-Konvention: Kacheln mit Datumssteuerung bedienen sich identisch
 
 Gilt für **alle** Kacheln mit Zeitraum-/Datumsauswahl — derzeit `InverterHubMonitor` und
@@ -862,3 +1214,432 @@ Gilt für `InverterHubTile/module.html` und sinngemäß für andere Kachel-HTML:
   des Hosts (Variablenliste der Instanz). Das gilt für alle HTML-SDK-Kacheln, auch für
   Symcons eigene. Wirkt die Ansicht leer, liegt das an fehlenden Variablen der Instanz — nicht
   am Kachel-Layout. Bitte nicht erneut „reparieren".
+
+## Steuervariablen brauchen `RegisterVariableXXX()`, nicht rohes `IPS_CreateVariable()`
+
+Realer Vorfall (25./26.07.2026, Dietmars WR1-Instanz): WebFront-Klicks auf Steuer-Schalter
+(z. B. „EMS Leistungsmodus") scheiterten mit **„Action is invalid" (Code -32603)**. Ursache lag
+in zwei Ebenen übereinander, beide hier festgehalten, weil beide bei jedem künftigen Umbau der
+Variablenanlage wieder zuschlagen können:
+
+**Ebene 1 — falsche API zum Verdrahten der Aktion.** `IPS_SetVariableCustomAction($vid, $X)`
+erwartet als zweiten Parameter eine **Skript-ID**, nicht — wie naheliegend vermutet — eine
+Instanz-ID. Ein Aufruf mit der eigenen `$this->InstanceID` schlägt daher **immer** fehl (`false`,
+kein Fehler/Exception), live bestätigt per Fehlermeldung „Skript #<InstanzID> existiert nicht".
+Die korrekte, offiziell dokumentierte SDK-Methode für eine **modul-eigene** Statusvariable ist
+`$this->EnableAction($Ident)` (siehe [Symcon-Doku](https://www.symcon.de/de/service/dokumentation/entwicklerbereich/sdk-tools/sdk-php/module/enableaction/)).
+
+**Ebene 2 — der eigentliche Kern des Fehlers, schwerer zu finden:** `$this->EnableAction($Ident)`
+selbst meldete `true` (kein Fehlersignal!), band aber trotzdem nichts — `VariableAction` blieb bei
+`0`. Grund: Unsere Variablen wurden bislang per rohem `IPS_CreateVariable()`+`IPS_SetIdent()`
+angelegt (nicht über `RegisterVariableInteger()`/`RegisterVariableBoolean()`/etc.). Eine so
+erzeugte Variable ist beim Kernel **nie** als „eigene Variable dieser Instanz" registriert — nur
+`RegisterVariableXXX()` trägt sie in die interne Buchführung ein, auf der `EnableAction()`
+aufsetzt. Bloße Objektbaum-Zugehörigkeit (richtiger Parent, richtiger Ident) reicht nicht.
+**Exakt derselbe Fehlerauslöser wie bei ChargerHub** (rohe Variablenanlage statt
+`RegisterVariableXXX`).
+
+**Der Fix ist bewusst nur auf `group === 'control'` beschränkt, nicht auf alle Variablen:**
+Ein `RegisterVariableXXX`-Umstieg für bereits bestehende Variablen erzeugt zwangsläufig eine
+**neue Variablen-ID** (IPS kann eine roh erzeugte Variable nicht nachträglich „registrieren").
+Für Steuervariablen unkritisch (nie archiviert). Für **Mess**-Variablen wäre das ein
+Archivhistorien-GAU gewesen — jede Installation im Feld hätte bei ihrem nächsten Update die
+komplette Archivhistorie sämtlicher Sensorwerte verloren (neue ID ≠ alte Archivdaten). Genau das
+verletzt die an anderer Stelle in dieser Datei festgehaltene Regel „Bereits geloggte Variablen
+fassen wir nie an". **Diesen Fix nie auf Mess-/archivierte Variablen ausweiten, ohne das explizit
+mit Dietmar abzustimmen.**
+
+**Dritte Falle, real aufgetreten beim ersten Reparaturversuch:** `RegisterVariableXXX()` erkennt
+eine schon vorhandene eigene Variable nur, solange sie **direktes Kind der Instanz** ist. Da
+`RegisterVar()` jede Variable sofort nach der Anlage in ihre fachliche Unterkategorie verschiebt
+(`IPS_SetParent($vid, $catID)` — pv/bat/grid/control/...), erkennt ein **erneuter**
+`RegisterVariableXXX`-Aufruf sie beim nächsten `ApplyChanges()` nicht wieder und legt STATT DESSEN
+eine weitere neue Variable an — bei jedem Modul-Reload eine erneute ID-Dopplung, mit `updated=0`
+auf der jeweils verwaisten Hälfte. **Deshalb: `RegisterVariableXXX()`/`IPS_CreateVariable()` nur
+aufrufen, wenn die eigene rekursive `FindVarByIdent()`-Suche wirklich nichts findet
+(`$created === true`).** Existiert die Variable schon (egal in welcher Unterkategorie), wird der
+gefundene `$vid` unverändert weiterverwendet — keine erneute Registrierung.
+
+**Migration bestehender roh erzeugter Steuervariablen — NICHT über ein Attribut absichern.**
+Ein erster Versuch nutzte ein persistentes Attribut (`ControlVarsRegistered`), um den
+Lösch+Neuanlage-Schritt auf einmal zu begrenzen. Das schlug live fehl (EMS, 26.07.2026,
+dreifach reproduziert): `MC_DeleteModule`+`MC_CreateModule` (voller Modul-Reload) **löscht
+Instanz-Attribute** — dieselbe Nebenwirkung, die auch Tibbers OAuth-Passwort mehrfach gekippt
+hat. Das Flag fiel bei jedem vollen Reload auf `false` zurück, die Migration lief erneut, jedes
+Mal mit einer neuen Variablen-ID — inakzeptabel, sobald WebFront-Widgets feste IDs referenzieren.
+
+**Der tragfähige Ersatz: selbstverifizierend über den echten Zustand prüfen, kein Flag.**
+`IPS_GetVariable($vid)['VariableAction'] === $this->InstanceID` — ist eine gefundene Variable
+bereits korrekt gebunden, bleibt sie unangetastet; nur wenn nicht, wird sie gelöscht und über
+`RegisterVariableXXX` sauber neu angelegt. Dieser Zustand sitzt am Variablen-Objekt selbst
+(Kernel-verwaltet), nicht an einem Instanz-Attribut, und übersteht daher auch einen vollen
+Modul-Reload. **Allgemeine Lehre für den ganzen Verbund:** Jede „nur einmal tun"-Logik, die
+einen vollen Modul-Reload überstehen muss, gehört an einen Zustand, der NICHT in
+Instanz-Attributen hängt — Attribute sind für sowas der falsche Speicherort.
+
+**Prüfmethode, die tatsächlich funktioniert hat:** `IPS_GetVariable($vid)['VariableAction']` direkt
+nach dem Aufruf lesen (0 = keine Bindung). Ein selbst instanziiertes `new InverterHub($id)` +
+Reflection auf protected Methoden ist zum Testen **nicht zuverlässig** — ein damit aufgerufenes
+`RegisterVariableInteger()` hat live nicht einmal eine auffindbare Variable erzeugt. Nur der
+echte, kernel-dispatchte Aufruf (die von IPS selbst generierte globale Funktion, z. B.
+`IHUB_EnableActions($id)`) liefert verlässliche Ergebnisse.
+
+## `MeterInvert`/`BatInvert` gehören NUR nach `module.php` — nie zusätzlich in einen Konsumenten
+
+Real gefunden (27.07.2026, Dashboard-Sitzung, Live-Beleg): `InverterHubTile` hat `MeterInvert`/
+`BatInvert` der Quellinstanz selbst nochmal gelesen und den Wert ein **zweites** Mal gedreht,
+obwohl `module.php` (`SetVarFloat()`) die Korrektur bereits beim Schreiben anwendet — die
+gespeicherte Variable (und damit `gridPowerID`/`batPowerID` im `IHUB_GetFunctions`-Vertrag) ist
+schon kanonisch. Der Doppel-Dreher hob sich in der Kachel zufällig wieder auf (sie *sah* richtig
+aus), während der nach außen gegebene Vertragswert bei `MeterInvert=true` tatsächlich
+vorzeichenverkehrt war — externe Konsumenten (Dashboard), die den Vertragswert direkt nutzen,
+bekamen den Fehler ungefiltert zu sehen. Behoben (Commit `96349f1`): Die Kachel liest bei einer
+InverterHub-Quellinstanz weder `MeterInvert` noch `BatInvert` mehr selbst.
+
+**Regel für jeden künftigen Konsumenten (eigene oder fremde Kachel/Modul):** `MeterInvert`/
+`BatInvert` sind **einmalig, zentral in `module.php`** angewendet — die Werte hinter
+`gridPowerID`/`batPowerID` (und jede andere über `IHUB_GetFunctions` oder direkt gelesene
+Variable) sind **immer bereits kanonisch** (`+ Einspeisung`/`+ Entladen`), unabhängig vom
+Property-Zustand der Quellinstanz. Kein Konsument darf diese Properties selbst nochmal auslesen
+und erneut invertieren — das ist ausschließlich für den **manuellen Modus** (keine InverterHub-
+Instanz als Quelle, z. B. `ManualGridInvert` in `InverterHubTile`) vorgesehen, wo es keine
+vorgeschaltete Korrektur gibt.
+
+## GoodWe `diag_status_l` (Register 35220, DiagStatusL): Bit-Tabelle
+
+Live-Fall (28.07.2026, EMS-Sitzung): 20+ Minuten AC-Leistungseinbruch bei SOC~99%, im SEMS+-
+Portal als „Ausgangsport-Überspannungsfehler"/„Allgemeine Störungswarnung" (Batteriestring)
+sichtbar. Die vermeintlich naheliegenden `warn_code`/`err_msg` (Register 32000/32002,
+Wechselrichter-seitig) UND ein separater BMS-Fehler-/Warncode-Block (37006/37010/37012/37013,
+`bms1_err_code`/`bms1_warn_code`) blieben beide durchgehend `0` — falsche Fundstellen, jeweils
+live ausprobiert und verworfen. Die tatsächlich bit-codierte Diagnose sitzt in **Register 35220
+„DiagStatusL"** (U32, laut GoodWe-Doku „Table 8-14 Diagnostic Status") — bei uns als
+`diag_status_l` roh (kein Bit-Decode in der UI) abgelegt. Bit-Bedeutung (aus der GoodWe-
+Registerdoku, Tabelle 8-14):
+
+| Bit | Name | Bedeutung |
+|---|---|---|
+| 0 | BatteryVoltLow | Entladung wegen niedriger Batteriespannung gesperrt |
+| 1 | BatterySOCLow | Entladung wegen niedrigem SOC gesperrt |
+| 2 | BatterySOCInBack | SOC noch nicht auf entlade-freigegebenem Niveau |
+| 3 | BMSDischargeDisable | BMS erlaubt keine Entladung |
+| 4 | DischargeTimeOn | Entladezeitfenster gesetzt |
+| 5 | ChargeTimeOn | Ladezeitfenster gesetzt |
+| 6 | DischargeDriveOn | Entlade-Treiber aktiv |
+| 7 | BMSDischgCurrentLow | BMS-Entladestrom-Limit zu niedrig |
+| 8 | DischargeCurrentLow | Entladestrom-Limit zu niedrig (von App) |
+| 9 | MeterCommLoss | Smart-Meter-Kommunikationsausfall |
+| 10 | MeterConnectReverse | Smart-Meter-Anschluss verpolt |
+| 11 | SelfUseLoadLight | Last zu gering, Entladung nicht aktivierbar |
+| 12 | EMSDischargeIZero | Entladestrom-Limit 0A vom EMS |
+| 13 | DischargeBUSHigh | Entladung wegen zu hoher PV-Spannung gesperrt |
+| 14 | BatteryDisconnect | Batterie getrennt |
+| **15** | **BatteryOvercharge** | **Batterie überladen** |
+| 16 | BMSOverTemperature | Lithium-Batterie-Übertemperatur |
+| **17** | **BMSOvercharge** | **Lithium-Batterie überladen oder einzelne Zellspannung zu hoch** |
+| 18 | BMSChargeDisable | BMS erlaubt kein Laden (u. a. normal bei SOC nahe 100 %) |
+| 19 | SelfUseOff | Eigenverbrauchsmodus aus |
+| 20 | SOCDeltaOverRange | SOC springt unplausibel |
+| 21 | BatterySelfDischarge | Batterie entlädt sich >30 % bei niedrigem Strom über längere Zeit |
+| 22 | OffgridSOCLow | SOC niedrig im Inselbetrieb |
+| 23 | GridWaveUnstable | Netzqualität schlecht, häufiger Backup-Wechsel |
+| 24 | FeedPowerLimit | Einspeisebegrenzung gesetzt |
+| 25 | PFValueSet | Leistungsfaktor-Vorgabe gesetzt |
+| 26 | RealPowerLimit | Wirkleistungs-Vorgabe gesetzt |
+| 28 | SOCProtectOff | SOC-Schutz aus |
+
+**Live-Beobachtung dazu:** Bits 15/17 (Overcharge) waren beim Nachlesen NICHT gesetzt, obwohl
+SEMS+ den Alarm laut Dietmar weiterhin als aktiv zeigte — Bit 18 (BMSChargeDisable) war gesetzt
+(plausibel bei SOC~99%, für sich genommen kein Fehler). Naheliegende Erklärung: SEMS+ führt ein
+eigenes, ereignisbasiertes Alarm-Log mit eigenem Reset-Kriterium, das nicht zwingend deckungsgleich
+mit dem Live-Zustand dieses Bitfelds ist — die Momentaufnahme des Registers kann also "sauber"
+aussehen, während die Cloud den Vorfall noch als offen führt. Bei künftigen Fällen: Bits über die
+Zeit protokollieren (nicht nur einmalig lesen), nicht nur den SEMS+-Status als alleinige Wahrheit
+nehmen.
+
+Es gibt außerdem **DiagStatusH** (Register 35218, U32, „Table 8-13") — ein separates, bisher NICHT
+gemapptes Bitfeld (Precharge-Relais, Bypass-Relais, Meter-Spannungsmessfehler, DRED/ESD-Stopp,
+Offgrid-DOD, BYD-SOC-Adjust) — bei Bedarf nach demselben Muster ergänzen.
+
+**Vorlauf-Hinweis (nachträglich von Dietmar berichtet):** Bereits am Vortag (27.07.2026) wurde
+eine Batteriespannung über 470 V beobachtet, ohne dass es damals zu einer sichtbaren Abschaltung
+kam — das Ereignis vom 28.07.2026 war also vermutlich nicht der allererste Vorbote, nur der
+erste, der tatsächlich zur Abschaltung führte. Beide SOC-Grenzregister (`ctl_soc_min`,
+`ctl_soc_max`) erwiesen sich als wirkungslos dagegen (s. o.); einzig aktives Entladen
+(`ctl_ems_mode=3`) half zuverlässig. Der WR kehrte nach dem Vorfall zwischenzeitlich selbständig
+aus einem Standby zurück, ohne Neustart. Auf Dietmars ausdrücklichen Wunsch (28.07.2026) laufen
+vorerst KEINE weiteren aktiven Eingriffe an der Anlage mehr, nur stille Beobachtung — bis eine
+echte Dauerlösung gefunden ist (Kandidat: GoodWe-Support/Firmware, liegt außerhalb dessen, was
+sich per Modbus lösen lässt).
+
+**Abschluss-Hypothese (Dietmar, 28.07.2026, plausibel aber NICHT verifiziert):** Die beiden
+Batteriepäckchen könnten während der Ladephase auseinandergedriftet sein (Batterie 1 lud nicht
+mehr, während Batterie 2 weiterlud), kamen aber beide bei „100 %" SOC an. Denkbar als normales,
+seltenes BMS-Kalibrierungsereignis: Die Coulomb-Counting-SOC-Schätzung wird beim Erreichen der
+echten Vollladungs-Zellspannung gegen die Päckchen neu abgeglichen — kein Fehler, nur heute
+zufällig sichtbar geworden, weil intensiv beobachtet wurde. Würde alle drei Symptome erklären:
+Batterie 1 im Standby während Batterie 2 lud (`bat1_mode`/`bat2_mode`-Asymmetrie), die
+Spannungsanomalie nahe 470 V, und die Automatik-Harvest-Blockade (WR wartet vermutlich bewusst
+den Abgleich zwischen den Päckchen ab, bevor er im Automatik-Modus normal weitererntet — ein
+expliziter Export-Modus-Befehl umgeht das, s. o.). Falls das erneut auftritt: auf genau dieses
+Muster prüfen (`bat1_mode` ≠ `bat2_mode` bei beiden nahe 100 % SOC) statt erneut bei Null
+anzufangen.
+
+**Hardware-Kontext dazu (Dietmars Anlage):** 8× GoodWe Home Lynx D 5.0, zu zwei Türmen à 4 Module
+zusammengefasst (= unsere `bat1`/`bat2`) — JEDES einzelne Modul hat ein **eigenes BMS und einen
+eigenen DC/DC-Wandler**, kann also unabhängig vom Rest des Turms geregelt/entkoppelt werden. Das
+untermauert die Kalibrierungs-Hypothese architektonisch: Ein einzelnes Modul könnte während eines
+Balancing-Vorgangs eigenständig in Standby gehen, ohne dass das ein Fehler ist — genau das Feature,
+das diese modulare Bauweise ermöglicht. `bat1_mode`/`bat2_mode` zeigen nur die aggregierte
+**Turm**-Ebene (4 Module zusammengefasst), nicht die einzelnen Module darunter. Falls es
+feingranularere Modul-Register gibt (z. B. 8 einzelne BMS-Status-Werte statt 2 Turm-Werte), wäre
+das für künftige Diagnosen interessant — noch nicht gesucht, kein akuter Bedarf.
+
+## GoodWe-Steuerregister 47511 (`ctl_ems_mode`): fällt bei bestimmten Werten auf 255 zurück
+
+Real beobachtet (26.07.2026, Dietmars Anlage): Ein per `RequestAction`/Modbus-Write gesetzter
+Wert des Registers 47511 (EMS Leistungsmodus) hält nicht dauerhaft — er fällt nach einer
+gewissen Zeit (irgendwo zwischen ~15 Sekunden und ~30 Minuten, nicht enger eingegrenzt) auf den
+ungültigen Sentinel-Wert `255` zurück. Betroffen waren die aktiven Steuerwerte (u. a. `1`
+Automatik, `9` Stromeinkauf, `11` Batterie-Laden, `12` Batterie-Entladen). **Nicht** betroffen
+war der Wert `7` (Inselbetrieb) — der hielt stabil, ohne zurückzufallen.
+
+**Zwischenkorrektur (25.08.2026 vormittags) inzwischen selbst wieder relativiert:** Kurzzeitig
+stand hier, die ursprüngliche "kein Fehler in unserem Code"-Aussage sei laut Dietmar widerlegt.
+Am selben Nachmittag (14:43 Uhr) hat Dietmar einen sauberen Gegenversuch gemacht: InverterHub
+**komplett ausgeschaltet**, stattdessen die alte, unabhängige Legacy-GoodweET-Instanz (#28039,
+komplett anderer Code, eigene Verbindung) direkt auf Modus 3 geschaltet — Register ist
+**sofort** wieder auf 255 zurückgefallen, mit unserem Code dabei nicht einmal aktiv. Das
+bestätigt die ursprüngliche Einschätzung: **255-Rückfall ist echtes WR-/Firmware-Verhalten,
+unabhängig von InverterHub.** Offen bleibt nur noch der Widerspruch zu Dietmars "das gab's vor
+InverterHub nie"-Aussage — möglich wäre ein WR-Firmware-Update oder ein geändertes
+SEMS+-Portal-Verhalten irgendwann im letzten Jahr, unabhängig von unserem Modul; nicht weiter
+aufgeklärt.
+
+**Getrennt davon, weiterhin ein offener, echter Verdacht bei uns:** Derselbe Nachmittag lieferte
+zusätzlich einen unabhängigen Beleg für ein zweites Problem — ein von EMS per
+`IPS_RequestAction()` gesetzter Wert (`ctl_ems_power=3000`, `ctl_ems_mode=3`) wurde in der
+IPS-Variable sofort korrekt übernommen, die Batterie reagierte aber 30+ Sekunden konstant mit
+0 W, obwohl unser eigener `ReassertEmsControl()` zu dem Zeitpunkt bereits deaktiviert war. Der
+0.74.2-beta.1-Batch-Verbindungs-Fix von diesem Morgen hat das nicht gelöst. Das ist NICHT
+dasselbe Symptom wie der 255-Rückfall (der jetzt als reines WR-Verhalten gilt) — vermutlich der
+periodische `FastTimer`-Lesezyklus, der weiterhin (unabhängig von `EmsReassertEnabled`) mit
+externen Schreibbefehlen kollidiert, nur mit kürzerem statt eliminiertem Zeitfenster. Noch nicht
+abschließend untersucht.
+
+**Getrennt davon, ausdrücklich als Notfall-Erkenntnis vermerkt, NICHT in Code/Formular umsetzen:**
+Ein Wechselrichter+Batterie, der im Standby feststeckt (auch nachdem SOC-Grenzen im SEMS+-Portal
+korrigiert wurden), ließ sich durch Umschalten von `ctl_ems_mode` auf `7` (Inselbetrieb)
+zuverlässig aus dem Standby holen. Dietmar hat ausdrücklich gesagt: nur merken, noch nicht als
+Feature/Wiederherstellungsmechanismus bauen.
+
+**Zweite Notfall-Erkenntnis derselben Kategorie (29.08.2026, Dietmar live via EMS-Sitzung):**
+Bei wiederholtem 255-Rückfall trotz durchgehendem `ctl_ems_enable=true` (mal nach ~70s, mal nach
+~2min) half ein bewusster **Aus/An-Zyklus** von `ctl_ems_enable` (echter Wechsel, kein bloßes
+Neuschreiben desselben Werts): danach hielt der anschließend gesetzte Modus (8,
+Batterie-Bereitschaft) stabil ohne weiteren Rückfall. Einordnung (mit EMS geteilt): Die
+GoodWe-Firmware scheint interne Zustände zu haben, die nur ein **Flanken-Ereignis** (Wechsel)
+zurücksetzt, nicht ein Pegel (konstanter Wert) — dasselbe Muster wie der Modus-7-Trick oben.
+Zur Klarstellung: Unser Code schreibt `ctl_ems_enable` NIE periodisch (nicht in
+`EMS_REASSERT_IDENTS`), ein versehentliches Dauer-Neuschreiben von enable ist also
+ausgeschlossen. Wie beim Modus-7-Trick: **nur merken, nicht als automatischen
+Wiederherstellungsmechanismus bauen** ohne Dietmars ausdrückliche Freigabe.
+
+## Heartbeat-/Totmann-Mechanismen ALLER unterstützten Hersteller (Recherche 29.08.2026)
+
+Auftrag Dietmar (via EMS): Für jeden unterstützten Hersteller klären, ob dessen Protokoll einen
+Heartbeat-/Watchdog-Mechanismus für externe EMS-Steuerung hat. Recherchiert über
+Hersteller-Dokus, OpenEMS, Home-Assistant-/evcc-Community-Code, Foren (3 parallele
+Recherchen, Quellen im Verbund-Vertrag in SUITE.md). Konfidenz je Zeile ehrlich markiert:
+**[Doku]** = offizielle Herstellerdoku, **[Comm]** = Community-Code/Reverse-Engineering,
+**[?]** = ungeklärt.
+
+| Hersteller | Totmann? | Mechanismus | Bei Timeout | Konfidenz |
+|---|---|---|---|---|
+| GoodWe | JA, fest | implizit: Modus-Register 47511 verfällt bei enable=true nach ~70-120s, nicht konfigurierbar | 255/STOPPED (Stillstand!) | [Doku+live] |
+| Sungrow SH | JA, konfigurierbar | dediziertes Heartbeat-Reg. 13080 (Wert = Timeout in s, 0-1000); EMS-Modus über 13050=3 | Rückfall Eigenverbrauch | [Doku] |
+| FoxESS H1/H3 | JA, konfigurierbar | Remote-Control-Block: 44000 Enable, 44001 Timeout (s), 44002/3 Sollwert; Countdown-Reload NUR beim Sollwert-Schreiben (44002), nicht bei 44000! | Rückfall Normalmodus ("HostOffline") | [Comm] |
+| SolarEdge | JA, konfigurierbar | 0xE00B CommandTimeout (s, Default 3600) + 0xE00D Default-Rückfallmodus — Timeout UND Rückfallziel frei wählbar | Rückfall auf konfigurierten Default (typ. Eigenverbrauch) | [Doku] |
+| Kostal PLENTICORE | JA (intern + G3-Register) | Sollwerte 1024ff. verfallen nach ~60s (firmwareintern, REST-konfigurierbar); G3 ab SW 03.05: 1288 "Time until fallback" (30-10800s) + Fallback-Limits 1284/1286 | Rückfall interne Regelung bzw. Fallback-Limits | [Doku], 60s-Wert [Comm] |
+| SolaX Hybrid | JA, konfigurierbar | Power-Control-Block ab 0x7C (FC16): Duration je Kommando + Timeout-Reg. (0-28800s) + "Timeout Next Motion" (Rückfallziel wählbar) | Rückfall Self-Use/"VPP Off" | [Comm], offiz. Doku existiert |
+| Victron ESS Mode 3 | JA, fest 60s | Setpoint-Register 37 (je Phase) muss <60s erneuert werden | **Passthru** (Quasi-Stopp der Batterie, KEIN Eigenverbrauch!) | [Doku] |
+| Victron ESS Mode 2 | NEIN | Grid-Setpoint 2700/2716 persistiert unbegrenzt | letzter Wert bleibt eingefroren | [Doku schweigt] |
+| Fronius GEN24 | JA, opt-in | SunSpec RvrtTms (Modell 123/124, z. B. InOutWRte_RvrtTms); **Default 0 = KEIN Timeout**; jede Modbus-Nachricht resettet den Timer | Rückfall interne Regelung | [Doku] |
+| SMA STP | JA, opt-in (nur P-Limit) | 41193 (2507=Fallback nutzen) + 41195 Timeout + 41197 Fallback-%; **Default "Werte beibehalten" = kein Totmann**; für Batterie-Register (40151/40149) KEIN Beleg | Fallback-P-Limit (nur wenn konfiguriert) | [Doku], Batterie [?] |
+| Huawei SUN2000 | teilweise, opt-in | 42019 "Schedule instruction valid duration" (s, **Default 0 = dauerhaft gültig**) + 42405 Failsafe-P-Limit; für LUNA-Batterie-Register kein Watchdog-Beleg | Ablauf des Befehls (Detail unklar) | [Doku], Verhalten [?] |
+| Growatt SPH/MOD/MIX | NEIN | persistente Holding-Register (TOU/AC-Charge), überleben sogar Neustarts; EEPROM-Verschleiß bei häufigem Schreiben! | letzter Befehl bleibt eingefroren | [Comm] |
+| Growatt WIT | JA (Ablaufzeit) | 30407 Enable + 30408 Dauer (0-1440 min) + 30409 Leistung | Rückfall TOU-Schedule | [Comm] |
+| Deye SG04LP3 | NEIN | persistente Register (TOU 146-172, Ein/Aus 80); EEPROM-Thema aktiv in Foren | letzter Befehl bleibt eingefroren (BMS-Grenzen gelten weiter) | [Comm] |
+| Solis | NEIN (öffentlich) | 43110 Bitfeld + Timed-Charge 43141ff. persistieren; vollständige Schreib-Doku nur unter NDA — NDA-Watchdog nicht ausschließbar | letzter Modus bleibt eingefroren | [Comm] |
+| Solplanet | UNKLAR | keine öffentliche Hybrid-Schreib-Doku; Doku bei AISWEI anfragbar | vermutlich eingefroren (unbelegt) | [?] |
+
+**Kernerkenntnis — zwei gegensätzliche Risikoklassen:**
+1. **Mit Totmann** (GoodWe, Sungrow, FoxESS, SolarEdge, Kostal, SolaX, Victron M3, Fronius/SMA/
+   Huawei sofern konfiguriert): EMS MUSS zyklisch schreiben, sonst Rückfall (bei GoodWe/Victron
+   M3 sogar Stillstand statt Eigenverbrauch).
+2. **Ohne Totmann** (Deye, Solis, Growatt SPH, Victron M2, Fronius/SMA/Huawei im
+   Default-Zustand!): Ein EMS-Ausfall friert den letzten Befehl UNBEGRENZT ein — das
+   umgekehrte Sicherheitsrisiko. EMS braucht dort eigene Absicherung (Zeitfenster statt
+   Dauerbefehle, definierter Neutralzustand beim Herunterfahren, sparsame Schreibzyklen
+   wegen EEPROM bei Deye/Growatt).
+
+Der daraus abgeleitete Verbund-Vertrag (inkl. EMS-Handlungsvorgaben je Hersteller) steht in
+SUITE.md (eingetragen von der EMS-Sitzung, 29.08.2026). Bei Implementierung neuer
+Steuer-Treiber hier: IMMER zuerst diese Tabelle konsultieren und den Mechanismus des
+Herstellers im Treiber-Kommentar vermerken.
+
+## GoodWe-Steuervariablen (`GroupControl`): vollständige Ident-Tabelle
+
+Vollständige Referenz aller 9 Steuer-Idents des GoodWe-Treibers (Kategorie „EMS-Steuerung"),
+zusammengestellt für externe Konsumenten (EMS-Sitzung, 27.07.2026) — Aufruf immer über
+`IPS_RequestAction(InstanceID, Ident, Wert)` mit der **InverterHub-Instanz-ID** als erstem
+Parameter, NIE mit der Variablen-ID (real verwechselt, siehe Abschnitt unten).
+
+| Ident | Bezeichnung | Register | Wertebereich |
+|---|---|---|---|
+| `ctl_work_mode` | Steuermodus | RW 47000 | 0=Selbstverbrauch, 1=Inselbetrieb, 2=Backup, 3=Wirtschaftlich, 4=Peak-Shaving, 5=Erw. Selbstverbrauch |
+| `ctl_ems_enable` | EMS-Steuerung aktiv | RW 47505 | bool |
+| `ctl_ems_mode` | EMS Leistungsmodus | RW 47511 | 0=Gestoppt, 1=Automatik, 2=Laden-Solar, 3=Entladen+Solar, 4=AC-Import, 5=AC-Export, 6=Energiesparen, 7=Inselbetrieb, 8=Batterie-Bereitschaft, 9=Stromeinkauf, 10=Stromverkauf, 11=Batterie-Laden, 12=Batterie-Entladen |
+| `ctl_ems_power` | EMS Leistung (W) | RW 47512 | 0–34500 W |
+| `ctl_export_enable` | Einspeisebegrenzung aktiv | RW 47509 | bool |
+| `ctl_export_limit` | Einspeisegrenze (W) | RW 47510 | 0–34500 W (wirkt nur bei `ctl_export_enable=true`) |
+| `ctl_soc_min` | SOC Min. Entladung | RW 45356 | 0–100 % — **bestätigt ohne Wirkung**, siehe Abschnitt unten, nicht als Stellhebel empfehlen |
+| `ctl_internet` | Cloud-Verbindung | RW 47017 | bool |
+| `ctl_restart` | WR Neustart | WO 45220 | bool, nur schreibend |
+
+**⚠️ ÜBERHOLT — `ctl_ems_enable=true` destabilisiert die Modus-Steuerung (A/B-Test 29.08.2026):**
+Der frühere Rat, für Normalbetrieb `ctl_ems_enable=true` zu setzen, ist durch einen sauberen
+A/B-Test nach Dietmars Protokoll widerlegt (Instanz 52838, 10:22-10:44 Uhr):
+
+| Phase | enable | Modus | Ergebnis |
+|---|---|---|---|
+| A | false | 11 (Laden 3500 W) | hielt 9+ min stabil, Batterie lud real −3530 W |
+| B1 | **true** | 8 (Bereitschaft) | **Rückfall auf 255 nach ~100 s** |
+| B2 | false | 8 (Bereitschaft) | hält stabil (Rohwert 8 nach 4+ min) |
+
+Einzige Variable zwischen B1/B2 war `ctl_ems_enable`. **Der 255-Rückfall von Register 47511
+tritt nur bei `ctl_ems_enable=true` auf** — bei `false` halten alle getesteten Modi dauerhaft
+und der WR setzt sie real um. Empfehlung seither: EMS-Steuerung über
+`ctl_ems_mode`/`ctl_ems_power` grundsätzlich mit **`ctl_ems_enable=false`** fahren;
+`enable=true` nur bei konkretem Grund, dann zwingend mit aktivem Reassert. Reproduktions-Detail:
+die Flanken-Sequenz (Automatik → enable-Wechsel → Zielmodus) war der Schlüssel — s. auch die
+Flanken-vs-Pegel-Notfall-Erkenntnisse weiter oben. In SUITE.md als Verbund-Warnung eingetragen
+(via EMS-Sitzung, auf Dietmars Wunsch).
+
+Frühere (überholte) Empfehlung, nur noch als historische Referenz:
+```php
+IPS_RequestAction($instanceID, 'ctl_work_mode', 0);   // Selbstverbrauch
+IPS_RequestAction($instanceID, 'ctl_ems_mode', 1);    // Automatik
+IPS_RequestAction($instanceID, 'ctl_ems_enable', true);   // <- NICHT mehr empfohlen, s. o.
+```
+
+**Die 255 entschlüsselt (29.08.2026, OpenEMS-Quellcode-Recherche auf Dietmars Anregung):**
+OpenEMS' `EmsPowerMode.java` definiert `STOPPED(0xFF, "Stopped")` als OFFIZIELLEN Modus —
+Doku-Kommentar: "Scenario: System shutdown. Stop working and turn to wait mode." Die 255 ist
+also kein Fehler-Sentinel, sondern der WR-eigene Totmann-VOLLZUG: Bleibt bei `enable=true` der
+erwartete Heartbeat des externen EMS aus (~70-120 s), setzt sich die Firmware selbst aktiv auf
+STOPPED und parkt sicher. OpenEMS hat KEINEN "reagiere auf zurückgelesene 255"-Pfad (kompletter
+`ApplyPowerHandler` geprüft) — sie sehen die 255 schlicht nie, weil sie `EmsPowerMode` +
+`EmsPowerSet` in JEDEM Regelzyklus (~1 s) neu schreiben (Prävention statt Reaktion; bei
+fehlenden Messwerten explizit `AUTO+0` statt gar nichts). Unser Totmann-Empfänger
+(0.74.5-beta.1: 255 erkannt → `enable=false` → native Eigenregelung, mit Log-Warnung) ist die
+zur Nicht-Dauerschreib-Architektur passende Alternative dazu. Konsequenz für Konsumenten (EMS
+informiert): Wer `enable=true` fahren will, MUSS zyklisch (<~60 s) schreiben — sonst STOPPED.
+
+`ctl_work_mode` (Steuermodus, Register 47000) und `ctl_ems_mode` (EMS Leistungsmodus, Register
+47511) sind **unabhängige** Register/Variablen mit ähnlich klingenden Namen — real verwechselt
+(EMS-Sitzung, 27.07.2026): Ein Schreiben auf `ctl_ems_mode` verändert `ctl_work_mode` nicht und
+umgekehrt.
+
+## `EnableActions()` band Steuervariablen nach Verschieben in die Kategorie nicht mehr
+
+Live aufgetreten (27.07.2026, nach Ändern von `ControlAuthority`): Alle Steuervariablen waren
+vorhanden und ihre IDs unverändert, aber `VariableAction` stand bei allen auf `0` — WebFront-
+Schalter/`IPS_RequestAction` griffen dadurch ins Leere, obwohl `EnableActions()` (getriggert per
+Timer) mehrfach lief.
+
+**Ursache:** `$this->EnableAction($Ident)` findet die Variable intern nur als **direktes Kind
+der Instanz** (`IPS_GetObjectIDByIdent($Ident, $InstanceID)`, keine Rekursion) — live per Test
+bestätigt (`IPS_GetObjectIDByIdent('ctl_ems_mode', $instanceID)` lieferte `false`, obwohl die
+Variable per rekursiver Suche einwandfrei auffindbar war). `RegisterVar()` verschiebt
+Steuervariablen aber sofort nach Anlage in die Unterkategorie „EMS-Steuerung" (siehe RegisterVar-
+Abschnitt oben) — jede (Re-)Bindung nach diesem Verschieben schlug dadurch strukturell fehl,
+unabhängig von Timing oder Aufrufhäufigkeit.
+
+**Fix (`module.php`, `EnableActions()`, Commit `2d8228f`):** Variable vor `EnableAction()` kurz
+zurück zur Instanz hängen, binden, danach zurück in die Kategorie — `VariableAction` bleibt beim
+Reparenting erhalten (live verifiziert: Bindung übersteht das Zurückhängen unverändert).
+
+```php
+$originalParent = IPS_GetObject($vid)['ParentID'];
+IPS_SetParent($vid, $this->InstanceID);
+$this->EnableAction($v[0]);
+IPS_SetParent($vid, $originalParent);
+```
+
+**Wichtig für den ganzen Verbund:** Jedes Modul, das eigene Steuervariablen zur Übersicht in
+Unterkategorien verschiebt, hat potenziell dasselbe Problem — `EnableAction()`/
+`IPS_GetObjectIDByIdent()` sind grundsätzlich nicht rekursiv, unabhängig vom Hersteller/Treiber.
+
+## `ctl_ems_power` (47512) ist im Modus „Laden-Solar" (2) eine Netz-OBERGRENZE, kein Zusatzwert
+
+Real aufgetreten (27.07.2026, EMS-Sitzung): `ctl_ems_mode=2` ("Laden-Solar"/CHARGE_PV) lud bei
+PV=5098 W mit ~7993 W Batterieleistung — die Differenz (~3366 W) kam aus dem Netz, obwohl der
+Modusname PV-Vorrang suggeriert. `ctl_ems_power` (47512) stand dabei auf einem **stehen
+gebliebenen** Wert (bei uns live geprüft: `3000`), nicht auf `0`.
+
+**Offizielle GoodWe-Registerdoku** (Modbus Protocol Hybrid ET/EH/BH/BT, ARM205-HV v1.7, Tabelle
+8-16 „EMS Power Mode") klärt das eindeutig: Für Modus 2 gilt „Battery power = Xmax + PV
+(Charge). Xmax is to allow the power to be taken from the grid, and PV power is preferred. When
+set to 0, only PV power is used." — `ctl_ems_power` ist in diesem Modus also eine **Netz-
+Erlaubnisobergrenze**, kein additiver „wie viel zusätzlich"-Wert und kein reiner PV-
+Vorrangschalter. Bei `ctl_ems_power=0` fließt ausschließlich PV — das ist dokumentiertes,
+beabsichtigtes Verhalten, **kein WR-Bug**.
+
+**Für reines PV-Laden immer explizit mitschreiben**, nie auf einen impliziten Default verlassen:
+```php
+IPS_RequestAction($id, 'ctl_ems_power', 0);
+IPS_RequestAction($id, 'ctl_ems_mode', 2);
+```
+
+Zum Vergleich (dieselbe Tabelle): Modus 4 (AC-Import) ist der für **absichtliches** Netzladen
+vorgesehene Modus (`Xset` = bewusst aus dem Netz bezogene Leistung, PV sekundär).
+
+## Die GoodWe SOC-Grenzregister (`ctl_soc_min` UND `ctl_soc_max`) sind KEINE funktionierende Steuerung
+
+Ausdrückliche Feststellung von Dietmar (26.07.2026, ergänzt 28.07.2026), verbindlich festgehalten:
+Beide SOC-Grenzregister erwiesen sich live als wirkungslos, unabhängig voneinander getestet:
+
+- **`ctl_soc_min`/Register 45356** (26.07.2026): Das Verändern dieser unteren SOC-Grenze (weder
+  über InverterHub noch über das entsprechende Feld im SEMS+-Portal) hat **keine beobachtbare
+  Wirkung** gezeigt — konkret hat eine Korrektur dieses Werts einen im Standby feststeckenden
+  WR/Batterie **nicht** befreit.
+- **`ctl_soc_max`/Register 45559 "Max Charge SOC"** (28.07.2026, EMS-Sitzung): Das Register nimmt
+  einen geschriebenen Wert klaglos an (roh gegengelesen, Schreibvorgang bestätigt) — verhindert
+  das Laden über die gesetzte Grenze hinaus aber **nicht**. Live-Test: SOC 98 %, Grenze auf 97 %
+  gesetzt, Automatik-Modus — die Batterie lud trotzdem sofort mit -4559 W weiter. Ausgelöst durch
+  ein wiederkehrendes BMS-Überspannungsereignis nahe SOC 100 % (Batteriestrings), das InverterHub
+  über `IHUB_GetFunctions`/Standard-Fehlercodes nicht erkennt (s. `diag_status_l`-Abschnitt) —
+  `ctl_soc_max` wurde als möglicher Gegenhebel probiert und dabei live widerlegt.
+
+Beide Register lassen sich also technisch schreiben (kein Fehler, kein Timeout), haben aber
+keine beobachtbare Wirkung auf das tatsächliche Lade-/Entladeverhalten des Wechselrichters —
+**diese SOC-Grenzregister taugen grundsätzlich nicht als Stellhebel** bei diesem WR/dieser
+Firmware. **Nicht als funktionierenden Kontrollmechanismus behandeln oder Nutzern als
+Lösungsweg gegen Standby oder Überladung nahe 100 % SOC empfehlen** — das würde Zeit
+verschwenden, ohne etwas zu bewirken. Einziger bisher bestätigt wirksamer Gegenhebel bei
+Überladung nahe 100 % SOC: aktives Entladen über `ctl_ems_mode=3`/`ctl_ems_power` (manuell,
+kein Dauermechanismus).
+
+
+## Verbund-Manifest SUITE.md — Bezugsquelle (geändert 31.08.2026)
+
+SUITE.md liegt seit 31.08.2026 NICHT mehr in einem GitHub-Repo (die
+Modul-Repos sind öffentlich, SUITE.md enthält das komplette Architektur-/
+Debugging-Know-how des Verbunds — Dietmars Entscheidung). Primärquelle ist
+ausschließlich die lokale Datei `/Users/dietmar/Nextcloud/Claude/SUITE.md`
+auf Dietmars Maschine, versioniert in einem eigenen lokalen Git-Repo ohne
+Remote. Frühere Kopien dieses Dokuments wurden zusätzlich aus der Historie
+aller Modul-Repos entfernt (`git filter-repo` + Force-Push). Kein
+Fallback-Link mehr — ohne lokalen Zugriff auf Dietmars Maschine ist SUITE.md
+nicht einsehbar.
