@@ -1305,6 +1305,19 @@ und erneut invertieren — das ist ausschließlich für den **manuellen Modus** 
 Instanz als Quelle, z. B. `ManualGridInvert` in `InverterHubTile`) vorgesehen, wo es keine
 vorgeschaltete Korrektur gibt.
 
+**Wichtige Einschränkung dieser Kanonisch-Garantie (Dashboard-Fund 16.09.2026, SolarEdge-Nutzer
+"Stefan"/sunnyww-Thread):** Die Garantie gilt nur, wenn der Schalter zweckgemäß benutzt wird —
+zur Korrektur einer tatsächlich FALSCH gemeldeten nativen Richtung (Verdrahtung/Hersteller-
+Eigenheit). Der Schalter ändert die gespeicherte Variable selbst, nicht nur eine Anzeige; nutzt
+ein Nutzer ihn stattdessen als reine Geschmackssache ("ich hätte den Wert lieber andersherum"),
+bricht er damit selbst die Konvention für jeden externen Konsumenten (Dashboard liest
+`batPowerID` bewusst ohne eigene Korrektur, wie hier vereinbart). Genau das ist Stefan passiert,
+ausgelöst durch eine eigene frühere Forum-Antwort (19.07.2026) von uns, die den Schalter fälschlich
+auch als Anzeige-Präferenz angeboten hatte ("falls du den Wert lieber andersherum möchtest,
+aktiviere..."). Fix (16.09.2026): Warnhinweis direkt im Formular bei beiden Schaltern ergänzt.
+**Support-Antworten zu diesen Schaltern künftig NIE als "Geschmackssache" formulieren** — nur als
+Korrektur einer nachweislich falschen nativen Richtung.
+
 ## GoodWe `diag_status_l` (Register 35220, DiagStatusL): Bit-Tabelle
 
 Live-Fall (28.07.2026, EMS-Sitzung): 20+ Minuten AC-Leistungseinbruch bei SOC~99%, im SEMS+-

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.76.0-beta.15 (2026-09-16)
+
+- **Warnhinweis bei „Netz-Leistung invertieren"/„Batterie-Leistung invertieren" ergänzt**
+  (Dashboard-Fund, SolarEdge-Nutzer "Stefan"): siehe `beta`-Changelog 0.77.0-beta.2 für Details.
+
 ## 0.76.0-beta.14 (2026-09-14)
 
 - **Übergangs-Hüllen-Hinweistexte mit den von Dashboard bestätigten Nachfolgekacheln

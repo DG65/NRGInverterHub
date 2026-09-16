@@ -5397,6 +5397,19 @@ class InverterHub extends IPSModule
             'name'    => 'BatInvert',
             'caption' => 'Batterie-Leistung invertieren — Standard ist + Entladen / − Laden',
         ];
+        // Store-Checkliste/Dashboard-Fund (16.09.2026, sunnyww-Vorfall): Beide
+        // Schalter aendern die tatsaechlich gespeicherte Variable, nicht nur
+        // eine interne Anzeige - IHUB_GetFunctions() (gridPowerID/batPowerID)
+        // gibt exakt diese Variable an Konsumenten wie NRGDashboard weiter,
+        // OHNE eigene Korrektur. Reine Geschmacksumschaltung ("ich haette es
+        // lieber andersherum") bricht dadurch die Konvention fuer jeden
+        // Konsumenten, der sich auf "+ = Einspeisung/Entladen" verlaesst -
+        // die Schalter sind nur fuer eine tatsaechlich falsche native
+        // Vorzeichen-Meldung des Geraets gedacht, nicht fuer Praeferenz.
+        $groupItems[] = [
+            'type' => 'Label',
+            'caption' => '⚠️ Wirkt auf die gespeicherte Variable selbst, nicht nur auf eine Anzeige — andere Module (z. B. NRG-Stack Dashboard), die diese Variable lesen, übernehmen die geänderte Richtung ungeprüft. Nur aktivieren, wenn dein Gerät die Richtung wirklich falsch meldet, nicht als reine Geschmackssache.',
+        ];
         // Anzahl MPPT-Eingänge: Die Treiber kennen so viele, wie die Baureihe
         // maximal haben kann. Wer weniger Strings betreibt, bekommt sonst leere
         // Variablen. Die Höchstzahl stammt aus den Idents des gewählten Treibers.
