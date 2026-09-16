@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.77.0-beta.2 (2026-09-16)
+
+- **Warnhinweis bei „Netz-Leistung invertieren"/„Batterie-Leistung invertieren" ergänzt**
+  (Dashboard-Fund, SolarEdge-Nutzer "Stefan"): Beide Schalter ändern die gespeicherte Variable
+  selbst — externe Module wie NRG-Stack Dashboard, die `gridPowerID`/`batPowerID` lesen,
+  übernehmen die geänderte Richtung ungeprüft. Die Schalter sind nur zur Korrektur einer
+  tatsächlich falsch gemeldeten nativen Richtung gedacht, keine Anzeige-Geschmackssache — das
+  hatte eine eigene, missverständliche Forum-Antwort von uns (19.07.2026) nahegelegt.
+
 ## 0.77.0-beta.1 (2026-09-15)
 
 **Konsolidierungs-Release: `ems-integration` löst den bisherigen `beta`-Stand vollständig ab.**
