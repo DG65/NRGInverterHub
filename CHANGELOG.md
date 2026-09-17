@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.77.0-beta.5 (2026-09-17)
+
+- **Plausibilitätsschutz für SOC/SOH ergänzt** (Folgefund Stefan/somm, SolarEdge): Batterie-
+  Ladezustand und -Gesundheit sind immer 0–100 % — ein einzelner Lesezyklus außerhalb dieser
+  Grenze wird jetzt verworfen (alter Stand bleibt stehen), statt als Ausreißer ins Archiv zu
+  gelangen. Betrifft nur Idents, die auf `_soc`/`_soh` enden (Steuer-Sollwerte wie
+  `ctl_soc_min`/`ctl_soc_max` sind nicht betroffen). Regressionstest
+  `.tools/test-percent-guard.php`. Für die von Stefan zusätzlich gemeldeten PV-Leistungs-
+  Abweichungen fehlt noch eine belastbare Grenze (Leistung skaliert mit der Anlagengröße,
+  ein fester Wert würde bei anderen Nutzern echte Werte verwerfen) — hier warten wir auf
+  weitere Details.
+
 ## 0.77.0-beta.4 (2026-09-17)
 
 - **Zählerschutz gegen einzelne Modbus-Ausreißer ergänzt** (Fund Stefan/somm, SolarEdge):
