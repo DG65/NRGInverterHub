@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.77.0-beta.3 (2026-09-17)
+
+- **Automatische Archiv-Verdichtung ergänzt** (Store-Reife-Fund, Stefan/somm über NRGDashboard):
+  Wechselrichter-Messwerte liefen bislang unbegrenzt in voller Auflösung ins Archiv (z. B.
+  "Bat. Leistung" nach kurzer Zeit schon 100+ kB). Neues Panel "🗄️ Archiv-Verdichtung",
+  getrennt für Leistung (schnelles Intervall) und Energie (langsames Intervall), Vorbelegung
+  analog MeterHub: direkt 1×/Minute, nach 1 Monat 1×/5 Minuten, nach 12 Monaten 1×/Stunde. Läuft
+  automatisch auch für bereits bestehende Variablen (nicht nur Neuanlagen) beim nächsten
+  „Übernehmen"/Modul-Update mit — kein manueller Schritt nötig. Regressionstest
+  `.tools/test-archive-compaction.php`.
+
 ## 0.77.0-beta.2 (2026-09-16)
 
 - **Warnhinweis bei „Netz-Leistung invertieren"/„Batterie-Leistung invertieren" ergänzt**
