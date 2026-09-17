@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.76.0-beta.17 (2026-09-17)
+
+- **Zählerschutz gegen einzelne Modbus-Ausreißer ergänzt** (Fund Stefan/somm, SolarEdge):
+  siehe `beta`-Changelog 0.77.0-beta.4 für Details.
+
 ## 0.76.0-beta.16 (2026-09-17)
 
 - **Automatische Archiv-Verdichtung ergänzt** (Store-Reife-Fund, Stefan/somm über NRGDashboard):
