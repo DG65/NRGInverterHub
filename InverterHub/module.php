@@ -6532,6 +6532,18 @@ class InverterHub extends IPSModule
     {
         $vid = $this->FindVarByIdent($ident);
         if ($vid) {
+            // Plausibilitaetsschutz fuer Prozent-Idents (SOC/SOH, Fund Stefan/
+            // somm, SolarEdge, 17.09.2026 - Folgefund zum Zaehlerschutz oben).
+            // Anders als bei Leistung/Energie ist hier eine feste, generische
+            // Grenze zulaessig: SOC/SOH sind IMMER 0-100 %, unabhaengig von
+            // Hersteller oder Anlagengroesse - kein "keine eigene Anlage als
+            // Norm"-Konflikt. Ein einzelner ausserhalb liegender Lesezyklus
+            // wird verworfen (alter Stand bleibt stehen) statt als
+            // Ausreisser-Punkt ins Archiv zu gelangen.
+            if (preg_match('/(?:^|_)so[ch]$/', $ident) && ($value < 0 || $value > 100)) {
+                $this->LogMessage('Implausibler Wert für "' . $ident . '" verworfen (' . $value . ' statt 0-100 %) — vermutlich einzelner Modbus-Ausreißer.', KL_WARNING);
+                return;
+            }
             SetValueInteger($vid, $value);
         }
     }

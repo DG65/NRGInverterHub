@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.76.0-beta.18 (2026-09-17)
+
+- **Plausibilitätsschutz für SOC/SOH ergänzt** (Folgefund Stefan/somm, SolarEdge): siehe
+  `beta`-Changelog 0.77.0-beta.5 für Details.
+
 ## 0.76.0-beta.17 (2026-09-17)
 
 - **Zählerschutz gegen einzelne Modbus-Ausreißer ergänzt** (Fund Stefan/somm, SolarEdge):
