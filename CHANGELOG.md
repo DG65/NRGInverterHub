@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.77.0-beta.4 (2026-09-17)
+
+- **Zählerschutz gegen einzelne Modbus-Ausreißer ergänzt** (Fund Stefan/somm, SolarEdge):
+  Manche Geräte liefern beim Standby-Wechsel (typischerweise morgens/abends) sporadisch einen
+  einzelnen Lesezyklus mit einem Wert nahe 0, obwohl der kumulative Energiezähler real nie
+  zurückspringt (live bestätigt: 13210,27 kWh → 0,00 kWh → 13210,27 kWh). Ein solcher
+  Ausreißer wird jetzt verworfen (alter Stand bleibt stehen, Warnung im Systemprotokoll) statt
+  als Scheinsprung ins Archiv zu gelangen — ein echter Zählertausch bleibt weiterhin möglich.
+  Regressionstest `.tools/test-energy-guard.php`. Die von Stefan zusätzlich gemeldeten
+  Ausreißer bei Leistung/SOC sind noch in Abstimmung (fehlende Details zum betroffenen
+  Datenpunkt), folgt in einem separaten Fix.
+
 ## 0.77.0-beta.3 (2026-09-17)
 
 - **Automatische Archiv-Verdichtung ergänzt** (Store-Reife-Fund, Stefan/somm über NRGDashboard):

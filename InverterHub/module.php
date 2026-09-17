@@ -6501,6 +6501,31 @@ class InverterHub extends IPSModule
         }
         $vid = $this->FindVarByIdent($ident);
         if ($vid) {
+            // Zaehlerschutz (Fund Stefan/somm, SolarEdge, 17.09.2026): manche
+            // Geraete liefern waehrend eines Standby-Wechsels (typischerweise
+            // morgens/abends) sporadisch einen einzelnen Lesezyklus mit einem
+            // Wert nahe 0, obwohl der kumulative Zaehler real nie zurueckspringt
+            // (bestaetigt: 13210,27 kWh -> 0,00 kWh -> 13210,27 kWh). Ein solcher
+            // Ausreisser wird verworfen (alter Stand bleibt stehen), statt als
+            // Scheinsprung ins Archiv zu gelangen. Vergleich immer in kWh (Roh-
+            // einheit der Treiber), unabhaengig vom Wh-Anzeigeschalter. Bewusst
+            // NUR gegen "auf quasi 0 gefallen" geprueft, nicht gegen jeden
+            // Rueckgang - ein echter Zaehlertausch (dauerhaft niedrigerer
+            // Folgewert) bleibt dadurch moeglich, nur der Einzelausreisser wird
+            // abgefangen. Analog zu MeterHubs CounterGuardStep(), hier bewusst
+            // einfacher gehalten (kein Reset-Bestaetigungsfenster ueber mehrere
+            // Lesungen - ein WR-Zaehlertausch ohne Neuanlage der Instanz ist
+            // praktisch nie der Fall).
+            if ($this->IsEnergyIdent($ident)) {
+                $prevKwh = (float)@GetValueFloat($vid);
+                if ($this->ReadPropertyBoolean('EnergyUnitWh')) {
+                    $prevKwh /= 1000.0;
+                }
+                if ($value < 0.001 && $prevKwh > 0.5) {
+                    $this->LogMessage('Implausibler Zählerstand für "' . $ident . '" verworfen (0 statt zuvor ' . round($prevKwh, 2) . ' kWh) — vermutlich einzelner Modbus-Ausreißer.', KL_WARNING);
+                    return;
+                }
+            }
             // Energie in Wh: Die Treiber liefern kWh. Ist der Schalter aktiv und
             // handelt es sich um eine Energie-Variable, auf Wh hochrechnen. Die
             // Erkennung erfolgt am Ident (nicht am Profil), damit eine vom Nutzer
