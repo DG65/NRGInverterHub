@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.76.0-beta.16 (2026-09-17)
+
+- **Automatische Archiv-Verdichtung ergänzt** (Store-Reife-Fund, Stefan/somm über NRGDashboard):
+  siehe `beta`-Changelog 0.77.0-beta.3 für Details.
+
 ## 0.76.0-beta.15 (2026-09-16)
 
 - **Warnhinweis bei „Netz-Leistung invertieren"/„Batterie-Leistung invertieren" ergänzt**

@@ -4888,6 +4888,21 @@ class InverterHub extends IPSModule
         // wuerde blockiert. Nach der Migration schaltet MigrationsHub das Logging
         // am Ziel selbst ein - oder man setzt diesen Schalter dann wieder auf an.
         $this->RegisterPropertyBoolean('AutoArchive', true);
+        // Automatische Archiv-Verdichtung (Referenz MeterHub, Store-Reife-Fund
+        // Stefan/somm 17.09.2026 - Wechselrichter-Werte laufen ungebremst in
+        // voller Aufloesung ins Archiv). Getrennt fuer Momentanwerte (Leistung,
+        // schnelles Intervall) und kumulative Zaehler (Energie, langsames
+        // Intervall), da beide typischerweise unterschiedliche Update-Takte
+        // haben. Vorbelegung bewusst generisch (keine eigene Anlage als Norm):
+        // direkt 1x/Min, nach 1 Monat 1x/5 Min, nach 12 Monaten 1x/Std.
+        foreach (['Power', 'Energy'] as $kind) {
+            $this->RegisterPropertyBoolean('AutoCompaction' . $kind, true);
+            $this->RegisterPropertyBoolean('CompactDirect' . $kind, true);
+            $this->RegisterPropertyInteger('CompactStage2Months' . $kind, 1);
+            $this->RegisterPropertyInteger('CompactStage2Type' . $kind, 1);
+            $this->RegisterPropertyInteger('CompactStage3Months' . $kind, 12);
+            $this->RegisterPropertyInteger('CompactStage3Type' . $kind, 2);
+        }
         // Modbus-Unit-ID des Smart Meters (SunSpec-Hersteller wie Fronius/SMA/
         // SolarEdge: der Zähler ist ein eigenes Modbus-Gerät, Adresse ab 200,
         // je nach Konfiguration z. B. auch 240).
@@ -5452,6 +5467,14 @@ class InverterHub extends IPSModule
                 'caption' => '⚠️ Automatische Archivierung ist aus. Neue Messwert-Variablen werden nicht ins Archiv aufgenommen. Das ist nur für eine Migration aus einem Altmodul (z. B. GoodweET) gedacht — dabei muss die Zielvariable ohne eigene Historie bleiben, damit MigrationsHub die Alt-Historie übernehmen kann. Nach der Migration wieder einschalten.',
             ];
         }
+        $groupItems[] = [
+            'type' => 'ExpansionPanel', 'caption' => '🗄️  Archiv-Verdichtung', 'expanded' => false,
+            'items' => array_merge(
+                [['type' => 'Label', 'caption' => 'Verdichtet fein aufgelöste Archivwerte nach einer Weile automatisch zu gröberen Aggregaten, statt sie unbegrenzt in voller Auflösung zu behalten. Wirkt nur, wenn oben „Messwerte automatisch archivieren" aktiv ist.']],
+                $this->CompactionFields('Power', '⚡ Leistung'),
+                $this->CompactionFields('Energy', '🔋 Energie')
+            ),
+        ];
 
         // Meter-Adresse nur bei Fronius relevant: Dort ist der Smart Meter ein
         // eigenständiges Modbus-Gerät auf derselben IP mit eigener Unit-ID
@@ -6260,7 +6283,25 @@ class InverterHub extends IPSModule
         // Archivierung von Hand ausgeschaltet hat, soll das behalten.
         if ($archive && $created && $this->ReadPropertyBoolean('AutoArchive')) {
             $this->SetArchive($vid, $isEnergy);
-        } elseif ($archive && $isEnergy && !$created) {
+        } elseif ($archive && !$created) {
+            // Verdichtung auch fuer BESTEHENDE Variablen nachziehen (Stefan/
+            // somm-Fund 17.09.2026): ohne diesen Zweig wuerden nur brandneu
+            // angelegte Variablen eine Verdichtungsstaffelung bekommen - alle
+            // ~240 bereits laufenden Installationen blieben unbegrenzt in
+            // voller Aufloesung. Fasst NUR die Verdichtung an (nicht
+            // LoggingStatus/AggregationType), und nur wenn Archivierung fuer
+            // diese Variable bereits aktiv ist - eine von Hand deaktivierte
+            // Archivierung wird dadurch nicht wieder eingeschaltet.
+            $archiveIDs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
+            if (count($archiveIDs) > 0 && @AC_GetLoggingStatus($archiveIDs[0], $vid)) {
+                $kind = $isEnergy ? 'Energy' : 'Power';
+                $interval = $isEnergy ? $this->ReadPropertyInteger('IntervalSlow') : $this->ReadPropertyInteger('IntervalFast');
+                foreach ($this->CompactionPlan($interval, $kind) as [$months, $type]) {
+                    AC_SetCompaction($archiveIDs[0], $vid, $months, $type);
+                }
+            }
+        }
+        if ($archive && $isEnergy && !$created) {
             // Bestandskorrektur (real gemeldeter Fehler, 24.07.2026): Vor
             // Build 182 wurden Energie-Variablen mit Aggregationstyp
             // "Standard" statt "Zaehler" archiviert. Fuer bereits vorhandene
@@ -6350,13 +6391,69 @@ class InverterHub extends IPSModule
     // Nur bei ERSTANLAGE gesetzt (Aufrufer prueft $created) - eine vom Nutzer
     // manuell geaenderte Aggregation an einer bestehenden Variable wird nie
     // wieder ueberschrieben.
+    // Formularfelder je Kategorie (Power/Energy) fuer das Verdichtungs-Panel.
+    private function CompactionFields(string $kind, string $label): array
+    {
+        return [
+            ['type' => 'Label', 'caption' => $label],
+            ['type' => 'CheckBox', 'name' => 'AutoCompaction' . $kind, 'caption' => 'Automatische Verdichtung aktiv'],
+            ['type' => 'Label', 'caption' => '⚠️ Ausschalten löscht auch von Hand in der Konsole gesetzte Verdichtungsregeln.'],
+            ['type' => 'CheckBox', 'name' => 'CompactDirect' . $kind, 'caption' => 'Sofort auf höchste Verdichtungsstufe (1×/Minute)'],
+            ['type' => 'RowLayout', 'items' => [
+                ['type' => 'Label', 'caption' => 'Nach'],
+                ['type' => 'NumberSpinner', 'name' => 'CompactStage2Months' . $kind, 'suffix' => 'Monaten auf'],
+                ['type' => 'Select', 'name' => 'CompactStage2Type' . $kind, 'options' => self::COMPACTION_TYPES],
+            ]],
+            ['type' => 'RowLayout', 'items' => [
+                ['type' => 'Label', 'caption' => 'Nach'],
+                ['type' => 'NumberSpinner', 'name' => 'CompactStage3Months' . $kind, 'suffix' => 'Monaten auf'],
+                ['type' => 'Select', 'name' => 'CompactStage3Type' . $kind, 'options' => self::COMPACTION_TYPES],
+            ]],
+        ];
+    }
+
+    private const COMPACTION_TYPES = [
+        ['caption' => '1× pro Minute', 'value' => 0],
+        ['caption' => '1× pro 5 Minuten', 'value' => 1],
+        ['caption' => '1× pro Stunde', 'value' => 2],
+        ['caption' => '1× pro Tag', 'value' => 3],
+        ['caption' => '1× pro Woche', 'value' => 4],
+        ['caption' => '1× pro Monat', 'value' => 5],
+        ['caption' => '1× pro Jahr', 'value' => 6],
+    ];
+
     private function SetArchive($vid, bool $isEnergy = false)
     {
         $archiveIDs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
         if (count($archiveIDs) > 0) {
             AC_SetLoggingStatus($archiveIDs[0], $vid, true);
             AC_SetAggregationType($archiveIDs[0], $vid, $isEnergy ? 1 : 0);
+            $kind = $isEnergy ? 'Energy' : 'Power';
+            $interval = $isEnergy ? $this->ReadPropertyInteger('IntervalSlow') : $this->ReadPropertyInteger('IntervalFast');
+            foreach ($this->CompactionPlan($interval, $kind) as [$months, $type]) {
+                AC_SetCompaction($archiveIDs[0], $vid, $months, $type);
+            }
         }
+    }
+
+    // Automatische Archiv-Verdichtung aus dem Update-Intervall abgeleitet
+    // (Referenz MeterHub, siehe dortige CLAUDE.md fuer die volle Herleitung).
+    // Jede Stufe nur, wenn ihre Ziel-Aufloesung GROEBER ist als das Roh-
+    // Intervall (sonst Leerlauf). Liefert IMMER drei [Monatsversatz, Typ]-
+    // Paare - eine deaktivierte/nicht sinnvolle Stufe bekommt Typ -1, damit
+    // AC_SetCompaction eine zuvor gesetzte Regel aktiv loescht statt sie
+    // stehen zu lassen (MeterHub-Lehre: "nichts aufrufen" != "aktiv aus").
+    private function CompactionPlan(int $intervalSeconds, string $kind): array
+    {
+        if (!$this->ReadPropertyBoolean('AutoCompaction' . $kind)) {
+            return [[-1, -1], [$this->ReadPropertyInteger('CompactStage2Months' . $kind), -1], [$this->ReadPropertyInteger('CompactStage3Months' . $kind), -1]];
+        }
+        $stage2Months = $this->ReadPropertyInteger('CompactStage2Months' . $kind);
+        $stage3Months = $this->ReadPropertyInteger('CompactStage3Months' . $kind);
+        $direct = ($intervalSeconds < 60 && $this->ReadPropertyBoolean('CompactDirect' . $kind)) ? 0 : -1;
+        $stage2 = ($intervalSeconds < 300) ? $this->ReadPropertyInteger('CompactStage2Type' . $kind) : -1;
+        $stage3 = ($intervalSeconds < 3600) ? $this->ReadPropertyInteger('CompactStage3Type' . $kind) : -1;
+        return [[-1, $direct], [$stage2Months, $stage2], [$stage3Months, $stage3]];
     }
 
     // -----------------------------------------------------------------------
