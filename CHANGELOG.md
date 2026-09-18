@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.76.0-beta.19 (2026-09-18)
+
+- **Fassade für Symbox-Gateway-Anbindung ergänzt (SUITE.md 9j, noch nicht funktionsfähig):**
+  neue Property „Verbindungsweg" (Direkt/Symbox-Gateway) im Panel „Verbindung".
+  `GetModbusClient()` wählt danach `IHUB_ModbusTcpClient` (bisheriger Weg) oder die neue
+  `IHUB_ModbusGatewayClient` — dieselben vier Methoden (`readHolding`/`readInput`/
+  `writeSingle`/`writeMultiple`), damit Treiber unverändert bleiben. Mit MeterHub/ChargerHub
+  abgestimmtes gemeinsames Interface für die künftige `SendDataToParent()`/`ForwardData()`-
+  Anbindung an den eingebauten RS485-Port. Der Gateway-Client ist bewusst nur ein Stub (liefert
+  `null`/`false` + einmaligen Log-Hinweis) — das native `ForwardData()`-Payload-Schema ist
+  nirgends öffentlich dokumentiert, wird erst mit echter Symbox-Hardware oder einer
+  Forum-Antwort geklärt. Formular warnt deutlich, dass „Symbox-Gateway" aktuell keine Werte
+  liefert; externe RTU-zu-TCP-Gateways funktionieren unverändert über „Direkt".
+
 ## 0.76.0-beta.18 (2026-09-17)
 
 - **Plausibilitätsschutz für SOC/SOH ergänzt** (Folgefund Stefan/somm, SolarEdge): siehe
