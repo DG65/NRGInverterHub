@@ -6181,13 +6181,22 @@ class InverterHub extends IPSModule
     // Abgleich mit github.com/symcon/SymconBC/EM24-DIN/module.php).
     public function ForwardToGateway(string $dataId, int $function, int $address, int $quantity, string $data)
     {
-        return $this->SendDataToParent(json_encode([
+        // 'Data' kann rohe gepackte Registerbytes enthalten (z. B. beim
+        // Schreibpfad) - die sind meist kein gültiges UTF-8 (z. B. 0xFFFF),
+        // json_encode() scheitert dabei STUMM (liefert false statt Warnung/
+        // Exception). Ohne Base64 würde so ein Wert lautlos NICHT verschickt.
+        // MeterHub-Fund (18.09.2026), an eigenem Testfall bestätigt.
+        $json = json_encode([
             'DataID'   => $dataId,
             'Function' => $function,
             'Address'  => $address,
             'Quantity' => $quantity,
-            'Data'     => $data,
-        ]));
+            'Data'     => base64_encode($data),
+        ]);
+        if ($json === false) {
+            return false;
+        }
+        return $this->SendDataToParent($json);
     }
 
     // -----------------------------------------------------------------------
