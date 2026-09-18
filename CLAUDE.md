@@ -1,5 +1,33 @@
 # Hinweise für die Arbeit an diesem Repository
 
+## Symbox-Gateway-Lesepfad implementiert, SendDataToParent() ist protected (18.09.2026)
+
+`IHUB_ModbusGatewayClient` (siehe Backlog-Abschnitt unten) liest jetzt echt über
+`SendDataToParent()`/`ForwardData()`, nach dem von MeterHub am offiziellen SymconBC-
+Referenzmodul (`github.com/symcon/SymconBC/EM24-DIN/module.php`) verifizierten Payload-Schema:
+`SendDataToParent(json_encode(['DataID'=>'{E310B701-4AE7-458E-B618-EC13A1A6F6A8}',
+'Function'=>3,'Address'=>$addr,'Quantity'=>$qty,'Data'=>'']))`, Antwort roh mit 2 Byte
+Function-Code+ByteCount-Präfix, danach `unpack('n*', substr($resp,2))` für die 16-Bit-Register
+big-endian. Schreibpfad (FC6/FC16) ist eine **ungetestete Ableitung** — im Referenzmodul (reiner
+Lese-Zähler) gibt es dafür kein Beispiel.
+
+**Wichtige Falle: `SendDataToParent()` ist in der IPSModule-Basisklasse `protected`.** Eine
+eigenständige Hilfsklasse wie `IHUB_ModbusGatewayClient` kann sie nicht direkt aufrufen (Fatal
+Error). Unsere Lösung: eine neue öffentliche `ForwardToGateway()`-Passthrough-Methode am
+Hauptmodul, die die Hilfsklasse stattdessen ruft (Konstruktor bekommt jetzt `$this` statt nur
+die InstanceID). **MeterHub hat denselben Fund unabhängig gemacht und eine Alternative
+verifiziert:** eine in `GetModbusClient()` erzeugte Closure (`function(string $json): string {
+return $this->SendDataToParent($json); }`) hat denselben Sichtbarkeits-Scope wie die Methode,
+die sie erzeugt hat, und kann daher `protected`/`private` Member über `$this` aufrufen, obwohl
+die Hilfsklasse selbst außerhalb der Klasse steht — spart die zusätzliche öffentliche Methode
+auf dem Hauptmodul. Beide Varianten funktionieren; falls diese Klasse nochmal umgebaut wird,
+ist die Closure-Variante die schlankere.
+
+**`ConnectParent()` bewusst NICHT in `Create()` ergänzt** — würde jede der ~240 bestehenden
+Instanzen zwingen, einen nativen Gateway-Parent im Objektbaum zu haben, und damit den
+bisherigen Direktverbindungs-Betrieb brechen. Wie eine Instanz künftig tatsächlich manuell mit
+einem Gateway verbunden wird, ist noch offen (bei MeterHub ebenso).
+
 ## Backlog: eingebauter Symbox-RS485-Port wird nicht unterstuetzt (Forum-Fund Mstaudi, 18.09.2026)
 
 Unterscheidung wichtig, da leicht zu verwechseln: Ein **externer** RTU-zu-TCP-Gateway (z. B.
