@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.76.0-beta.22 (2026-09-18)
+
+- **Fix: `parentRequirements` fehlte für den Symbox-Gateway-Modus** (MeterHub-Fund, live gegen
+  den Solarpark verifiziert): Symcons natives „ModBus Gateway"-Modul implementiert die
+  Splitter-Schnittstelle `{E310B701-4AE7-458E-B618-EC13A1A6F6A8}` (dieselbe GUID, die wir
+  bereits als `DataID` in `SendDataToParent()` verwenden). Ohne diesen Eintrag in
+  `InverterHub/module.json` zeigt die Symcon-Konsole gar keine Verbindungsmöglichkeit zu einem
+  passenden Gateway an, unabhängig davon, ob eines existiert — genau das von einem
+  Beta-Tester bei MeterHub gemeldete „will keine Verbindung aufbauen". Jetzt ergänzt:
+  `"parentRequirements": ["{E310B701-4AE7-458E-B618-EC13A1A6F6A8}"]`. Rein deklarativ, keine
+  Laufzeitänderung, keine Auswirkung auf bestehende Direktverbindungs-Instanzen — eine Instanz
+  wird künftig über das 🔌-Symbol am Kopf der Instanzkonfiguration manuell an ein natives
+  Gateway angebunden, keine Sonderfunktion nötig.
+
 ## 0.76.0-beta.21 (2026-09-18)
 
 - **Fix: `ForwardToGateway()` konnte gepackte Registerbytes lautlos verschlucken**
