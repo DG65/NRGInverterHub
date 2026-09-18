@@ -1,5 +1,22 @@
 # Hinweise für die Arbeit an diesem Repository
 
+## Backlog: eingebauter Symbox-RS485-Port wird nicht unterstuetzt (Forum-Fund Mstaudi, 18.09.2026)
+
+Unterscheidung wichtig, da leicht zu verwechseln: Ein **externer** RTU-zu-TCP-Gateway (z. B.
+Waveshare/USR, eigene IP+Port) funktioniert schon heute problemlos — `Host`/`Port`/`UnitId`
+sind bei uns pro Instanz frei konfigurierbar, fuer unseren `IHUB_ModbusTcpClient` ist so ein
+Gateway nur ein weiteres Modbus-TCP-Geraet mit eigener Unit-ID.
+
+**Der eingebaute RS485-Port von Symcons eigener Symbox-Hardware ist etwas anderes** und wird
+NICHT unterstuetzt: Laut Symcon-Doku (`modulreferenz/geraete/modbus-rtu-tcp/`) laeuft der ueber
+Symcons natives I/O-Instanz-Modell (Parent-Gateway-Instanz + Kind-Instanzen ueber
+`SendDataToParent()`/`ForwardData()`), kein externer TCP-Socket, den man per fsockopen
+ansprechen koennte. Unser `IHUB_ModbusTcpClient` ist ein eigener, direkter TCP-Client — um den
+eingebauten Symbox-Port zu unterstuetzen, muessten unsere Treiber echte Kind-Instanzen eines
+nativen Symcon-Gateways werden (komplett anderer Datenaustausch-Mechanismus). Das ist eine
+echte Architekturarbeit, kein Quick-Fix — noch nicht eingeplant, keine Zusage gemacht.
+Verifiziert mit EMS (18.09.2026), die den Fund gegen die Symcon-Doku geprueft haben.
+
 ## Migrationsvergleich vor jedem `beta`-Push (EMS-Werkzeug, SUITE.md 9e, 13.09.2026)
 
 `php /Users/dietmar/Nextcloud/Claude/.tools/migrationsvergleich.php . origin/beta HEAD` vor
