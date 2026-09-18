@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.77.0-beta.8 (2026-09-18)
+
+- **Fix: `ForwardToGateway()` konnte gepackte Registerbytes lautlos verschlucken**
+  (MeterHub-Fund 18.09.2026): rohe Registerbytes (z. B. `0xFFFF`) sind meist kein gültiges
+  UTF-8, `json_encode()` scheitert dabei **still** (liefert `false` statt Fehler/Warnung) —
+  ohne Gegenmaßnahme wäre ein solcher Schreibwert unbemerkt gar nicht verschickt worden.
+  `Data` wird jetzt vor dem `json_encode()` base64-kodiert, zusätzlich bricht
+  `ForwardToGateway()` bei einem `json_encode()`-Fehlschlag sauber mit `false` ab statt einen
+  kaputten String zu senden. Regressionstest `.tools/test-gateway-client.php` um einen
+  Testfall mit `0xFFFF` (statt eines zufällig UTF-8-verträglichen Werts) erweitert, der den
+  Fehler zuverlässig fängt. Betrifft ausschließlich den ohnehin als ungetestet markierten
+  Symbox-Gateway-Schreibpfad.
+
 ## 0.77.0-beta.7 (2026-09-18)
 
 - **Symbox-Gateway-Lesepfad implementiert (SUITE.md 9j):** `IHUB_ModbusGatewayClient` liest

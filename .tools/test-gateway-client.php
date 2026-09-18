@@ -43,4 +43,32 @@ if ($client2->readHolding(0, 2) !== null) { echo "FAIL kein-Parent-Fall\n"; $fai
 $mod->nextResponse = "\x06\x00";
 if ($client->writeSingle(10, 5) !== true) { echo "FAIL writeSingle\n"; $fails++; } else { echo "OK writeSingle\n"; }
 
+// Test 5: "hässlicher" Registerwert 0xFFFF darf ForwardToGateway() nicht per
+// stillem json_encode()-Fehlschlag verschlucken (MeterHub-Fund 18.09.2026 -
+// rohe gepackte Bytes sind meist kein gültiges UTF-8, json_encode() liefert
+// dann `false` statt eines Fehlers, was unbemerkt NICHTS verschickt hätte).
+// Testet direkt die reale ForwardToGateway()-Logik aus module.php, nicht nur
+// die Client-Klasse (der eigentliche Fehler saß dort, nicht im Client).
+if (!preg_match('/public function ForwardToGateway\(.*?\n    \}\n/s', $src, $fm)) {
+    echo "FAIL ForwardToGateway() nicht gefunden\n";
+    $fails++;
+} else {
+    $stub = 'class ForwardStub { public $sent; function SendDataToParent($j) { $this->sent = $j; return "ok"; } ' . $fm[0] . ' }';
+    eval($stub);
+    $s = new ForwardStub();
+    $result = $s->ForwardToGateway('{DATAID}', 6, 10, 1, pack('n', 0xFFFF));
+    if ($result === false || $s->sent === null) {
+        echo "FAIL ugly-value: ForwardToGateway lieferte false / sendete nichts\n";
+        $fails++;
+    } else {
+        $decoded = json_decode($s->sent, true);
+        if ($decoded === null || base64_decode($decoded['Data']) !== pack('n', 0xFFFF)) {
+            echo "FAIL ugly-value: Data kam nicht unversehrt an\n";
+            $fails++;
+        } else {
+            echo "OK ugly-value (0xFFFF via ForwardToGateway)\n";
+        }
+    }
+}
+
 exit($fails > 0 ? 1 : 0);
