@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.76.0-beta.23 (2026-09-18)
+
+- **Log-Rauschen behoben: „Der zu löschende Verdichtungseintrag wurde nicht gefunden"**
+  (Screenshot Dietmar, Statusdialog): Die automatische Archiv-Verdichtung setzt eine
+  deaktivierte Stufe aktiv auf Typ -1 (löschen), damit alte Regeln verschwinden. Existiert
+  keine Regel, warnt Symcon bei jedem Übernehmen für jede Variable — harmlos, aber
+  irreführend im Protokoll. Die Warnung wird jetzt nur für diesen Lösch-Fall unterdrückt;
+  echte Fehler beim Setzen einer Regel bleiben sichtbar.
+
 ## 0.76.0-beta.22 (2026-09-18)
 
 - **Fix: `parentRequirements` fehlte für den Symbox-Gateway-Modus** (MeterHub-Fund, live gegen

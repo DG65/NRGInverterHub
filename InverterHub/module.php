@@ -6455,7 +6455,13 @@ class InverterHub extends IPSModule
                 $kind = $isEnergy ? 'Energy' : 'Power';
                 $interval = $isEnergy ? $this->ReadPropertyInteger('IntervalSlow') : $this->ReadPropertyInteger('IntervalFast');
                 foreach ($this->CompactionPlan($interval, $kind) as [$months, $type]) {
-                    AC_SetCompaction($archiveIDs[0], $vid, $months, $type);
+                    // Typ -1 loescht eine Regel; existiert keine, warnt Symcon
+                    // ("Verdichtungseintrag nicht gefunden") - harmlos, nur dafuer @.
+                    if ($type === -1) {
+                        @AC_SetCompaction($archiveIDs[0], $vid, $months, $type);
+                    } else {
+                        AC_SetCompaction($archiveIDs[0], $vid, $months, $type);
+                    }
                 }
             }
         }
@@ -6589,7 +6595,11 @@ class InverterHub extends IPSModule
             $kind = $isEnergy ? 'Energy' : 'Power';
             $interval = $isEnergy ? $this->ReadPropertyInteger('IntervalSlow') : $this->ReadPropertyInteger('IntervalFast');
             foreach ($this->CompactionPlan($interval, $kind) as [$months, $type]) {
-                AC_SetCompaction($archiveIDs[0], $vid, $months, $type);
+                if ($type === -1) {
+                    @AC_SetCompaction($archiveIDs[0], $vid, $months, $type);
+                } else {
+                    AC_SetCompaction($archiveIDs[0], $vid, $months, $type);
+                }
             }
         }
     }
