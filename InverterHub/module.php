@@ -8,6 +8,77 @@
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
+// IHUB_ModbusGatewayClient — Anbindung an Symcons eingebauten Symbox-RS485-
+// Port über das native Gateway-Instanzmodell (SendDataToParent()/ForwardData()
+// statt eigenem fsockopen-Client), zusätzlich zum direkten TCP-Weg oben, kein
+// Ersatz. SUITE.md 9j, Verbund-Abstimmung mit MeterHub/ChargerHub (18.09.2026):
+// gleiche vier Methoden wie IHUB_ModbusTcpClient (readHolding/readInput/
+// writeSingle/writeMultiple), damit Treiber beim Umschalten unverändert
+// bleiben. Das exakte ForwardData()-Payload-Schema (Function Code/Adresse/
+// Quantity/Unit-ID-Kodierung im Puffer) ist nirgends öffentlich dokumentiert —
+// weder SDK-Doku noch Modulreferenz noch Community-Threads zeigen ein
+// vollständiges Beispiel, die nativen Module sind kompiliert. Deshalb bewusst
+// nur als Stub: liefert kontrolliert null/false statt Fatal Error, bis das
+// Schema an echter Symbox-Hardware oder über eine Forum-Antwort geklärt ist.
+// -----------------------------------------------------------------------
+class IHUB_ModbusGatewayClient
+{
+    private $instanceId;
+    private $unitId;
+    private static $warned = false;
+
+    public function __construct($instanceId, $port, $unitId)
+    {
+        $this->instanceId = $instanceId;
+        $this->unitId     = $unitId;
+    }
+
+    private function notImplemented()
+    {
+        if (!self::$warned) {
+            self::$warned = true;
+            IPS_LogMessage('InverterHub', 'Symbox-Gateway-Anbindung noch nicht implementiert (Payload-Schema ungeklärt) - "Verbindungsweg: Symbox-Gateway" liefert keine Werte, bitte vorerst "Direkt" verwenden.');
+        }
+    }
+
+    public function beginBatch()
+    {
+    }
+
+    public function endBatch()
+    {
+    }
+
+    public function setFloatWordSwap(bool $swap)
+    {
+    }
+
+    public function readHolding($startReg, $count)
+    {
+        $this->notImplemented();
+        return null;
+    }
+
+    public function readInput($startReg, $count)
+    {
+        $this->notImplemented();
+        return null;
+    }
+
+    public function writeSingle($reg, $value)
+    {
+        $this->notImplemented();
+        return false;
+    }
+
+    public function writeMultiple($startReg, $values)
+    {
+        $this->notImplemented();
+        return false;
+    }
+}
+
+// ---------------------------------------------------------------------------
 // IHUB_ModbusTcpClient — gemeinsame Modbus-TCP-Grundfunktionen für alle Treiber
 // ---------------------------------------------------------------------------
 
@@ -4927,6 +4998,11 @@ class InverterHub extends IPSModule
         $this->RegisterPropertyString('Host', '');
         $this->RegisterPropertyInteger('Port', 502);
         $this->RegisterPropertyInteger('UnitId', 247);
+        // SUITE.md 9j: Verbindungsweg zusätzlich zum direkten TCP-Weg, kein Ersatz.
+        // 'gateway' ist aktuell ein Stub (siehe IHUB_ModbusGatewayClient) - liefert
+        // bewusst keine echten Werte, bis das native ForwardData()-Payload-Schema
+        // geklärt ist.
+        $this->RegisterPropertyString('ConnectionType', 'direct');
         $this->RegisterPropertyInteger('IntervalFast', 5);
         $this->RegisterPropertyInteger('IntervalSlow', 300);
         $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
@@ -5631,6 +5707,16 @@ class InverterHub extends IPSModule
                     'caption' => '🔌  Verbindung',
                     'expanded' => true,
                     'items' => [
+                        [
+                            'type' => 'Select',
+                            'name' => 'ConnectionType',
+                            'caption' => 'Verbindungsweg',
+                            'options' => [
+                                ['label' => 'Direkt (eigene TCP-Verbindung)', 'value' => 'direct'],
+                                ['label' => 'Symbox-Gateway (eingebauter RS485-Port) — noch nicht funktionsfähig', 'value' => 'gateway'],
+                            ],
+                        ],
+                        ['type' => 'Label', 'caption' => '⚠️ „Symbox-Gateway" ist ein Platzhalter für eine künftige Anbindung an den eingebauten RS485-Port der Symcon-Hardware und liefert aktuell keine Werte. Für einen externen RTU-zu-TCP-Gateway (z. B. Waveshare/USR) bitte „Direkt" mit dessen IP/Port verwenden — das funktioniert schon heute.'],
                         // IP-Adresse ODER Hostname erlaubt (fsockopen löst den
                         // Namen per DNS auf) - so überlebt die Instanz einen
                         // IP-Wechsel des Wechselrichters, wenn ein fester Name
@@ -6049,8 +6135,15 @@ class InverterHub extends IPSModule
         return $out;
     }
 
-    private function GetModbusClient(): IHUB_ModbusTcpClient
+    private function GetModbusClient()
     {
+        if ($this->ReadPropertyString('ConnectionType') === 'gateway') {
+            return new IHUB_ModbusGatewayClient(
+                $this->InstanceID,
+                $this->ReadPropertyInteger('Port'),
+                $this->ReadPropertyInteger('UnitId')
+            );
+        }
         return new IHUB_ModbusTcpClient(
             $this->ReadPropertyString('Host'),
             $this->ReadPropertyInteger('Port'),
