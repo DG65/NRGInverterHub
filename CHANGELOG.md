@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.77.0-beta.7 (2026-09-18)
+
+- **Symbox-Gateway-Lesepfad implementiert (SUITE.md 9j):** `IHUB_ModbusGatewayClient` liest
+  jetzt echt über `SendDataToParent()`/`ForwardData()`, nach dem von MeterHub direkt am Rohcode
+  des offiziellen SymconBC-Referenzmoduls (`EM24-DIN`) verifizierten Payload-Schema
+  (`Function`/`Address`/`Quantity`/`Data` als JSON, Antwort roh mit FC+ByteCount-Präfix,
+  danach 16-Bit-Register big-endian). Neue öffentliche `ForwardToGateway()`-Methode am
+  Hauptmodul, da `SendDataToParent()` in der IPSModule-Basisklasse `protected` ist und von der
+  Client-Hilfsklasse nicht direkt aufgerufen werden kann. Regressionstest
+  `.tools/test-gateway-client.php`. Der Schreibpfad (`writeSingle`/`writeMultiple`, FC6/FC16)
+  ist weiterhin eine **ungetestete Ableitung** aus demselben Schema — im SymconBC-
+  Referenzmodul gibt es dafür kein Beispiel, es ist ein reiner Lese-Zähler. Formular und Log
+  weisen weiterhin klar darauf hin. Bewusst KEIN `ConnectParent()` in `Create()` ergänzt — das
+  würde jede der ~240 bestehenden Instanzen zwingen, einen nativen Gateway-Parent im
+  Objektbaum zu haben, und damit den bisherigen Direktverbindungs-Betrieb brechen.
+
 ## 0.77.0-beta.6 (2026-09-18)
 
 - **Fassade für Symbox-Gateway-Anbindung ergänzt (SUITE.md 9j, noch nicht funktionsfähig):**
