@@ -23,21 +23,38 @@
 // -----------------------------------------------------------------------
 class IHUB_ModbusGatewayClient
 {
-    private $instanceId;
+    // Von MeterHub direkt am Rohcode des offiziellen SymconBC-Referenzmoduls
+    // verifiziert (github.com/symcon/SymconBC, EM24-DIN/module.php, 18.09.2026):
+    // Lesepfad ist damit ein bestätigter Fund, kein Community-Reverse-Engineering.
+    private const GATEWAY_DATA_ID = '{E310B701-4AE7-458E-B618-EC13A1A6F6A8}';
+
+    private $module;
     private $unitId;
     private static $warned = false;
 
-    public function __construct($instanceId, $port, $unitId)
+    // SendDataToParent() ist eine Methode der IPSModule-Instanz, keine globale
+    // Funktion - die Klasse braucht daher (anders als IHUB_ModbusTcpClient, der
+    // rein per fsockopen arbeitet) einen Verweis auf die aufrufende Modulinstanz.
+    public function __construct($module, $port, $unitId)
     {
-        $this->instanceId = $instanceId;
-        $this->unitId     = $unitId;
+        $this->module = $module;
+        $this->unitId = $unitId;
     }
 
-    private function notImplemented()
+    private function request($function, $address, $quantity, $data = '')
+    {
+        if (!method_exists($this->module, 'ForwardToGateway')) {
+            return null;
+        }
+        $response = @$this->module->ForwardToGateway(self::GATEWAY_DATA_ID, $function, $address, $quantity, $data);
+        return ($response === false || $response === null) ? null : $response;
+    }
+
+    private function notImplemented($what)
     {
         if (!self::$warned) {
             self::$warned = true;
-            IPS_LogMessage('InverterHub', 'Symbox-Gateway-Anbindung noch nicht implementiert (Payload-Schema ungeklärt) - "Verbindungsweg: Symbox-Gateway" liefert keine Werte, bitte vorerst "Direkt" verwenden.');
+            IPS_LogMessage('InverterHub', 'Symbox-Gateway-Schreibpfad (' . $what . ') ist eine ungetestete Ableitung aus dem verifizierten Lesepfad - noch nicht an echter Hardware bestätigt.');
         }
     }
 
@@ -55,26 +72,50 @@ class IHUB_ModbusGatewayClient
 
     public function readHolding($startReg, $count)
     {
-        $this->notImplemented();
-        return null;
+        return $this->readRegisters(3, $startReg, $count);
     }
 
     public function readInput($startReg, $count)
     {
-        $this->notImplemented();
-        return null;
+        return $this->readRegisters(4, $startReg, $count);
     }
 
+    // Verifiziertes Antwortformat (MeterHub, 18.09.2026): erste 2 Byte sind
+    // Function-Code + Byte-Count der Modbus-PDU (vom Gateway bereits abgetrennt
+    // vom MBAP/RTU-Rahmen zurückgegeben), danach 16-Bit-Register big-endian.
+    private function readRegisters($function, $startReg, $count)
+    {
+        $response = $this->request($function, $startReg, $count);
+        if ($response === null || strlen($response) < 2) {
+            return null;
+        }
+        $unpacked = @unpack('n*', substr($response, 2));
+        if ($unpacked === false) {
+            return null;
+        }
+        return array_values($unpacked);
+    }
+
+    // Ungetestete Ableitung aus dem verifizierten Lesepfad - für den Schreibfall
+    // (FC6/FC16) gibt es im SymconBC-Referenzmodul KEIN Beispiel (reiner
+    // Lese-Zähler). Function-Code und Adressierung folgen demselben Schema,
+    // Data enthält (Annahme) die gepackten 16-Bit-Registerwerte statt "".
     public function writeSingle($reg, $value)
     {
-        $this->notImplemented();
-        return false;
+        $this->notImplemented('writeSingle/FC6');
+        $response = $this->request(6, $reg, 1, pack('n', $value & 0xFFFF));
+        return $response !== null;
     }
 
     public function writeMultiple($startReg, $values)
     {
-        $this->notImplemented();
-        return false;
+        $this->notImplemented('writeMultiple/FC16');
+        $data = '';
+        foreach ($values as $v) {
+            $data .= pack('n', $v & 0xFFFF);
+        }
+        $response = $this->request(16, $startReg, count($values), $data);
+        return $response !== null;
     }
 }
 
@@ -6122,7 +6163,7 @@ class InverterHub extends IPSModule
     {
         if ($this->ReadPropertyString('ConnectionType') === 'gateway') {
             return new IHUB_ModbusGatewayClient(
-                $this->InstanceID,
+                $this,
                 $this->ReadPropertyInteger('Port'),
                 $this->ReadPropertyInteger('UnitId')
             );
@@ -6132,6 +6173,21 @@ class InverterHub extends IPSModule
             $this->ReadPropertyInteger('Port'),
             $this->ReadPropertyInteger('UnitId')
         );
+    }
+
+    // Öffentliche Passthrough-Methode für IHUB_ModbusGatewayClient: SendDataToParent()
+    // ist in der IPSModule-Basisklasse protected, eine modulfremde Hilfsklasse kann sie
+    // nicht direkt aufrufen. Verifiziertes Payload-Schema (MeterHub, 18.09.2026, Rohcode-
+    // Abgleich mit github.com/symcon/SymconBC/EM24-DIN/module.php).
+    public function ForwardToGateway(string $dataId, int $function, int $address, int $quantity, string $data)
+    {
+        return $this->SendDataToParent(json_encode([
+            'DataID'   => $dataId,
+            'Function' => $function,
+            'Address'  => $address,
+            'Quantity' => $quantity,
+            'Data'     => $data,
+        ]));
     }
 
     // -----------------------------------------------------------------------
