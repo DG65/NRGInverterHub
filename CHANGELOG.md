@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.77.0-beta.18 (2026-09-19)
+
+- **Gateway-Modus: einheitliche Wörter und passende Statuszeile** (Feedback Forum-Tester Mstaudi,
+  Abgleich mit MeterHub und ChargerHub): Die Statuszeile ganz oben nannte im Gateway-Modus
+  „Wechselrichter nicht erreichbar“ bzw. eine IP-Adresse. Sie zeigt jetzt Status 104 „Bitte die
+  Brücke zum ModBus Gateway eintragen (Gateway wählen, „Brücke anlegen und verbinden“,
+  übernehmen)“ und 201 „Verbindungsfehler – keine Antwort über die Brücke: Brücke und ModBus
+  Gateway prüfen (Unit ID = Geräte-ID am Gateway)“. Im Direktmodus bleibt alles unverändert.
+  Ohne gewählte Brücke steht die Instanz im Gateway-Modus auf 104 mit gestoppten Timern (statt
+  auf 201 mit laufendem Lesezyklus). Feldnamen vereinfacht: „ModBus Gateway zum Gerät“ und
+  „NRG-Stack Brücke zum ModBus Gateway“ (der längere Name wurde abgeschnitten), der Knopf heißt
+  „Brücke anlegen und verbinden“. Die Texte in Doku-Panel, News, README und Formularhinweis sind
+  angeglichen. Prüfstand `.tools/test-create-bridge.php` um diese Wörter und die Bereitschaft
+  erweitert.
+
 ## 0.77.0-beta.17 (2026-09-19)
 
 - **Symbox-Gateway läuft jetzt über eine eigene Brücke: neues Modul „NRG-Stack InverterHub
