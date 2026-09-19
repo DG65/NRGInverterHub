@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.77.0-beta.17 (2026-09-19)
+
+- **Symbox-Gateway läuft jetzt über eine eigene Brücke: neues Modul „NRG-Stack InverterHub
+  Brücke (ModBus-Gateway)“ (`InverterHubBridge`, Prefix `IHUBB`)** (Entscheidung Dietmar,
+  Abstimmung mit MeterHub/ChargerHub, gleicher Vertrag in allen drei Brücken). Ursache:
+  `parentRequirements`/`implemented` in `InverterHub/module.json` ließen bei JEDER
+  Direkt-Instanz den Hinweis „benötigt eine übergeordnete Instanz“ erscheinen. Diese
+  Schnittstellen trägt jetzt nur noch die Brücke, die `module.json` des Hauptmoduls ist wieder
+  leer — im selben Release, damit bestehende Gateway-Instanzen nicht ohne Alternative
+  wegbrechen. Wer den Gateway-Modus nutzt: Brücke anlegen, in ihr das ModBus-Gateway wählen,
+  in der InverterHub-Instanz die Brücke auswählen (Eigenschaft `BridgeInstanceID`). Eine
+  Brücke bedient genau ein Gerät (Geräte-ID am Gateway). Vertrag der Brücke: `Forward(json)`
+  liefert immer JSON mit `ok` und `data` (Base64) oder `ok=false` und `error` (`not_connected`,
+  `parent_inactive`, `no_response`), `GetState()` liefert Verbindungs- und Gateway-Status. Die
+  Statustexte des Hubs (201) nennen jetzt den Grund: keine Brücke gewählt, Brücke ohne Gateway,
+  Gateway inaktiv, keine Antwort. Tests `.tools/test-bridge.php` und erweiterter
+  `.tools/test-gateway-client.php` (rohe Bytes wie 0xFFFF hin und zurück über die Brücke).
+  Direktverbindungen sind nicht betroffen. Noch nicht am echten Gateway geprüft; der
+  Schreibpfad (FC6/FC16) bleibt eine ungetestete Ableitung.
+
 ## 0.77.0-beta.16 (2026-09-19)
 
 - **Fehler im Timer-Lauf landen jetzt im Meldungsfenster** (Forum-Beta-Tester Mstaudi: „meldet
