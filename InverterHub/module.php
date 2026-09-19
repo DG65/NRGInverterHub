@@ -5158,8 +5158,11 @@ class InverterHub extends IPSModule
             return;
         }
 
+        // Im Gateway-Modus ist Host ausgeblendet und leer - die Verbindung laeuft
+        // ueber den Parent, nicht ueber einen eigenen Socket (MeterHub-Fund,
+        // Forum-Beta-Tester 19.09.2026: Instanz blieb sonst dauerhaft auf 104).
         $host = $this->ReadPropertyString('Host');
-        if ($host === '') {
+        if ($host === '' && $this->ReadPropertyString('ConnectionType') !== 'gateway') {
             $this->SetStatus(104);
             $this->SetTimerInterval('FastTimer', 0);
             $this->SetTimerInterval('SlowTimer', 0);
@@ -5287,6 +5290,12 @@ class InverterHub extends IPSModule
 
     public function RequestAction($Ident, $Value)
     {
+        if ($Ident === 'ConnectionTypeChanged') {
+            $direct = ($Value !== 'gateway');
+            $this->UpdateFormField('Host', 'visible', $direct);
+            $this->UpdateFormField('Port', 'visible', $direct);
+            return;
+        }
         if (!$this->ReadPropertyBoolean('Active')) {
             return;
         }
@@ -5737,16 +5746,17 @@ class InverterHub extends IPSModule
                             'caption' => 'Verbindungsweg',
                             'options' => [
                                 ['label' => 'Direkt (eigene TCP-Verbindung)', 'value' => 'direct'],
-                                ['label' => 'Symbox-Gateway (eingebauter RS485-Port) — noch nicht funktionsfähig', 'value' => 'gateway'],
+                                ['label' => 'Symbox-Gateway (eingebauter RS485-Port, Beta)', 'value' => 'gateway'],
                             ],
+                            'onChange' => 'IPS_RequestAction($id, "ConnectionTypeChanged", $ConnectionType);',
                         ],
-                        ['type' => 'Label', 'caption' => '⚠️ „Symbox-Gateway" ist ein Platzhalter für eine künftige Anbindung an den eingebauten RS485-Port der Symcon-Hardware und liefert aktuell keine Werte. Für einen externen RTU-zu-TCP-Gateway (z. B. Waveshare/USR) bitte „Direkt" mit dessen IP/Port verwenden — das funktioniert schon heute.'],
+                        ['type' => 'Label', 'caption' => 'ℹ️ „Symbox-Gateway" spricht den eingebauten RS485-Port der Symcon-Hardware über ein natives ModBus-Gateway an; das Gateway wird über die Verbindung der Instanz gewählt, IP-Adresse und Port entfallen dann. Lesen ist nach dem Schema von Symcons Referenzmodul umgesetzt, Schreiben (Steuerbefehle) ist noch ungetestet. Für einen externen RTU-zu-TCP-Gateway (z. B. Waveshare/USR) bitte „Direkt" mit dessen IP/Port verwenden — das funktioniert schon heute.'],
                         // IP-Adresse ODER Hostname erlaubt (fsockopen löst den
                         // Namen per DNS auf) - so überlebt die Instanz einen
                         // IP-Wechsel des Wechselrichters, wenn ein fester Name
                         // (DHCP-Reservierung/mDNS, z. B. „wr-fronius.local") genutzt wird.
-                        ['type' => 'ValidationTextBox', 'name' => 'Host', 'caption' => 'IP-Adresse oder Hostname', 'validate' => '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'],
-                        ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'TCP-Port', 'minimum' => 1, 'maximum' => 65535],
+                        ['type' => 'ValidationTextBox', 'name' => 'Host', 'caption' => 'IP-Adresse oder Hostname', 'visible' => $this->ReadPropertyString('ConnectionType') !== 'gateway', 'validate' => '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'],
+                        ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'TCP-Port', 'visible' => $this->ReadPropertyString('ConnectionType') !== 'gateway', 'minimum' => 1, 'maximum' => 65535],
                         ['type' => 'NumberSpinner', 'name' => 'UnitId', 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
                     ],
                 ],
@@ -6194,6 +6204,11 @@ class InverterHub extends IPSModule
             'Data'     => base64_encode($data),
         ]);
         if ($json === false) {
+            return false;
+        }
+        // Ohne verbundenes Gateway wuerde SendDataToParent() bei jedem Takt die
+        // Symcon-Warnung "Keine uebergeordnete Instanz ist konfiguriert" erzeugen.
+        if (IPS_GetInstance($this->InstanceID)['ConnectionID'] <= 0) {
             return false;
         }
         return $this->SendDataToParent($json);

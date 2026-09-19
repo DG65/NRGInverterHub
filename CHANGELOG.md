@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.76.0-beta.25 (2026-09-19)
+
+- **Fix Symbox-Gateway-Modus: Instanz blieb auf Status 104** (MeterHub-Fund, Forum-Beta-Tester):
+  Im Gateway-Modus ist `Host` leer, `ApplyChanges()` verlangte aber immer einen Host, setzte
+  Status 104 und stellte alle Timer auf 0 — die Instanz las nie, egal ob ein Gateway verbunden
+  war. Die Host-Pflicht gilt jetzt nur noch im Direktmodus. `ForwardToGateway()` sendet ohne
+  verbundenes Gateway (`ConnectionID <= 0`) nichts mehr, statt bei jedem Takt Symcons Warnung
+  „Keine übergeordnete Instanz ist konfiguriert" zu erzeugen. Im Formular sind Host und Port im
+  Gateway-Modus ausgeblendet (Umschalten ohne Übernehmen über `RequestAction`), der veraltete
+  Platzhaltertext „liefert aktuell keine Werte" ist durch eine zutreffende Beschreibung
+  ersetzt: Lesen ist umgesetzt, Schreiben ungetestet. Regressionstest um den Fall ohne Gateway
+  erweitert. Direktverbindungen sind nicht betroffen.
+
 ## 0.76.0-beta.24 (2026-09-19)
 
 - **Symbox-Gateway: `implemented` in `module.json` ergänzt** (MeterHub-Fund, live am nativen

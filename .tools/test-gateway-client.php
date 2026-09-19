@@ -7,6 +7,8 @@ if (!preg_match('/class IHUB_ModbusGatewayClient\b.*?\n}\n/s', $src, $m)) {
     exit(1);
 }
 function IPS_LogMessage($a,$b){}
+$GLOBALS['connId'] = 1;
+function IPS_GetInstance($id){ return ['ConnectionID' => $GLOBALS['connId']]; }
 eval($m[0]);
 
 class FakeModule {
@@ -53,7 +55,7 @@ if (!preg_match('/public function ForwardToGateway\(.*?\n    \}\n/s', $src, $fm)
     echo "FAIL ForwardToGateway() nicht gefunden\n";
     $fails++;
 } else {
-    $stub = 'class ForwardStub { public $sent; function SendDataToParent($j) { $this->sent = $j; return "ok"; } ' . $fm[0] . ' }';
+    $stub = 'class ForwardStub { public $InstanceID = 1; public $sent; function SendDataToParent($j) { $this->sent = $j; return "ok"; } ' . $fm[0] . ' }';
     eval($stub);
     $s = new ForwardStub();
     $result = $s->ForwardToGateway('{DATAID}', 6, 10, 1, pack('n', 0xFFFF));
@@ -69,6 +71,15 @@ if (!preg_match('/public function ForwardToGateway\(.*?\n    \}\n/s', $src, $fm)
             echo "OK ugly-value (0xFFFF via ForwardToGateway)\n";
         }
     }
+}
+
+// Test 6: kein Gateway verbunden (ConnectionID 0) -> nichts senden, false
+if (isset($fm)) {
+    $GLOBALS['connId'] = 0;
+    $s2 = new ForwardStub();
+    $r2 = $s2->ForwardToGateway('{DATAID}', 3, 0, 2, '');
+    if ($r2 !== false || $s2->sent !== null) { echo "FAIL ohne-Gateway: es wurde gesendet\n"; $fails++; } else { echo "OK ohne-Gateway (kein SendDataToParent)\n"; }
+    $GLOBALS['connId'] = 1;
 }
 
 exit($fails > 0 ? 1 : 0);
