@@ -32,6 +32,9 @@ class IHUB_ModbusGatewayClient
     private $unitId;
     private static $warned = false;
 
+    // Wie IHUB_ModbusTcpClient: Float32-Wortreihenfolge (Kostal = CDAB).
+    public $floatWordSwap = false;
+
     // SendDataToParent() ist eine Methode der IPSModule-Instanz, keine globale
     // Funktion - die Klasse braucht daher (anders als IHUB_ModbusTcpClient, der
     // rein per fsockopen arbeitet) einen Verweis auf die aufrufende Modulinstanz.
@@ -68,6 +71,57 @@ class IHUB_ModbusGatewayClient
 
     public function setFloatWordSwap(bool $swap)
     {
+        $this->floatWordSwap = $swap;
+    }
+
+    // Dekodier-Hilfen, die JEDER Treiber am Client aufruft (u16/s16/u32/s32/
+    // readStr/readFloat32). Muessen zeichengleich zu IHUB_ModbusTcpClient
+    // bleiben - .tools/test-gateway-client.php prueft, dass jede von Treibern
+    // genutzte Client-Methode hier existiert. Fehlten sie, brach der erste
+    // Lesezugriff im Gateway-Modus mit "Call to undefined method" ab (Forum-
+    // Beta-Tester Mstaudi, 19.09.2026: "Aktualisieren tut es auch noch nicht").
+    public function u16($regs, $offset)
+    {
+        return isset($regs[$offset]) ? ($regs[$offset] & 0xFFFF) : 0;
+    }
+
+    public function s16($regs, $offset)
+    {
+        $v = $this->u16($regs, $offset);
+        return $v > 32767 ? $v - 65536 : $v;
+    }
+
+    public function u32($regs, $offset)
+    {
+        return (($this->u16($regs, $offset) << 16) | $this->u16($regs, $offset + 1));
+    }
+
+    public function s32($regs, $offset)
+    {
+        $v = $this->u32($regs, $offset);
+        return $v > 2147483647 ? $v - 4294967296 : $v;
+    }
+
+    public function readStr($regs, $offset, int $regCount)
+    {
+        $s = '';
+        for ($i = 0; $i < $regCount; $i++) {
+            $r  = $this->u16($regs, $offset + $i);
+            $s .= chr(($r >> 8) & 0xFF) . chr($r & 0xFF);
+        }
+        return rtrim($s, "\x00 ");
+    }
+
+    public function readFloat32($regs, $offset)
+    {
+        $hi  = $this->u16($regs, $offset);
+        $lo  = $this->u16($regs, $offset + 1);
+        if ($this->floatWordSwap) {
+            $tmp = $hi; $hi = $lo; $lo = $tmp;
+        }
+        $raw = pack('nn', $hi, $lo);
+        $val = unpack('G', $raw);
+        return (float)($val[1] ?? 0.0);
     }
 
     public function readHolding($startReg, $count)
