@@ -1103,7 +1103,11 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 break;
 
             case 'ctl_ems_enable':
-                $val = (bool)$value ? 2 : 0;
+                // 1 = ein. Der frueher geschriebene Wert 2 (Erbe aus dem GoodweET-Port,
+                // ohne dokumentierten Grund) erzeugt live eine langsame Rampe: ~15 s
+                // Anlauf, dann +250 W je 6 s, bei Modus 9 nur ein Turm. Mit 1 volle
+                // Leistung nach ~1 s (EMS-Live-Test 19.09.2026, Register 47505 per FC6).
+                $val = (bool)$value ? 1 : 0;
                 if ($mb->writeSingle(self::REG_EMS_ENABLE, $val)) {
                     $hub->SetVarBool('ctl_ems_enable', (bool)$value);
                 }

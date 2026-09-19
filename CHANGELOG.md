@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.77.0-beta.13 (2026-09-19)
+
+- **Fix GoodWe: `ctl_ems_enable=true` schreibt jetzt 1 statt 2 in Register 47505** (EMS-Live-Test
+  19.09.2026 an der Anlage, Register per FC6 direkt geschrieben): Der bisherige Wert 2 (Erbe des
+  GoodweET-Ports, ohne dokumentierten Grund) erzeugte eine langsame Rampe — ~15 s Anlauf, dann
+  +250 W je 6 s, bei Modus 9 lud nur ein Turm. Mit 1 lag die volle Leistung (23,9 kW, beide Türme
+  je ~11,8 kW) schon ~1 s nach dem Schreiben an und hielt ohne Rückfall. `false` schreibt
+  weiterhin 0. Das Register wird nicht zurückgelesen, die Anzeige bleibt unverändert.
+  Regressionstest `.tools/test-goodwe-enable.php`. Betrifft nur GoodWe-Instanzen, die
+  EMS-Steuerung mit `enable=true` nutzen.
+
 ## 0.77.0-beta.12 (2026-09-19)
 
 - **Fix Symbox-Gateway-Modus: Instanz blieb auf Status 104** (MeterHub-Fund, Forum-Beta-Tester):
