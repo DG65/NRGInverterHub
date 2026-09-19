@@ -113,7 +113,7 @@ der Symbox. Externe RTU-zu-TCP-Gateways (z. B. Waveshare/USR) brauchen sie nicht
 über „Direkt“ mit IP-Adresse und Port.
 
 Einrichtung in der InverterHub-Instanz: Verbindungsweg **„Symbox-Gateway“** wählen, das
-ModBus-Gateway auswählen, **„… und Brücke anlegen und verbinden“** klicken (legt die Brücke an,
+ModBus-Gateway auswählen, **„Brücke anlegen und verbinden“** klicken (legt die Brücke an,
 verbindet sie mit dem Gateway und trägt sie ein), danach **Übernehmen**. Eine vorhandene Brücke am
 selben Gateway wird wiederverwendet.
 

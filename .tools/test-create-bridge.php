@@ -76,4 +76,12 @@ foreach (['ApplyChanges', 'GetConfigurationForm'] as $fn) {
     preg_match('/public function ' . $fn . '\(.*?\n    \}\n/s', $src, $mm);
     $chk(!empty($mm[0]) && strpos($mm[0], '$this->CreateBridge(') === false && strpos($mm[0], 'IPS_CreateInstance') === false, "$fn legt nie eine Bruecke an");
 }
+// --- Einheitliche Woerter in den drei Hubs (Mstaudi-Feedback 19.09.2026)
+$chk(strpos($src, "'caption'      => 'ModBus Gateway zum Gerät'") !== false, 'Feldname "ModBus Gateway zum Gerät"');
+$chk(strpos($src, "'caption'      => 'NRG-Stack Brücke zum ModBus Gateway'") !== false, 'Feldname "NRG-Stack Brücke zum ModBus Gateway"');
+$chk(strpos($src, "'caption' => 'Brücke anlegen und verbinden'") !== false && strpos($src, '… und Brücke') === false, 'Knopf "Brücke anlegen und verbinden" (ohne Auslassungspunkte), nirgends mehr im Modul');
+$chk(strpos($src, "'Bitte die Brücke zum ModBus Gateway eintragen") !== false && strpos($src, 'keine Antwort über die Brücke') !== false, 'Statuszeilen 104/201 nennen im Gateway-Modus Brücke und Gateway');
+$chk(strpos($src, "'Bitte IP-Adresse oder Hostname eintragen.'") !== false, 'Statuszeile im Direktmodus unveraendert');
+preg_match('/public function ApplyChanges\(.*?\n    \}\n/s', $src, $ac);
+$chk(preg_match("/gatewayMode && \\\$this->ReadPropertyInteger\('BridgeInstanceID'\) <= 0\).*?SetStatus\(104\)/s", $ac[0] ?? '') === 1, 'Gateway-Modus ohne Bruecke: Status 104, Timer aus');
 exit($fails ? 1 : 0);
