@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.76.0-beta.24 (2026-09-19)
+
+- **Symbox-Gateway: `implemented` in `module.json` ergänzt** (MeterHub-Fund, live am nativen
+  „ModBus Gateway" per `IPS_GetModule()` gelesen): Das Gateway akzeptiert nur Kinder, die die
+  Schnittstelle `{77B31ABB-18FA-4B91-BB63-E5B2AB5588F4}` in `implemented` führen — `parentRequirements`
+  allein (0.77.0-beta.9) reichte nicht, die Konsole zeigte keine Auswahl. Symcons Referenzmodul
+  (SymconBC EM24-DIN) trägt beides. Rein deklarativ, keine Laufzeitänderung. Ob der
+  Anlege-Ablauf bestehender Direktverbindungs-Instanzen dadurch berührt wird, ist unverifiziert;
+  die Entscheidung Schwestermodul ja/nein (wie WPModbusHubGateway) liegt bei Dietmar.
+
 ## 0.76.0-beta.23 (2026-09-18)
 
 - **Log-Rauschen behoben: „Der zu löschende Verdichtungseintrag wurde nicht gefunden"**
