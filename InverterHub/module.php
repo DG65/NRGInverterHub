@@ -29,8 +29,13 @@ class IHUB_ModbusGatewayClient
     private const GATEWAY_DATA_ID = '{E310B701-4AE7-458E-B618-EC13A1A6F6A8}';
 
     private $module;
-    private $unitId;
+    // Wird im Gateway-Modus NIE gesendet (die Nutzlast hat keine Unit-ID, die Adresse
+    // steckt in der Geraete-ID der Gateway-Instanz). Public nur, damit Treiber, die
+    // $mb->unitId umsetzen (SunSpec, Victron), nicht an einem privaten Feld scheitern.
+    public $unitId;
     private static $warned = false;
+    public $requests = 0;
+    public $responses = 0;
 
     // Wie IHUB_ModbusTcpClient: Float32-Wortreihenfolge (Kostal = CDAB).
     public $floatWordSwap = false;
@@ -49,8 +54,13 @@ class IHUB_ModbusGatewayClient
         if (!method_exists($this->module, 'ForwardToGateway')) {
             return null;
         }
+        $this->requests++;
         $response = @$this->module->ForwardToGateway(self::GATEWAY_DATA_ID, $function, $address, $quantity, $data);
-        return ($response === false || $response === null) ? null : $response;
+        if ($response === false || $response === null || $response === '') {
+            return null;
+        }
+        $this->responses++;
+        return $response;
     }
 
     private function notImplemented($what)
@@ -5307,13 +5317,30 @@ class InverterHub extends IPSModule
         }
         try {
             $driver = $this->GetDriver();
+            $mb = $this->GetModbusClient();
             if (!$this->ReadAttributeBoolean('DeviceInfoRead')) {
-                $driver->readDeviceInfo($this->GetModbusClient(), $this);
+                $driver->readDeviceInfo($mb, $this);
                 $this->WriteAttributeBoolean('DeviceInfoRead', true);
             }
-            $driver->readFast($this->GetModbusClient(), $this);
+            $driver->readFast($mb, $this);
         } catch (Throwable $e) {
             return '⚠️ Verbindung fehlgeschlagen: ' . $e->getMessage();
+        }
+        // Gateway-Modus: "Verbindung aktiv" haengt sonst nur an ApplyChanges und sagt
+        // nichts ueber echte Antworten. Ohne verbundenes Gateway oder bei falscher
+        // Geraete-ID am Gateway kommt nichts zurueck (MeterHub-Hinweis, 19.09.2026).
+        if ($mb instanceof IHUB_ModbusGatewayClient) {
+            if (IPS_GetInstance($this->InstanceID)['ConnectionID'] <= 0) {
+                $this->SetStatus(201);
+                return '⚠️ Kein Gateway verbunden. Oben in der Instanzkonfiguration ein ModBus-Gateway auswählen.';
+            }
+            if ($mb->requests > 0 && $mb->responses === 0) {
+                $this->SetStatus(201);
+                return '⚠️ Das Gateway antwortet nicht. Geräte-ID und Verbindung der Gateway-Instanz prüfen.';
+            }
+            if ($mb->responses > 0) {
+                $this->SetStatus(102);
+            }
         }
         // Periodische Selbstheilung der Steuer-Bindung (wieder eingefuehrt
         // 27.07.2026, mit Dietmars/EMS' ausdruecklicher Freigabe, nach
@@ -5352,6 +5379,7 @@ class InverterHub extends IPSModule
             $direct = ($Value !== 'gateway');
             $this->UpdateFormField('Host', 'visible', $direct);
             $this->UpdateFormField('Port', 'visible', $direct);
+            $this->UpdateFormField('UnitId', 'visible', $direct);
             return;
         }
         if (!$this->ReadPropertyBoolean('Active')) {
@@ -5808,14 +5836,14 @@ class InverterHub extends IPSModule
                             ],
                             'onChange' => 'IPS_RequestAction($id, "ConnectionTypeChanged", $ConnectionType);',
                         ],
-                        ['type' => 'Label', 'caption' => 'ℹ️ „Symbox-Gateway" spricht den eingebauten RS485-Port der Symcon-Hardware über ein natives ModBus-Gateway an; das Gateway wird über die Verbindung der Instanz gewählt, IP-Adresse und Port entfallen dann. Lesen ist nach dem Schema von Symcons Referenzmodul umgesetzt, Schreiben (Steuerbefehle) ist noch ungetestet. Für einen externen RTU-zu-TCP-Gateway (z. B. Waveshare/USR) bitte „Direkt" mit dessen IP/Port verwenden — das funktioniert schon heute.'],
+                        ['type' => 'Label', 'caption' => 'ℹ️ „Symbox-Gateway" spricht den eingebauten RS485-Port der Symcon-Hardware über ein natives ModBus-Gateway an; das Gateway wird über die Verbindung der Instanz gewählt, IP-Adresse, Port und Unit ID entfallen dann — die Geräteadresse (Unit ID) wird in der Gateway-Instanz als „Geräte-ID“ eingestellt. Kommen keine Werte, zuerst diese Geräte-ID prüfen. Lesen ist nach dem Schema von Symcons Referenzmodul umgesetzt, Schreiben (Steuerbefehle) ist noch ungetestet. Für einen externen RTU-zu-TCP-Gateway (z. B. Waveshare/USR) bitte „Direkt" mit dessen IP/Port verwenden — das funktioniert schon heute.'],
                         // IP-Adresse ODER Hostname erlaubt (fsockopen löst den
                         // Namen per DNS auf) - so überlebt die Instanz einen
                         // IP-Wechsel des Wechselrichters, wenn ein fester Name
                         // (DHCP-Reservierung/mDNS, z. B. „wr-fronius.local") genutzt wird.
                         ['type' => 'ValidationTextBox', 'name' => 'Host', 'caption' => 'IP-Adresse oder Hostname', 'visible' => $this->ReadPropertyString('ConnectionType') !== 'gateway', 'validate' => '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'],
                         ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'TCP-Port', 'visible' => $this->ReadPropertyString('ConnectionType') !== 'gateway', 'minimum' => 1, 'maximum' => 65535],
-                        ['type' => 'NumberSpinner', 'name' => 'UnitId', 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
+                        ['type' => 'NumberSpinner', 'name' => 'UnitId', 'caption' => 'Unit ID', 'visible' => $this->ReadPropertyString('ConnectionType') !== 'gateway', 'minimum' => 1, 'maximum' => 247],
                     ],
                 ],
                 [
