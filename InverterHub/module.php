@@ -5009,9 +5009,10 @@ class InverterHub extends IPSModule
     // stand seit ihrer Einfuehrung bei 0.45 unveraendert, waehrend das Modul
     // laengst bei 0.72 war.
     private const NEWS_VERSION = '0.77';
+    private const NATIVE_GATEWAY_GUID = '{A5F663AB-C400-4FE5-B207-4D67CC030564}';
     private const BRIDGE_GUID = '{901E0B93-83EC-4819-B111-BDEF465BB166}';
     private const NEWS_ITEMS = [
-        'Symbox-Gateway (eingebauter RS485-Port): läuft jetzt über die neue „NRG-Stack InverterHub Brücke (ModBus-Gateway)“. Wer den Gateway-Modus nutzt, legt diese Brücke an und wählt sie in der Instanz aus. Direktverbindungen sind nicht betroffen, der Hinweis „benötigt eine übergeordnete Instanz“ verschwindet.',
+        'Symbox-Gateway (eingebauter RS485-Port): läuft jetzt über die neue „NRG-Stack InverterHub Brücke (ModBus-Gateway)“. Im Verbindungsweg „Symbox-Gateway“ das ModBus-Gateway wählen und „… und Brücke anlegen und verbinden“ klicken, danach übernehmen. Wer den Gateway-Weg mit früheren Beta-Ständen direkt an der Instanz eingerichtet hatte: Instanz und Historie bleiben, einfach Gateway wählen, den Knopf klicken und übernehmen. Direktverbindungen sind nicht betroffen, der Hinweis „benötigt eine übergeordnete Instanz“ verschwindet.',
         'Neuer Wechselrichter: FoxESS H1/H3 (Read-Only-Vorabversion, Beta).',
         'SMA: mehrere Korrekturen an Skalierung, Batterie-/PV-Erkennung und Registerzugriff — Werte sind jetzt deutlich genauer.',
         'Victron: Hauslast-Berechnung korrigiert (war zu hoch, wenn gleichzeitig Netzbezug bestand).',
@@ -5117,6 +5118,9 @@ class InverterHub extends IPSModule
         // Bruecke zum nativen ModBus-Gateway (Modul InverterHubBridge). Nur im
         // Gateway-Modus relevant; 0 = keine gewaehlt.
         $this->RegisterPropertyInteger('BridgeInstanceID', 0);
+        // Nur Auswahlfeld fuer den Knopf "Brücke anlegen und verbinden": muss eine
+        // registrierte Property sein, damit $GatewayPick im onClick ankommt.
+        $this->RegisterPropertyInteger('GatewayPick', 0);
         $this->RegisterPropertyInteger('IntervalFast', 5);
         $this->RegisterPropertyInteger('IntervalSlow', 300);
         $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
@@ -5424,6 +5428,8 @@ class InverterHub extends IPSModule
             $this->UpdateFormField('Port', 'visible', $direct);
             $this->UpdateFormField('UnitId', 'visible', $direct);
             $this->UpdateFormField('BridgeInstanceID', 'visible', !$direct);
+            $this->UpdateFormField('GatewayPick', 'visible', !$direct);
+            $this->UpdateFormField('CreateBridgeButton', 'visible', !$direct);
             return;
         }
         if (!$this->ReadPropertyBoolean('Active')) {
@@ -5835,6 +5841,7 @@ class InverterHub extends IPSModule
                         ['type' => 'Label', 'caption' => '• SolaX: Der Wechselrichter selbst spricht nur Modbus RTU. Modbus TCP läuft nur über ein zusätzliches SolaX-Monitoring-Modul (Pocket WiFi/LAN) als Gateway – dessen IP-Adresse eintragen, nicht die des Wechselrichters.'],
                         ['type' => 'Label', 'caption' => 'ℹ️ Vorzeichen-Konvention (modulweit): Batterie + = Entladen / − = Laden; Netz-Meter + = Einspeisung / − = Bezug. Stimmt eine Richtung an der eigenen Anlage nicht, hilft der jeweilige Invers-Schalter unten – die InverterHubTile-Kachel bleibt dabei automatisch korrekt.'],
                         ['type' => 'Label', 'caption' => '🔄 Falls eine Migration auf ein anderes Hub-Modul geplant ist: Kommunikation (Modbus/EMS-Steuerung) vorerst deaktiviert lassen, bis die Migration abgeschlossen ist – Details siehe MigrationsHub.'],
+                        ['type' => 'Label', 'caption' => '🔌 Symbox-Gateway (eingebauter RS485-Port): Verbindungsweg „Symbox-Gateway“ wählen, das native ModBus-Gateway auswählen, „… und Brücke anlegen und verbinden“ klicken, übernehmen. Die Brücke ist ein kleines Zusatzmodul dieser Bibliothek; eine Brücke bedient genau ein Gerät, dessen Adresse (Unit ID) am Gateway als „Geräte-ID“ steht. Zeigt die Instanz Status 201, nennt der Verbindungstest den Grund (keine Brücke, kein Gateway an der Brücke, Gateway inaktiv, keine Antwort). Externe RTU-zu-TCP-Gateways (z. B. Waveshare/USR) laufen weiter über „Direkt“.'],
                         ['type' => 'Label', 'caption' => '🛡️ Isolationswiderstand (Riso): bei GoodWe, Huawei, Sungrow, SMA und Kostal verfügbar; bei Growatt und Fronius optional (modellabhängig, je nach SunSpec-Register). Solis, SolaX, SolarEdge, Deye, Solplanet, Victron GX und FoxESS liefern ihn nicht.'],
                         ['type' => 'Label', 'caption' => 'Registeradressen stehen im Beschreibungsfeld jeder Variable (Objekt-Manager, Spalte „Beschreibung").'],
                     ]),
@@ -5883,12 +5890,26 @@ class InverterHub extends IPSModule
                         ],
                         [
                             'type'         => 'SelectInstance',
+                            'name'         => 'GatewayPick',
+                            'caption'      => 'ModBus-Gateway (z. B. eingebauter RS485-Port)',
+                            'validModules' => [self::NATIVE_GATEWAY_GUID],
+                            'visible'      => $this->ReadPropertyString('ConnectionType') === 'gateway',
+                        ],
+                        [
+                            'type'    => 'Button',
+                            'name'    => 'CreateBridgeButton',
+                            'caption' => '… und Brücke anlegen und verbinden',
+                            'onClick' => 'echo IHUB_CreateBridge($id, $GatewayPick);',
+                            'visible' => $this->ReadPropertyString('ConnectionType') === 'gateway',
+                        ],
+                        [
+                            'type'         => 'SelectInstance',
                             'name'         => 'BridgeInstanceID',
                             'caption'      => 'Brücke (ModBus-Gateway)',
                             'validModules' => [self::BRIDGE_GUID],
                             'visible'      => $this->ReadPropertyString('ConnectionType') === 'gateway',
                         ],
-                        ['type' => 'Label', 'caption' => 'ℹ️ „Symbox-Gateway" spricht den eingebauten RS485-Port der Symcon-Hardware über ein natives ModBus-Gateway an. Dafür eine „NRG-Stack InverterHub Brücke (ModBus-Gateway)“ anlegen, in ihr das Gateway wählen und die Brücke hier auswählen. IP-Adresse, Port und Unit ID entfallen dann — die Geräteadresse (Unit ID) wird am Gateway als „Geräte-ID“ eingestellt, eine Brücke bedient genau ein Gerät. Kommen keine Werte, zuerst diese Geräte-ID prüfen. Lesen ist nach dem Schema von Symcons Referenzmodul umgesetzt, Schreiben (Steuerbefehle) ist noch ungetestet. Für einen externen RTU-zu-TCP-Gateway (z. B. Waveshare/USR) bitte „Direkt" mit dessen IP/Port verwenden — das funktioniert schon heute.'],
+                        ['type' => 'Label', 'caption' => 'ℹ️ „Symbox-Gateway" spricht den eingebauten RS485-Port der Symcon-Hardware über ein natives ModBus-Gateway an. Vorgehen: unten das ModBus-Gateway wählen, „… und Brücke anlegen und verbinden“ klicken (legt die Brücke an, verbindet sie und trägt sie ein) und danach „Übernehmen“ klicken. IP-Adresse, Port und Unit ID entfallen dann — die Geräteadresse (Unit ID) wird am Gateway als „Geräte-ID“ eingestellt, eine Brücke bedient genau ein Gerät. Kommen keine Werte, zuerst diese Geräte-ID prüfen. Lesen ist nach dem Schema von Symcons Referenzmodul umgesetzt, Schreiben (Steuerbefehle) ist noch ungetestet. Für einen externen RTU-zu-TCP-Gateway (z. B. Waveshare/USR) bitte „Direkt" mit dessen IP/Port verwenden — das funktioniert schon heute.'],
                         // IP-Adresse ODER Hostname erlaubt (fsockopen löst den
                         // Namen per DNS auf) - so überlebt die Instanz einen
                         // IP-Wechsel des Wechselrichters, wenn ein fester Name
@@ -6362,6 +6383,43 @@ class InverterHub extends IPSModule
         }
         $this->SetBuffer('GatewayError', '');
         return $raw;
+    }
+
+    // Knopf "Brücke anlegen und verbinden": legt eine InverterHubBridge neben dieser
+    // Instanz an (oder nutzt eine vorhandene am selben Gateway), verbindet sie mit dem
+    // gewaehlten ModBus-Gateway und traegt sie ins offene Formular ein. Nie aus
+    // ApplyChanges()/GetConfigurationForm() aufrufen - nur auf ausdruecklichen Klick.
+    public function CreateBridge(int $gatewayId): string
+    {
+        if ($gatewayId <= 0 || !IPS_InstanceExists($gatewayId)) {
+            return '⚠️ Bitte zuerst ein ModBus-Gateway auswählen.';
+        }
+        if ((IPS_GetInstance($gatewayId)['ModuleInfo']['ModuleID'] ?? '') !== self::NATIVE_GATEWAY_GUID) {
+            return '⚠️ Die gewählte Instanz ist kein ModBus-Gateway.';
+        }
+        $bridge = 0;
+        foreach (IPS_GetInstanceListByModuleID(self::BRIDGE_GUID) as $candidate) {
+            if ((int)(IPS_GetInstance($candidate)['ConnectionID'] ?? 0) === $gatewayId) {
+                $bridge = (int)$candidate;
+                break;
+            }
+        }
+        $created = false;
+        if ($bridge === 0) {
+            try {
+                $bridge = IPS_CreateInstance(self::BRIDGE_GUID);
+                IPS_SetName($bridge, 'InverterHub Brücke (' . IPS_GetName($gatewayId) . ')');
+                IPS_SetParent($bridge, IPS_GetParent($this->InstanceID));
+                IPS_ConnectInstance($bridge, $gatewayId);
+                IPS_ApplyChanges($bridge);
+                $created = true;
+            } catch (Throwable $e) {
+                return '⚠️ Brücke konnte nicht angelegt werden: ' . $e->getMessage() . ' Ist die Bibliothek aktuell (Modul „NRG-Stack InverterHub Brücke“ vorhanden)?';
+            }
+        }
+        $this->UpdateFormField('BridgeInstanceID', 'value', $bridge);
+        return ($created ? '✅ Brücke angelegt und mit dem Gateway verbunden.' : 'ℹ️ Vorhandene Brücke an diesem Gateway wiederverwendet.')
+            . ' Sie ist oben eingetragen — jetzt „Übernehmen“ klicken.';
     }
 
     private function GatewayErrorText(string $error): string
