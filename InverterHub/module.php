@@ -5008,8 +5008,10 @@ class InverterHub extends IPSModule
     // bitte bei jeder nutzerrelevanten Aenderungsrunde mit hochziehen - sie
     // stand seit ihrer Einfuehrung bei 0.45 unveraendert, waehrend das Modul
     // laengst bei 0.72 war.
-    private const NEWS_VERSION = '0.72';
+    private const NEWS_VERSION = '0.77';
+    private const BRIDGE_GUID = '{901E0B93-83EC-4819-B111-BDEF465BB166}';
     private const NEWS_ITEMS = [
+        'Symbox-Gateway (eingebauter RS485-Port): läuft jetzt über die neue „NRG-Stack InverterHub Brücke (ModBus-Gateway)“. Wer den Gateway-Modus nutzt, legt diese Brücke an und wählt sie in der Instanz aus. Direktverbindungen sind nicht betroffen, der Hinweis „benötigt eine übergeordnete Instanz“ verschwindet.',
         'Neuer Wechselrichter: FoxESS H1/H3 (Read-Only-Vorabversion, Beta).',
         'SMA: mehrere Korrekturen an Skalierung, Batterie-/PV-Erkennung und Registerzugriff — Werte sind jetzt deutlich genauer.',
         'Victron: Hauslast-Berechnung korrigiert (war zu hoch, wenn gleichzeitig Netzbezug bestand).',
@@ -5109,6 +5111,9 @@ class InverterHub extends IPSModule
         // bewusst keine echten Werte, bis das native ForwardData()-Payload-Schema
         // geklärt ist.
         $this->RegisterPropertyString('ConnectionType', 'direct');
+        // Bruecke zum nativen ModBus-Gateway (Modul InverterHubBridge). Nur im
+        // Gateway-Modus relevant; 0 = keine gewaehlt.
+        $this->RegisterPropertyInteger('BridgeInstanceID', 0);
         $this->RegisterPropertyInteger('IntervalFast', 5);
         $this->RegisterPropertyInteger('IntervalSlow', 300);
         $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
@@ -5332,15 +5337,9 @@ class InverterHub extends IPSModule
         // nichts ueber echte Antworten. Ohne verbundenes Gateway oder bei falscher
         // Geraete-ID am Gateway kommt nichts zurueck (MeterHub-Hinweis, 19.09.2026).
         if ($mb instanceof IHUB_ModbusGatewayClient) {
-            if (IPS_GetInstance($this->InstanceID)['ConnectionID'] <= 0) {
-                $this->SetStatus(201);
-                $msg = '⚠️ Kein Gateway verbunden. Oben in der Instanzkonfiguration ein ModBus-Gateway auswählen.';
-                $this->LogReadProblem($msg);
-                return $msg;
-            }
             if ($mb->requests > 0 && $mb->responses === 0) {
                 $this->SetStatus(201);
-                $msg = '⚠️ Das Gateway antwortet nicht. Geräte-ID und Verbindung der Gateway-Instanz prüfen.';
+                $msg = $this->GatewayErrorText($this->GetBuffer('GatewayError'));
                 $this->LogReadProblem($msg);
                 return $msg;
             }
@@ -5408,6 +5407,7 @@ class InverterHub extends IPSModule
             $this->UpdateFormField('Host', 'visible', $direct);
             $this->UpdateFormField('Port', 'visible', $direct);
             $this->UpdateFormField('UnitId', 'visible', $direct);
+            $this->UpdateFormField('BridgeInstanceID', 'visible', !$direct);
             return;
         }
         if (!$this->ReadPropertyBoolean('Active')) {
@@ -5864,7 +5864,14 @@ class InverterHub extends IPSModule
                             ],
                             'onChange' => 'IPS_RequestAction($id, "ConnectionTypeChanged", $ConnectionType);',
                         ],
-                        ['type' => 'Label', 'caption' => 'ℹ️ „Symbox-Gateway" spricht den eingebauten RS485-Port der Symcon-Hardware über ein natives ModBus-Gateway an; das Gateway wird über die Verbindung der Instanz gewählt, IP-Adresse, Port und Unit ID entfallen dann — die Geräteadresse (Unit ID) wird in der Gateway-Instanz als „Geräte-ID“ eingestellt. Kommen keine Werte, zuerst diese Geräte-ID prüfen. Lesen ist nach dem Schema von Symcons Referenzmodul umgesetzt, Schreiben (Steuerbefehle) ist noch ungetestet. Für einen externen RTU-zu-TCP-Gateway (z. B. Waveshare/USR) bitte „Direkt" mit dessen IP/Port verwenden — das funktioniert schon heute.'],
+                        [
+                            'type'         => 'SelectInstance',
+                            'name'         => 'BridgeInstanceID',
+                            'caption'      => 'Brücke (ModBus-Gateway)',
+                            'validModules' => [self::BRIDGE_GUID],
+                            'visible'      => $this->ReadPropertyString('ConnectionType') === 'gateway',
+                        ],
+                        ['type' => 'Label', 'caption' => 'ℹ️ „Symbox-Gateway" spricht den eingebauten RS485-Port der Symcon-Hardware über ein natives ModBus-Gateway an. Dafür eine „NRG-Stack InverterHub Brücke (ModBus-Gateway)“ anlegen, in ihr das Gateway wählen und die Brücke hier auswählen. IP-Adresse, Port und Unit ID entfallen dann — die Geräteadresse (Unit ID) wird am Gateway als „Geräte-ID“ eingestellt, eine Brücke bedient genau ein Gerät. Kommen keine Werte, zuerst diese Geräte-ID prüfen. Lesen ist nach dem Schema von Symcons Referenzmodul umgesetzt, Schreiben (Steuerbefehle) ist noch ungetestet. Für einen externen RTU-zu-TCP-Gateway (z. B. Waveshare/USR) bitte „Direkt" mit dessen IP/Port verwenden — das funktioniert schon heute.'],
                         // IP-Adresse ODER Hostname erlaubt (fsockopen löst den
                         // Namen per DNS auf) - so überlebt die Instanz einen
                         // IP-Wechsel des Wechselrichters, wenn ein fester Name
@@ -6299,17 +6306,17 @@ class InverterHub extends IPSModule
         );
     }
 
-    // Öffentliche Passthrough-Methode für IHUB_ModbusGatewayClient: SendDataToParent()
-    // ist in der IPSModule-Basisklasse protected, eine modulfremde Hilfsklasse kann sie
-    // nicht direkt aufrufen. Verifiziertes Payload-Schema (MeterHub, 18.09.2026, Rohcode-
-    // Abgleich mit github.com/symcon/SymconBC/EM24-DIN/module.php).
+    // Öffentliche Methode für IHUB_ModbusGatewayClient (die Hilfsklasse hat keinen Zugriff
+    // auf die Modulinstanz). Seit der Umstellung auf die Brücke (19.09.2026) hängt diese
+    // Instanz NICHT mehr selbst am ModBus-Gateway, sondern reicht die Anfrage an eine
+    // InverterHubBridge-Instanz weiter, die als Kind des Gateways die Schnittstellen trägt.
+    // Schema der Anfrage: von MeterHub am Referenzmodul SymconBC/EM24-DIN verifiziert.
     public function ForwardToGateway(string $dataId, int $function, int $address, int $quantity, string $data)
     {
         // 'Data' kann rohe gepackte Registerbytes enthalten (z. B. beim
         // Schreibpfad) - die sind meist kein gültiges UTF-8 (z. B. 0xFFFF),
         // json_encode() scheitert dabei STUMM (liefert false statt Warnung/
         // Exception). Ohne Base64 würde so ein Wert lautlos NICHT verschickt.
-        // MeterHub-Fund (18.09.2026), an eigenem Testfall bestätigt.
         $json = json_encode([
             'DataID'   => $dataId,
             'Function' => $function,
@@ -6318,14 +6325,40 @@ class InverterHub extends IPSModule
             'Data'     => base64_encode($data),
         ]);
         if ($json === false) {
+            $this->SetBuffer('GatewayError', 'encode_failed');
             return false;
         }
-        // Ohne verbundenes Gateway wuerde SendDataToParent() bei jedem Takt die
-        // Symcon-Warnung "Keine uebergeordnete Instanz ist konfiguriert" erzeugen.
-        if (IPS_GetInstance($this->InstanceID)['ConnectionID'] <= 0) {
+        $bridge = $this->ReadPropertyInteger('BridgeInstanceID');
+        if ($bridge <= 0 || !IPS_InstanceExists($bridge) || !function_exists('IHUBB_Forward')) {
+            $this->SetBuffer('GatewayError', 'no_bridge');
             return false;
         }
-        return $this->SendDataToParent($json);
+        $reply = json_decode((string)@IHUBB_Forward($bridge, $json), true);
+        if (!is_array($reply) || empty($reply['ok'])) {
+            $this->SetBuffer('GatewayError', is_array($reply) ? (string)($reply['error'] ?? 'no_response') : 'no_response');
+            return false;
+        }
+        $raw = base64_decode((string)($reply['data'] ?? ''), true);
+        if ($raw === false || $raw === '') {
+            $this->SetBuffer('GatewayError', 'no_response');
+            return false;
+        }
+        $this->SetBuffer('GatewayError', '');
+        return $raw;
+    }
+
+    private function GatewayErrorText(string $error): string
+    {
+        switch ($error) {
+            case 'no_bridge':
+                return '⚠️ Keine Brücke gewählt. Eine „NRG-Stack InverterHub Brücke (ModBus-Gateway)“ anlegen und hier auswählen.';
+            case 'not_connected':
+                return '⚠️ Die Brücke ist mit keinem ModBus-Gateway verbunden. In der Brücken-Instanz ein Gateway wählen.';
+            case 'parent_inactive':
+                return '⚠️ Das ModBus-Gateway ist nicht aktiv. Gateway-Instanz und serielle Schnittstelle prüfen.';
+            default:
+                return '⚠️ Das Gateway antwortet nicht. Geräte-ID am Gateway und Verbindung prüfen.';
+        }
     }
 
     // -----------------------------------------------------------------------
