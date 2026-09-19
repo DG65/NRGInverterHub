@@ -45,41 +45,44 @@ if ($client2->readHolding(0, 2) !== null) { echo "FAIL kein-Parent-Fall\n"; $fai
 $mod->nextResponse = "\x06\x00";
 if ($client->writeSingle(10, 5) !== true) { echo "FAIL writeSingle\n"; $fails++; } else { echo "OK writeSingle\n"; }
 
-// Test 5: "hässlicher" Registerwert 0xFFFF darf ForwardToGateway() nicht per
-// stillem json_encode()-Fehlschlag verschlucken (MeterHub-Fund 18.09.2026 -
-// rohe gepackte Bytes sind meist kein gültiges UTF-8, json_encode() liefert
-// dann `false` statt eines Fehlers, was unbemerkt NICHTS verschickt hätte).
-// Testet direkt die reale ForwardToGateway()-Logik aus module.php, nicht nur
-// die Client-Klasse (der eigentliche Fehler saß dort, nicht im Client).
+// Test 5+6: reale ForwardToGateway()-Logik aus module.php gegen eine simulierte Brücke.
+// Rohbytes (0xFFFF) muessen in BEIDE Richtungen heil bleiben (Anfrage- und Antwort-Data
+// laufen als Base64 ueber die Instanzgrenze; json_encode() scheitert bei ungueltigem
+// UTF-8 sonst STUMM - MeterHub-Fund 18.09.2026).
 if (!preg_match('/public function ForwardToGateway\(.*?\n    \}\n/s', $src, $fm)) {
-    echo "FAIL ForwardToGateway() nicht gefunden\n";
-    $fails++;
+    echo "FAIL ForwardToGateway() nicht gefunden\n"; $fails++;
 } else {
-    $stub = 'class ForwardStub { public $InstanceID = 1; public $sent; function SendDataToParent($j) { $this->sent = $j; return "ok"; } ' . $fm[0] . ' }';
-    eval($stub);
+    $GLOBALS['bridgeReply'] = null; $GLOBALS['bridgeSeen'] = null; $GLOBALS['bridgeId'] = 7;
+    function IPS_InstanceExists($id) { return $id > 0; }
+    function IHUBB_Forward($id, $json) { $GLOBALS['bridgeSeen'] = $json; return $GLOBALS['bridgeReply']; }
+    eval('class ForwardStub { public $buf = [];
+        function ReadPropertyInteger($n) { return $GLOBALS["bridgeId"]; }
+        function SetBuffer($k, $v) { $this->buf[$k] = $v; }
+        function GetBuffer($k) { return $this->buf[$k] ?? ""; }
+        ' . $fm[0] . ' }');
     $s = new ForwardStub();
-    $result = $s->ForwardToGateway('{DATAID}', 6, 10, 1, pack('n', 0xFFFF));
-    if ($result === false || $s->sent === null) {
-        echo "FAIL ugly-value: ForwardToGateway lieferte false / sendete nichts\n";
-        $fails++;
-    } else {
-        $decoded = json_decode($s->sent, true);
-        if ($decoded === null || base64_decode($decoded['Data']) !== pack('n', 0xFFFF)) {
-            echo "FAIL ugly-value: Data kam nicht unversehrt an\n";
-            $fails++;
-        } else {
-            echo "OK ugly-value (0xFFFF via ForwardToGateway)\n";
-        }
-    }
-}
 
-// Test 6: kein Gateway verbunden (ConnectionID 0) -> nichts senden, false
-if (isset($fm)) {
-    $GLOBALS['connId'] = 0;
-    $s2 = new ForwardStub();
-    $r2 = $s2->ForwardToGateway('{DATAID}', 3, 0, 2, '');
-    if ($r2 !== false || $s2->sent !== null) { echo "FAIL ohne-Gateway: es wurde gesendet\n"; $fails++; } else { echo "OK ohne-Gateway (kein SendDataToParent)\n"; }
-    $GLOBALS['connId'] = 1;
+    // 5: haessliche Bytes hin und zurueck
+    $GLOBALS['bridgeReply'] = json_encode(['ok' => true, 'data' => base64_encode(pack('n', 0xFFFF) . "\x80\xFE")]);
+    $result = $s->ForwardToGateway('{DATAID}', 6, 10, 1, pack('n', 0xFFFF));
+    $sent = json_decode((string)$GLOBALS['bridgeSeen'], true);
+    if ($result !== pack('n', 0xFFFF) . "\x80\xFE") { echo "FAIL ugly-value: Antwort nicht unversehrt\n"; $fails++; }
+    elseif ($sent === null || base64_decode($sent['Data']) !== pack('n', 0xFFFF)) { echo "FAIL ugly-value: Anfrage-Data nicht unversehrt\n"; $fails++; }
+    else { echo "OK ugly-value (0xFFFF hin und zurueck ueber die Bruecke)\n"; }
+
+    // 6: Fehlergruende der Bruecke landen im Buffer, Rueckgabe false
+    foreach (['not_connected', 'parent_inactive', 'no_response'] as $err) {
+        $GLOBALS['bridgeReply'] = json_encode(['ok' => false, 'error' => $err]);
+        $r = $s->ForwardToGateway('{DATAID}', 3, 0, 2, '');
+        if ($r !== false || $s->GetBuffer('GatewayError') !== $err) { echo "FAIL Fehlergrund $err\n"; $fails++; } else { echo "OK Fehlergrund $err\n"; }
+    }
+    // Muell statt JSON -> no_response, kein Fatal
+    $GLOBALS['bridgeReply'] = 'kein json';
+    if ($s->ForwardToGateway('{D}', 3, 0, 2, '') !== false || $s->GetBuffer('GatewayError') !== 'no_response') { echo "FAIL ungueltige Bruecken-Antwort\n"; $fails++; } else { echo "OK ungueltige Bruecken-Antwort\n"; }
+    // keine Bruecke gewaehlt -> no_bridge, Bruecke wird nicht gerufen
+    $GLOBALS['bridgeId'] = 0; $GLOBALS['bridgeSeen'] = null;
+    if ($s->ForwardToGateway('{D}', 3, 0, 2, '') !== false || $s->GetBuffer('GatewayError') !== 'no_bridge' || $GLOBALS['bridgeSeen'] !== null) { echo "FAIL keine Bruecke\n"; $fails++; } else { echo "OK keine Bruecke gewaehlt\n"; }
+    $GLOBALS['bridgeId'] = 7;
 }
 
 // Test 7: JEDE Methode, die Treiber am Client ($mb->...) aufrufen, muss in der

@@ -1,0 +1,14 @@
+{
+  "id": "{901E0B93-83EC-4819-B111-BDEF465BB166}",
+  "name": "InverterHubBridge",
+  "type": 3,
+  "vendor": "",
+  "aliases": [
+    "NRG-Stack InverterHub Brücke (ModBus-Gateway)"
+  ],
+  "url": "https://github.com/DG65/NRGInverterHub",
+  "parentRequirements": ["{E310B701-4AE7-458E-B618-EC13A1A6F6A8}"],
+  "childRequirements": [],
+  "implemented": ["{77B31ABB-18FA-4B91-BB63-E5B2AB5588F4}"],
+  "prefix": "IHUBB"
+}
