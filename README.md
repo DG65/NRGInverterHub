@@ -105,6 +105,31 @@ IP-Symcon-Konfigurator-Ansicht — ihre Position und ein „einzeln als gesehen 
 sich modulseitig nicht beeinflussen bzw. ergänzen (IP-Symcon-API-Grenze, keine Dokumentation
 dafür vorhanden).
 
+### InverterHubBridge (Symbox-Gateway, eingebauter RS485-Port)
+
+Kleines Zusatzmodul („NRG-Stack InverterHub Brücke (ModBus-Gateway)“), das eine InverterHub-
+Instanz mit einem **nativen ModBus-Gateway** von Symcon verbindet, etwa dem eingebauten RS485-Port
+der Symbox. Externe RTU-zu-TCP-Gateways (z. B. Waveshare/USR) brauchen sie nicht, sie laufen weiter
+über „Direkt“ mit IP-Adresse und Port.
+
+Einrichtung in der InverterHub-Instanz: Verbindungsweg **„Symbox-Gateway“** wählen, das
+ModBus-Gateway auswählen, **„… und Brücke anlegen und verbinden“** klicken (legt die Brücke an,
+verbindet sie mit dem Gateway und trägt sie ein), danach **Übernehmen**. Eine vorhandene Brücke am
+selben Gateway wird wiederverwendet.
+
+- **Eine Brücke bedient genau ein Gerät.** Die Geräteadresse (Unit ID) steht am Gateway als
+  „Geräte-ID“, deshalb entfallen IP-Adresse, Port und Unit ID in der InverterHub-Instanz. Ein zweites
+  Gerät am selben Bus braucht ein zweites Gateway und eine zweite Brücke.
+- **Warum eine eigene Instanz:** Nur die Brücke trägt die Gateway-Schnittstellen. Am Hauptmodul
+  löste das bei jeder Direktverbindung den Hinweis „benötigt eine übergeordnete Instanz“ aus.
+- **Status:** Bleiben Werte aus, zeigt die Instanz Status 201 und nennt den Grund: keine Brücke
+  gewählt, Brücke ohne Gateway, Gateway inaktiv oder keine Antwort (dann Geräte-ID am Gateway
+  prüfen). Die Brücke zeigt in ihrem Formular die gelesene Geräte-ID.
+- **Stand:** Lesen ist nach dem Schema von Symcons Referenzmodul umgesetzt, aber noch nicht
+  breit an echter Hardware bestätigt. Schreiben (Steuerbefehle) ist ungetestet.
+- **Nicht nutzbar im Gateway-Modus:** Treiber, die für Zusatzgeräte eine eigene Direktverbindung
+  aufbauen (Zähler bei Fronius, SMA und SolarEdge, Victron).
+
 ### Kacheln (`InverterHubTile`, `InverterHubEnergy`, `InverterHubMonitor`) — entfernt
 
 Auf diesem Zweig (`ems-integration`) entfernt (20.08.2026): Die Aufgabe der Visualisierung

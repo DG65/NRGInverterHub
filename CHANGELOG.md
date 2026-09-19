@@ -20,6 +20,17 @@
   Direktverbindungen sind nicht betroffen. Noch nicht am echten Gateway geprüft; der
   Schreibpfad (FC6/FC16) bleibt eine ungetestete Ableitung.
 
+  Zusätzlich (Abgleich mit MeterHub): Im Formular wählt man das ModBus-Gateway und klickt „… und
+  Brücke anlegen und verbinden“ (`CreateBridge()`): legt die Brücke neben der Instanz an, verbindet
+  sie, nutzt eine vorhandene Brücke am selben Gateway wieder und trägt sie ins offene Formular ein
+  (danach „Übernehmen“). Es wird nie automatisch in `ApplyChanges()` angelegt. Gateway-Auswahl, Knopf
+  und Brückenauswahl sind nur im Verbindungsweg „Symbox-Gateway“ sichtbar. Dokumentation:
+  Doku-Panel, Formularhinweise mit den Schritten, README-Abschnitt und News-Eintrag inklusive Hinweis
+  für alle, die den Gateway-Weg mit früheren Beta-Ständen direkt an der Instanz eingerichtet hatten
+  (Instanz und Historie bleiben, Gateway wählen, Knopf klicken, übernehmen). Test
+  `.tools/test-create-bridge.php` (Anlegen, Verbinden, Wiederverwenden, Fehlerfälle, beide
+  `module.json`, Sichtbarkeit der Felder).
+
 ## 0.76.0-beta.29 (2026-09-19)
 
 - **Fehler im Timer-Lauf landen jetzt im Meldungsfenster** (Forum-Beta-Tester Mstaudi: „meldet
