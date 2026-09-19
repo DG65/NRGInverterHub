@@ -5340,7 +5340,9 @@ class InverterHub extends IPSModule
             }
             $driver->readFast($mb, $this);
         } catch (Throwable $e) {
-            return '⚠️ Verbindung fehlgeschlagen: ' . $e->getMessage();
+            $msg = '⚠️ Verbindung fehlgeschlagen: ' . $e->getMessage();
+            $this->LogReadProblem($msg);
+            return $msg;
         }
         // Gateway-Modus: "Verbindung aktiv" haengt sonst nur an ApplyChanges und sagt
         // nichts ueber echte Antworten. Ohne verbundenes Gateway oder bei falscher
@@ -5348,11 +5350,15 @@ class InverterHub extends IPSModule
         if ($mb instanceof IHUB_ModbusGatewayClient) {
             if (IPS_GetInstance($this->InstanceID)['ConnectionID'] <= 0) {
                 $this->SetStatus(201);
-                return '⚠️ Kein Gateway verbunden. Oben in der Instanzkonfiguration ein ModBus-Gateway auswählen.';
+                $msg = '⚠️ Kein Gateway verbunden. Oben in der Instanzkonfiguration ein ModBus-Gateway auswählen.';
+                $this->LogReadProblem($msg);
+                return $msg;
             }
             if ($mb->requests > 0 && $mb->responses === 0) {
                 $this->SetStatus(201);
-                return '⚠️ Das Gateway antwortet nicht. Geräte-ID und Verbindung der Gateway-Instanz prüfen.';
+                $msg = '⚠️ Das Gateway antwortet nicht. Geräte-ID und Verbindung der Gateway-Instanz prüfen.';
+                $this->LogReadProblem($msg);
+                return $msg;
             }
             if ($mb->responses > 0) {
                 $this->SetStatus(102);
@@ -5378,7 +5384,29 @@ class InverterHub extends IPSModule
         // beim naechsten ReadFast (typ. 5 s) automatisch nach, ohne dass dafuer
         // eine Diagnose-Sitzung noetig ist (Verbund-Ziel 3, SUITE.md).
         $this->EnableActions();
+        $this->ClearReadProblem();
         return '✅ Verbindung ok, Daten gelesen (' . date('H:i:s') . ' Uhr).';
+    }
+
+    // Der Timer verwirft den Rueckgabetext von ReadFast() - nur der Knopf zeigt ihn. Ein
+    // Fehler im Timer-Lauf blieb deshalb unsichtbar (Forum-Beta-Tester Mstaudi,
+    // 19.09.2026: "meldet alles ok, aktualisiert aber nicht"). Jetzt einmalig ins
+    // Meldungsfenster, nicht alle paar Sekunden: erneut erst bei geaendertem Text.
+    private function LogReadProblem(string $msg)
+    {
+        if ($this->GetBuffer('LastReadProblem') === $msg) {
+            return;
+        }
+        $this->SetBuffer('LastReadProblem', $msg);
+        $this->LogMessage($msg, KL_ERROR);
+    }
+
+    private function ClearReadProblem()
+    {
+        if ($this->GetBuffer('LastReadProblem') !== '') {
+            $this->SetBuffer('LastReadProblem', '');
+            $this->LogMessage('✅ Lesezyklus läuft wieder.', KL_MESSAGE);
+        }
     }
 
     public function ReadSlow()

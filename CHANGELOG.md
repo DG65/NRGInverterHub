@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.77.0-beta.16 (2026-09-19)
+
+- **Fehler im Timer-Lauf landen jetzt im Meldungsfenster** (Forum-Beta-Tester Mstaudi: „meldet
+  alles ok, aktualisiert aber nicht“): `ReadFast()` fing Fehler ab und gab den Text nur als
+  Rückgabewert zurück, den der Timer verwirft — ein scheiternder Lesezyklus (z. B. „Call to
+  undefined method“) blieb unsichtbar, nur der Knopf „Daten sofort lesen“ zeigte ihn. Fehler
+  sowie die Gateway-Warnungen „Kein Gateway verbunden“ und „Gateway antwortet nicht“ werden
+  jetzt als Fehler protokolliert, einmalig statt alle paar Sekunden (erneut erst bei geändertem
+  Text), und beim Wiederanlaufen kommt genau eine Meldung „Lesezyklus läuft wieder“. Test
+  `.tools/test-read-problem-log.php`. Gilt für alle Verbindungswege, am Datenpfad ändert sich
+  nichts.
+
 ## 0.77.0-beta.15 (2026-09-19)
 
 - **Symbox-Gateway-Modus: Unit ID ausgeblendet, Status bei ausbleibender Antwort**
