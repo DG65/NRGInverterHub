@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.76.0-beta.27 (2026-09-19)
+
+- **Fix Symbox-Gateway-Modus: Lesezugriff brach mit „Call to undefined method" ab** (Forum-Beta-
+  Tester Mstaudi, Growatt: „Aktualisieren tut es auch noch nicht"): Alle Treiber rufen am Client
+  `u16`, `s16`, `u32`, `s32`, `readStr` und `readFloat32` auf. `IHUB_ModbusGatewayClient` hatte
+  sie nicht, der erste Lesezugriff endete deshalb in einem Fatal Error, obwohl das Formular
+  „Verbindung aktiv" zeigte. Die Dekodier-Hilfen sind jetzt auch dort vorhanden,
+  `setFloatWordSwap()` (Kostal) wirkt statt ein No-Op zu sein. Neuer Regressionstest in
+  `.tools/test-gateway-client.php`: jede Methode, die Treiber am Client aufrufen, muss im
+  Gateway-Client existieren, und die Hilfen dekodieren wie beim Direktweg. Der Direktweg ist
+  unverändert.
+- **Bekannte Einschränkung, nicht behoben:** Die Nutzlast an das native Gateway enthält keine
+  Unit-ID (Schema von Symcons Referenzmodul); ob das Feld „Unit ID" im Gateway-Modus wirkt oder
+  im Gateway selbst eingestellt wird, ist ungeklärt. Treiber, die für Zusatzgeräte einen eigenen
+  Direkt-Client mit `$mb->host` anlegen (Zähler bei Fronius/SMA/SolarEdge, Victron), sind im
+  Gateway-Modus nicht nutzbar.
+
 ## 0.76.0-beta.26 (2026-09-19)
 
 - **Fix GoodWe: `ctl_ems_enable=true` schreibt jetzt 1 statt 2 in Register 47505** (EMS-Live-Test

@@ -82,4 +82,23 @@ if (isset($fm)) {
     $GLOBALS['connId'] = 1;
 }
 
+// Test 7: JEDE Methode, die Treiber am Client ($mb->...) aufrufen, muss in der
+// Gateway-Klasse existieren - sonst Fatal Error im Gateway-Modus (Mstaudi 19.09.2026).
+preg_match_all('/\$mb->(\w+)\(/', $src, $um);
+$missing = [];
+foreach (array_unique($um[1]) as $meth) {
+    if (!method_exists('IHUB_ModbusGatewayClient', $meth)) { $missing[] = $meth; }
+}
+if ($missing) { echo "FAIL Treiber nutzen Methoden, die dem Gateway-Client fehlen: " . implode(', ', $missing) . "\n"; $fails++; }
+else { echo "OK alle von Treibern genutzten Client-Methoden existieren im Gateway-Client\n"; }
+
+// Test 8: Dekodier-Hilfen liefern dasselbe wie beim Direkt-Client
+$g = new IHUB_ModbusGatewayClient(new FakeModule(), 502, 1);
+$regs = [0xFFFE, 0x0001, 0x4048, 0xF5C3, 0x4142];
+$ok = $g->s16($regs, 0) === -2 && $g->u32($regs, 0) === 0xFFFE0001 && $g->s32($regs, 0) === -131071
+   && $g->readStr($regs, 4, 1) === 'AB' && abs($g->readFloat32($regs, 2) - 3.14) < 0.001;
+$g->setFloatWordSwap(true);
+$ok = $ok && abs($g->readFloat32([0xF5C3, 0x4048], 0) - 3.14) < 0.001;
+if (!$ok) { echo "FAIL Dekodier-Hilfen\n"; $fails++; } else { echo "OK Dekodier-Hilfen (u16/s16/u32/s32/readStr/readFloat32, Wortvertauschung)\n"; }
+
 exit($fails > 0 ? 1 : 0);
