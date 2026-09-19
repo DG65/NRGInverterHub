@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.77.0-beta.15 (2026-09-19)
+
+- **Symbox-Gateway-Modus: Unit ID ausgeblendet, Status bei ausbleibender Antwort**
+  (MeterHub-Hinweis nach Forum-Rückmeldung Mstaudi): Die Nutzlast an das native Gateway enthält
+  keine Unit-ID, unser Feld wurde dort nie gesendet und täuschte eine Wirkung vor. Im Gateway-
+  Modus ist „Unit ID“ jetzt ausgeblendet, der Formulartext verweist auf die Geräte-ID der
+  Gateway-Instanz (Herleitung aus dem Referenzprotokoll von Symcons Modul EM24-DIN, nicht am
+  echten Gateway geprüft). „Verbindung aktiv“ sagte bisher nichts über echte Antworten: Der
+  Lesezyklus setzt im Gateway-Modus jetzt Status 201, wenn kein Gateway verbunden ist oder das
+  Gateway nicht antwortet, und wieder 102 bei Antworten; der Knopf „Daten sofort lesen“ nennt
+  die Ursache. `unitId` im Gateway-Client ist schreibbar, damit Treiber, die `$mb->unitId`
+  umsetzen (SunSpec, Victron), nicht an einem privaten Feld mit Fatal Error scheitern. Test
+  erweitert. Der Direktweg ist unverändert.
+
 ## 0.77.0-beta.14 (2026-09-19)
 
 - **Fix Symbox-Gateway-Modus: Lesezugriff brach mit „Call to undefined method" ab** (Forum-Beta-

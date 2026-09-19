@@ -101,4 +101,16 @@ $g->setFloatWordSwap(true);
 $ok = $ok && abs($g->readFloat32([0xF5C3, 0x4048], 0) - 3.14) < 0.001;
 if (!$ok) { echo "FAIL Dekodier-Hilfen\n"; $fails++; } else { echo "OK Dekodier-Hilfen (u16/s16/u32/s32/readStr/readFloat32, Wortvertauschung)\n"; }
 
+// Test 9: Antwortzaehler und beschreibbares unitId (Treiber setzen $mb->unitId)
+$m9 = new FakeModule();
+$c9 = new IHUB_ModbusGatewayClient($m9, 502, 1);
+$m9->nextResponse = false;
+$c9->readHolding(0, 1);
+$noAnswer = ($c9->requests === 1 && $c9->responses === 0);
+$m9->nextResponse = "\x03\x02" . pack('n', 5);
+$c9->readHolding(0, 1);
+$answered = ($c9->requests === 2 && $c9->responses === 1);
+$c9->unitId = 42;
+if (!($noAnswer && $answered && $c9->unitId === 42)) { echo "FAIL Antwortzaehler/unitId\n"; $fails++; } else { echo "OK Antwortzaehler und beschreibbares unitId\n"; }
+
 exit($fails > 0 ? 1 : 0);
