@@ -4,9 +4,7 @@
   "type": 5,
   "vendor": "",
   "aliases": [
-    "NRG-Stack InverterHub Suche",
-    "InverterHub Suche",
-    "Wechselrichter Suche"
+    "NRG-Stack InverterHub Suche"
   ],
   "url": "https://github.com/DG65/NRGInverterHub",
   "parentRequirements": [],

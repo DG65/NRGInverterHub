@@ -4,9 +4,7 @@
   "type": 3,
   "vendor": "",
   "aliases": [
-    "InverterHub Energiefluss",
-    "Energiefluss",
-    "Energiebilanz"
+    "NRG-Stack InverterHub Energiefluss (entfallen)"
   ],
   "url": "https://github.com/DG65/InverterHub",
   "parentRequirements": [],

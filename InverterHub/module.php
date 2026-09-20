@@ -5941,17 +5941,16 @@ class InverterHub extends IPSModule
                 ['type' => 'Button', 'caption' => 'Verbindung testen / Daten sofort lesen', 'onClick' => 'echo IHUB_ReadFast($id);'],
                 ['type' => 'Button', 'caption' => '🔄 Übernehmen erzwingen (ohne Formularänderung)', 'onClick' => "IPS_ApplyChanges(\$id); echo '✅ ApplyChanges() ausgeführt.';"],
             ],
-            'status' => ($this->ReadPropertyString('ConnectionType') === 'gateway')
-                ? [
-                    ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte die Brücke zum ModBus Gateway eintragen (Gateway wählen, „Brücke anlegen und verbinden“, übernehmen).'],
-                    ['code' => 102, 'icon' => 'active',   'caption' => 'Verbindung aktiv.'],
-                    ['code' => 201, 'icon' => 'error',    'caption' => 'Verbindungsfehler – keine Antwort über die Brücke: Brücke und ModBus Gateway prüfen (Unit ID = Geräte-ID am Gateway).'],
-                ]
-                : [
-                    ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte IP-Adresse oder Hostname eintragen.'],
-                    ['code' => 102, 'icon' => 'active',   'caption' => 'Verbindung aktiv.'],
-                    ['code' => 201, 'icon' => 'error',    'caption' => 'Verbindungsfehler – Wechselrichter nicht erreichbar.'],
-                ],
+            // 104 folgt dem GESPEICHERTEN Stand und laesst sich im offenen Formular nicht live
+            // umschalten - deshalb in jedem Verbindungsweg neutral (Mstaudi, 20.09.2026).
+            // 201 gibt es nur bei laufender Instanz, dort stimmen Speicherstand und Anzeige ueberein.
+            'status' => [
+                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte Verbindung einstellen.'],
+                ['code' => 102, 'icon' => 'active',   'caption' => 'Verbindung aktiv.'],
+                ['code' => 201, 'icon' => 'error',    'caption' => ($this->ReadPropertyString('ConnectionType') === 'gateway')
+                    ? 'Verbindungsfehler – keine Antwort über die Brücke: Brücke und ModBus Gateway prüfen (Unit ID = Geräte-ID am Gateway).'
+                    : 'Verbindungsfehler – Wechselrichter nicht erreichbar.'],
+            ],
         ];
 
         // Symcon-Forum-Hinweis, einmalig dismissible (Verbund-Konvention Formularpunkt 4,

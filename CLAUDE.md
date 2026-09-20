@@ -1,5 +1,18 @@
 # Hinweise für die Arbeit an diesem Repository
 
+## Anzeigenamen: genau EIN Alias je Modul (20.09.2026, Mstaudi/MeterHub)
+
+Jeder Alias in `module.json` ist in „Instanz hinzufügen“ ein eigener Eintrag und zugleich der
+vorgeschlagene Instanzname; mehrere Aliase erscheinen als scheinbare Duplikate (bei MeterHub fragte
+ein Tester nach dem Unterschied). Regel im Verbund: genau ein Alias je Modul, Muster
+„NRG-Stack InverterHub <Funktion>“, einheitlich deutsch. **Das ersetzt die frühere Absicht mit drei
+Aliasen der Gerätesuche (siehe FoxESS-Abschnitt unten, dort bewusst als Historie stehen gelassen).**
+Modulname, GUID und Präfix sind unverändert, nur Anzeige und Vorschlagsname neuer Instanzen.
+Preis: Die Schnellfilter-Suchbegriffe der entfernten Aliase (z. B. „Wechselrichter“) finden die
+Module nicht mehr. Die entfallenen Kachel-Module tragen „(entfallen)“ im Namen.
+Statuszeile 104 ist in jedem Verbindungsweg neutral („Bitte Verbindung einstellen.“), weil sie dem
+gespeicherten Stand folgt und sich im offenen Formular nicht live umschalten lässt.
+
 ## Symbox-Gateway-Lesepfad implementiert, SendDataToParent() ist protected (18.09.2026)
 
 `IHUB_ModbusGatewayClient` (siehe Backlog-Abschnitt unten) liest jetzt echt über
