@@ -4,9 +4,7 @@
   "type": 3,
   "vendor": "",
   "aliases": [
-    "InverterHub Monitoring",
-    "Monitoring",
-    "Leistung & Einstrahlung"
+    "NRG-Stack InverterHub Monitoring (entfallen)"
   ],
   "url": "https://github.com/DG65/InverterHub",
   "parentRequirements": [],

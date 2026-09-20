@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.77.0-beta.19 (2026-09-20)
+
+- **Anzeigenamen vereinheitlicht: genau EIN Alias je Modul** (Forum-Feedback Mstaudi, Abgleich mit
+  MeterHub): Jeder Alias in `module.json` erscheint in „Instanz hinzufügen“ als eigener Eintrag und
+  ist der vorgeschlagene Instanzname, mehrere Aliase wirkten wie Duplikate. Jetzt: „NRG-Stack
+  InverterHub“, „NRG-Stack InverterHub Suche“, „NRG-Stack InverterHub Brücke (ModBus-Gateway)“; die
+  entfallenen Kachel-Module heißen „NRG-Stack InverterHub Kachel/Monitoring/Energiefluss
+  (entfallen)“. Modulname, GUID und Präfix sind unverändert, bestehende Instanzen behalten ihren
+  Namen. Nachteil: Die Suchbegriffe der entfernten Aliase (z. B. „Wechselrichter“) finden die Module
+  in der Schnellsuche nicht mehr.
+- **Statuszeile 104 in jedem Verbindungsweg neutral:** „Bitte Verbindung einstellen.“ Die Zeile folgt
+  dem gespeicherten Stand und lässt sich im offenen Formular nicht live umschalten (Mstaudi wechselte
+  im offenen Formular von Symbox auf Direkt und sah weiter den Brücken-Text). Status 201 bleibt je
+  Verbindungsweg (Gateway: „keine Antwort über die Brücke …“, Direkt: „Wechselrichter nicht
+  erreichbar“), er tritt nur bei laufender Instanz auf. Test `.tools/test-create-bridge.php` prüft
+  Alias und Statuszeilen.
+
 ## 0.77.0-beta.18 (2026-09-19)
 
 - **Gateway-Modus: einheitliche Wörter und passende Statuszeile** (Feedback Forum-Tester Mstaudi,
