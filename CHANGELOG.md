@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.76.0-beta.33 (2026-09-21)
+
+- **Verbindungen im Formular sichtbar machen** (neue Verbund-Konvention, SUITE.md 21.09.2026: „woher
+  soll ich wissen, ob die Verbindung zustande gekommen ist?“): Jede Verbindung zeigt jetzt eine live
+  berechnete Statuszeile, nicht nur einen statischen Doku-Satz.
+  - **Gerätesuche:** neues Panel „Verbundene Module“ mit je einer Zeile für MeterHub und MigrationsHub:
+    ✅ installiert (Version, Anzahl bzw. ID der Instanzen, was die Verbindung bewirkt) oder ℹ️ nicht
+    installiert (und was dann gilt: nur Wechselrichter bzw. keine Prüfung auf ältere Instanzen). Die
+    Zeilen legen nie eine Instanz an, auch nicht die von MigrationsHub.
+  - **Symbox-Gateway (InverterHub):** unter der Brückenauswahl steht eine Zeile zur gewählten
+    Brücke: ✅ Brücke und Gateway mit gelesener Geräte-ID, ⚠️ Brücke ohne Gateway, Gateway inaktiv oder
+    Brücken-Modul veraltet, ℹ️ keine Brücke gewählt. Sie wird beim Öffnen berechnet, beim
+    Auswahlwechsel und nach „Brücke anlegen und verbinden“ sofort nachgeführt und mit dem
+    Verbindungsweg ein- und ausgeblendet.
+  - Der Kern von InverterHub hat sonst keine automatische Verbindung zu anderen Modulen (Kopplungen
+    laufen über die Verträge der Partner, nicht über Auswahlfelder hier).
+  - Prüfstand `.tools/test-link-status.php`: alle Zustände je Zeile und dass jede Zeile als Element in
+    den ausgelieferten Formularen steht.
+
 ## 0.76.0-beta.32 (2026-09-20)
 
 - **Anzeigenamen vereinheitlicht: genau EIN Alias je Modul** (Forum-Feedback Mstaudi, Abgleich mit

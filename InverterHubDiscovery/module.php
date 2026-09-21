@@ -320,6 +320,10 @@ class InverterHubDiscovery extends IPSModule
             ];
         }
 
+        // Verbund-Konvention (SUITE.md, 21.09.2026): jede automatische Verbindung zeigt live,
+        // ob sie zustande kam - ein statischer Satz "wird erkannt, falls installiert" reicht nicht.
+        array_splice($form['elements'], 1, 0, [$this->ConnectionPanel()]);
+
         $form['status'] = [
             ['code' => 102, 'icon' => 'active',   'caption' => 'Bereit.'],
             ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte den IP-Bereich für die Suche eintragen.'],
@@ -901,6 +905,60 @@ class InverterHubDiscovery extends IPSModule
         } finally {
             $this->endProbe();
         }
+    }
+
+    // Panel "Verbundene Module": je automatischer Verbindung eine live berechnete Zeile.
+    private function ConnectionPanel(): array
+    {
+        return [
+            'type'     => 'ExpansionPanel',
+            'name'     => 'ConnectionPanel',
+            'caption'  => '🔗  Verbundene Module',
+            'expanded' => true,
+            'items'    => [
+                ['type' => 'Label', 'name' => 'MeterHubStatus', 'caption' => $this->MeterHubStatusLine()],
+                ['type' => 'Label', 'name' => 'MigrationsHubStatus', 'caption' => $this->MigrationsHubStatusLine()],
+            ],
+        ];
+    }
+
+    private function LibraryVersion(string $moduleGuid): string
+    {
+        try {
+            $module  = @IPS_GetModule($moduleGuid);
+            $library = is_array($module) ? @IPS_GetLibrary($module['LibraryID']) : null;
+            return (is_array($library) && ($library['Version'] ?? '') !== '') ? (string)$library['Version'] : '';
+        } catch (Throwable $e) {
+            return '';
+        }
+    }
+
+    private function MeterHubStatusLine(): string
+    {
+        if (!$this->meterHubInstalled()) {
+            return 'ℹ️ MeterHub ist nicht installiert: Die Suche findet nur Wechselrichter, Energiezähler (Janitza, Siemens) werden nicht angeboten.';
+        }
+        $version = $this->LibraryVersion(self::METERHUB_GUID);
+        $count   = count((array)@IPS_GetInstanceListByModuleID(self::METERHUB_GUID));
+        $have    = $count === 0 ? 'noch keine Instanz' : ($count === 1 ? '1 Instanz' : $count . ' Instanzen') . ' vorhanden';
+        return '✅ MeterHub installiert' . ($version !== '' ? ' (Version ' . $version . ')' : '') . ', ' . $have
+            . ': Die Suche findet zusätzlich Energiezähler und bietet sie als MeterHub-Instanz an, bereits angelegte werden als solche erkannt.';
+    }
+
+    private function MigrationsHubStatusLine(): string
+    {
+        $installed = function_exists('MIGHUB_FindLegacyCandidates')
+            && function_exists('IPS_ModuleExists') && IPS_ModuleExists(self::MIGRATIONSHUB_GUID);
+        if (!$installed) {
+            return 'ℹ️ MigrationsHub ist nicht installiert: Die Prüfung auf ältere Instanzen (z. B. GoodweET) entfällt, die Suche arbeitet unverändert.';
+        }
+        $version = $this->LibraryVersion(self::MIGRATIONSHUB_GUID);
+        $ids     = (array)@IPS_GetInstanceListByModuleID(self::MIGRATIONSHUB_GUID);
+        $head    = '✅ MigrationsHub installiert' . ($version !== '' ? ' (Version ' . $version . ')' : '');
+        if (count($ids) > 0) {
+            return $head . ', Instanz #' . (int)$ids[0] . ': Beim Durchsuchen wird geprüft, ob zu einem gefundenen Gerät eine ältere Instanz existiert, dann erscheint „Migration von Altinstanzen“.';
+        }
+        return $head . ', noch keine Instanz: Sie wird beim ersten Suchlauf angelegt, danach wird auf ältere Instanzen geprüft.';
     }
 
     private function meterHubInstalled()
