@@ -5438,6 +5438,11 @@ class InverterHub extends IPSModule
             $this->UpdateFormField('BridgeInstanceID', 'visible', !$direct);
             $this->UpdateFormField('GatewayPick', 'visible', !$direct);
             $this->UpdateFormField('CreateBridgeButton', 'visible', !$direct);
+            $this->UpdateFormField('BridgeStatus', 'visible', !$direct);
+            return;
+        }
+        if ($Ident === 'BridgeChanged') {
+            $this->UpdateFormField('BridgeStatus', 'caption', $this->BridgeStatusLine((int)$Value));
             return;
         }
         if (!$this->ReadPropertyBoolean('Active')) {
@@ -5916,6 +5921,16 @@ class InverterHub extends IPSModule
                             'caption'      => 'NRG-Stack Brücke zum ModBus Gateway',
                             'validModules' => [self::BRIDGE_GUID],
                             'visible'      => $this->ReadPropertyString('ConnectionType') === 'gateway',
+                            'onChange'     => 'IPS_RequestAction($id, "BridgeChanged", $BridgeInstanceID);',
+                        ],
+                        // Verbund-Konvention (SUITE.md, 21.09.2026): jede Verbindung zeigt live, ob sie
+                        // zustande kam. Element steht direkt in den items des Panels (kein Ersetzen
+                        // in einer Verschachtelung, siehe "rekursiv suchen"-Falle).
+                        [
+                            'type'    => 'Label',
+                            'name'    => 'BridgeStatus',
+                            'caption' => $this->BridgeStatusLine($this->ReadPropertyInteger('BridgeInstanceID')),
+                            'visible' => $this->ReadPropertyString('ConnectionType') === 'gateway',
                         ],
                         ['type' => 'Label', 'caption' => 'ℹ️ „Symbox-Gateway" spricht den eingebauten RS485-Port der Symcon-Hardware über ein natives ModBus-Gateway an. Vorgehen: unten das ModBus-Gateway wählen, „Brücke anlegen und verbinden“ klicken (legt die Brücke an, verbindet sie und trägt sie ein) und danach „Übernehmen“ klicken. IP-Adresse, Port und Unit ID entfallen dann — die Geräteadresse (Unit ID) wird am Gateway als „Geräte-ID“ eingestellt, eine Brücke bedient genau ein Gerät. Kommen keine Werte, zuerst diese Geräte-ID prüfen. Lesen ist nach dem Schema von Symcons Referenzmodul umgesetzt, Schreiben (Steuerbefehle) ist noch ungetestet. Für einen externen RTU-zu-TCP-Gateway (z. B. Waveshare/USR) bitte „Direkt" mit dessen IP/Port verwenden — das funktioniert schon heute.'],
                         // IP-Adresse ODER Hostname erlaubt (fsockopen löst den
@@ -6431,8 +6446,39 @@ class InverterHub extends IPSModule
             }
         }
         $this->UpdateFormField('BridgeInstanceID', 'value', $bridge);
+        $this->UpdateFormField('BridgeStatus', 'caption', $this->BridgeStatusLine($bridge));
         return ($created ? '✅ Brücke angelegt und mit dem Gateway verbunden.' : 'ℹ️ Vorhandene Brücke an diesem Gateway wiederverwendet.')
             . ' Sie ist oben eingetragen — jetzt „Übernehmen“ klicken.';
+    }
+
+    // Statuszeile der gewaehlten Bruecke, live beim Oeffnen des Formulars, bei Auswahlwechsel
+    // und nach "Bruecke anlegen und verbinden" berechnet. Vier Zustaende nach SUITE.md:
+    // ✅ verbunden (mit Gateway und gelesener Geraete-ID), ⚠️ verbunden, aber unbrauchbar,
+    // ℹ️ nichts gewaehlt (und was dann gilt).
+    private function BridgeStatusLine(int $bridgeId): string
+    {
+        if ($bridgeId <= 0 || !IPS_InstanceExists($bridgeId)) {
+            return 'ℹ️ Keine Brücke gewählt: Die Instanz bleibt inaktiv (Status 104). ModBus Gateway wählen und „Brücke anlegen und verbinden“ klicken.';
+        }
+        $name = IPS_GetName($bridgeId);
+        $head = 'Brücke #' . $bridgeId . ' „' . $name . '“';
+        if (!function_exists('IHUBB_GetState')) {
+            return '⚠️ ' . $head . ' ist gewählt, das Brücken-Modul antwortet aber nicht. Bibliothek in der Modulverwaltung aktualisieren.';
+        }
+        $state = json_decode((string)@IHUBB_GetState($bridgeId), true);
+        if (!is_array($state)) {
+            return '⚠️ ' . $head . ' liefert keinen Zustand. Bibliothek in der Modulverwaltung aktualisieren.';
+        }
+        if (empty($state['connected'])) {
+            return '⚠️ ' . $head . ' ist mit keinem ModBus Gateway verbunden. In der Brücke ein Gateway wählen oder hier „Brücke anlegen und verbinden“ klicken.';
+        }
+        $gatewayId = (int)(IPS_GetInstance($bridgeId)['ConnectionID'] ?? 0);
+        $gw = 'ModBus Gateway #' . $gatewayId . ' „' . ($gatewayId > 0 ? IPS_GetName($gatewayId) : '?') . '“';
+        if (empty($state['parentActive'])) {
+            return '⚠️ ' . $head . ' ist mit ' . $gw . ' verbunden, das Gateway ist aber nicht aktiv (Status ' . (int)($state['parentStatus'] ?? 0) . '). Gateway und serielle Schnittstelle prüfen.';
+        }
+        $unit = ($state['unitId'] ?? null) !== null ? 'Geräte-ID am Gateway: ' . (int)$state['unitId'] : 'Geräte-ID am Gateway nicht lesbar';
+        return '✅ ' . $head . ' über ' . $gw . ' verbunden. ' . $unit . '. Ob das Gerät antwortet, zeigt „Verbindung testen / Daten sofort lesen“.';
     }
 
     private function GatewayErrorText(string $error): string

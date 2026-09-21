@@ -44,6 +44,7 @@ function IPS_ApplyChanges($id) { $GLOBALS['G']['calls'][] = "apply:$id"; }
 eval('class H { const NATIVE_GATEWAY_GUID = "' . $ng[1] . '"; const BRIDGE_GUID = "' . $g[1] . '";
     public $InstanceID = 60; public $fields = [];
     function UpdateFormField($f, $p, $v) { $this->fields[] = [$f, $p, $v]; }
+    function BridgeStatusLine($id) { return "Zeile fuer $id"; }
     ' . $m[0] . ' }');
 $h = new H();
 $GW = $ng[1];
@@ -57,11 +58,11 @@ $chk(strpos($r, 'kein ModBus-Gateway') !== false && $G['calls'] === [], 'falsche
 $G['inst'][11] = ['ConnectionID' => 0, 'ModuleInfo' => ['ModuleID' => $GW]];
 $r = $h->CreateBridge(11);
 $chk($G['calls'] === ['create:900', 'name:900:InverterHub Brücke (Name11)', 'parent:900:50', 'connect:900:11', 'apply:900'], 'anlegen: Reihenfolge create, name, parent(neben Hub), connect, apply');
-$chk(strpos($r, 'angelegt') !== false && end($h->fields) === ['BridgeInstanceID', 'value', 900], 'anlegen: Meldung und Bruecke im Formular eingetragen');
+$chk(strpos($r, 'angelegt') !== false && in_array(['BridgeInstanceID', 'value', 900], $h->fields, true) && end($h->fields) === ['BridgeStatus', 'caption', 'Zeile fuer 900'], 'anlegen: Meldung, Bruecke im Formular eingetragen und Statuszeile aktualisiert');
 
 $G['calls'] = [];
 $r = $h->CreateBridge(11);
-$chk($G['calls'] === [] && strpos($r, 'wiederverwendet') !== false && end($h->fields) === ['BridgeInstanceID', 'value', 900], 'gleiches Gateway: vorhandene Bruecke wiederverwendet, nichts neu angelegt');
+$chk($G['calls'] === [] && strpos($r, 'wiederverwendet') !== false && in_array(['BridgeInstanceID', 'value', 900], $h->fields, true), 'gleiches Gateway: vorhandene Bruecke wiederverwendet, nichts neu angelegt');
 
 $G['inst'][12] = ['ConnectionID' => 0, 'ModuleInfo' => ['ModuleID' => $GW]];
 $r = $h->CreateBridge(12);
