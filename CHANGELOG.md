@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.77.0-beta.21 (2026-09-21)
+
+- **Fix: „The float -3.4028234663852886E+38 is not representable as an int“ im FastTimer**
+  (Forum-Beta-Tester somm, SolarEdge, Screenshot vom 21.09.2026): SolarEdge meldet nicht belegte
+  Float32-Register als −3,4028235E+38 (kleinster Float32-Wert, 0xFF7FFFFF). Der StorEdge-
+  Batterieblock wandelte SOC und SOH mit `(int)round(...)` um, das erzeugt eine PHP-Warnung und
+  einen Zufallswert; dieselbe Umwandlung gab es beim Kostal-SOC. Sie ist jetzt abgesichert, ein
+  unbrauchbarer Wert wird nicht geschrieben, der alte Stand bleibt stehen. Zusätzlich verwirft
+  `SetVarFloat()` zentral jeden Wert ab 3,0E+38 im Betrag (auch nach einer Vorzeichenumkehr im
+  Treiber, dann +3,4E+38): Temperatur, Spannung, Strom und Leistung der Batterie gingen bisher
+  ungefiltert in Variable und Archiv, das erklärt vermutlich auch die früher gemeldeten
+  unmöglichen Einzelwerte. Die Marke wird einmal je Messgröße im Meldungsfenster genannt, nicht bei
+  jedem Lesezyklus. Echte Werte, auch sehr große (29,9 kW), sind nicht betroffen. Prüfstand
+  `.tools/test-float-sentinel.php`.
+
 ## 0.77.0-beta.20 (2026-09-21)
 
 - **Verbindungen im Formular sichtbar machen** (neue Verbund-Konvention, SUITE.md 21.09.2026: „woher

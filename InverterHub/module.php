@@ -3590,7 +3590,13 @@ class IHUB_SolarEdgeDriver implements IHUB_InverterDriverInterface
                 $batChargeW  = $mb->readFloat32($bat, 8);                   // 0xE174 (+ = Laden)
                 $batPowerVal = -$batChargeW;                               // + = Entladen
                 $hub->SetVarFloat('bat_power', $batPowerVal);
-                $hub->SetVarInt('bat_soc', (int)round($mb->readFloat32($bat, 24))); // 0xE184
+                // -3.4028235E+38 (kleinster Float32) heisst bei SolarEdge "Register nicht belegt"
+                // (Forum-Beta-Tester somm, 21.09.2026): (int) davon erzeugt eine PHP-Warnung und
+                // einen Zufallswert - dann gar nicht schreiben, der alte Stand bleibt stehen.
+                $socRaw = $mb->readFloat32($bat, 24); // 0xE184
+                if (abs($socRaw) < 1.0e9) {
+                    $hub->SetVarInt('bat_soc', (int)round($socRaw));
+                }
                 // Speicherstatus (0xE186, uint32): Wert 1-6 liegt im niederw.
                 // Wort, das bei CDAB zuerst kommt -> u16 am Offset 26.
                 $hub->SetVarInt('bat_status', $mb->u16($bat, 26));          // 0xE186
@@ -3607,7 +3613,10 @@ class IHUB_SolarEdgeDriver implements IHUB_InverterDriverInterface
             // SOH liegt in einem separaten Block (0xF582 = 62850), Float32 CDAB.
             $soh = $mb->readHolding(62850, 2);
             if ($soh !== null) {
-                $hub->SetVarInt('bat_soh', (int)round($mb->readFloat32($soh, 0)));
+                $sohRaw = $mb->readFloat32($soh, 0);
+                if (abs($sohRaw) < 1.0e9) {
+                    $hub->SetVarInt('bat_soh', (int)round($sohRaw));
+                }
             }
             $mb->setFloatWordSwap(false);
         }
@@ -4186,7 +4195,12 @@ class IHUB_KostalDriver implements IHUB_InverterDriverInterface
             $temp = $mb->readHolding(214, 2);
             $volt = $mb->readHolding(216, 2);
             $curr = $mb->readHolding(200, 2);
-            if ($soc !== null)  { $hub->SetVarInt('bat_soc', (int)round($mb->readFloat32($soc, 0))); }
+            if ($soc !== null) {
+                $socRaw = $mb->readFloat32($soc, 0);
+                if (abs($socRaw) < 1.0e9) { // Float32-Extremwert = "nicht belegt", siehe SolarEdge
+                    $hub->SetVarInt('bat_soc', (int)round($socRaw));
+                }
+            }
             if ($temp !== null) { $hub->SetVarFloat('bat_temp', $mb->readFloat32($temp, 0)); }
             if ($volt !== null) { $hub->SetVarFloat('bat_volt', $mb->readFloat32($volt, 0)); }
             if ($curr !== null) { $hub->SetVarFloat('bat_curr', $mb->readFloat32($curr, 0)); }
@@ -6933,6 +6947,18 @@ class InverterHub extends IPSModule
         // unterstützt") - wir fangen das zentral ab und schreiben 0.0.
         if (!is_finite($value)) {
             $value = 0.0;
+        }
+        // Float32-"nicht belegt"-Marke: SolarEdge meldet nicht vorhandene Float-Register als
+        // -3.4028235E+38 (0xFF7FFFFF), nach einer Vorzeichenumkehr im Treiber als +3.4E+38.
+        // Das ist kein Messwert in irgendeiner Einheit und gehoerte bisher ungefiltert ins
+        // Archiv (Forum-Beta-Tester somm, 21.09.2026). Verwerfen, der alte Stand bleibt stehen;
+        // einmal je Messgroesse ins Meldungsfenster, damit es nicht alle paar Sekunden meldet.
+        if (abs($value) >= 3.0e38) {
+            if ($this->GetBuffer('Sentinel_' . $ident) === '') {
+                $this->SetBuffer('Sentinel_' . $ident, '1');
+                $this->LogMessage('Register für "' . $ident . '" meldet „nicht belegt“ (Float32-Extremwert) - Wert wird nicht übernommen.', KL_MESSAGE);
+            }
+            return;
         }
         // Zentraler Invers-Schalter für die Meter-Leistung: Je nach Einbauort/
         // Verdrahtung des Zählers melden Anlagen die Richtung genau umgekehrt -
