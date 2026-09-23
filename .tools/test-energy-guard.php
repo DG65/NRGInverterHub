@@ -77,5 +77,20 @@ $logs = [];
 $m->SetVarFloat('ac_power', 0.0);
 check('Leistungswert 0 wird normal geschrieben (0 W ist real moeglich)', $store['V_ac_power'] === 0.0);
 
+echo "6) Tageszaehler (Fund Dietmar, 23.09.2026): legitimer Reset auf 0 wird NICHT blockiert\n";
+foreach (['e_pv_day', 'e_charge_day', 'e_sell_day', 'e_buy_day', 'e_load_day', 'e_disch_day', 'e_day'] as $ident) {
+    $store['V_' . $ident] = 36.8;
+    $logs = [];
+    $m->SetVarFloat($ident, 0.0);
+    check("$ident: Reset auf 0 wird uebernommen (kein Einfrieren auf Vortageswert)", $store['V_' . $ident] === 0.0);
+    check("$ident: keine Warnung", count($logs) === 0);
+}
+
+echo "7) Tageszaehler laeuft danach ganz normal weiter hoch\n";
+$store['V_e_pv_day'] = 0.0;
+$logs = [];
+$m->SetVarFloat('e_pv_day', 0.4);
+check('Tageszaehler steigt normal, sobald wieder Ertrag da ist', $store['V_e_pv_day'] === 0.4);
+
 echo "\n" . ($fails === 0 ? "ALLE PRUEFUNGEN BESTANDEN\n" : "$fails PRUEFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);
