@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.76.0-beta.35 (2026-09-23)
+
+- **Fix: Tageszähler blieben nach dem morgendlichen Aufwecken stundenlang auf dem Vortageswert
+  stehen** (Fund Dietmar, eigene Anlage #52838, 23.09.2026): Der Zählerschutz vom 17.09.2026
+  (0.77.0-beta.4) sollte nur echte Ausreißer bei kumulativen Summenzählern verwerfen, erkannte
+  aber jeden `e_*`-Ident pauschal als schützenswert — auch Tageszähler wie `e_pv_day` oder
+  `e_charge_day`, die täglich legitim auf 0 zurückspringen. Dadurch wurde der morgendliche
+  Reset selbst als Ausreißer gewertet und dauerhaft verworfen, bis der Wechselrichter wieder
+  einen Wert über 0,001 kWh lieferte — bei `e_charge_day` (erst ab der ersten Ladung des Tages)
+  teils den ganzen Vormittag. Tageszähler (Endung `_day`, herstellerunabhängig) sind jetzt vom
+  Zählerschutz ausgenommen, Summenzähler bleiben wie zuvor geschützt. Regressionstest
+  `.tools/test-energy-guard.php` um sieben Tageszähler-Fälle erweitert.
+
 ## 0.76.0-beta.34 (2026-09-21)
 
 - **Fix: „The float -3.4028234663852886E+38 is not representable as an int“ im FastTimer**

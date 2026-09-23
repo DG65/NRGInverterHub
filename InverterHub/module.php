@@ -6972,7 +6972,15 @@ class InverterHub extends IPSModule
             // einfacher gehalten (kein Reset-Bestaetigungsfenster ueber mehrere
             // Lesungen - ein WR-Zaehlertausch ohne Neuanlage der Instanz ist
             // praktisch nie der Fall).
-            if ($this->IsEnergyIdent($ident)) {
+            // Tageszaehler (e_pv_day, e_charge_day, e_day, ...) sind vom Schutz oben
+            // ausgenommen: bei denen ist ein Ruecksprung auf 0 kein Ausreisser, sondern
+            // taeglich erwartetes Verhalten (Fund Dietmar, 23.09.2026 - eigene Anlage,
+            // e_pv_day/e_charge_day blieben nach dem morgendlichen Aufwecken des WR
+            // stundenlang auf dem Vortageswert stehen, weil der Schutz den legitimen
+            // Reset als Ausreisser wertete). Erkennung generisch ueber die Endung
+            // "_day", herstellerunabhaengig, kein Treiber-Sonderfall.
+            $isDailyCounter = (substr($ident, -4) === '_day');
+            if ($this->IsEnergyIdent($ident) && !$isDailyCounter) {
                 $prevKwh = (float)@GetValueFloat($vid);
                 if ($this->ReadPropertyBoolean('EnergyUnitWh')) {
                     $prevKwh /= 1000.0;
