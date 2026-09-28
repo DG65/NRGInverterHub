@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.77.0-beta.23 (2026-09-28)
+
+- **Store-Review-Fund (HeishaMon-Sitzung, Symcon lehnte deren v1.33.0 aus demselben Grund ab):**
+  „Messwerte automatisch archivieren" stand standardmäßig auf AN. Ein Nutzer soll die
+  automatische Archivierung bewusst einschalten, nicht nachträglich abwählen müssen — der
+  Standard ist jetzt AUS. Ändert nur den Vorschlagswert für **neu angelegte** Instanzen,
+  bestehende Instanzen behalten ihren gespeicherten Wert unverändert.
+
 ## 0.77.0-beta.22 (2026-09-23)
 
 - **Fix: Tageszähler blieben nach dem morgendlichen Aufwecken stundenlang auf dem Vortageswert
