@@ -6727,7 +6727,14 @@ class InverterHub extends IPSModule
 
         $catID = $this->EnsureCategory($group);
         IPS_SetParent($vid, $catID);
-        IPS_SetPosition($vid, $pos);
+        // Store-Review-Fund 9m (HeishaMon-Sitzung, 28.09.2026): Position nur beim
+        // erstmaligen Anlegen setzen, nicht bei jedem ApplyChanges() - sonst wirft
+        // ein Nutzer, der eine Variable im Objektbaum manuell umsortiert hat, beim
+        // naechsten "Uebernehmen" automatisch wieder auf die feste Treiber-Reihenfolge
+        // zurueckgesetzt, ohne dass er das will oder merkt.
+        if ($created) {
+            IPS_SetPosition($vid, $pos);
+        }
         IPS_SetName($vid, $caption);
 
         // Energie in Wh: Statt des kWh-Standardprofils ~Electricity das Wh-
