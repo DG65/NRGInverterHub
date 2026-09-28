@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.76.0-beta.37 (2026-09-28)
+
+- **Store-Review-Fund 9m (HeishaMon-Sitzung):** `IPS_SetPosition()` setzte bei jeder Variable
+  bei **jedem** `ApplyChanges()` die feste, treiberdefinierte Reihenfolge durch — zog ein Nutzer
+  eine Variable im Objektbaum manuell an eine andere Stelle, warf ihn der nächste
+  „Übernehmen"-Klick kommentarlos wieder in die Ursprungsreihenfolge zurück. Die Position wird
+  jetzt nur noch beim erstmaligen Anlegen einer Variable gesetzt, danach bleibt eine manuelle
+  Umsortierung erhalten. Kategorie/Name werden weiterhin bei jedem Durchlauf durchgesetzt (z. B.
+  nötig bei einem Wechsel der Steuerhoheit). Prüfstand `.tools/test-varposition-guard.php`.
+
 ## 0.76.0-beta.36 (2026-09-28)
 
 - **Store-Review-Fund (HeishaMon-Sitzung, Symcon lehnte deren v1.33.0 aus demselben Grund ab):**
