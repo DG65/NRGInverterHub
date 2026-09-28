@@ -5084,7 +5084,11 @@ class InverterHub extends IPSModule
         // Ziel binnen Sekunden "nicht mehr jungfraeulich" und die Migration
         // wuerde blockiert. Nach der Migration schaltet MigrationsHub das Logging
         // am Ziel selbst ein - oder man setzt diesen Schalter dann wieder auf an.
-        $this->RegisterPropertyBoolean('AutoArchive', true);
+        // Store-Review-Fund (HeishaMon-Sitzung, 28.09.2026, Symcon lehnte v1.33.0 deswegen ab):
+        // Standard muss AUS sein - ein Nutzer soll die automatische Archivierung bewusst
+        // einschalten, nicht nachtraeglich abwaehlen muessen. Aendert nur den Vorschlagswert
+        // fuer NEU angelegte Instanzen, bestehende behalten ihren gespeicherten Wert.
+        $this->RegisterPropertyBoolean('AutoArchive', false);
         // Automatische Archiv-Verdichtung (Referenz MeterHub, Store-Reife-Fund
         // Stefan/somm 17.09.2026 - Wechselrichter-Werte laufen ungebremst in
         // voller Aufloesung ins Archiv). Getrennt fuer Momentanwerte (Leistung,
