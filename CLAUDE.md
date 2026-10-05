@@ -368,14 +368,24 @@ zuerst die alte RS485/10000er-Welt (FC04+FC03-Fallback), dann bei Fehlschlag den
 31000er-Block (Netzspannung 31006 auf plausiblen Bereich, Wechselrichterleistung 31008 nur
 auf Lesbarkeit).
 
-**WICHTIGER, NOCH OFFENER Folgefehler:** Selbst wenn die Gerätesuche das Gerät jetzt findet,
-liest der **Kerntreiber `IHUB_FoxEssDriver`** (`InverterHub/module.php`) weiterhin
-AUSSCHLIESSLICH den alten 10000/11000er-Block per FC04 — für ein Gerät der WLAN-Serie würde
-die angelegte Instanz vermutlich nur Nullen/Fehler zeigen, keine echten Werte. Das ist ein
-SEPARATER, noch nicht behobener Fehler im Kerntreiber, nicht nur in der Suche. Nicht als
-vollständig gelöst kommunizieren, bevor jemand mit einem WLAN-Serie-Gerät bestätigt, dass nach
-dem Anlegen echte Werte ankommen — sonst wiederholt sich dieselbe Enttäuschung eine Stufe
-später.
+**Folgefehler am Kerntreiber (damals offen) — behoben 05.10.2026 durch einen eigenen Treiber
+`IHUB_FoxEssSmartDriver`:** Die Vermutung vom 21.08. war richtig: `IHUB_FoxEssDriver` liest nur
+den alten 10000/11000er-Block (FC04). Die genauere Recherche (05.10.2026, Forum-Meldung hbraun:
+H3 Smart wird nicht gefunden) an `nathanmarlor/foxess_modbus` ergab, dass es DREI Registerwelten
+gibt, nicht zwei: (1) 10000/11000 per FC04 (H1 Gen1, RS485-Doku V1.01), (2) 31000er per FC03 (H1
+Gen2, älterer H3 — in HA `H3_SET`), (3) **37xxx/38xxx/39xxx per FC03** (H3 Smart, H3 Pro, KH,
+P3 Smart u. a. — in HA Profil `H3_SMART`). Die Gerätesuche prüfte bis dahin nur (1) und (2), der
+H3 Smart liegt in (3) und wurde deshalb nicht erkannt. Neuer Treiber (Schlüssel `foxess_smart`,
+Read-Only) liest 39063-39077, 39123-39141, 39201-39286, 38814 (Netzmesspunkt, I32, ÷10 W),
+37609-37620 (BMS) und 39601-39632 (Energie, U32, ÷100 kWh); Wortreihenfolge der 32-Bit-Werte
+hochwertiges Wort auf der kleineren Adresse (in HA steht die Adressliste niederwertig-zuerst, z. B.
+`[39238, 39237]`). Die Gerätesuche hat dafür eine eigene Erkennung (Netzspannung 39123 + Netzfrequenz
+39139). Bleibt unverändert: `IHUB_FoxEssDriver` (Welt 1) und die bestehende `foxess`-Erkennung.
+**Teilweise an echter Hardware bestätigt:** hbraun (Forum, 05.10.2026) meldet, FoxESS werde gefunden
+und die Variablen würden geschrieben. Plausibilität der Werte (Vorzeichen, Energiezähler,
+Skalierung) ist noch NICHT bestätigt — nicht als vollständig verifiziert kommunizieren. Welt (2)
+(31000er, H1 Gen2) hat weiterhin KEINEN Treiber, nur die Erkennung. Prüfstand
+`.tools/test-foxess-smart.php`.
 
 ## `InverterHubTile`/`InverterHubMonitor`/`InverterHubEnergy` entfernt (nur `ems-integration`, 20.08.2026)
 
