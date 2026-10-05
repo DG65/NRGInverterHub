@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.76.0-beta.38 (2026-10-05)
+
+- **Neuer Treiber: FoxESS H3 Smart / H3 Pro / KH (Read-Only-Vorabversion, Beta).** Forum-Meldung
+  (hbraun, 05.10.2026): Ein H3 Smart wurde weder gefunden noch ausgelesen. Ursache: Diese Geräte
+  sprechen nicht die Registerbelegung 10000/11000 (FC04) des bisherigen FoxESS-Treibers, sondern
+  Holding-Register (FC03) im Bereich 37xxx/38xxx/39xxx. Registerbelegung, Skalierung und
+  Wortreihenfolge an der Home-Assistant-Integration `nathanmarlor/foxess_modbus` abgeglichen
+  (Profil H3_SMART). Neuer Hersteller „FoxESS H3 Smart / H3 Pro / KH"; der bisherige Eintrag
+  „FoxESS H1/H3" bleibt unverändert. Geliefert werden PV-Leistung und -Strings, Netzleistung
+  (Netzmesspunkt), Batterieleistung/SOC/BMS-Werte, Netzspannung/-frequenz, Temperatur und
+  Energiezähler (Tag/Gesamt). Keine Steuerung. **Noch nicht an echter Hardware bestätigt** —
+  Rückmeldungen im Forum willkommen.
+- **Gerätesuche:** erkennt den H3 Smart jetzt über Netzspannung (39123) und Netzfrequenz (39139).
+  Prüfstand `.tools/test-foxess-smart.php`.
+
 ## 0.76.0-beta.37 (2026-09-28)
 
 - **Store-Review-Fund 9m (HeishaMon-Sitzung):** `IPS_SetPosition()` setzte bei jeder Variable

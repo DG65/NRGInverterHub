@@ -44,6 +44,7 @@ class InverterHubDiscovery extends IPSModule
         'victron'   => [100],
         'huawei'    => [1, 0, 16],
         'foxess'    => [247, 1],
+        'foxess_smart' => [247, 1],
     ];
 
     private const VENDOR_LABELS = [
@@ -61,6 +62,7 @@ class InverterHubDiscovery extends IPSModule
         'victron'   => 'Victron GX',
         'huawei'    => 'Huawei SUN2000',
         'foxess'    => 'FoxESS',
+        'foxess_smart' => 'FoxESS H3 Smart / H3 Pro',
     ];
 
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-inverterhub-multi-wechselrichter-ein-modbus-tcp-modul-fuer-goodwe-sma-fronius-sungrow-solis-growatt-solax/144121';
@@ -1197,6 +1199,20 @@ class InverterHubDiscovery extends IPSModule
                     }
                 }
                 return false;
+
+            case 'foxess_smart':
+                // FoxESS H3 Smart / H3 Pro / KH: Holding-Register 39xxx (FC03),
+                // Registerbelegung wie in nathanmarlor/foxess_modbus (Profil
+                // H3_SMART). Netzspannung L1 (39123, x0,1 V) und Netzfrequenz
+                // (39139, x0,01 Hz) auf plausible Bereiche pruefen. Faellt das
+                // Netz aus, scheitert die Erkennung - dann hilft die manuelle
+                // Einrichtung ("FoxESS H3 Smart" als Hersteller waehlen).
+                $v = $this->readHolding($ip, $port, $unitId, 39123, 1, 1.0);
+                if ($v === null || $v[0] < 1500 || $v[0] > 3000) {
+                    return false;
+                }
+                $f = $this->readHolding($ip, $port, $unitId, 39139, 1, 1.0);
+                return ($f !== null && $f[0] >= 4000 && $f[0] <= 7000);
         }
         return false;
     }
