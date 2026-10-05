@@ -4681,6 +4681,275 @@ class IHUB_FoxEssDriver implements IHUB_InverterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
+// IHUB_FoxEssSmartDriver — FoxESS H3 Smart / H3 Pro / KH (Gen2-Registerwelt).
+// Eigener Treiber, weil diese Geraete NICHT die Registerbelegung 10000/11000
+// (FC04, "Fox Hybrid/AC Modbus Protocol" V1.01) des IHUB_FoxEssDriver sprechen,
+// sondern HOLDING-Register (FC03) im Bereich 37xxx/38xxx/39xxx. Fund aus
+// einer Forum-Meldung (hbraun, 05.10.2026: H3 Smart wird nicht gefunden) und
+// anschliessender Gegenpruefung an der Home-Assistant-Integration
+// nathanmarlor/foxess_modbus (inverter_profiles.py: H3_SMART nutzt
+// RegisterType.HOLDING; entity_descriptions.py: Adressen und Skalierung).
+//
+// READ-ONLY, bewusst klein gehalten und NOCH NICHT an echter Hardware bestaetigt.
+// Nicht eingebaut: Steuer-/Konfigurationsregister (46xxx, Arbeitsmodus, Lade-
+// grenzen), EPS/Ersatzstrom, Phasen-Einzelwerte, Fehlercodes (39067-39069).
+// Vorbild: dieselbe Vorsicht wie beim Kerntreiber (SMA-FC03/FC04-Lehre).
+//
+// Wortreihenfolge der 32-Bit-Werte: HA liest die Adressliste "niederwertiges
+// Wort zuerst" (modbus_controller.read, value |= val << i*16) und listet z. B.
+// "holding=[39238, 39237]" - also liegt das HOCHWERTIGE Wort auf der
+// KLEINEREN Adresse (39237). Das entspricht dem u32()/s32()-Helfer hier.
+// Skalierung/Einheit: Leistungen laut HA in 0,001 kW = W; Netzmesspunkt (Grid CT)
+// 0,0001 kW = 0,1 W; Energien 0,01 kWh; Spannungen/Stroeme/Temperaturen 0,1.
+// Vorzeichen (HA): Grid CT positiv = Einspeisung, Batterie positiv = Entladen -
+// passend zur InverterHub-Konvention (meter_total + = Einspeisung, bat_power + =
+// Entladen).
+// ---------------------------------------------------------------------------
+
+class IHUB_FoxEssSmartDriver implements IHUB_InverterDriverInterface
+{
+    const STATUS = [
+        0 => 'Unbekannt', 1 => 'Standby', 2 => 'Netzbetrieb', 3 => 'Inselbetrieb', 4 => 'Fehler',
+    ];
+
+    public function getBaseVars()
+    {
+        return [
+            ['connected', 'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['status',    'Betriebsstatus',    'I', 'FOXS.Status',     true,  'device', 'HR 39063 + 39065 (Bits)'],
+            ['pv_total',  'PV Gesamtleistung', 'F', 'FOXS.Watt',       true,  'pv',     'Σ HR 39279/81/83/85 (I32)'],
+            ['ac_power',  'AC Wirkleistung',   'F', 'FOXS.Watt',       true,  'device', 'HR 39134 (I32)'],
+            ['bat_power', 'Bat. Leistung (+ Entladen / − Laden)', 'F', 'FOXS.Watt', true, 'bat', 'HR 39237 (I32)'],
+            ['bat_soc',   'Bat. SOC',          'I', '~Battery.100',    true,  'bat',    'HR 37612'],
+            ['meter_total', 'Netz Leistung (+ Einspeisung / − Bezug)', 'F', 'FOXS.Watt', true, 'grid', 'HR 38814 (I32, ÷10)'],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupPV' => ['caption' => 'PV-Details (String 1-4)', 'vars' => [
+                ['pv1_volt', 'PV1 Spannung', 'F', 'FOXS.Volt',   false, 'pv', 'HR 39070 (÷10)'],
+                ['pv1_curr', 'PV1 Strom',    'F', 'FOXS.Ampere', false, 'pv', 'HR 39071 (÷10)'],
+                ['pv2_volt', 'PV2 Spannung', 'F', 'FOXS.Volt',   false, 'pv', 'HR 39072 (÷10)'],
+                ['pv2_curr', 'PV2 Strom',    'F', 'FOXS.Ampere', false, 'pv', 'HR 39073 (÷10)'],
+                ['pv3_volt', 'PV3 Spannung', 'F', 'FOXS.Volt',   false, 'pv', 'HR 39074 (÷10)'],
+                ['pv3_curr', 'PV3 Strom',    'F', 'FOXS.Ampere', false, 'pv', 'HR 39075 (÷10)'],
+                ['pv4_volt', 'PV4 Spannung', 'F', 'FOXS.Volt',   false, 'pv', 'HR 39076 (÷10)'],
+                ['pv4_curr', 'PV4 Strom',    'F', 'FOXS.Ampere', false, 'pv', 'HR 39077 (÷10)'],
+            ]],
+            'GroupGrid' => ['caption' => 'Netz (Spannung, Frequenz)', 'vars' => [
+                ['grid_volt_r', 'Netz Spannung L1', 'F', 'FOXS.Volt', false, 'grid', 'HR 39123 (÷10)'],
+                ['grid_volt_s', 'Netz Spannung L2', 'F', 'FOXS.Volt', false, 'grid', 'HR 39124 (÷10)'],
+                ['grid_volt_t', 'Netz Spannung L3', 'F', 'FOXS.Volt', false, 'grid', 'HR 39125 (÷10)'],
+                ['grid_freq',   'Netzfrequenz',     'F', 'FOXS.Hertz', false, 'grid', 'HR 39139 (÷100)'],
+            ]],
+            'GroupBat' => ['caption' => 'Batterie (Spannung, Strom, Temperatur, Gesundheit)', 'vars' => [
+                ['bat_volt',   'Bat. Spannung',    'F', 'FOXS.Volt',   false, 'bat', 'HR 37609 (÷10, BMS)'],
+                ['bat_curr',   'Bat. Strom',       'F', 'FOXS.Ampere', false, 'bat', 'HR 37610 (I16, ÷10, BMS)'],
+                ['bat_temp',   'Bat. Temperatur',  'F', '~Temperature', false, 'bat', 'HR 37611 (I16, ÷10, BMS)'],
+                ['bat_soh',    'Bat. Gesundheit (SOH)', 'I', '~Battery.100', false, 'bat', 'HR 37624'],
+            ]],
+            'GroupTemp' => ['caption' => 'Temperatur', 'vars' => [
+                ['temp_inv', 'Wechselrichter-Temperatur', 'F', '~Temperature', false, 'device', 'HR 39141 (I16, ÷10)'],
+            ]],
+            'GroupEnergy' => ['caption' => 'Energiezähler (Tag/Gesamt)', 'vars' => [
+                ['e_pv_total',     'PV Gesamt',             'F', '~Electricity', true, 'energy', 'HR 39601+39602 (U32, ÷100)'],
+                ['e_pv_day',       'PV Heute',              'F', '~Electricity', true, 'energy', 'HR 39603+39604 (U32, ÷100)'],
+                ['e_charge_total', 'Bat. Laden Gesamt',     'F', '~Electricity', true, 'energy', 'HR 39605+39606 (U32, ÷100)'],
+                ['e_charge_day',   'Bat. Laden Heute',      'F', '~Electricity', true, 'energy', 'HR 39607+39608 (U32, ÷100)'],
+                ['e_disch_total',  'Bat. Entladen Gesamt',  'F', '~Electricity', true, 'energy', 'HR 39609+39610 (U32, ÷100)'],
+                ['e_disch_day',    'Bat. Entladen Heute',   'F', '~Electricity', true, 'energy', 'HR 39611+39612 (U32, ÷100)'],
+                ['e_sell_total',   'Einspeisung Gesamt',    'F', '~Electricity', true, 'energy', 'HR 39613+39614 (U32, ÷100)'],
+                ['e_sell_day',     'Einspeisung Heute',     'F', '~Electricity', true, 'energy', 'HR 39615+39616 (U32, ÷100)'],
+                ['e_buy_total',    'Netzbezug Gesamt',      'F', '~Electricity', true, 'energy', 'HR 39617+39618 (U32, ÷100)'],
+                ['e_buy_day',      'Netzbezug Heute',       'F', '~Electricity', true, 'energy', 'HR 39619+39620 (U32, ÷100)'],
+                ['e_load_total',   'Hausverbrauch Gesamt',  'F', '~Electricity', true, 'energy', 'HR 39629+39630 (U32, ÷100)'],
+                ['e_load_day',     'Hausverbrauch Heute',   'F', '~Electricity', true, 'energy', 'HR 39631+39632 (U32, ÷100)'],
+            ]],
+        ];
+    }
+
+    public function getExtraBooleanProperties()
+    {
+        return [];
+    }
+
+    public function getProfiles()
+    {
+        return [
+            'FOXS.Watt'   => [VARIABLETYPE_FLOAT, ' W',  -100000.0, 100000.0, 1.0,  0],
+            'FOXS.Volt'   => [VARIABLETYPE_FLOAT, ' V',        0.0,   1500.0, 0.1,  1],
+            'FOXS.Ampere' => [VARIABLETYPE_FLOAT, ' A',     -500.0,    500.0, 0.1,  1],
+            'FOXS.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',      45.0,     65.0, 0.01, 2],
+        ];
+    }
+
+    public function getEnumProfiles()
+    {
+        $status = [];
+        foreach (self::STATUS as $k => $label) {
+            $status[$k] = [$label, $k === 4 ? 0xC0392B : 0x7A8A99];
+        }
+        return ['FOXS.Status' => $status];
+    }
+
+    // Liest einen zusammenhaengenden Holding-Block. Lehnt das Geraet den
+    // breiten Block ab (manche Firmwares quittieren Bereiche mit reservierten
+    // Registern mit einer Exception), wird derselbe Bereich in Stuecken zu je
+    // 10 Registern wiederholt - alles-oder-nichts, damit keine Luecken als 0
+    // missverstanden werden. Scheitert schon das erste Stueck, wird sofort
+    // aufgegeben (kein Timeout-Stau bei einem Geraet, das gar nicht antwortet).
+    private function readBlock($mb, $start, $count)
+    {
+        $regs = $mb->readHolding($start, $count);
+        if ($regs !== null || $count <= 10) {
+            return $regs;
+        }
+        $out = [];
+        for ($off = 0; $off < $count; $off += 10) {
+            $n     = min(10, $count - $off);
+            $chunk = $mb->readHolding($start + $off, $n);
+            if ($chunk === null) {
+                return null;
+            }
+            foreach (array_values($chunk) as $i => $v) {
+                $out[$off + $i] = $v;
+            }
+        }
+        return $out;
+    }
+
+    public function readFast($mb, $hub)
+    {
+        // Betriebsstatus + PV-Spannungen/-Stroeme: 39063-39077 (15 Register).
+        // Dieser Block entscheidet ueber "verbunden" - fehlt er, antwortet das
+        // Geraet entweder nicht oder spricht diese Registerwelt nicht.
+        $a  = $this->readBlock($mb, 39063, 15);
+        $ok = ($a !== null);
+        $hub->SetVarBool('connected', $ok);
+        if (!$ok) {
+            return false;
+        }
+
+        // Status laut HA (ModbusG2InverterStateSensor): 39063 Bit 6 = Fehler,
+        // Bit 2 = Betrieb, Bit 0 = Standby; 39065 Bit 0 = Inselbetrieb.
+        $s1 = $mb->u16($a, 0);
+        $s3 = $mb->u16($a, 2);
+        if (($s1 & 0x40) !== 0) {
+            $status = 4;
+        } elseif (($s3 & 0x01) !== 0) {
+            $status = 3;
+        } elseif (($s1 & 0x04) !== 0) {
+            $status = 2;
+        } elseif (($s1 & 0x01) !== 0) {
+            $status = 1;
+        } else {
+            $status = 0;
+        }
+        $hub->SetVarInt('status', $status);
+
+        if ($hub->GetPropBool('GroupPV')) {
+            for ($i = 1; $i <= 4; $i++) {
+                $off = 7 + ($i - 1) * 2;   // 39070 + (i-1)*2
+                $hub->SetVarFloat('pv' . $i . '_volt', $mb->u16($a, $off) / 10.0);
+                $hub->SetVarFloat('pv' . $i . '_curr', $mb->s16($a, $off + 1) / 10.0);
+            }
+        }
+
+        // Wechselrichter-/Netzblock 39123-39141 (19 Register).
+        $b = $this->readBlock($mb, 39123, 19);
+        if ($b !== null) {
+            $hub->SetVarFloat('ac_power', (float)$mb->s32($b, 11));   // 39134/39135
+            if ($hub->GetPropBool('GroupGrid')) {
+                $hub->SetVarFloat('grid_volt_r', $mb->u16($b, 0) / 10.0);   // 39123
+                $hub->SetVarFloat('grid_volt_s', $mb->u16($b, 1) / 10.0);   // 39124
+                $hub->SetVarFloat('grid_volt_t', $mb->u16($b, 2) / 10.0);   // 39125
+                $hub->SetVarFloat('grid_freq',   $mb->u16($b, 16) / 100.0); // 39139
+            }
+            if ($hub->GetPropBool('GroupTemp')) {
+                $hub->SetVarFloat('temp_inv', $mb->s16($b, 18) / 10.0);     // 39141
+            }
+        }
+
+        // Leistungsblock 39201-39286 (86 Register): Batterieleistung (39237/38)
+        // und die vier PV-String-Leistungen (39279/80, 81/82, 83/84, 85/86).
+        $c = $this->readBlock($mb, 39201, 86);
+        if ($c !== null) {
+            $hub->SetVarFloat('bat_power', (float)$mb->s32($c, 36));      // 39237/39238
+            // Je String kann der Wert ohne angeschlossene Module negativ werden
+            // (HA: max(x, 0)) - sonst ergaebe die Summe Unsinn.
+            $pv = 0.0;
+            foreach ([78, 80, 82, 84] as $off) {
+                $pv += max(0.0, (float)$mb->s32($c, $off));
+            }
+            $hub->SetVarFloat('pv_total', $pv);
+        }
+
+        // Netzmesspunkt (Grid CT) 38814/38815, I32, Einheit 0,1 W.
+        $m = $mb->readHolding(38814, 2);
+        if ($m !== null) {
+            $hub->SetVarFloat('meter_total', $mb->s32($m, 0) / 10.0);
+        }
+
+        // BMS Batterie 1: 37609-37620 (12 Register) - HA liest diesen Bereich
+        // ausdruecklich einzeln (individual_read_register_ranges), nicht
+        // zusammen mit Nachbarbereichen.
+        $d = $mb->readHolding(37609, 12);
+        if ($d !== null) {
+            $hub->SetVarInt('bat_soc', $mb->u16($d, 3));                  // 37612
+            if ($hub->GetPropBool('GroupBat')) {
+                $hub->SetVarFloat('bat_volt', $mb->u16($d, 0) / 10.0);    // 37609
+                $hub->SetVarFloat('bat_curr', $mb->s16($d, 1) / 10.0);    // 37610
+                $hub->SetVarFloat('bat_temp', $mb->s16($d, 2) / 10.0);    // 37611
+            }
+        }
+
+        if ($hub->GetPropBool('GroupEnergy')) {
+            // 39601-39632 (32 Register), U32 hochwertiges Wort zuerst, Einheit 0,01 kWh.
+            $e = $this->readBlock($mb, 39601, 32);
+            if ($e !== null) {
+                $map = [
+                    'e_pv_total' => 0,     'e_pv_day' => 2,
+                    'e_charge_total' => 4, 'e_charge_day' => 6,
+                    'e_disch_total' => 8,  'e_disch_day' => 10,
+                    'e_sell_total' => 12,  'e_sell_day' => 14,
+                    'e_buy_total' => 16,   'e_buy_day' => 18,
+                    'e_load_total' => 28,  'e_load_day' => 30,
+                ];
+                foreach ($map as $ident => $off) {
+                    $hub->SetVarFloat($ident, $mb->u32($e, $off) / 100.0);
+                }
+            }
+        }
+
+        return true;
+    }
+
+    public function readSlow($mb, $hub)
+    {
+        // Batterie-Gesundheit (SOH) aendert sich langsam; HA liest 37624 einzeln.
+        if ($hub->GetPropBool('GroupBat')) {
+            $h = $mb->readHolding(37624, 1);
+            if ($h !== null) {
+                $hub->SetVarInt('bat_soh', $mb->u16($h, 0));
+            }
+        }
+    }
+
+    public function readDeviceInfo($mb, $hub)
+    {
+        // Keine Geraeteinformationsregister in dieser Ausbaustufe (HA-Quelle
+        // liefert fuer das Smart-Profil keinen belegten Textbereich).
+    }
+
+    public function writeControl($mb, $hub, $ident, $value)
+    {
+        // Read-Only: Steuerregister (46xxx) erst nach Bestaetigung am echten Geraet.
+    }
+}
+
+// ---------------------------------------------------------------------------
 // IHUB_VictronDriver — Victron GX (Cerbo/Venus OS) über Modbus TCP. Anders als bei
 // Einzel-Wechselrichtern ist die Unit-ID hier ein Geräte-Selektor: Der Dienst
 // com.victronenergy.system liegt IMMER auf Unit-ID 100 und aggregiert die
@@ -5004,6 +5273,7 @@ class InverterHub extends IPSModule
         'victron'   => 'IHUB_VictronDriver',
         'huawei'    => 'IHUB_HuaweiDriver',
         'foxess'    => 'IHUB_FoxEssDriver',
+        'foxess_smart' => 'IHUB_FoxEssSmartDriver',
     ];
 
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-inverterhub-multi-wechselrichter-ein-modbus-tcp-modul-fuer-goodwe-sma-fronius-sungrow-solis-growatt-solax/144121';
@@ -5028,6 +5298,7 @@ class InverterHub extends IPSModule
     private const NEWS_ITEMS = [
         'Symbox-Gateway (eingebauter RS485-Port): läuft jetzt über die neue „NRG-Stack InverterHub Brücke (ModBus-Gateway)“. Im Verbindungsweg „Symbox-Gateway“ das ModBus-Gateway wählen und „Brücke anlegen und verbinden“ klicken, danach übernehmen. Wer den Gateway-Weg mit früheren Beta-Ständen direkt an der Instanz eingerichtet hatte: Instanz und Historie bleiben, einfach Gateway wählen, den Knopf klicken und übernehmen. Direktverbindungen sind nicht betroffen, der Hinweis „benötigt eine übergeordnete Instanz“ verschwindet.',
         'Neuer Wechselrichter: FoxESS H1/H3 (Read-Only-Vorabversion, Beta).',
+        'FoxESS H3 Smart / H3 Pro / KH: eigener Treiber für die neuere Registerbelegung (Holding 39xxx, wie in Home Assistant) — Read-Only-Vorabversion, bitte Rückmeldung im Forum.',
         'SMA: mehrere Korrekturen an Skalierung, Batterie-/PV-Erkennung und Registerzugriff — Werte sind jetzt deutlich genauer.',
         'Victron: Hauslast-Berechnung korrigiert (war zu hoch, wenn gleichzeitig Netzbezug bestand).',
         'GoodWe: Schalter zur Einspeisebegrenzung korrekt beschriftet, plus Warnung bei einer Begrenzung auf 0 W.',
@@ -5863,7 +6134,7 @@ class InverterHub extends IPSModule
                         $this->VersionLabel(),
                     ], [
                         ['type' => 'Label', 'caption' => 'InverterHub liest Wechselrichter verschiedener Hersteller direkt per Modbus TCP aus. Hersteller wählen, IP-Adresse oder Hostname (und ggf. Port/Unit-ID) eintragen, Datenpunkt-Gruppen je nach Anlage aktivieren. Tipp: Trägt man statt der IP einen festen Hostnamen ein (DHCP-Reservierung/mDNS), läuft das Modul auch nach einem IP-Wechsel des Wechselrichters weiter.'],
-                        ['type' => 'Label', 'caption' => 'Unterstützte Hersteller: GoodWe (GW-ET/EH/BT/BH), Sungrow (SH-Hybrid), Solis (Hybrid, 33000er-Register), Growatt (TL-X/TL3-X/MOD/MIX/SPH/WIT), SolaX, SMA (STP/STPS/SI, inkl. Netzmessung), Fronius (SunSpec, GEN24-Hybrid inkl. Batterie/Smart Meter), SolarEdge (inkl. StorEdge-Batterie), Deye (SG04LP3), Solplanet/AISWEI, Kostal (PLENTICORE plus Gen. 1), Victron GX (Cerbo/Venus OS), Huawei SUN2000 (inkl. DTSU666-Zähler + LUNA2000-Batterie, live an einer echten Anlage bestätigt) und FoxESS H1/H3 (Read-Only-Vorabversion, Beta).'],
+                        ['type' => 'Label', 'caption' => 'Unterstützte Hersteller: GoodWe (GW-ET/EH/BT/BH), Sungrow (SH-Hybrid), Solis (Hybrid, 33000er-Register), Growatt (TL-X/TL3-X/MOD/MIX/SPH/WIT), SolaX, SMA (STP/STPS/SI, inkl. Netzmessung), Fronius (SunSpec, GEN24-Hybrid inkl. Batterie/Smart Meter), SolarEdge (inkl. StorEdge-Batterie), Deye (SG04LP3), Solplanet/AISWEI, Kostal (PLENTICORE plus Gen. 1), Victron GX (Cerbo/Venus OS), Huawei SUN2000 (inkl. DTSU666-Zähler + LUNA2000-Batterie, live an einer echten Anlage bestätigt) FoxESS H1/H3 sowie FoxESS H3 Smart / H3 Pro / KH (jeweils Read-Only-Vorabversion, Beta).'],
                         ['type' => 'Label', 'caption' => '⚙️ Anschluss-Besonderheiten je Hersteller:'],
                         ['type' => 'Label', 'caption' => '• Kostal: Standard-Port ist 1502 (nicht 502). Zusätzlich die Byte-Reihenfolge passend zum Wechselrichter wählen (Werkseinstellung CDAB).'],
                         ['type' => 'Label', 'caption' => '• Victron GX: Port 502; die Unit-ID ist bei Victron ein Geräte-Selektor – der Systemdienst liegt fest auf 100 und wird automatisch angesprochen (die Formular-Unit-ID wird ignoriert). Im GX unter Einstellungen → Services → Modbus TCP aktivieren.'],
@@ -5902,6 +6173,7 @@ class InverterHub extends IPSModule
                         ['label' => 'Victron GX (Cerbo/Venus OS, Unit-ID 100)', 'value' => 'victron'],
                         ['label' => 'Huawei SUN2000 (+ DTSU666 / LUNA2000, Unit-ID meist 1)', 'value' => 'huawei'],
                         ['label' => 'FoxESS H1/H3 (Read-Only-Vorabversion, Beta)', 'value' => 'foxess'],
+                        ['label' => 'FoxESS H3 Smart / H3 Pro / KH (Read-Only-Vorabversion, Beta)', 'value' => 'foxess_smart'],
                     ],
                 ],
                 [
