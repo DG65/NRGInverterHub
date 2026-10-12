@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.77.0-beta.26 (2026-10-12)
+
+- **Store-Review-Fund (Checkliste Punkt 15):** Die Schreibpfad-Warnung des Symbox-Gateway-Clients
+  nutzte `IPS_LogMessage()`. Sie läuft jetzt über `$this->LogMessage()` der Modulinstanz
+  (Rückruf an die Hilfsklasse). Im Modul steht kein `IPS_LogMessage(` mehr; Prüfstand
+  `.tools/test-gateway-client.php` um zwei Tests ergänzt. Keine Funktionsänderung für Nutzer.
+
 ## 0.77.0-beta.25 (2026-10-05)
 
 - **Neuer Treiber: FoxESS H3 Smart / H3 Pro / KH (Read-Only-Vorabversion, Beta).** Forum-Meldung

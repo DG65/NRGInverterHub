@@ -6,7 +6,6 @@ if (!preg_match('/class IHUB_ModbusGatewayClient\b.*?\n}\n/s', $src, $m)) {
     fwrite(STDERR, "Klasse nicht gefunden\n");
     exit(1);
 }
-function IPS_LogMessage($a,$b){}
 $GLOBALS['connId'] = 1;
 function IPS_GetInstance($id){ return ['ConnectionID' => $GLOBALS['connId']]; }
 eval($m[0]);
@@ -115,5 +114,25 @@ $c9->readHolding(0, 1);
 $answered = ($c9->requests === 2 && $c9->responses === 1);
 $c9->unitId = 42;
 if (!($noAnswer && $answered && $c9->unitId === 42)) { echo "FAIL Antwortzaehler/unitId\n"; $fails++; } else { echo "OK Antwortzaehler und beschreibbares unitId\n"; }
+
+// Test 10: Schreibpfad-Warnung geht (einmalig) ueber den Rueckruf der Modulinstanz,
+// nie ueber IPS_LogMessage (Store-Review 12.10.2026, SUITE.md Checkliste Punkt 15).
+$logged = [];
+(new ReflectionProperty('IHUB_ModbusGatewayClient', 'warned'))->setValue(null, false);   // Einmal-Sperre zuruecksetzen
+$m10 = new FakeModule();
+$c10 = new IHUB_ModbusGatewayClient($m10, 502, 1, function ($t) use (&$logged) { $logged[] = $t; });
+$c10->writeSingle(1, 2);
+$c10->writeMultiple(1, [1, 2]);
+$onceOk = count($logged) === 1 && strpos($logged[0], 'Schreibpfad') !== false;
+$noLogger = new IHUB_ModbusGatewayClient(new FakeModule(), 502, 1);   // ohne Rueckruf: kein Fehler
+$noLogger->writeSingle(1, 2);
+if (!$onceOk) { echo "FAIL Schreibpfad-Warnung ueber Rueckruf (einmalig)\n"; $fails++; } else { echo "OK Schreibpfad-Warnung geht einmalig ueber den Rueckruf\n"; }
+
+// Test 11: kein IPS_LogMessage( in den Modul-Dateien (nur $this->LogMessage).
+$noIps = true;
+foreach ([dirname(__DIR__) . '/InverterHub/module.php', dirname(__DIR__) . '/InverterHubDiscovery/module.php'] as $f) {
+    if (strpos(file_get_contents($f), 'IPS_LogMessage(') !== false) { $noIps = false; echo "FAIL IPS_LogMessage( in $f\n"; }
+}
+if ($noIps) { echo "OK kein IPS_LogMessage( in den Moduldateien\n"; } else { $fails++; }
 
 exit($fails > 0 ? 1 : 0);

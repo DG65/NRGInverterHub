@@ -34,6 +34,9 @@ class IHUB_ModbusGatewayClient
     // $mb->unitId umsetzen (SunSpec, Victron), nicht an einem privaten Feld scheitern.
     public $unitId;
     private static $warned = false;
+    // Protokoll-Rueckruf der Modulinstanz (LogMessage() ist in IPSModule geschuetzt und
+    // hier nicht erreichbar; die globale Protokollfunktion ist laut Store-Review nicht erwuenscht).
+    private $logger;
     public $requests = 0;
     public $responses = 0;
 
@@ -43,10 +46,11 @@ class IHUB_ModbusGatewayClient
     // SendDataToParent() ist eine Methode der IPSModule-Instanz, keine globale
     // Funktion - die Klasse braucht daher (anders als IHUB_ModbusTcpClient, der
     // rein per fsockopen arbeitet) einen Verweis auf die aufrufende Modulinstanz.
-    public function __construct($module, $port, $unitId)
+    public function __construct($module, $port, $unitId, $logger = null)
     {
         $this->module = $module;
         $this->unitId = $unitId;
+        $this->logger = $logger;
     }
 
     private function request($function, $address, $quantity, $data = '')
@@ -67,7 +71,9 @@ class IHUB_ModbusGatewayClient
     {
         if (!self::$warned) {
             self::$warned = true;
-            IPS_LogMessage('InverterHub', 'Symbox-Gateway-Schreibpfad (' . $what . ') ist eine ungetestete Ableitung aus dem verifizierten Lesepfad - noch nicht an echter Hardware bestätigt.');
+            if (is_callable($this->logger)) {
+                call_user_func($this->logger, 'Symbox-Gateway-Schreibpfad (' . $what . ') ist eine ungetestete Ableitung aus dem verifizierten Lesepfad - noch nicht an echter Hardware bestätigt.');
+            }
         }
     }
 
@@ -6652,7 +6658,10 @@ class InverterHub extends IPSModule
             return new IHUB_ModbusGatewayClient(
                 $this,
                 $this->ReadPropertyInteger('Port'),
-                $this->ReadPropertyInteger('UnitId')
+                $this->ReadPropertyInteger('UnitId'),
+                function (string $text): void {
+                    $this->LogMessage($text, KL_WARNING);
+                }
             );
         }
         return new IHUB_ModbusTcpClient(
