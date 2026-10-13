@@ -308,7 +308,7 @@ class InverterHubDiscovery extends IPSModule
             $migrationItems[] = [
                 'type'    => 'OpenObjectButton',
                 'name'    => 'BtnOpenMigration',
-                'caption' => '➡️ Migration in MigrationsHub öffnen',
+                'caption' => '➡️ Migration in Gerätetausch öffnen',
                 'objectID' => 0,
                 'visible' => false,
             ];
@@ -317,7 +317,7 @@ class InverterHubDiscovery extends IPSModule
                 'caption'  => '🔀  Migration von Altinstanzen',
                 'expanded' => true,
                 'items'    => array_merge([
-                    ['type' => 'Label', 'caption' => 'Für diese gefundenen Geräte existiert vermutlich schon eine ältere Instanz eines anderen Moduls. „Migration vorbereiten" legt die neue InverterHub-Instanz an und öffnet anschließend MigrationsHub mit vorbelegter Quelle/Ziel — der eigentliche Übernahme-Ablauf (Simulieren/Übernehmen) läuft dort wie gewohnt.'],
+                    ['type' => 'Label', 'caption' => 'Für diese gefundenen Geräte existiert vermutlich schon eine ältere Instanz eines anderen Moduls. „Migration vorbereiten" legt die neue InverterHub-Instanz an und öffnet anschließend Gerätetausch mit vorbelegter Quelle/Ziel — der eigentliche Übernahme-Ablauf (Simulieren/Übernehmen) läuft dort wie gewohnt.'],
                 ], $migrationItems),
             ];
         }
@@ -536,8 +536,11 @@ class InverterHubDiscovery extends IPSModule
     // legen nur an, befuellen vor und navigieren dorthin.
     public function StartMigration($resultIndex, $legacyInstanceID)
     {
-        if (!function_exists('MIGHUB_PrefillMigration')) {
-            $this->LogMessage('MigrationsHub ist nicht (mehr) installiert - Migration nicht möglich.', KL_WARNING);
+        // Neuer Praefix zuerst, alter als Rueckfall (Gerätetausch, vormals MigrationsHub,
+        // 13.10.2026: MIGHUB_ -> GTAUSCH_, Parameter unveraendert).
+        $hasNew = function_exists('GTAUSCH_PrefillMigration');
+        if (!$hasNew && !function_exists('MIGHUB_PrefillMigration')) {
+            $this->LogMessage('Gerätetausch ist nicht (mehr) installiert - Migration nicht möglich.', KL_WARNING);
             return;
         }
         $results = json_decode((string)$this->ReadAttributeString('ResultsJSON'), true);
@@ -562,10 +565,14 @@ class InverterHubDiscovery extends IPSModule
 
         $mighubId = $this->MigrationsHubInstanceID();
         if ($mighubId <= 0) {
-            $this->LogMessage('Migration: MigrationsHub-Instanz konnte nicht gefunden/angelegt werden.', KL_ERROR);
+            $this->LogMessage('Migration: Gerätetausch-Instanz konnte nicht gefunden/angelegt werden.', KL_ERROR);
             return;
         }
-        MIGHUB_PrefillMigration($mighubId, (int)$legacyInstanceID, $newId);
+        if ($hasNew) {
+            GTAUSCH_PrefillMigration($mighubId, (int)$legacyInstanceID, $newId);
+        } elseif (function_exists('MIGHUB_PrefillMigration')) {
+            MIGHUB_PrefillMigration($mighubId, (int)$legacyInstanceID, $newId);
+        }
 
         @$this->UpdateFormField('BtnOpenMigration', 'objectID', $mighubId);
         @$this->UpdateFormField('BtnOpenMigration', 'visible', true);
@@ -645,7 +652,8 @@ class InverterHubDiscovery extends IPSModule
         // MigrationsHub-Instanz nur EINMAL je Scan-Lauf ermitteln/anlegen,
         // nicht pro Treffer - und ueberhaupt nur, wenn MigrationsHub
         // installiert ist (sonst entfaellt der ganze Migrations-Check).
-        $mighubId = function_exists('MIGHUB_FindLegacyCandidates') ? $this->MigrationsHubInstanceID() : 0;
+        $mighubId = (function_exists('GTAUSCH_FindLegacyCandidates') || function_exists('MIGHUB_FindLegacyCandidates'))
+            ? $this->MigrationsHubInstanceID() : 0;
         foreach ($openIps as $ip) {
             if ($this->scanAborted()) { $aborted = true; break; }
             $i++;
@@ -663,12 +671,18 @@ class InverterHubDiscovery extends IPSModule
                     // Geraetesuche nicht toeten (MeterHub ist genau daran
                     // gecrasht, deren Fix 25a2a83 als Vorbild).
                     try {
-                        $legacy = @MIGHUB_FindLegacyCandidates($mighubId, $ip, $port, $found['unitId'], 0);
+                        if (function_exists('GTAUSCH_FindLegacyCandidates')) {
+                            $legacy = @GTAUSCH_FindLegacyCandidates($mighubId, $ip, $port, $found['unitId'], 0);
+                        } elseif (function_exists('MIGHUB_FindLegacyCandidates')) {
+                            $legacy = @MIGHUB_FindLegacyCandidates($mighubId, $ip, $port, $found['unitId'], 0);
+                        } else {
+                            $legacy = [];
+                        }
                         if (is_array($legacy) && count($legacy) > 0) {
                             $found['legacyCandidates'] = $legacy;
                         }
                     } catch (Throwable $e) {
-                        $this->LogMessage('Alt-Instanzen-Check uebersprungen (MigrationsHub-Aufruf fehlgeschlagen): ' . $e->getMessage(), KL_WARNING);
+                        $this->LogMessage('Alt-Instanzen-Check uebersprungen (Gerätetausch-Aufruf fehlgeschlagen): ' . $e->getMessage(), KL_WARNING);
                     }
                 }
                 $results[] = $found;
@@ -949,14 +963,14 @@ class InverterHubDiscovery extends IPSModule
 
     private function MigrationsHubStatusLine(): string
     {
-        $installed = function_exists('MIGHUB_FindLegacyCandidates')
+        $installed = (function_exists('GTAUSCH_FindLegacyCandidates') || function_exists('MIGHUB_FindLegacyCandidates'))
             && function_exists('IPS_ModuleExists') && IPS_ModuleExists(self::MIGRATIONSHUB_GUID);
         if (!$installed) {
-            return 'ℹ️ MigrationsHub ist nicht installiert: Die Prüfung auf ältere Instanzen (z. B. GoodweET) entfällt, die Suche arbeitet unverändert.';
+            return 'ℹ️ Gerätetausch ist nicht installiert: Die Prüfung auf ältere Instanzen (z. B. GoodweET) entfällt, die Suche arbeitet unverändert.';
         }
         $version = $this->LibraryVersion(self::MIGRATIONSHUB_GUID);
         $ids     = (array)@IPS_GetInstanceListByModuleID(self::MIGRATIONSHUB_GUID);
-        $head    = '✅ MigrationsHub installiert' . ($version !== '' ? ' (Version ' . $version . ')' : '');
+        $head    = '✅ Gerätetausch installiert' . ($version !== '' ? ' (Version ' . $version . ')' : '');
         if (count($ids) > 0) {
             return $head . ', Instanz #' . (int)$ids[0] . ': Beim Durchsuchen wird geprüft, ob zu einem gefundenen Gerät eine ältere Instanz existiert, dann erscheint „Migration von Altinstanzen“.';
         }

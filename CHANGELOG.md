@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.77.0-beta.27 (2026-10-13)
+
+- **Gerätetausch (vormals MigrationsHub/Vormund): Funktionspräfix `MIGHUB_` → `GTAUSCH_`.** Die
+  Gerätesuche ruft beim Prüfen auf ältere Instanzen und beim Vorbereiten der Migration jetzt
+  zuerst `GTAUSCH_FindLegacyCandidates()` bzw. `GTAUSCH_PrefillMigration()` auf, der alte Präfix
+  bleibt als Rückfall (Parameter unverändert). Die Anzeigetexte nennen das Modul „Gerätetausch".
+  Ohne das Partnermodul bleibt alles unverändert lauffähig. Der Eigenständigkeitsprüfer kennt
+  beide Präfixe.
+
 ## 0.77.0-beta.26 (2026-10-12)
 
 - **Store-Review-Fund (Checkliste Punkt 15):** Die Schreibpfad-Warnung des Symbox-Gateway-Clients
