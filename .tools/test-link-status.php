@@ -56,7 +56,7 @@ function IPS_GetLibrary($id) { return ['Version' => $GLOBALS['D']['libs'][substr
 function MIGHUB_FindLegacyCandidates() {}
 preg_match("/METERHUB_GUID = '([^']+)'/", $disc, $g1); preg_match("/MIGRATIONSHUB_GUID = '([^']+)'/", $disc, $g2);
 $body = implode("\n", $methods);
-$body = str_replace("function_exists('MIGHUB_FindLegacyCandidates')", '$GLOBALS["D"]["fn"]', $body);
+$body = str_replace("(function_exists('GTAUSCH_FindLegacyCandidates') || function_exists('MIGHUB_FindLegacyCandidates'))", '$GLOBALS["D"]["fn"]', $body);
 eval('class HD { const METERHUB_GUID = "' . $g1[1] . '"; const MIGRATIONSHUB_GUID = "' . $g2[1] . '";
     private function meterHubInstalled() { return IPS_ModuleExists(self::METERHUB_GUID); }
     ' . $body . ' public function mh() { return $this->MeterHubStatusLine(); } public function mig() { return $this->MigrationsHubStatusLine(); } public function panel() { return $this->ConnectionPanel(); } }');
@@ -86,4 +86,9 @@ $panel = $x->panel(); $names = array_column($panel['items'], 'name');
 $chk($names === ['MeterHubStatus', 'MigrationsHubStatus'] && strpos($panel['items'][0]['caption'], 'MeterHub') !== false, 'Panel "Verbundene Module" enthaelt beide Zeilen als Elemente');
 $chk(preg_match('/array_splice\(\$form\[\'elements\'\], 1, 0, \[\$this->ConnectionPanel\(\)\]\);/', $disc) === 1, 'GetConfigurationForm setzt das Panel in die ausgelieferten elements ein');
 $chk(strpos($disc, 'IPS_CreateInstance') === false || strpos($methods['ConnectionPanel'] . $methods['MigrationsHubStatusLine'] . $methods['MeterHubStatusLine'], 'IPS_CreateInstance') === false, 'Statuszeilen legen nie eine Instanz an');
+// Gerätetausch-Praefix: GTAUSCH_ zuerst, MIGHUB_ nur als Rueckfall (beide Aufrufstellen).
+foreach (['FindLegacyCandidates', 'PrefillMigration'] as $fnm) {
+    $a = strpos($disc, 'GTAUSCH_' . $fnm . '('); $b = strpos($disc, 'MIGHUB_' . $fnm . '(');
+    $chk($a !== false && $b !== false && $a < $b, "Gerätetausch: GTAUSCH_$fnm zuerst, MIGHUB_$fnm als Rueckfall");
+}
 exit($fails ? 1 : 0);

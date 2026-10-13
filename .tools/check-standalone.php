@@ -23,7 +23,7 @@
  */
 
 // Präfixe der Partnermodule im Verbund. Neue Partner hier ergänzen.
-const FOREIGN_PREFIXES = ['MHUB', 'PVF', 'HEISHA', 'SGW', 'TIBBERGR', 'TESSIE', 'EMS', 'GWET'];
+const FOREIGN_PREFIXES = ['MHUB', 'PVF', 'HEISHA', 'SGW', 'TIBBERGR', 'TESSIE', 'EMS', 'GWET', 'GTAUSCH', 'MIGHUB'];
 
 $root = dirname(__DIR__);
 $rx   = '/\b((' . implode('|', FOREIGN_PREFIXES) . ')_[A-Za-z_][A-Za-z0-9_]*)\s*\(/';
