@@ -387,6 +387,30 @@ Skalierung) ist noch NICHT bestätigt — nicht als vollständig verifiziert kom
 (31000er, H1 Gen2) hat weiterhin KEINEN Treiber, nur die Erkennung. Prüfstand
 `.tools/test-foxess-smart.php`.
 
+## Solis: Batterievorzeichen und Gesamtzähler-Skalierung (17.10.2026, Portal-Abgleich)
+
+Dietmar verglich eine Solis-Anlage (Screenshot InverterHub-Variablen gegen Solis-Portal): Bei
+Entladung mit 5,6 kW zeigte InverterHub `bat_power` = −2900 W, und „Bezug Gesamt" (12,0 kWh) war
+kleiner als „Bezug Heute" (48,5 kWh). Quellen (nur im GitHub-Code gelesen): evcc
+(`solis-hybrid.yaml`), openHAB `solarman` (`solis_hybrid.yaml`), HA `Pho3niX90/solis_modbus`;
+**OpenEMS hat keinen Solis-Treiber.** Ergebnis: Register 33149/33150 (S32) ist vorzeichenbehaftet,
+positiv = Laden (evcc nutzt Faktor −1 für „positiv = Entladen"); Richtungsregister 33135 (0 = Laden,
+1 = Entladen) für Firmware mit vorzeichenlosem Betrag. Die Gesamtzähler (33029, 33161, 33165,
+33169, 33173) haben **1 kWh Auflösung**, nur die Tageswerte (U16) 0,1 kWh. Behoben in
+0.77.0-beta.28 / 0.76.0-beta.41 (`IHUB_SolisDriver::readFast()`/`readSlow()`).
+
+**Folgen, bewusst in Kauf genommen (Dietmar-Freigabe 17.10.2026):** Die Gesamtzähler bestehender
+Solis-Installationen springen einmalig auf das Zehnfache (Archiv zeigt dafür einen Sprung); wer
+`BatInvert` nur als Ausgleich des Vorzeichenfehlers gesetzt hatte, muss ihn ausschalten.
+
+**Noch offen:** (1) Betrag 2,9 kW (InverterHub) gegenüber 5,6 kW (Portal, „x2" Akkus) — vermutlich
+nur der erste Akku gelesen; Register für einen zweiten Akku sind nicht belegt. (2) Tageswerte
+Bezug/Laden weichen vom Portal ab (48,5 gegen 17 kWh, 20,4 gegen 16 kWh) — Rohregister
+33161-33180 mit Portalwerten vom Anlagenbetreiber nötig. **Steuerung bewusst nicht gebaut:** Die
+HA-Integration kennt Fernsteuerung (Register 43128-43136, RC-Timeout 43282 in Minuten, dort selbst
+als „Unsourced" markiert), Zeitladen 43141-43190 und Time-of-Use V2 43707-43791 — erst nach
+Bestätigung an echter Hardware (vgl. Heartbeat-Tabelle, Zeile Solis).
+
 ## `InverterHubTile`/`InverterHubMonitor`/`InverterHubEnergy` entfernt (nur `ems-integration`, 20.08.2026)
 
 Auf Anweisung Dietmars entfernt: Die drei Visualisierungs-Kacheln (Stromfluss, Sankey,
