@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.77.0-beta.28 (2026-10-17)
+
+- **Solis: Batterieleistung hatte das falsche Vorzeichen, die Gesamtzähler waren um den Faktor 10
+  zu klein.** Abgleich einer Solis-Anlage mit dem Solis-Portal: InverterHub zeigte beim Entladen
+  −2900 W, bei Home-Assistant-Integration, evcc und openHAB ist der Rohwert in 33149/33150
+  vorzeichenbehaftet mit positiv = Laden. Jetzt gilt wie überall bei InverterHub **+ = Entladen,
+  − = Laden**; bei Firmware mit vorzeichenlosem Betrag entscheidet das Richtungsregister 33135.
+  Der Batteriestrom folgt demselben Vorzeichen. **Gesamtzähler** (PV, Laden, Entladen, Bezug,
+  Einspeisung) haben bei Solis 1 kWh Auflösung und wurden fälschlich durch 10 geteilt — sie
+  springen damit einmalig auf das Zehnfache; im Archiv erscheint für diesen Zeitraum ein
+  entsprechender Sprung. Die Tageswerte (0,1 kWh) waren richtig. **Hinweis:** Wer den
+  Batterie-Invers-Schalter nur zum Ausgleich dieses Fehlers eingeschaltet hatte, muss ihn jetzt
+  wieder ausschalten. Prüfstand `.tools/test-solis.php`.
+
 ## 0.77.0-beta.27 (2026-10-13)
 
 - **Gerätetausch (vormals MigrationsHub/Vormund): Funktionspräfix `MIGHUB_` → `GTAUSCH_`.** Die

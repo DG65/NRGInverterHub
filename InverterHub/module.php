@@ -1764,6 +1764,9 @@ class IHUB_SungrowDriver implements IHUB_InverterDriverInterface
 
 class IHUB_SolisDriver implements IHUB_InverterDriverInterface
 {
+    // Richtung aus dem letzten Lesezyklus (readFast), fuer Batteriestrom und -leistung.
+    private $batDischarging = false;
+
     public function getBaseVars()
     {
         return [
@@ -1771,7 +1774,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             ['pv_total',    'PV Gesamtleistung', 'F', 'SLS.Watt', true,  'pv',       'RO 33057-33058'],
             ['ac_power',    'AC Wirkleistung',   'F', 'SLS.Watt', true,  'device',   'RO 33079-33080'],
             ['meter_total', 'Netz Leistung',      'F', 'SLS.Watt', true,  'grid',    'RO 33151-33152'],
-            ['bat_power',   'Bat. Leistung',     'F', 'SLS.Watt', true,  'bat',      'RO 33149-33150'],
+            ['bat_power',   'Bat. Leistung (+ Entladen / − Laden)', 'F', 'SLS.Watt', true, 'bat', 'RO 33149-33150 + Richtung RO 33135'],
             ['bat_soc',     'Bat. SOC',          'I', '~Battery.100', true, 'bat',   'RO 33139'],
         ];
     }
@@ -1800,7 +1803,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             ]],
             'GroupBat' => ['caption' => 'Batterie (Spannung, Strom, SOH)', 'vars' => [
                 ['bat_volt', 'Bat. Spannung', 'F', 'SLS.Volt',   false, 'bat', 'RO 33133'],
-                ['bat_curr', 'Bat. Strom',    'F', 'SLS.Ampere', false, 'bat', 'RO 33134'],
+                ['bat_curr', 'Bat. Strom (+ Entladen / − Laden)', 'F', 'SLS.Ampere', false, 'bat', 'RO 33134 + Richtung RO 33135'],
                 ['bat_soh',  'Bat. SOH',      'I', '~Intensity.100', true, 'bat', 'RO 33140'],
                 ['household_load', 'Hausverbrauch', 'F', 'SLS.Watt', true, 'bat', 'RO 33147'],
                 ['backup_load',    'Backup-Last',   'F', 'SLS.Watt', true, 'bat', 'RO 33148'],
@@ -1816,15 +1819,15 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             ]],
             'GroupEnergy' => ['caption' => 'Energiezähler (PV, Batterie, Netz, Verbrauch)', 'vars' => [
                 ['e_pv_day',       'PV Heute',            'F', '~Electricity', true, 'energy', 'RO 33035'],
-                ['e_pv_total',     'PV Gesamt',           'F', '~Electricity', true, 'energy', 'RO 33029-33030'],
+                ['e_pv_total',     'PV Gesamt',           'F', '~Electricity', true, 'energy', 'RO 33029-33030 (U32, kWh)'],
                 ['e_charge_day',   'Bat. Laden Heute',    'F', '~Electricity', true, 'energy', 'RO 33163'],
-                ['e_charge_total', 'Bat. Laden Gesamt',   'F', '~Electricity', true, 'energy', 'RO 33161-33162'],
+                ['e_charge_total', 'Bat. Laden Gesamt',   'F', '~Electricity', true, 'energy', 'RO 33161-33162 (U32, kWh)'],
                 ['e_disch_day',    'Bat. Entl. Heute',    'F', '~Electricity', true, 'energy', 'RO 33167'],
-                ['e_disch_total',  'Bat. Entl. Gesamt',   'F', '~Electricity', true, 'energy', 'RO 33165-33166'],
+                ['e_disch_total',  'Bat. Entl. Gesamt',   'F', '~Electricity', true, 'energy', 'RO 33165-33166 (U32, kWh)'],
                 ['e_buy_day',      'Bezug Heute',         'F', '~Electricity', true, 'energy', 'RO 33171'],
-                ['e_buy_total',    'Bezug Gesamt',        'F', '~Electricity', true, 'energy', 'RO 33169-33170'],
+                ['e_buy_total',    'Bezug Gesamt',        'F', '~Electricity', true, 'energy', 'RO 33169-33170 (U32, kWh)'],
                 ['e_sell_day',     'Einspeisung Heute',   'F', '~Electricity', true, 'energy', 'RO 33175'],
-                ['e_sell_total',   'Einspeisung Gesamt',  'F', '~Electricity', true, 'energy', 'RO 33173-33174'],
+                ['e_sell_total',   'Einspeisung Gesamt',  'F', '~Electricity', true, 'energy', 'RO 33173-33174 (U32, kWh)'],
             ]],
             'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
                 ['dev_model', 'Modell-Nr.', 'I', '', false, 'device', 'RO 33000'],
@@ -1872,7 +1875,16 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
         }
         if ($bat !== null) {
             $hub->SetVarInt('bat_soc', $mb->u16($bat, 7));                // 33139
-            $hub->SetVarFloat('bat_power', (float)$mb->s32($bat, 17));    // 33149-33150
+            // Vorzeichen (Abgleich mit Solis-Portal, 17.10.2026): Der Rohwert in 33149/33150
+            // ist bei dieser Firmware vorzeichenbehaftet, POSITIV = Laden (evcc liest ihn mit
+            // Faktor -1 als "positiv = Entladen"). Bei Firmware mit vorzeichenlosem Betrag
+            // (Home-Assistant-Integration Pho3niX90/solis_modbus) gibt das Richtungsregister
+            // 33135 die Richtung vor (0 = Laden, 1 = Entladen). Beides zusammen:
+            // negativer Rohwert = Entladen, positiver Rohwert = Entladen nur bei 33135 = 1.
+            // InverterHub-Konvention: + = Entladen, - = Laden.
+            $rawBat = $mb->s32($bat, 17);
+            $this->batDischarging = ($rawBat < 0) || ($mb->u16($bat, 3) === 1);   // 33135
+            $hub->SetVarFloat('bat_power', (float)($this->batDischarging ? abs($rawBat) : -abs($rawBat)));
         }
         if ($meter !== null) {
             $hub->SetVarFloat('meter_total', (float)$mb->s32($meter, 0));
@@ -1907,7 +1919,8 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
 
         if ($hub->GetPropBool('GroupBat') && $bat !== null) {
             $hub->SetVarFloat('bat_volt', $mb->u16($bat, 1) / 10.0);       // 33133
-            $hub->SetVarFloat('bat_curr', $mb->s16($bat, 2) / 10.0);       // 33134
+            $curr = abs($mb->s16($bat, 2)) / 10.0;                          // 33134 (Betrag)
+            $hub->SetVarFloat('bat_curr', $this->batDischarging ? $curr : -$curr);
             $hub->SetVarInt('bat_soh',    $mb->u16($bat, 8));              // 33140
             $hub->SetVarFloat('household_load', (float)$mb->u16($bat, 15)); // 33147
             $hub->SetVarFloat('backup_load',    (float)$mb->u16($bat, 16)); // 33148
@@ -1929,20 +1942,22 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
     public function readSlow($mb, $hub)
     {
         if ($hub->GetPropBool('GroupEnergy')) {
+            // Gesamtstaende (U32) haben 1 kWh Aufloesung, nur die Tageswerte (U16) 0,1 kWh
+            // (evcc: "register has 1 kWh resolution"; openHAB/HA: Faktor 1). Bis 0.77.0-beta.27 fehlerhaft durch 10 geteilt.
             $e1 = $mb->readInput(33029, 12);  // 33029-33040
             if ($e1 !== null) {
-                $hub->SetVarFloat('e_pv_total', $mb->u32($e1, 0) / 10.0);
+                $hub->SetVarFloat('e_pv_total', (float)$mb->u32($e1, 0));
                 $hub->SetVarFloat('e_pv_day',   $mb->u16($e1, 6) / 10.0);
             }
             $e2 = $mb->readInput(33161, 20);  // 33161-33180
             if ($e2 !== null) {
-                $hub->SetVarFloat('e_charge_total', $mb->u32($e2, 0)  / 10.0);
+                $hub->SetVarFloat('e_charge_total', (float)$mb->u32($e2, 0));
                 $hub->SetVarFloat('e_charge_day',   $mb->u16($e2, 2)  / 10.0);
-                $hub->SetVarFloat('e_disch_total',  $mb->u32($e2, 4)  / 10.0);
+                $hub->SetVarFloat('e_disch_total',  (float)$mb->u32($e2, 4));
                 $hub->SetVarFloat('e_disch_day',    $mb->u16($e2, 6)  / 10.0);
-                $hub->SetVarFloat('e_buy_total',    $mb->u32($e2, 8)  / 10.0);
+                $hub->SetVarFloat('e_buy_total',    (float)$mb->u32($e2, 8));
                 $hub->SetVarFloat('e_buy_day',      $mb->u16($e2, 10) / 10.0);
-                $hub->SetVarFloat('e_sell_total',   $mb->u32($e2, 12) / 10.0);
+                $hub->SetVarFloat('e_sell_total',   (float)$mb->u32($e2, 12));
                 $hub->SetVarFloat('e_sell_day',     $mb->u16($e2, 14) / 10.0);
             }
         }
