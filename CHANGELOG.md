@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.77.0-beta.34 (2026-10-18)
+
+- **Solis: Aufbau wie bei GoodWe (Stufe 2).** Neu: Leistung und Strom je Phase am Smart Meter
+  (Register 33252/33254/33256 und 33257-33262), Spannung und Strom je Phase am Notstromausgang (Gruppe
+  „Backup / Insel", Register 33137/33138 und 33153-33156), Betriebsstatus (Stopp, Leerlauf, Sanftanlauf,
+  Netzbetrieb, Inselbetrieb, Übergang, Backup-Bypass, Generatorbetrieb; Register 33287 laut Solis-Doku),
+  BMS-Status (33111), Fehlercodes (33116-33120, 33124-33125, als erster Code und als Text) sowie
+  Firmware-Stände DSP und HMI (33001/33002). Neue Gruppen „Backup / Insel" und „Status und Fehler"
+  (abschaltbar). Bestehende Variablen unverändert. Prüfstand `.tools/test-solis.php`.
+
 ## 0.77.0-beta.33 (2026-10-18)
 
 - **Solis: Aufbau wie bei GoodWe (Stufe 1).** Die Ordner entsprechen jetzt dem GoodWe-Treiber:
