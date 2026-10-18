@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.77.0-beta.33 (2026-10-18)
+
+- **Solis: Aufbau wie bei GoodWe (Stufe 1).** Die Ordner entsprechen jetzt dem GoodWe-Treiber:
+  „Batterie 1", „Batterie 2", „Batterie (gemeinsam)", „Netz", „Smart Meter", „Backup / Insel",
+  „Energiezähler", „Wechselrichter / Gerät" und neu „Einstellungen". **Idents und Variablen-IDs der
+  bisherigen Variablen bleiben unverändert** (Archive, Dashboard und EMS bleiben gültig), nur Ordner und
+  Namen ändern sich. Neu je Akku (Gruppen „Batterie" und „Akku 2"): SOC, Leistung, Modus
+  (Standby/Laden/Entladen), Temperatur, BMS-Spannung und -Strom, maximale Lade-/Entladeströme.
+  „Bat. Leistung" und „Bat. SOC" liegen in „Batterie (gemeinsam)": Leistung als Summe, SOC als Mittelwert
+  beider Akkus (bei nur einem Akku unverändert). Neu gerechnet wie bei GoodWe: maximale Lade- und
+  Entladeleistung (BMS-Grenzstrom × Spannung) und Netzmodus (Einspeisung/Bezug aus dem Vorzeichen der
+  Netzleistung). Die erst gestern eingeführten „Akku 2"-Variablen (`bat_b_*`) heißen jetzt `bat2_*`; die
+  alten werden automatisch entfernt. Verbrauchszähler heißen „Last Heute/Gesamt (Netz + Backup)". Prüfstand
+  `.tools/test-solis.php`.
+
 ## 0.77.0-beta.32 (2026-10-18)
 
 - **Solis: Gruppe „Einstellungen" (nur lesen).** Vorbereitung für eine spätere Steuerung: Die
