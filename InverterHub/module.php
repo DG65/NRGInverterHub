@@ -1828,6 +1828,8 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 ['e_buy_total',    'Bezug Gesamt',        'F', '~Electricity', true, 'energy', 'RO 33169-33170 (U32, kWh)'],
                 ['e_sell_day',     'Einspeisung Heute',   'F', '~Electricity', true, 'energy', 'RO 33175'],
                 ['e_sell_total',   'Einspeisung Gesamt',  'F', '~Electricity', true, 'energy', 'RO 33173-33174 (U32, kWh)'],
+                ['e_load_day',     'Hausverbrauch Heute', 'F', '~Electricity', true, 'energy', 'RO 33179 (Restgröße)'],
+                ['e_load_total',   'Hausverbrauch Gesamt','F', '~Electricity', true, 'energy', 'RO 33177-33178 (U32, kWh, Restgröße)'],
             ]],
             'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
                 ['dev_model', 'Modell-Nr.', 'I', '', false, 'device', 'RO 33000'],
@@ -1959,6 +1961,8 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 $hub->SetVarFloat('e_buy_day',      $mb->u16($e2, 10) / 10.0);
                 $hub->SetVarFloat('e_sell_total',   (float)$mb->u32($e2, 12));
                 $hub->SetVarFloat('e_sell_day',     $mb->u16($e2, 14) / 10.0);
+                $hub->SetVarFloat('e_load_total',   (float)$mb->u32($e2, 16));          // 33177-33178
+                $hub->SetVarFloat('e_load_day',     $mb->u16($e2, 18) / 10.0);          // 33179
             }
         }
     }

@@ -81,12 +81,14 @@ put32($r, 33161, 833);  $r[33163] = 204;                      // Laden gesamt 83
 put32($r, 33165, 741);  $r[33167] = 85;                       // Entladen
 put32($r, 33169, 120);  $r[33171] = 485;                      // Bezug
 put32($r, 33173, 497);  $r[33175] = 16;                       // Einspeisung
+put32($r, 33177, 1318); $r[33179] = 302;                      // Haus (Restgroesse)
 $v = run($r, true);
 ok($v['e_pv_total'] === 1940.0 && abs($v['e_pv_day'] - 12.6) < 0.001, 'PV: Gesamt 1940 kWh (Faktor 1), heute 12,6 kWh (Faktor 0,1)');
 ok($v['e_charge_total'] === 833.0 && abs($v['e_charge_day'] - 20.4) < 0.001, 'Laden: Gesamt/heute');
 ok($v['e_disch_total'] === 741.0 && abs($v['e_disch_day'] - 8.5) < 0.001, 'Entladen: Gesamt/heute');
 ok($v['e_buy_total'] === 120.0 && abs($v['e_buy_day'] - 48.5) < 0.001, 'Bezug: Gesamt/heute');
 ok($v['e_sell_total'] === 497.0 && abs($v['e_sell_day'] - 1.6) < 0.001, 'Einspeisung: Gesamt/heute');
+ok($v['e_load_total'] === 1318.0 && abs($v['e_load_day'] - 30.2) < 0.001, 'Haus: Gesamt 1318 kWh (Faktor 1), heute 30,2 kWh (Faktor 0,1)');
 
 echo $fail === 0 ? "\nALLES OK\n" : "\n$fail FEHLER\n";
 exit($fail === 0 ? 0 : 1);
