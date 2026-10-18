@@ -1794,6 +1794,10 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 ['pv3_curr', 'PV3 Strom',    'F', 'SLS.Ampere', false, 'pv', 'RO 33054'],
                 ['pv4_volt', 'PV4 Spannung', 'F', 'SLS.Volt',   false, 'pv', 'RO 33055'],
                 ['pv4_curr', 'PV4 Strom',    'F', 'SLS.Ampere', false, 'pv', 'RO 33056'],
+                ['mppt1_power', 'MPPT1 Leistung', 'F', 'SLS.Watt', true, 'pv', 'Spannung × Strom (berechnet)'],
+                ['mppt2_power', 'MPPT2 Leistung', 'F', 'SLS.Watt', true, 'pv', 'Spannung × Strom (berechnet)'],
+                ['mppt3_power', 'MPPT3 Leistung', 'F', 'SLS.Watt', true, 'pv', 'Spannung × Strom (berechnet)'],
+                ['mppt4_power', 'MPPT4 Leistung', 'F', 'SLS.Watt', true, 'pv', 'Spannung × Strom (berechnet)'],
             ]],
             'GroupGrid' => ['caption' => 'Netz (Spannung, Strom, Blind-/Scheinleistung je Phase)', 'vars' => [
                 ['grid_l1_volt', 'Netz L1 Spannung', 'F', 'SLS.Volt',   false, 'grid', 'RO 33073'],
@@ -2010,6 +2014,10 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             $hub->SetVarFloat('pv3_curr', $mb->u16($pv, 5) / 10.0);
             $hub->SetVarFloat('pv4_volt', $mb->u16($pv, 6) / 10.0);
             $hub->SetVarFloat('pv4_curr', $mb->u16($pv, 7) / 10.0);
+            // Leistung je MPPT: das Geraet liefert nur Spannung und Strom je Eingang, keine Leistung.
+            for ($i = 0; $i < 4; $i++) {
+                $hub->SetVarFloat('mppt' . ($i + 1) . '_power', (float)round(($mb->u16($pv, $i * 2) / 10.0) * ($mb->u16($pv, $i * 2 + 1) / 10.0)));
+            }
         }
 
         if ($hub->GetPropBool('GroupGrid')) {
@@ -6192,6 +6200,13 @@ class InverterHub extends IPSModule
             $p = $find('mppt' . $i . '_power');
             $c = $find('mppt' . $i . '_current') ?: $find('mppt' . $i . '_curr');
             $v = $find('mppt' . $i . '_volt');
+            // Treiber ohne eigene mpptN_curr/-volt, aber mit berechneter mpptN_power (Solis): Strom und Spannung
+            // des Eingangs stehen unter pvN_curr/pvN_volt. Nur mit vorhandener MPPT-Leistung, damit andere
+            // Treiber (z. B. GoodWe, zwei Strings je MPPT) nicht falsch zugeordnet werden.
+            if ($p > 0) {
+                $c = $c ?: $find('pv' . $i . '_curr');
+                $v = $v ?: $find('pv' . $i . '_volt');
+            }
             if ($p > 0) {
                 $mpptPowerIDs[] = $p;
             }

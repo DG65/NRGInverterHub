@@ -15,6 +15,7 @@ if (!preg_match('/(class IHUB_SolisDriver implements IHUB_InverterDriverInterfac
 define('VARIABLETYPE_FLOAT', 2);
 interface IHUB_InverterDriverInterface {}
 $GLOBALS['solisSrc'] = $m[1];
+$GLOBALS['coreSrc'] = $src;
 eval($m[1]);
 
 class MockMb
@@ -203,6 +204,14 @@ $mb3->writes = []; $h3->v['cfg_storage_mode'] = 35;
 ctl($d, $h3, $mb3, 'ctl_storage_mode', 35);
 ok($mb3->writes === [], 'unveraendert (gelesen = 35): nicht erneut geschrieben');
 ok(strpos($GLOBALS['solisSrc'], 'ReassertEmsControl') === false && strpos($GLOBALS['solisSrc'], 'sleep') === false, 'keine eigene Wiederholung im Treiber');
+
+echo "MPPT-Leistung (berechnet)\n";
+$r = [33049 => 5411, 33050 => 50, 33051 => 4747, 33052 => 17, 33053 => 4817, 33054 => 15, 33055 => 17, 33056 => 0];
+$v = run($r);
+ok(abs($v['mppt1_power'] - 2705.5) <= 0.5 && abs($v['mppt2_power'] - 807.0) <= 0.5 && abs($v['mppt3_power'] - 722.6) <= 0.5 && $v['mppt4_power'] === 0.0, 'MPPT1-4: Spannung x Strom (541,1 V x 5,0 A = 2705 W, ...)');
+$v = run($r, false, ['GroupPV' => false]);
+ok(!isset($v['mppt1_power']), 'Gruppe PV abgeschaltet: keine MPPT-Leistung');
+ok(strpos($GLOBALS['coreSrc'], "\$c = \$c ?: \$find('pv' . \$i . '_curr');") !== false, 'GetFunctions: Strom/Spannung-Rueckfall nur bei vorhandener MPPT-Leistung');
 
 echo "Energiezaehler\n";
 $r = [33049 => 0];
