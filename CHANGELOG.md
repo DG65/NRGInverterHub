@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.77.0-beta.29 (2026-10-18)
+
+- **Solis: Hausverbrauch als Energiezähler ergänzt** („Hausverbrauch Gesamt/Heute", Register
+  33177-33180, wie Bezug/Einspeisung aufgebaut). Neue Variablen, bestehende bleiben unberührt.
+  Hinweis: Der Wechselrichter bildet diesen Zähler als Restgröße (alles, was die übrigen Zähler nicht
+  erklären) — er ist deshalb kein eigener Messwert. Prüfstand `.tools/test-solis.php` erweitert.
+
 ## 0.77.0-beta.28 (2026-10-17)
 
 - **Solis: Batterieleistung hatte das falsche Vorzeichen, die Gesamtzähler waren um den Faktor 10
