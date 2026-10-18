@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.76.0-beta.49 (2026-10-18)
+
+- **Solis: Leistung je MPPT.** Der Solis meldet je Eingang nur Spannung und Strom (33049-33056) und
+  gesamt die DC-Leistung (33057), aber keine Leistung je MPPT. Neu: „MPPT1-4 Leistung" als berechneter
+  Wert (Spannung × Strom, in der Gruppe „PV-Details"). Damit findet auch der Verbundvertrag
+  `IHUB_GetFunctions` (Felder `mpptPowerIDs`/`mpptCurrentIDs`/`mpptVoltageIDs`, z. B. für die MPPT-Tabelle im
+  Dashboard) bei Solis jetzt die Stränge: Strom und Spannung nimmt er dafür aus den vorhandenen
+  Variablen „PV1-4 Strom/Spannung" — nur wenn zu dem Strang eine MPPT-Leistung existiert, damit andere
+  Treiber unberührt bleiben. Bestehende Variablen unverändert. Prüfstand `.tools/test-solis.php`.
+
 ## 0.76.0-beta.48 (2026-10-18)
 
 - **Solis: Steuerung (Vorabversion, nur durchreichen).** Neue Gruppe „Steuerung" mit drei Schreibpunkten:
