@@ -33,7 +33,8 @@ class MockMb
 class MockHub
 {
     public $v = [];
-    public function GetPropBool($n) { return true; }
+    public $props = [];
+    public function GetPropBool($n) { return $this->props[$n] ?? true; }
     public function SetVarBool($i, $x) { $this->v[$i] = (bool)$x; }
     public function SetVarInt($i, $x) { $this->v[$i] = (int)$x; }
     public function SetVarFloat($i, $x) { $this->v[$i] = (float)$x; }
@@ -41,9 +42,9 @@ class MockHub
 }
 function put32(&$r, $a, $v) { $v &= 0xFFFFFFFF; $r[$a] = ($v >> 16) & 0xFFFF; $r[$a + 1] = $v & 0xFFFF; }
 
-function run($regs, $slow = false)
+function run($regs, $slow = false, $props = [])
 {
-    $d = new IHUB_SolisDriver(); $mb = new MockMb(); $mb->regs = $regs; $hub = new MockHub();
+    $d = new IHUB_SolisDriver(); $mb = new MockMb(); $mb->regs = $regs; $hub = new MockHub(); $hub->props = $props;
     $d->readFast($mb, $hub);
     if ($slow) { $d->readSlow($mb, $hub); }
     return $hub->v;
@@ -73,6 +74,24 @@ ok($v['bat_power'] === 2900.0, 'vorzeichenloser Betrag 2900, Richtung 1 -> +2900
 $r = $base; put32($r, 33149, 0); $r[33135] = 0;
 $v = run($r);
 ok($v['bat_power'] == 0.0, 'Ruhe: 0 W');
+
+echo "Zweiter Akku (Vorabversion)\n";
+$r = $base; put32($r, 33149, -400); $r[33135] = 1;
+$r[33097] = 588;                                              // Bit 6 gesetzt = unabhaengig
+$r[34278] = 26; $r[34289] = 2126; $r[34290] = 24; $r[34291] = 1;
+$v = run($r);
+ok(abs($v['bat_b_volt'] - 212.6) < 0.001 && abs($v['bat_b_curr'] - 2.4) < 0.001 && $v['bat_b_soc'] === 26, 'Akku 2: Spannung, Strom (Entladen +), SOC');
+ok($v['bat_b_power'] === 510.0, 'Akku 2: berechnete Leistung 510 W (+ = Entladen)');
+ok($v['bat_power'] === 400.0, 'Akku 1 / Bat. Leistung bleibt unveraendert');
+$r[34291] = 0;
+$v = run($r);
+ok($v['bat_b_curr'] < 0 && $v['bat_b_power'] < 0, 'Akku 2 Richtung 0 = Laden (negativ)');
+$r[33097] = 588 & ~0x40;                                      // parallel
+$v = run($r);
+ok(!isset($v['bat_b_volt']) && !isset($v['bat_b_power']), 'Parallelbetrieb (Bit 6 aus): keine Akku-2-Werte');
+$r[33097] = 588;
+$v = run($r, false, ['GroupBat2' => false]);
+ok(!isset($v['bat_b_volt']), 'Gruppe Akku 2 abgeschaltet: keine Akku-2-Werte');
 
 echo "Energiezaehler\n";
 $r = [33049 => 0];

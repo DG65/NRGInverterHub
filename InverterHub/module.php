@@ -1808,6 +1808,12 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 ['household_load', 'Hausverbrauch', 'F', 'SLS.Watt', true, 'bat', 'RO 33147'],
                 ['backup_load',    'Backup-Last',   'F', 'SLS.Watt', true, 'bat', 'RO 33148'],
             ]],
+            'GroupBat2' => ['caption' => 'Akku 2 (nur bei zwei unabhängigen Akkus, Vorabversion)', 'vars' => [
+                ['bat_b_volt',  'Akku 2 Spannung',  'F', 'SLS.Volt',   false, 'bat', 'RO 34289 (÷10)'],
+                ['bat_b_curr',  'Akku 2 Strom (+ Entladen / − Laden)', 'F', 'SLS.Ampere', false, 'bat', 'RO 34290 + Richtung RO 34291'],
+                ['bat_b_soc',   'Akku 2 SOC',       'I', '~Battery.100', false, 'bat', 'RO 34278'],
+                ['bat_b_power', 'Akku 2 Leistung (+ Entladen / − Laden, berechnet)', 'F', 'SLS.Watt', false, 'bat', 'Spannung × Strom'],
+            ]],
             'GroupMeter' => ['caption' => 'Smart Meter (Spannung, Strom je Phase)', 'vars' => [
                 ['mt_l1_volt', 'Meter L1 Spannung', 'F', 'SLS.Volt',   false, 'meter', 'RO 33251'],
                 ['mt_l2_volt', 'Meter L2 Spannung', 'F', 'SLS.Volt',   false, 'meter', 'RO 33253'],
@@ -1926,6 +1932,26 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             $hub->SetVarInt('bat_soh',    $mb->u16($bat, 8));              // 33140
             $hub->SetVarFloat('household_load', (float)$mb->u16($bat, 15)); // 33147
             $hub->SetVarFloat('backup_load',    (float)$mb->u16($bat, 16)); // 33148
+        }
+
+        // Zweiter Akku (Vorabversion, Registerabzug 18.10.2026): Funktionsregister 33097 Bit 6 =
+        // "Batterien unabhaengig" (0 = parallel). Dann liegen die Werte von Akku 2 laut Abzug in
+        // 34278 (SOC) und 34289-34291 (Spannung 0,1 V, Strom 0,1 A, Richtung 1 = Entladen).
+        // Nur Anzeige, die bisherige Bat. Leistung bleibt Akku 1.
+        if ($hub->GetPropBool('GroupBat2')) {
+            $func = $mb->readInput(33097, 1);
+            if ($func !== null && ($mb->u16($func, 0) & 0x40) !== 0) {
+                $b2 = $mb->readInput(34275, 17);   // 34275-34291
+                if ($b2 !== null) {
+                    $volt = $mb->u16($b2, 14) / 10.0;                       // 34289
+                    $curr = abs($mb->s16($b2, 15)) / 10.0;                  // 34290 (Betrag)
+                    $disch = ($mb->u16($b2, 16) === 1);                     // 34291
+                    $hub->SetVarFloat('bat_b_volt', $volt);
+                    $hub->SetVarFloat('bat_b_curr', $disch ? $curr : -$curr);
+                    $hub->SetVarInt('bat_b_soc', $mb->u16($b2, 3));         // 34278
+                    $hub->SetVarFloat('bat_b_power', round($volt * ($disch ? $curr : -$curr)));
+                }
+            }
         }
 
         if ($hub->GetPropBool('GroupMeter')) {
