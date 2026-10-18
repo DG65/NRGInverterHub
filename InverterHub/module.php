@@ -1852,7 +1852,27 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 ['mt_l1_volt', 'Meter L1 Spannung', 'F', 'SLS.Volt',   false, 'meter', 'RO 33251'],
                 ['mt_l2_volt', 'Meter L2 Spannung', 'F', 'SLS.Volt',   false, 'meter', 'RO 33253'],
                 ['mt_l3_volt', 'Meter L3 Spannung', 'F', 'SLS.Volt',   false, 'meter', 'RO 33255'],
+                ['mt_l1_curr', 'Meter L1 Strom', 'F', 'SLS.Ampere', false, 'meter', 'RO 33252 (÷100)'],
+                ['mt_l2_curr', 'Meter L2 Strom', 'F', 'SLS.Ampere', false, 'meter', 'RO 33254 (÷100)'],
+                ['mt_l3_curr', 'Meter L3 Strom', 'F', 'SLS.Ampere', false, 'meter', 'RO 33256 (÷100)'],
+                ['mt_l1_pwr', 'Meter L1 Leistung (+ Einspeisung / − Bezug)', 'F', 'SLS.Watt', true, 'meter', 'RO 33257-33258'],
+                ['mt_l2_pwr', 'Meter L2 Leistung (+ Einspeisung / − Bezug)', 'F', 'SLS.Watt', true, 'meter', 'RO 33259-33260'],
+                ['mt_l3_pwr', 'Meter L3 Leistung (+ Einspeisung / − Bezug)', 'F', 'SLS.Watt', true, 'meter', 'RO 33261-33262'],
                 ['mt_total_pwr', 'Meter Gesamtleistung (+ Einspeisung / − Bezug)', 'F', 'SLS.Watt', true, 'meter', 'RO 33263-33264'],
+            ]],
+            'GroupBackup' => ['caption' => 'Backup / Insel (Spannung, Strom je Phase)', 'vars' => [
+                ['backup_l1_volt', 'Backup Spannung L1', 'F', 'SLS.Volt',   false, 'backup', 'RO 33137'],
+                ['backup_l1_curr', 'Backup Strom L1',    'F', 'SLS.Ampere', false, 'backup', 'RO 33138'],
+                ['backup_l2_volt', 'Backup Spannung L2', 'F', 'SLS.Volt',   false, 'backup', 'RO 33153'],
+                ['backup_l2_curr', 'Backup Strom L2',    'F', 'SLS.Ampere', false, 'backup', 'RO 33154'],
+                ['backup_l3_volt', 'Backup Spannung L3', 'F', 'SLS.Volt',   false, 'backup', 'RO 33155'],
+                ['backup_l3_curr', 'Backup Strom L3',    'F', 'SLS.Ampere', false, 'backup', 'RO 33156'],
+            ]],
+            'GroupStatus' => ['caption' => 'Status und Fehler (Betriebsstatus, BMS, Fehlercodes)', 'vars' => [
+                ['op_status',   'Betriebsstatus',        'I', 'SLS.OpStatus',  true,  'device', 'RO 33287'],
+                ['bms_status',  'BMS-Status',            'I', 'SLS.BmsStatus', true,  'errors', 'RO 33111'],
+                ['fault_code',  'Fehlercode',            'I', '',              true,  'errors', 'RO 33116-33120, 33124-33125 (erster)'],
+                ['fault_text',  'Fehler Detail',         'S', '',              false, 'errors', 'RO 33116-33120, 33124-33125 (alle)'],
             ]],
             'GroupTemp' => ['caption' => 'Temperatur', 'vars' => [
                 ['temp_inv', 'Wechselrichter-Temperatur', 'F', '~Temperature', false, 'device', 'RO 33093'],
@@ -1874,6 +1894,8 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
                 ['dev_model', 'Modell-Nr.', 'I', '', false, 'device', 'RO 33000'],
                 ['dev_sn',    'Seriennummer', 'S', '', false, 'device', 'RO 33004-33019'],
+                ['dev_fw_dsp', 'Firmware DSP', 'I', '', false, 'device', 'RO 33001'],
+                ['dev_fw_hmi', 'Firmware HMI', 'I', '', false, 'device', 'RO 33002'],
             ]],
         ];
     }
@@ -1912,6 +1934,9 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             'SLS.ForceMode'   => [0 => ['Aus', 0x7A8A99], 1 => ['Laden', 0x3BA55D], 2 => ['Entladen', 0xE08A2B]],
             'SLS.BatMode'     => [0 => ['Standby', 0x7A8A99], 1 => ['Laden', 0x3BA55D], 2 => ['Entladen', 0xE08A2B]],
             'SLS.GridMode'    => [0 => ['Ausgeglichen', 0x7A8A99], 1 => ['Einspeisung', 0x3BA55D], 2 => ['Bezug', 0xE08A2B]],
+            'SLS.OpStatus'    => [0 => ['Stopp', 0x7A8A99], 1 => ['Leerlauf', 0x7A8A99], 2 => ['Sanftanlauf', 0xE08A2B], 3 => ['Netzbetrieb', 0x3BA55D],
+                                  4 => ['Inselbetrieb', 0xE08A2B], 5 => ['Übergang Insel → Netz', 0xE08A2B], 6 => ['Backup-Bypass', 0xE08A2B], 7 => ['Generatorbetrieb', 0xE08A2B]],
+            'SLS.BmsStatus'   => [0 => ['Normal', 0x3BA55D], 1 => ['Kommunikation gestört', 0xC0392B], 2 => ['Warnung', 0xE08A2B]],
         ];
     }
 
@@ -2034,7 +2059,50 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 $hub->SetVarFloat('mt_l1_volt', $mb->u16($mtV, 0) / 10.0);
                 $hub->SetVarFloat('mt_l2_volt', $mb->u16($mtV, 2) / 10.0);
                 $hub->SetVarFloat('mt_l3_volt', $mb->u16($mtV, 4) / 10.0);
+                $hub->SetVarFloat('mt_l1_curr', $mb->u16($mtV, 1) / 100.0);   // 33252
+                $hub->SetVarFloat('mt_l2_curr', $mb->u16($mtV, 3) / 100.0);   // 33254
+                $hub->SetVarFloat('mt_l3_curr', $mb->u16($mtV, 5) / 100.0);   // 33256
+                $hub->SetVarFloat('mt_l1_pwr', (float)$mb->s32($mtV, 6));     // 33257-33258
+                $hub->SetVarFloat('mt_l2_pwr', (float)$mb->s32($mtV, 8));     // 33259-33260
+                $hub->SetVarFloat('mt_l3_pwr', (float)$mb->s32($mtV, 10));    // 33261-33262
                 $hub->SetVarFloat('mt_total_pwr', (float)$mb->s32($mtV, 12));
+            }
+        }
+
+        // Backup / Insel: Spannung und Strom je Phase (33137/33138, 33153-33156).
+        if ($hub->GetPropBool('GroupBackup')) {
+            $bk = $mb->readInput(33137, 20);   // 33137-33156
+            if ($bk !== null) {
+                $hub->SetVarFloat('backup_l1_volt', $mb->u16($bk, 0) / 10.0);    // 33137
+                $hub->SetVarFloat('backup_l1_curr', $mb->u16($bk, 1) / 10.0);    // 33138
+                $hub->SetVarFloat('backup_l2_volt', $mb->u16($bk, 16) / 10.0);   // 33153
+                $hub->SetVarFloat('backup_l2_curr', $mb->u16($bk, 17) / 10.0);   // 33154
+                $hub->SetVarFloat('backup_l3_volt', $mb->u16($bk, 18) / 10.0);   // 33155
+                $hub->SetVarFloat('backup_l3_curr', $mb->u16($bk, 19) / 10.0);   // 33156
+            }
+        }
+
+        // Status und Fehler: Betriebsstatus 33287 (laut Solis-Doku, Tabelle "Operating Status"), BMS-Status 33111,
+        // Fehlercodes 01-05 (33116-33120) und 06-07 (33124-33125).
+        if ($hub->GetPropBool('GroupStatus')) {
+            $op = $mb->readInput(33287, 1);
+            if ($op !== null) {
+                $hub->SetVarInt('op_status', $mb->u16($op, 0));
+            }
+            $st = $mb->readInput(33111, 15);   // 33111-33125
+            if ($st !== null) {
+                $hub->SetVarInt('bms_status', $mb->u16($st, 0));
+                $codes = [];
+                foreach ([5, 6, 7, 8, 9, 13, 14] as $i) {   // 33116-33120, 33124-33125
+                    $c = $mb->u16($st, $i);
+                    if ($c !== 0) {
+                        $codes[] = $c;
+                    }
+                }
+                $hub->SetVarInt('fault_code', count($codes) > 0 ? $codes[0] : 0);
+                $hub->SetVarStr('fault_text', count($codes) > 0
+                    ? implode(', ', array_map(function ($c) { return sprintf('%04X', $c); }, $codes))
+                    : 'OK');
             }
         }
 
@@ -2160,6 +2228,11 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
         $sn = $mb->readInput(33004, 16);
         if ($sn !== null) {
             $hub->SetVarStr('dev_sn', $mb->readStr($sn, 0, 16));
+        }
+        $fw = $mb->readInput(33001, 2);   // 33001 DSP, 33002 HMI
+        if ($fw !== null) {
+            $hub->SetVarInt('dev_fw_dsp', $mb->u16($fw, 0));
+            $hub->SetVarInt('dev_fw_hmi', $mb->u16($fw, 1));
         }
     }
 

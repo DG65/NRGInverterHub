@@ -142,6 +142,24 @@ put32($r4, 33151, 20);
 $v4 = run($r4);
 ok($v4['grid_mode'] === 0, 'Netzmodus ausgeglichen bei +20 W');
 
+echo "Stufe 2: Meter-Phasen, Backup, Status, Fehler\n";
+$r = [33049 => 0];
+$r[33252] = 360; $r[33254] = 370; $r[33256] = 190;
+put32($r, 33257, -1000); put32($r, 33259, -2000); put32($r, 33261, 500); put32($r, 33263, -2500);
+$r[33137] = 2363; $r[33138] = 13; $r[33153] = 2362; $r[33154] = 14; $r[33155] = 2360; $r[33156] = 12;
+$r[33287] = 3; $r[33111] = 1; $r[33116] = 0x1053; $r[33120] = 0x2012; $r[33125] = 0xF010;
+$v = run($r);
+ok($v['mt_l1_pwr'] === -1000.0 && $v['mt_l2_pwr'] === -2000.0 && $v['mt_l3_pwr'] === 500.0 && $v['mt_total_pwr'] === -2500.0, 'Meter: Leistung je Phase und gesamt (− Bezug)');
+ok(abs($v['mt_l1_curr'] - 3.6) < 0.001 && abs($v['mt_l3_curr'] - 1.9) < 0.001, 'Meter: Strom je Phase (÷100)');
+ok(abs($v['backup_l1_volt'] - 236.3) < 0.001 && abs($v['backup_l2_curr'] - 1.4) < 0.001 && abs($v['backup_l3_volt'] - 236.0) < 0.001, 'Backup: Spannung/Strom je Phase');
+ok($v['op_status'] === 3 && $v['bms_status'] === 1, 'Betriebsstatus Netzbetrieb (3), BMS-Status 1');
+ok($v['fault_code'] === 0x1053 && $v['fault_text'] === '1053, 2012, F010', 'Fehlercodes: erster Code und Textliste');
+$r[33116] = 0; $r[33120] = 0; $r[33125] = 0;
+$v = run($r);
+ok($v['fault_code'] === 0 && $v['fault_text'] === 'OK', 'keine Fehler: Code 0, Text OK');
+$v = run($r, false, ['GroupStatus' => false, 'GroupBackup' => false]);
+ok(!isset($v['op_status']) && !isset($v['backup_l1_volt']), 'abgeschaltete Gruppen: nichts gelesen');
+
 echo "Energiezaehler\n";
 $r = [33049 => 0];
 put32($r, 33029, 1940); $r[33035] = 126;                      // PV gesamt 1940 kWh, heute 12,6 kWh
