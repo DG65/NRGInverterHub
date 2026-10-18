@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.77.0-beta.32 (2026-10-18)
+
+- **Solis: Gruppe „Einstellungen" (nur lesen).** Vorbereitung für eine spätere Steuerung: Die
+  Einstellungs-Register des Wechselrichters werden als Anzeige-Variablen gelesen (Speicherbetrieb 43110,
+  erzwungenes Laden/Entladen 43135 mit Leistungen 43136/43129, Leistungsgrenzen 43130/43131, Netzabgleich
+  43132, SOC-Grenzen 43010/43011/43018/43024, Lade-/Entladestrom 43012/43013, Fernsteuer-Zeitlimit 43282).
+  Es wird **nichts geschrieben**. Die Register stammen aus der Home-Assistant-Integration
+  `Pho3niX90/solis_modbus`, dem Plugin von wills106 und einer Abschrift der Solis-Dokumentation; die
+  Gruppe wird einmal je langsamem Lesezyklus gelesen und lässt sich im Formular abschalten. Ob die Werte
+  zum Portal passen, ist noch nicht bestätigt. Prüfstand `.tools/test-solis.php`.
+
 ## 0.77.0-beta.31 (2026-10-18)
 
 - **Solis: zweiter Akku in der Gesamtleistung, Ordner und Namen aufgeräumt.** Die Register des
