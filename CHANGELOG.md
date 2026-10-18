@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.77.0-beta.30 (2026-10-18)
+
+- **Solis: zweiter Akku als Vorabversion (nur Anzeige).** Bei Anlagen mit zwei unabhängig
+  arbeitenden Akkus (Funktionsregister 33097, Bit 6) las InverterHub bisher nur Akku 1 und zeigte
+  deshalb etwa die Hälfte der Akkuleistung. Neue, getrennte Variablen „Akku 2" (Spannung, Strom,
+  SOC, berechnete Leistung) aus den Registern 34278 und 34289 bis 34291, abgeleitet aus einem
+  Registerabzug und der Energiebilanz — **noch nicht am Portal bestätigt**. Die bisherige
+  „Bat. Leistung" bleibt bewusst unverändert (nur Akku 1), bis der Abgleich mit dem Portal stimmt.
+  Die neue Gruppe „Akku 2" lässt sich im Formular abschalten. Prüfstand `.tools/test-solis.php`.
+
 ## 0.77.0-beta.29 (2026-10-18)
 
 - **Solis: Hausverbrauch als Energiezähler ergänzt** („Hausverbrauch Gesamt/Heute", Register
