@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.77.0-beta.31 (2026-10-18)
+
+- **Solis: zweiter Akku in der Gesamtleistung, Ordner und Namen aufgeräumt.** Die Register des
+  zweiten Akkus (34275-34291, Funktionsbit 33097 Bit 6 „unabhängig") sind inzwischen auch aus einer
+  weiteren, unabhängigen Quelle bestätigt (Projekt `glenmo/microgrid_remote_monitor`, abgeleitet vom
+  Solis-Protokolldokument, dort „nur Modelle mit zwei Akkuanschlüssen"). „Bat. Leistung" ist deshalb
+  jetzt bei zwei unabhängigen Akkus die **Summe beider Akkus** (die Leistung von Akku 2 ist
+  Spannung × Strom, ein eigenes Register gibt es nicht); bei einem Akku ändert sich nichts.
+  **Ordner und Namen (nur Solis, Variablen-IDs, Idents und Archive bleiben):** Akku 2 liegt im Ordner
+  „Batterie 2"; „Hausverbrauch" (Register 33147) heißt jetzt „Last am Netzanschluss" und liegt unter
+  Netz, „Backup-Last" heißt „Last am Notstromausgang (Backup)" und liegt unter „Backup / Insel";
+  die Verbrauchszähler heißen „Verbrauch Heute/Gesamt (Netz + Backup)"; Netz- und Meterleistung
+  tragen die Vorzeichenregel in der Bezeichnung. Prüfstand `.tools/test-solis.php`.
+
 ## 0.77.0-beta.30 (2026-10-18)
 
 - **Solis: zweiter Akku als Vorabversion (nur Anzeige).** Bei Anlagen mit zwei unabhängig

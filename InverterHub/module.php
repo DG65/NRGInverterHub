@@ -1773,8 +1773,8 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             ['connected',   'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
             ['pv_total',    'PV Gesamtleistung', 'F', 'SLS.Watt', true,  'pv',       'RO 33057-33058'],
             ['ac_power',    'AC Wirkleistung',   'F', 'SLS.Watt', true,  'device',   'RO 33079-33080'],
-            ['meter_total', 'Netz Leistung',      'F', 'SLS.Watt', true,  'grid',    'RO 33151-33152'],
-            ['bat_power',   'Bat. Leistung (+ Entladen / − Laden)', 'F', 'SLS.Watt', true, 'bat', 'RO 33149-33150 + Richtung RO 33135'],
+            ['meter_total', 'Netz Leistung (+ Einspeisung / − Bezug)', 'F', 'SLS.Watt', true, 'grid', 'RO 33151-33152'],
+            ['bat_power',   'Bat. Leistung gesamt (+ Entladen / − Laden)', 'F', 'SLS.Watt', true, 'bat', 'RO 33149-33150 + Richtung RO 33135 (+ Akku 2)'],
             ['bat_soc',     'Bat. SOC',          'I', '~Battery.100', true, 'bat',   'RO 33139'],
         ];
     }
@@ -1805,20 +1805,20 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 ['bat_volt', 'Bat. Spannung', 'F', 'SLS.Volt',   false, 'bat', 'RO 33133'],
                 ['bat_curr', 'Bat. Strom (+ Entladen / − Laden)', 'F', 'SLS.Ampere', false, 'bat', 'RO 33134 + Richtung RO 33135'],
                 ['bat_soh',  'Bat. SOH',      'I', '~Intensity.100', true, 'bat', 'RO 33140'],
-                ['household_load', 'Hausverbrauch', 'F', 'SLS.Watt', true, 'bat', 'RO 33147'],
-                ['backup_load',    'Backup-Last',   'F', 'SLS.Watt', true, 'bat', 'RO 33148'],
+                ['household_load', 'Last am Netzanschluss', 'F', 'SLS.Watt', true, 'grid', 'RO 33147'],
+                ['backup_load',    'Last am Notstromausgang (Backup)', 'F', 'SLS.Watt', true, 'backup', 'RO 33148'],
             ]],
             'GroupBat2' => ['caption' => 'Akku 2 (nur bei zwei unabhängigen Akkus, Vorabversion)', 'vars' => [
-                ['bat_b_volt',  'Akku 2 Spannung',  'F', 'SLS.Volt',   false, 'bat', 'RO 34289 (÷10)'],
-                ['bat_b_curr',  'Akku 2 Strom (+ Entladen / − Laden)', 'F', 'SLS.Ampere', false, 'bat', 'RO 34290 + Richtung RO 34291'],
-                ['bat_b_soc',   'Akku 2 SOC',       'I', '~Battery.100', false, 'bat', 'RO 34278'],
-                ['bat_b_power', 'Akku 2 Leistung (+ Entladen / − Laden, berechnet)', 'F', 'SLS.Watt', false, 'bat', 'Spannung × Strom'],
+                ['bat_b_volt',  'Akku 2 Spannung',  'F', 'SLS.Volt',   false,'bat2', 'RO 34289 (÷10)'],
+                ['bat_b_curr',  'Akku 2 Strom (+ Entladen / − Laden)', 'F', 'SLS.Ampere', false,'bat2', 'RO 34290 + Richtung RO 34291'],
+                ['bat_b_soc',   'Akku 2 SOC',       'I', '~Battery.100', false,'bat2', 'RO 34278'],
+                ['bat_b_power', 'Akku 2 Leistung (+ Entladen / − Laden, berechnet)', 'F', 'SLS.Watt', false,'bat2', 'Spannung × Strom'],
             ]],
             'GroupMeter' => ['caption' => 'Smart Meter (Spannung, Strom je Phase)', 'vars' => [
                 ['mt_l1_volt', 'Meter L1 Spannung', 'F', 'SLS.Volt',   false, 'meter', 'RO 33251'],
                 ['mt_l2_volt', 'Meter L2 Spannung', 'F', 'SLS.Volt',   false, 'meter', 'RO 33253'],
                 ['mt_l3_volt', 'Meter L3 Spannung', 'F', 'SLS.Volt',   false, 'meter', 'RO 33255'],
-                ['mt_total_pwr', 'Meter Gesamtleistung', 'F', 'SLS.Watt', true, 'meter', 'RO 33263-33264'],
+                ['mt_total_pwr', 'Meter Gesamtleistung (+ Einspeisung / − Bezug)', 'F', 'SLS.Watt', true, 'meter', 'RO 33263-33264'],
             ]],
             'GroupTemp' => ['caption' => 'Temperatur', 'vars' => [
                 ['temp_inv', 'Wechselrichter-Temperatur', 'F', '~Temperature', false, 'device', 'RO 33093'],
@@ -1834,8 +1834,8 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 ['e_buy_total',    'Bezug Gesamt',        'F', '~Electricity', true, 'energy', 'RO 33169-33170 (U32, kWh)'],
                 ['e_sell_day',     'Einspeisung Heute',   'F', '~Electricity', true, 'energy', 'RO 33175'],
                 ['e_sell_total',   'Einspeisung Gesamt',  'F', '~Electricity', true, 'energy', 'RO 33173-33174 (U32, kWh)'],
-                ['e_load_day',     'Hausverbrauch Heute', 'F', '~Electricity', true, 'energy', 'RO 33179 (Restgröße)'],
-                ['e_load_total',   'Hausverbrauch Gesamt','F', '~Electricity', true, 'energy', 'RO 33177-33178 (U32, kWh, Restgröße)'],
+                ['e_load_day',     'Verbrauch Heute (Netz + Backup)', 'F', '~Electricity', true, 'energy', 'RO 33179'],
+                ['e_load_total',   'Verbrauch Gesamt (Netz + Backup)', 'F', '~Electricity', true, 'energy', 'RO 33177-33178 (U32, kWh)'],
             ]],
             'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
                 ['dev_model', 'Modell-Nr.', 'I', '', false, 'device', 'RO 33000'],
@@ -1892,7 +1892,11 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             // InverterHub-Konvention: + = Entladen, - = Laden.
             $rawBat = $mb->s32($bat, 17);
             $this->batDischarging = ($rawBat < 0) || ($mb->u16($bat, 3) === 1);   // 33135
-            $hub->SetVarFloat('bat_power', (float)($this->batDischarging ? abs($rawBat) : -abs($rawBat)));
+            $power1 = (float)($this->batDischarging ? abs($rawBat) : -abs($rawBat));
+            // Zwei unabhaengige Akkus: Gesamtleistung = Akku 1 + Akku 2 (nur wenn die Gruppe
+            // "Akku 2" aktiv und das Funktionsbit gesetzt ist).
+            $bat2 = $hub->GetPropBool('GroupBat2') ? $this->readBattery2($mb) : null;
+            $hub->SetVarFloat('bat_power', $power1 + ($bat2 !== null ? $bat2['power'] : 0.0));
         }
         if ($meter !== null) {
             $hub->SetVarFloat('meter_total', (float)$mb->s32($meter, 0));
@@ -1934,24 +1938,12 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             $hub->SetVarFloat('backup_load',    (float)$mb->u16($bat, 16)); // 33148
         }
 
-        // Zweiter Akku (Vorabversion, Registerabzug 18.10.2026): Funktionsregister 33097 Bit 6 =
-        // "Batterien unabhaengig" (0 = parallel). Dann liegen die Werte von Akku 2 laut Abzug in
-        // 34278 (SOC) und 34289-34291 (Spannung 0,1 V, Strom 0,1 A, Richtung 1 = Entladen).
-        // Nur Anzeige, die bisherige Bat. Leistung bleibt Akku 1.
-        if ($hub->GetPropBool('GroupBat2')) {
-            $func = $mb->readInput(33097, 1);
-            if ($func !== null && ($mb->u16($func, 0) & 0x40) !== 0) {
-                $b2 = $mb->readInput(34275, 17);   // 34275-34291
-                if ($b2 !== null) {
-                    $volt = $mb->u16($b2, 14) / 10.0;                       // 34289
-                    $curr = abs($mb->s16($b2, 15)) / 10.0;                  // 34290 (Betrag)
-                    $disch = ($mb->u16($b2, 16) === 1);                     // 34291
-                    $hub->SetVarFloat('bat_b_volt', $volt);
-                    $hub->SetVarFloat('bat_b_curr', $disch ? $curr : -$curr);
-                    $hub->SetVarInt('bat_b_soc', $mb->u16($b2, 3));         // 34278
-                    $hub->SetVarFloat('bat_b_power', round($volt * ($disch ? $curr : -$curr)));
-                }
-            }
+        // Zweiter Akku (siehe readBattery2()): nur Anzeige der Einzelwerte, die Summe steckt in bat_power.
+        if (isset($bat2) && $bat2 !== null) {
+            $hub->SetVarFloat('bat_b_volt', $bat2['volt']);
+            $hub->SetVarFloat('bat_b_curr', $bat2['curr']);
+            $hub->SetVarInt('bat_b_soc', $bat2['soc']);
+            $hub->SetVarFloat('bat_b_power', $bat2['power']);
         }
 
         if ($hub->GetPropBool('GroupMeter')) {
@@ -1965,6 +1957,32 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
         }
 
         return true;
+    }
+
+    // Zweiter Akku (Registerabzug 18.10.2026, bestaetigt durch glenmo/microgrid_remote_monitor):
+    // Funktionsregister 33097 Bit 6 = "Batterien unabhaengig" (0 = parallel). Dann liegen die Werte
+    // von Akku 2 in 34278 (SOC) und 34289-34291 (Spannung 0,1 V, Strom 0,1 A, Richtung 1 = Entladen).
+    // Ein eigenes Leistungsregister gibt es nicht - die Leistung ist Spannung x Strom.
+    private function readBattery2($mb)
+    {
+        $func = $mb->readInput(33097, 1);
+        if ($func === null || ($mb->u16($func, 0) & 0x40) === 0) {
+            return null;
+        }
+        $b2 = $mb->readInput(34275, 17);   // 34275-34291
+        if ($b2 === null) {
+            return null;
+        }
+        $volt  = $mb->u16($b2, 14) / 10.0;                // 34289
+        $curr  = abs($mb->s16($b2, 15)) / 10.0;           // 34290 (Betrag)
+        $disch = ($mb->u16($b2, 16) === 1);               // 34291
+        $signed = $disch ? $curr : -$curr;
+        return [
+            'volt'  => $volt,
+            'curr'  => $signed,
+            'soc'   => $mb->u16($b2, 3),                  // 34278
+            'power' => (float)round($volt * $signed),
+        ];
     }
 
     public function readSlow($mb, $hub)

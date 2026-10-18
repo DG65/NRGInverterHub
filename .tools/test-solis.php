@@ -82,16 +82,16 @@ $r[34278] = 26; $r[34289] = 2126; $r[34290] = 24; $r[34291] = 1;
 $v = run($r);
 ok(abs($v['bat_b_volt'] - 212.6) < 0.001 && abs($v['bat_b_curr'] - 2.4) < 0.001 && $v['bat_b_soc'] === 26, 'Akku 2: Spannung, Strom (Entladen +), SOC');
 ok($v['bat_b_power'] === 510.0, 'Akku 2: berechnete Leistung 510 W (+ = Entladen)');
-ok($v['bat_power'] === 400.0, 'Akku 1 / Bat. Leistung bleibt unveraendert');
+ok($v['bat_power'] === 910.0, 'Bat. Leistung ist bei zwei unabhaengigen Akkus die Summe (400 + 510 W)');
 $r[34291] = 0;
 $v = run($r);
 ok($v['bat_b_curr'] < 0 && $v['bat_b_power'] < 0, 'Akku 2 Richtung 0 = Laden (negativ)');
 $r[33097] = 588 & ~0x40;                                      // parallel
 $v = run($r);
-ok(!isset($v['bat_b_volt']) && !isset($v['bat_b_power']), 'Parallelbetrieb (Bit 6 aus): keine Akku-2-Werte');
+ok(!isset($v['bat_b_volt']) && !isset($v['bat_b_power']) && $v['bat_power'] === 400.0, 'Parallelbetrieb (Bit 6 aus): keine Akku-2-Werte, Leistung nur Akku 1');
 $r[33097] = 588;
 $v = run($r, false, ['GroupBat2' => false]);
-ok(!isset($v['bat_b_volt']), 'Gruppe Akku 2 abgeschaltet: keine Akku-2-Werte');
+ok(!isset($v['bat_b_volt']) && $v['bat_power'] === 400.0, 'Gruppe Akku 2 abgeschaltet: keine Akku-2-Werte, Leistung nur Akku 1');
 
 echo "Energiezaehler\n";
 $r = [33049 => 0];
