@@ -1774,8 +1774,11 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             ['pv_total',    'PV Gesamtleistung', 'F', 'SLS.Watt', true,  'pv',       'RO 33057-33058'],
             ['ac_power',    'AC Wirkleistung',   'F', 'SLS.Watt', true,  'device',   'RO 33079-33080'],
             ['meter_total', 'Netz Leistung (+ Einspeisung / − Bezug)', 'F', 'SLS.Watt', true, 'grid', 'RO 33151-33152'],
-            ['bat_power',   'Bat. Leistung gesamt (+ Entladen / − Laden)', 'F', 'SLS.Watt', true, 'bat', 'RO 33149-33150 + Richtung RO 33135 (+ Akku 2)'],
-            ['bat_soc',     'Bat. SOC',          'I', '~Battery.100', true, 'bat',   'RO 33139'],
+            ['bat_power',   'Bat. Gesamtleistg. (+ Entladen / − Laden)', 'F', 'SLS.Watt', true, 'batcommon', 'RO 33149-33150 + Richtung RO 33135 (+ Akku 2)'],
+            ['bat_soc',     'SOC (Ø)',           'I', '~Battery.100', true, 'batcommon', 'RO 33139 (Ø bei zwei Akkus)'],
+            ['bat_charge_max_w',    'Bat. max. Ladeleistung',    'F', 'SLS.Watt', false, 'batcommon', 'BMS calc'],
+            ['bat_discharge_max_w', 'Bat. max. Entladeleistung', 'F', 'SLS.Watt', false, 'batcommon', 'BMS calc'],
+            ['grid_mode',   'Netzmodus',         'I', 'SLS.GridMode', false, 'grid', 'calc'],
         ];
     }
 
@@ -1801,34 +1804,49 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 ['grid_l3_curr', 'Netz L3 Strom',    'F', 'SLS.Ampere', false, 'grid', 'RO 33078'],
                 ['grid_freq',    'Netzfrequenz',      'F', 'SLS.Hertz', false, 'grid', 'RO 33094'],
             ]],
-            'GroupBat' => ['caption' => 'Batterie (Spannung, Strom, SOH)', 'vars' => [
-                ['bat_volt', 'Bat. Spannung', 'F', 'SLS.Volt',   false, 'bat', 'RO 33133'],
-                ['bat_curr', 'Bat. Strom (+ Entladen / − Laden)', 'F', 'SLS.Ampere', false, 'bat', 'RO 33134 + Richtung RO 33135'],
-                ['bat_soh',  'Bat. SOH',      'I', '~Intensity.100', true, 'bat', 'RO 33140'],
+            'GroupBat' => ['caption' => 'Batterie 1 (Spannung, Strom, SOC, Leistung, Modus, BMS) und Lasten', 'vars' => [
+                ['bat_volt', 'Bat.1 Spannung', 'F', 'SLS.Volt',   false, 'bat1', 'RO 33133'],
+                ['bat_curr', 'Bat.1 Strom (+ Entladen / − Laden)', 'F', 'SLS.Ampere', false, 'bat1', 'RO 33134 + Richtung RO 33135'],
+                ['bat_soh',  'Bat.1 SOH',      'I', '~Intensity.100', true, 'bat1', 'RO 33140'],
+                ['bat1_soc',  'Bat.1 SOC',     'I', '~Battery.100', true, 'bat1', 'RO 33139'],
+                ['bat1_pwr',  'Bat.1 Leistung (+ Entladen / − Laden)', 'F', 'SLS.Watt', true, 'bat1', 'RO 33149-33150 + Richtung RO 33135'],
+                ['bat1_mode', 'Bat.1 Modus',   'I', 'SLS.BatMode', true, 'bat1', 'calc'],
+                ['bat1_temp', 'Bat.1 Temperatur', 'F', '~Temperature', false, 'bat1', 'RO 33043 (÷10)'],
+                ['bat1_bms_volt', 'Bat.1 Spannung (BMS)', 'F', 'SLS.Volt', false, 'bat1', 'RO 33141 (÷100)'],
+                ['bat1_bms_curr', 'Bat.1 Strom (BMS)', 'F', 'SLS.Ampere', false, 'bat1', 'RO 33142 (÷10)'],
+                ['bat1_chg_max_a', 'Bat.1 max. Ladestrom',   'F', 'SLS.Ampere', false, 'bat1', 'RO 33143 (÷10)'],
+                ['bat1_dis_max_a', 'Bat.1 max. Entladestrom', 'F', 'SLS.Ampere', false, 'bat1', 'RO 33144 (÷10)'],
                 ['household_load', 'Last am Netzanschluss', 'F', 'SLS.Watt', true, 'grid', 'RO 33147'],
                 ['backup_load',    'Last am Notstromausgang (Backup)', 'F', 'SLS.Watt', true, 'backup', 'RO 33148'],
             ]],
-            'GroupBat2' => ['caption' => 'Akku 2 (nur bei zwei unabhängigen Akkus, Vorabversion)', 'vars' => [
-                ['bat_b_volt',  'Akku 2 Spannung',  'F', 'SLS.Volt',   false,'bat2', 'RO 34289 (÷10)'],
-                ['bat_b_curr',  'Akku 2 Strom (+ Entladen / − Laden)', 'F', 'SLS.Ampere', false,'bat2', 'RO 34290 + Richtung RO 34291'],
-                ['bat_b_soc',   'Akku 2 SOC',       'I', '~Battery.100', false,'bat2', 'RO 34278'],
-                ['bat_b_power', 'Akku 2 Leistung (+ Entladen / − Laden, berechnet)', 'F', 'SLS.Watt', false,'bat2', 'Spannung × Strom'],
+            'GroupBat2' => ['caption' => 'Batterie 2 (nur bei zwei unabhängigen Akkus, Vorabversion)', 'vars' => [
+                ['bat2_volt', 'Bat.2 Spannung', 'F', 'SLS.Volt',   false, 'bat2', 'RO 34289 (÷10)'],
+                ['bat2_curr', 'Bat.2 Strom (+ Entladen / − Laden)', 'F', 'SLS.Ampere', false, 'bat2', 'RO 34290 + Richtung RO 34291'],
+                ['bat2_pwr',  'Bat.2 Leistung (+ Entladen / − Laden, berechnet)', 'F', 'SLS.Watt', true, 'bat2', 'Spannung × Strom'],
+                ['bat2_mode', 'Bat.2 Modus',   'I', 'SLS.BatMode', true, 'bat2', 'calc'],
+                ['bat2_soc',  'Bat.2 SOC',     'I', '~Battery.100', true, 'bat2', 'RO 34278'],
+                ['bat2_soh',  'Bat.2 SOH',     'I', '~Intensity.100', true, 'bat2', 'RO 34279'],
+                ['bat2_temp', 'Bat.2 Temperatur', 'F', '~Temperature', false, 'bat2', 'RO 34277 (÷10)'],
+                ['bat2_bms_volt', 'Bat.2 Spannung (BMS)', 'F', 'SLS.Volt', false, 'bat2', 'RO 34275 (÷100)'],
+                ['bat2_bms_curr', 'Bat.2 Strom (BMS)', 'F', 'SLS.Ampere', false, 'bat2', 'RO 34276 (÷10)'],
+                ['bat2_chg_max_a', 'Bat.2 max. Ladestrom',   'F', 'SLS.Ampere', false, 'bat2', 'RO 34281 (÷10)'],
+                ['bat2_dis_max_a', 'Bat.2 max. Entladestrom', 'F', 'SLS.Ampere', false, 'bat2', 'RO 34282 (÷10)'],
             ]],
             'GroupSettings' => ['caption' => 'Einstellungen des Wechselrichters (nur lesen, Vorabversion)', 'vars' => [
-                ['cfg_storage_mode',     'Speicherbetrieb (Einstellung)',        'I', 'SLS.StorageMode', false, 'device', 'HR 43110'],
-                ['cfg_force_mode',       'Zwangsladen/-entladen (Einstellung)',  'I', 'SLS.ForceMode',   false, 'device', 'HR 43135'],
-                ['cfg_force_charge_w',   'Zwangs-Ladeleistung',                  'F', 'SLS.Watt',        false, 'device', 'HR 43136 (x10 W)'],
-                ['cfg_force_disch_w',    'Zwangs-Entladeleistung',               'F', 'SLS.Watt',        false, 'device', 'HR 43129 (x10 W)'],
-                ['cfg_charge_limit_w',   'Begrenzung Ladeleistung',              'F', 'SLS.Watt',        false, 'device', 'HR 43130 (x10 W)'],
-                ['cfg_disch_limit_w',    'Begrenzung Entladeleistung',           'F', 'SLS.Watt',        false, 'device', 'HR 43131 (x10 W)'],
-                ['cfg_grid_adjust',      'Netzabgleich (0 aus, 1 System, 2 WR)', 'I', '',                false, 'device', 'HR 43132'],
-                ['cfg_soc_max',          'SOC Ladegrenze (Overcharge)',          'I', '~Intensity.100',  false, 'device', 'HR 43010'],
-                ['cfg_soc_min',          'SOC Entladegrenze (Overdischarge)',    'I', '~Intensity.100',  false, 'device', 'HR 43011'],
-                ['cfg_soc_forcecharge',  'SOC Zwangsladung',                     'I', '~Intensity.100',  false, 'device', 'HR 43018'],
-                ['cfg_soc_backup',       'SOC Backup-Reserve',                   'I', '~Intensity.100',  false, 'device', 'HR 43024'],
-                ['cfg_max_charge_a',     'Max. Ladestrom',                       'F', 'SLS.Ampere',      false, 'device', 'HR 43012 (÷10)'],
-                ['cfg_max_disch_a',      'Max. Entladestrom',                    'F', 'SLS.Ampere',      false, 'device', 'HR 43013 (÷10)'],
-                ['cfg_rc_timeout_min',   'Fernsteuer-Zeitlimit (Minuten)',       'I', '',                false, 'device', 'HR 43282'],
+                ['cfg_storage_mode',     'Speicherbetrieb (Einstellung)',        'I', 'SLS.StorageMode', false, 'settings', 'HR 43110'],
+                ['cfg_force_mode',       'Zwangsladen/-entladen (Einstellung)',  'I', 'SLS.ForceMode',   false, 'settings', 'HR 43135'],
+                ['cfg_force_charge_w',   'Zwangs-Ladeleistung',                  'F', 'SLS.Watt',        false, 'settings', 'HR 43136 (x10 W)'],
+                ['cfg_force_disch_w',    'Zwangs-Entladeleistung',               'F', 'SLS.Watt',        false, 'settings', 'HR 43129 (x10 W)'],
+                ['cfg_charge_limit_w',   'Begrenzung Ladeleistung',              'F', 'SLS.Watt',        false, 'settings', 'HR 43130 (x10 W)'],
+                ['cfg_disch_limit_w',    'Begrenzung Entladeleistung',           'F', 'SLS.Watt',        false, 'settings', 'HR 43131 (x10 W)'],
+                ['cfg_grid_adjust',      'Netzabgleich (0 aus, 1 System, 2 WR)', 'I', '',                false, 'settings', 'HR 43132'],
+                ['cfg_soc_max',          'SOC Ladegrenze (Overcharge)',          'I', '~Intensity.100',  false, 'settings', 'HR 43010'],
+                ['cfg_soc_min',          'SOC Entladegrenze (Overdischarge)',    'I', '~Intensity.100',  false, 'settings', 'HR 43011'],
+                ['cfg_soc_forcecharge',  'SOC Zwangsladung',                     'I', '~Intensity.100',  false, 'settings', 'HR 43018'],
+                ['cfg_soc_backup',       'SOC Backup-Reserve',                   'I', '~Intensity.100',  false, 'settings', 'HR 43024'],
+                ['cfg_max_charge_a',     'Max. Ladestrom',                       'F', 'SLS.Ampere',      false, 'settings', 'HR 43012 (÷10)'],
+                ['cfg_max_disch_a',      'Max. Entladestrom',                    'F', 'SLS.Ampere',      false, 'settings', 'HR 43013 (÷10)'],
+                ['cfg_rc_timeout_min',   'Fernsteuer-Zeitlimit (Minuten)',       'I', '',                false, 'settings', 'HR 43282'],
             ]],
             'GroupMeter' => ['caption' => 'Smart Meter (Spannung, Strom je Phase)', 'vars' => [
                 ['mt_l1_volt', 'Meter L1 Spannung', 'F', 'SLS.Volt',   false, 'meter', 'RO 33251'],
@@ -1850,8 +1868,8 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 ['e_buy_total',    'Bezug Gesamt',        'F', '~Electricity', true, 'energy', 'RO 33169-33170 (U32, kWh)'],
                 ['e_sell_day',     'Einspeisung Heute',   'F', '~Electricity', true, 'energy', 'RO 33175'],
                 ['e_sell_total',   'Einspeisung Gesamt',  'F', '~Electricity', true, 'energy', 'RO 33173-33174 (U32, kWh)'],
-                ['e_load_day',     'Verbrauch Heute (Netz + Backup)', 'F', '~Electricity', true, 'energy', 'RO 33179'],
-                ['e_load_total',   'Verbrauch Gesamt (Netz + Backup)', 'F', '~Electricity', true, 'energy', 'RO 33177-33178 (U32, kWh)'],
+                ['e_load_day',     'Last Heute (Netz + Backup)', 'F', '~Electricity', true, 'energy', 'RO 33179'],
+                ['e_load_total',   'Last Gesamt (Netz + Backup)', 'F', '~Electricity', true, 'energy', 'RO 33177-33178 (U32, kWh)'],
             ]],
             'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
                 ['dev_model', 'Modell-Nr.', 'I', '', false, 'device', 'RO 33000'],
@@ -1892,6 +1910,8 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
         return [
             'SLS.StorageMode' => $modes,
             'SLS.ForceMode'   => [0 => ['Aus', 0x7A8A99], 1 => ['Laden', 0x3BA55D], 2 => ['Entladen', 0xE08A2B]],
+            'SLS.BatMode'     => [0 => ['Standby', 0x7A8A99], 1 => ['Laden', 0x3BA55D], 2 => ['Entladen', 0xE08A2B]],
+            'SLS.GridMode'    => [0 => ['Ausgeglichen', 0x7A8A99], 1 => ['Einspeisung', 0x3BA55D], 2 => ['Bezug', 0xE08A2B]],
         ];
     }
 
@@ -1912,8 +1932,11 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
         if ($ac !== null) {
             $hub->SetVarFloat('ac_power', (float)$mb->s32($ac, 0));
         }
+        $bat2 = null;
+        $power1 = 0.0;
+        $soc1 = 0;
         if ($bat !== null) {
-            $hub->SetVarInt('bat_soc', $mb->u16($bat, 7));                // 33139
+            $soc1 = $mb->u16($bat, 7);                                     // 33139
             // Vorzeichen (Abgleich mit Solis-Portal, 17.10.2026): Der Rohwert in 33149/33150
             // ist bei dieser Firmware vorzeichenbehaftet, POSITIV = Laden (evcc liest ihn mit
             // Faktor -1 als "positiv = Entladen"). Bei Firmware mit vorzeichenlosem Betrag
@@ -1924,13 +1947,27 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             $rawBat = $mb->s32($bat, 17);
             $this->batDischarging = ($rawBat < 0) || ($mb->u16($bat, 3) === 1);   // 33135
             $power1 = (float)($this->batDischarging ? abs($rawBat) : -abs($rawBat));
-            // Zwei unabhaengige Akkus: Gesamtleistung = Akku 1 + Akku 2 (nur wenn die Gruppe
-            // "Akku 2" aktiv und das Funktionsbit gesetzt ist).
+            // Zwei unabhaengige Akkus: Gesamtleistung = Akku 1 + Akku 2, SOC = Mittelwert
+            // (nur wenn die Gruppe "Batterie 2" aktiv und das Funktionsbit gesetzt ist).
             $bat2 = $hub->GetPropBool('GroupBat2') ? $this->readBattery2($mb) : null;
             $hub->SetVarFloat('bat_power', $power1 + ($bat2 !== null ? $bat2['power'] : 0.0));
+            $hub->SetVarInt('bat_soc', $bat2 !== null ? (int)round(($soc1 + $bat2['soc']) / 2) : $soc1);
+            // Maximale Lade-/Entladeleistung aus dem BMS-Grenzstrom (wie bei GoodWe "BMS calc").
+            $v1   = $mb->u16($bat, 1) / 10.0;                              // 33133
+            $chgW = ($mb->u16($bat, 11) / 10.0) * $v1;                     // 33143
+            $disW = ($mb->u16($bat, 12) / 10.0) * $v1;                     // 33144
+            if ($bat2 !== null) {
+                $chgW += $bat2['chg_max'] * $bat2['volt'];
+                $disW += $bat2['dis_max'] * $bat2['volt'];
+            }
+            $hub->SetVarFloat('bat_charge_max_w', round($chgW));
+            $hub->SetVarFloat('bat_discharge_max_w', round($disW));
         }
         if ($meter !== null) {
-            $hub->SetVarFloat('meter_total', (float)$mb->s32($meter, 0));
+            $gridW = (float)$mb->s32($meter, 0);
+            $hub->SetVarFloat('meter_total', $gridW);
+            // Netzmodus aus dem Vorzeichen: + Einspeisung, - Bezug (Toleranz 50 W).
+            $hub->SetVarInt('grid_mode', $gridW > 50 ? 1 : ($gridW < -50 ? 2 : 0));
         }
 
         if ($hub->GetPropBool('GroupPV')) {
@@ -1961,20 +1998,34 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
         }
 
         if ($hub->GetPropBool('GroupBat') && $bat !== null) {
+            $signed = function ($v) { return $this->batDischarging ? abs($v) : -abs($v); };
             $hub->SetVarFloat('bat_volt', $mb->u16($bat, 1) / 10.0);       // 33133
-            $curr = abs($mb->s16($bat, 2)) / 10.0;                          // 33134 (Betrag)
-            $hub->SetVarFloat('bat_curr', $this->batDischarging ? $curr : -$curr);
+            $hub->SetVarFloat('bat_curr', $signed($mb->s16($bat, 2) / 10.0)); // 33134
             $hub->SetVarInt('bat_soh',    $mb->u16($bat, 8));              // 33140
+            $hub->SetVarInt('bat1_soc',   $soc1);
+            $hub->SetVarFloat('bat1_pwr', $power1);
+            $hub->SetVarInt('bat1_mode',  self::batMode($power1));
+            $hub->SetVarFloat('bat1_bms_volt', $mb->u16($bat, 9) / 100.0);          // 33141
+            $hub->SetVarFloat('bat1_bms_curr', $signed($mb->s16($bat, 10) / 10.0)); // 33142
+            $hub->SetVarFloat('bat1_chg_max_a', $mb->u16($bat, 11) / 10.0);         // 33143
+            $hub->SetVarFloat('bat1_dis_max_a', $mb->u16($bat, 12) / 10.0);         // 33144
             $hub->SetVarFloat('household_load', (float)$mb->u16($bat, 15)); // 33147
             $hub->SetVarFloat('backup_load',    (float)$mb->u16($bat, 16)); // 33148
         }
 
-        // Zweiter Akku (siehe readBattery2()): nur Anzeige der Einzelwerte, die Summe steckt in bat_power.
-        if (isset($bat2) && $bat2 !== null) {
-            $hub->SetVarFloat('bat_b_volt', $bat2['volt']);
-            $hub->SetVarFloat('bat_b_curr', $bat2['curr']);
-            $hub->SetVarInt('bat_b_soc', $bat2['soc']);
-            $hub->SetVarFloat('bat_b_power', $bat2['power']);
+        // Zweiter Akku (siehe readBattery2()): Einzelwerte; Summe und Mittelwert stecken in bat_power/bat_soc.
+        if ($bat2 !== null) {
+            $hub->SetVarFloat('bat2_volt', $bat2['volt']);
+            $hub->SetVarFloat('bat2_curr', $bat2['curr']);
+            $hub->SetVarFloat('bat2_pwr', $bat2['power']);
+            $hub->SetVarInt('bat2_mode', self::batMode($bat2['power']));
+            $hub->SetVarInt('bat2_soc', $bat2['soc']);
+            $hub->SetVarInt('bat2_soh', $bat2['soh']);
+            $hub->SetVarFloat('bat2_temp', $bat2['temp']);
+            $hub->SetVarFloat('bat2_bms_volt', $bat2['bms_volt']);
+            $hub->SetVarFloat('bat2_bms_curr', $bat2['bms_curr']);
+            $hub->SetVarFloat('bat2_chg_max_a', $bat2['chg_max']);
+            $hub->SetVarFloat('bat2_dis_max_a', $bat2['dis_max']);
         }
 
         if ($hub->GetPropBool('GroupMeter')) {
@@ -2008,16 +2059,38 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
         $curr  = abs($mb->s16($b2, 15)) / 10.0;           // 34290 (Betrag)
         $disch = ($mb->u16($b2, 16) === 1);               // 34291
         $signed = $disch ? $curr : -$curr;
+        $bmsCurr = abs($mb->s16($b2, 1)) / 10.0;          // 34276 (Betrag)
         return [
-            'volt'  => $volt,
-            'curr'  => $signed,
-            'soc'   => $mb->u16($b2, 3),                  // 34278
-            'power' => (float)round($volt * $signed),
+            'volt'     => $volt,
+            'curr'     => $signed,
+            'soc'      => $mb->u16($b2, 3),               // 34278
+            'soh'      => $mb->u16($b2, 4),               // 34279
+            'temp'     => $mb->s16($b2, 2) / 10.0,        // 34277
+            'bms_volt' => $mb->u16($b2, 0) / 100.0,       // 34275
+            'bms_curr' => $disch ? $bmsCurr : -$bmsCurr,
+            'chg_max'  => $mb->u16($b2, 6) / 10.0,        // 34281
+            'dis_max'  => $mb->u16($b2, 7) / 10.0,        // 34282
+            'power'    => (float)round($volt * $signed),
         ];
+    }
+
+    // Modus eines Akkus aus der (vorzeichenbehafteten) Leistung: + Entladen, - Laden.
+    private static function batMode($power)
+    {
+        if (abs($power) < 10) {
+            return 0;
+        }
+        return $power > 0 ? 2 : 1;
     }
 
     public function readSlow($mb, $hub)
     {
+        if ($hub->GetPropBool('GroupBat')) {
+            $t = $mb->readInput(33043, 1);   // BMS-Batterietemperatur, 0,1 Grad
+            if ($t !== null) {
+                $hub->SetVarFloat('bat1_temp', $mb->s16($t, 0) / 10.0);
+            }
+        }
         // Einstellungs-Register (nur lesen, Holding/FC03). Jeder Block wird einzeln und
         // fehlertolerant gelesen - nicht unterstuetzte Register bleiben einfach leer.
         if ($hub->GetPropBool('GroupSettings')) {
@@ -7218,6 +7291,7 @@ class InverterHub extends IPSModule
         'energy'    => 'Energiezähler',
         'device'    => 'Wechselrichter / Gerät',
         'control'   => 'EMS-Steuerung',
+        'settings'  => 'Einstellungen',
         'errors'    => 'Fehler / Verbindung',
     ];
 

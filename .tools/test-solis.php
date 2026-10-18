@@ -85,18 +85,18 @@ $r = $base; put32($r, 33149, -400); $r[33135] = 1;
 $r[33097] = 588;                                              // Bit 6 gesetzt = unabhaengig
 $r[34278] = 26; $r[34289] = 2126; $r[34290] = 24; $r[34291] = 1;
 $v = run($r);
-ok(abs($v['bat_b_volt'] - 212.6) < 0.001 && abs($v['bat_b_curr'] - 2.4) < 0.001 && $v['bat_b_soc'] === 26, 'Akku 2: Spannung, Strom (Entladen +), SOC');
-ok($v['bat_b_power'] === 510.0, 'Akku 2: berechnete Leistung 510 W (+ = Entladen)');
+ok(abs($v['bat2_volt'] - 212.6) < 0.001 && abs($v['bat2_curr'] - 2.4) < 0.001 && $v['bat2_soc'] === 26, 'Akku 2: Spannung, Strom (Entladen +), SOC');
+ok($v['bat2_pwr'] === 510.0, 'Akku 2: berechnete Leistung 510 W (+ = Entladen)');
 ok($v['bat_power'] === 910.0, 'Bat. Leistung ist bei zwei unabhaengigen Akkus die Summe (400 + 510 W)');
 $r[34291] = 0;
 $v = run($r);
-ok($v['bat_b_curr'] < 0 && $v['bat_b_power'] < 0, 'Akku 2 Richtung 0 = Laden (negativ)');
+ok($v['bat2_curr'] < 0 && $v['bat2_pwr'] < 0, 'Akku 2 Richtung 0 = Laden (negativ)');
 $r[33097] = 588 & ~0x40;                                      // parallel
 $v = run($r);
-ok(!isset($v['bat_b_volt']) && !isset($v['bat_b_power']) && $v['bat_power'] === 400.0, 'Parallelbetrieb (Bit 6 aus): keine Akku-2-Werte, Leistung nur Akku 1');
+ok(!isset($v['bat2_volt']) && !isset($v['bat2_pwr']) && $v['bat_power'] === 400.0, 'Parallelbetrieb (Bit 6 aus): keine Akku-2-Werte, Leistung nur Akku 1');
 $r[33097] = 588;
 $v = run($r, false, ['GroupBat2' => false]);
-ok(!isset($v['bat_b_volt']) && $v['bat_power'] === 400.0, 'Gruppe Akku 2 abgeschaltet: keine Akku-2-Werte, Leistung nur Akku 1');
+ok(!isset($v['bat2_volt']) && $v['bat_power'] === 400.0, 'Gruppe Akku 2 abgeschaltet: keine Akku-2-Werte, Leistung nur Akku 1');
 
 echo "Einstellungen (nur lesen)\n";
 $r = [33049 => 0];
@@ -112,6 +112,35 @@ $v = run($r, true, ['GroupSettings' => false]);
 ok(!isset($v['cfg_storage_mode']), 'Gruppe Einstellungen abgeschaltet: nichts gelesen');
 // Der Treiber darf nirgends schreiben.
 ok(strpos($GLOBALS['solisSrc'], 'writeSingle') === false && strpos($GLOBALS['solisSrc'], 'writeMultiple') === false, 'Solis-Treiber enthaelt keinen Schreibzugriff');
+
+echo "Aufbau wie GoodWe (Stufe 1)\n";
+$r = $base; put32($r, 33149, -400); $r[33135] = 1; $r[33097] = 588;
+$r[33139] = 27; $r[33141] = 21060; $r[33142] = 21; $r[33143] = 1400; $r[33144] = 2016; $r[33043] = 228;
+$r[34275] = 21050; $r[34276] = 24; $r[34277] = 227; $r[34278] = 26; $r[34279] = 100; $r[34281] = 1400; $r[34282] = 2016;
+$r[34289] = 2126; $r[34290] = 24; $r[34291] = 1;
+$v = run($r, true);
+ok($v['bat1_pwr'] === 400.0 && $v['bat1_mode'] === 2 && $v['bat1_soc'] === 27, 'Akku 1: Leistung +400 W, Modus Entladen, SOC 27');
+ok($v['bat2_mode'] === 2 && $v['bat2_soc'] === 26 && $v['bat2_soh'] === 100 && abs($v['bat2_temp'] - 22.7) < 0.001, 'Akku 2: Modus Entladen, SOC 26, SOH 100, Temperatur 22,7');
+ok($v['bat_soc'] === 27 || $v['bat_soc'] === 26, 'Gemeinsamer SOC ist der Mittelwert (27 und 26 -> ' . $v['bat_soc'] . ')');
+ok(abs($v['bat1_bms_volt'] - 210.6) < 0.001 && abs($v['bat1_bms_curr'] - 2.1) < 0.001, 'Akku 1: BMS-Spannung/-Strom (Entladen +)');
+ok(abs($v['bat1_temp'] - 22.8) < 0.001, 'Akku 1: Temperatur aus 33043 (langsamer Zyklus)');
+// 140 A * 213,0 V (Akku 1: 33133) + 140 A * 212,6 V (Akku 2) = 59564 W; Entladen 201,6 A analog
+$expCharge = round(140.0 * 210.1 + 140.0 * 212.6);
+$r2 = $r; $r2[33133] = 2101;
+$v2 = run($r2, true);
+ok($v2['bat_charge_max_w'] === $expCharge, 'max. Ladeleistung = Grenzstrom x Spannung beider Akkus (' . $expCharge . ' W)');
+$r3 = $r; $r3[33097] = 588 & ~0x40;
+$v3 = run($r3, true);
+ok($v3['bat_soc'] === 27 && !isset($v3['bat2_soc']) && $v3['bat_charge_max_w'] === round(140.0 * 210.1), 'ein Akku: SOC unveraendert, max. Ladeleistung nur Akku 1');
+$r4 = $base; put32($r4, 33151, 3000);
+$v4 = run($r4);
+ok($v4['grid_mode'] === 1, 'Netzmodus Einspeisung bei +3000 W');
+put32($r4, 33151, -3000);
+$v4 = run($r4);
+ok($v4['grid_mode'] === 2, 'Netzmodus Bezug bei -3000 W');
+put32($r4, 33151, 20);
+$v4 = run($r4);
+ok($v4['grid_mode'] === 0, 'Netzmodus ausgeglichen bei +20 W');
 
 echo "Energiezaehler\n";
 $r = [33049 => 0];
