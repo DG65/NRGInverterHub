@@ -20,6 +20,9 @@ eval($m[1]);
 class MockMb
 {
     public $regs = [];
+    public $writes = [];
+    public $failWrites = false;
+    public function writeSingle($reg, $val) { if ($this->failWrites) { return false; } $this->writes[] = [$reg, $val]; return true; }
     public function readHolding($start, $count)
     {
         return $this->readInput($start, $count);
@@ -38,6 +41,9 @@ class MockMb
 class MockHub
 {
     public $v = [];
+    public $warn = [];
+    public function GetVarInt($i) { return $this->v[$i] ?? -1; }
+    public function WarnUser($m) { $this->warn[] = $m; }
     public $props = [];
     public function GetPropBool($n) { return $this->props[$n] ?? true; }
     public function SetVarBool($i, $x) { $this->v[$i] = (bool)$x; }
@@ -111,7 +117,7 @@ ok($v['cfg_max_charge_a'] === 100.0 && $v['cfg_max_disch_a'] === 100.0 && $v['cf
 $v = run($r, true, ['GroupSettings' => false]);
 ok(!isset($v['cfg_storage_mode']), 'Gruppe Einstellungen abgeschaltet: nichts gelesen');
 // Der Treiber darf nirgends schreiben.
-ok(strpos($GLOBALS['solisSrc'], 'writeSingle') === false && strpos($GLOBALS['solisSrc'], 'writeMultiple') === false, 'Solis-Treiber enthaelt keinen Schreibzugriff');
+ok(strpos($GLOBALS['solisSrc'], 'writeMultiple') === false, 'Solis-Treiber nutzt nur Einzelschreiben (FC06)');
 
 echo "Aufbau wie GoodWe (Stufe 1)\n";
 $r = $base; put32($r, 33149, -400); $r[33135] = 1; $r[33097] = 588;
@@ -159,6 +165,44 @@ $v = run($r);
 ok($v['fault_code'] === 0 && $v['fault_text'] === 'OK', 'keine Fehler: Code 0, Text OK');
 $v = run($r, false, ['GroupStatus' => false, 'GroupBackup' => false]);
 ok(!isset($v['op_status']) && !isset($v['backup_l1_volt']), 'abgeschaltete Gruppen: nichts gelesen');
+
+echo "Steuerung (nur durchreichen)\n";
+$d = new IHUB_SolisDriver();
+function ctl($d, $hub, $mb, $ident, $val) { $d->writeControl($mb, $hub, $ident, $val); }
+$mb = new MockMb(); $hub = new MockHub();
+ctl($d, $hub, $mb, 'ctl_force_w', 3004);
+ok($hub->v['ctl_force_w'] === 3000 && $mb->writes === [], 'Leistung 3004 W -> 3000 W gemerkt, ohne aktiven Zwangsmodus nichts geschrieben');
+ctl($d, $hub, $mb, 'ctl_force_mode', 1);
+ok($mb->writes === [[43136, 300], [43135, 1]] && $hub->v['ctl_force_mode'] === 1, 'Laden: erst Leistung 43136=300, dann Modus 43135=1');
+$mb->writes = [];
+ctl($d, $hub, $mb, 'ctl_force_w', 2000);
+ok($mb->writes === [[43136, 200]], 'Leistungsaenderung bei aktivem Laden: nur 43136=200');
+$mb->writes = [];
+ctl($d, $hub, $mb, 'ctl_force_mode', 2);
+ok($mb->writes === [[43129, 200], [43135, 2]], 'Entladen: erst 43129=200, dann 43135=2');
+$mb->writes = [];
+ctl($d, $hub, $mb, 'ctl_force_mode', 0);
+ok($mb->writes === [[43135, 0]] && $hub->v['ctl_force_mode'] === 0, 'Aus: nur 43135=0');
+$mb->writes = [];
+ctl($d, $hub, $mb, 'ctl_force_w', 20000);
+ok($hub->v['ctl_force_w'] === 9900, 'Leistung wird auf 9900 W begrenzt');
+ctl($d, $hub, $mb, 'ctl_force_w', -50);
+ok($hub->v['ctl_force_w'] === 0, 'negative Leistung wird 0');
+$mb->writes = []; $hub->warn = [];
+ctl($d, $hub, $mb, 'ctl_force_mode', 5);
+ok($mb->writes === [] && count($hub->warn) === 1, 'ungueltiger Zwangsmodus 5: nichts geschrieben, Warnung');
+$mb2 = new MockMb(); $mb2->failWrites = true; $h2 = new MockHub(); $h2->v['ctl_force_w'] = 1000;
+ctl($d, $h2, $mb2, 'ctl_force_mode', 1);
+ok(!isset($h2->v['ctl_force_mode']) && count($h2->warn) === 1, 'Schreibfehler: Variable bleibt unveraendert, Warnung');
+$mb3 = new MockMb(); $h3 = new MockHub();
+ctl($d, $h3, $mb3, 'ctl_storage_mode', 37);
+ok($mb3->writes === [] && count($h3->warn) === 1, 'Speicherbetrieb 37 (Inselbetrieb) wird nicht geschrieben');
+ctl($d, $h3, $mb3, 'ctl_storage_mode', 35);
+ok($mb3->writes === [[43110, 35]] && $h3->v['ctl_storage_mode'] === 35, 'Speicherbetrieb 35 wird geschrieben');
+$mb3->writes = []; $h3->v['cfg_storage_mode'] = 35;
+ctl($d, $h3, $mb3, 'ctl_storage_mode', 35);
+ok($mb3->writes === [], 'unveraendert (gelesen = 35): nicht erneut geschrieben');
+ok(strpos($GLOBALS['solisSrc'], 'ReassertEmsControl') === false && strpos($GLOBALS['solisSrc'], 'sleep') === false, 'keine eigene Wiederholung im Treiber');
 
 echo "Energiezaehler\n";
 $r = [33049 => 0];

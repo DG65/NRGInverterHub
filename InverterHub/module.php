@@ -1832,6 +1832,11 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 ['bat2_chg_max_a', 'Bat.2 max. Ladestrom',   'F', 'SLS.Ampere', false, 'bat2', 'RO 34281 (÷10)'],
                 ['bat2_dis_max_a', 'Bat.2 max. Entladestrom', 'F', 'SLS.Ampere', false, 'bat2', 'RO 34282 (÷10)'],
             ]],
+            'GroupControl' => ['caption' => 'Steuerung (Zwangsladen/-entladen, Speicherbetrieb, Vorabversion)', 'vars' => [
+                ['ctl_force_mode',   'Zwangsladen/-entladen', 'I', 'SLS.ForceMode',   false, 'control', 'RW 43135'],
+                ['ctl_force_w',      'Zwangsleistung (W)',    'I', 'SLS.WattInt',     false, 'control', 'RW 43136 (Laden) / 43129 (Entladen), x10 W'],
+                ['ctl_storage_mode', 'Speicherbetrieb',       'I', 'SLS.StorageMode', false, 'control', 'RW 43110 (nur Auswahl)'],
+            ]],
             'GroupSettings' => ['caption' => 'Einstellungen des Wechselrichters (nur lesen, Vorabversion)', 'vars' => [
                 ['cfg_storage_mode',     'Speicherbetrieb (Einstellung)',        'I', 'SLS.StorageMode', false, 'settings', 'HR 43110'],
                 ['cfg_force_mode',       'Zwangsladen/-entladen (Einstellung)',  'I', 'SLS.ForceMode',   false, 'settings', 'HR 43135'],
@@ -1909,6 +1914,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
     {
         return [
             'SLS.Watt'   => [VARIABLETYPE_FLOAT, ' W',  -40000.0, 40000.0, 1.0,  0],
+            'SLS.WattInt' => [VARIABLETYPE_INTEGER, ' W',        0,    9900,  10,  0],
             'SLS.Volt'   => [VARIABLETYPE_FLOAT, ' V',       0.0,  1000.0, 0.1,  1],
             'SLS.Ampere' => [VARIABLETYPE_FLOAT, ' A',    -200.0,   200.0, 0.1,  1],
             'SLS.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',     45.0,    65.0, 0.01, 2],
@@ -2236,9 +2242,75 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
         }
     }
 
+    // Steuerregister (Holding, FC06). Quellen: Home-Assistant-Integration Pho3niX90/solis_modbus,
+    // Plugin wills106/homeassistant-solax-modbus, Abschrift der Solis-Doku. NOCH AN KEINER ANLAGE ERPROBT.
+    const REG_STORAGE_MODE = 43110;   // Speicherbetrieb (Bitfeld)
+    const REG_FORCE_DISCH_W = 43129;  // Zwangs-Entladeleistung, 10 W
+    const REG_FORCE_MODE   = 43135;   // 0 aus, 1 Laden, 2 Entladen
+    const REG_FORCE_CHG_W  = 43136;   // Zwangs-Ladeleistung, 10 W
+    const FORCE_MAX_W      = 9900;
+    // Erlaubte Speicherbetriebsarten: bewusst OHNE Inselbetrieb (37) und Batterie-Wecken (41/43).
+    const STORAGE_MODES_ALLOWED = [1, 3, 17, 33, 35, 49, 51, 64, 96, 98];
+
+    // Reine Weitergabe (Architekturentscheidung 29.08.2026): keine eigene Wiederholung, kein Totmann -
+    // Dauerhalten und Rueckfall liegen beim Aufrufer (EMS).
     public function writeControl($mb, $hub, $ident, $value)
     {
-        // Kein Steuerregister in der ersten Ausbaustufe implementiert.
+        switch ($ident) {
+            case 'ctl_force_w':
+                $w = (int)(round(max(0, min(self::FORCE_MAX_W, (float)$value)) / 10) * 10);
+                $mode = $hub->GetVarInt('ctl_force_mode');
+                if ($mode === 1 || $mode === 2) {
+                    // Zwangsmodus laeuft: neue Leistung sofort ins passende Register schreiben.
+                    $reg = ($mode === 1) ? self::REG_FORCE_CHG_W : self::REG_FORCE_DISCH_W;
+                    if (!$mb->writeSingle($reg, intdiv($w, 10))) {
+                        $hub->WarnUser('Solis: Zwangsleistung konnte nicht geschrieben werden (Register ' . $reg . ').');
+                        return;
+                    }
+                }
+                $hub->SetVarInt('ctl_force_w', $w);
+                return;
+
+            case 'ctl_force_mode':
+                $mode = (int)$value;
+                if ($mode < 0 || $mode > 2) {
+                    $hub->WarnUser('Solis: Zwangsmodus ' . $mode . ' ist ungueltig (0 aus, 1 Laden, 2 Entladen).');
+                    return;
+                }
+                if ($mode !== 0) {
+                    // Erst die Leistung, dann den Modus - sonst gilt kurz der neue Modus mit alter Leistung.
+                    $w   = max(0, $hub->GetVarInt('ctl_force_w'));
+                    $reg = ($mode === 1) ? self::REG_FORCE_CHG_W : self::REG_FORCE_DISCH_W;
+                    if (!$mb->writeSingle($reg, intdiv($w, 10))) {
+                        $hub->WarnUser('Solis: Zwangsleistung konnte nicht geschrieben werden (Register ' . $reg . '), Modus bleibt unveraendert.');
+                        return;
+                    }
+                }
+                if (!$mb->writeSingle(self::REG_FORCE_MODE, $mode)) {
+                    $hub->WarnUser('Solis: Zwangsmodus konnte nicht geschrieben werden (Register 43135).');
+                    return;
+                }
+                $hub->SetVarInt('ctl_force_mode', $mode);
+                return;
+
+            case 'ctl_storage_mode':
+                $mode = (int)$value;
+                if (!in_array($mode, self::STORAGE_MODES_ALLOWED, true)) {
+                    $hub->WarnUser('Solis: Speicherbetrieb ' . $mode . ' wird nicht geschrieben (nicht in der erlaubten Auswahl, z. B. Inselbetrieb/Batterie-Wecken).');
+                    return;
+                }
+                // Das Register ist fest gespeichert - nur schreiben, wenn der zuletzt gelesene Wert abweicht.
+                if ($hub->GetVarInt('cfg_storage_mode') === $mode) {
+                    $hub->SetVarInt('ctl_storage_mode', $mode);
+                    return;
+                }
+                if (!$mb->writeSingle(self::REG_STORAGE_MODE, $mode)) {
+                    $hub->WarnUser('Solis: Speicherbetrieb konnte nicht geschrieben werden (Register 43110).');
+                    return;
+                }
+                $hub->SetVarInt('ctl_storage_mode', $mode);
+                return;
+        }
     }
 }
 

@@ -403,6 +403,16 @@ positiv = Laden (evcc nutzt Faktor −1 für „positiv = Entladen"); Richtungsr
 Solis-Installationen springen einmalig auf das Zehnfache (Archiv zeigt dafür einen Sprung); wer
 `BatInvert` nur als Ausgleich des Vorzeichenfehlers gesetzt hatte, muss ihn ausschalten.
 
+**Update 18.10.2026 (spätere Stände, Details im Changelog):** Zweiter Akku über 33097 Bit 6 + 34275-34291
+gelöst (bestätigt durch `glenmo/microgrid_remote_monitor`); Aufbau jetzt wie GoodWe (Ordner, `bat1_*`/`bat2_*`,
+gemeinsamer SOC-Mittelwert); Gruppe „Einstellungen" (nur lesen, `cfg_*`) und Gruppe „Steuerung" (`ctl_*`: Zwangsladen/
+-entladen 43135 mit Leistung 43136/43129, Speicherbetrieb 43110 nur aus einer Whitelist ohne Inselbetrieb/Batterie-
+wecken). **Die Steuerung reicht nur durch — keine eigene Wiederholung, kein Totmann** (Architekturentscheidung
+29.08.2026, Politik liegt beim EMS). Ob der Solis den Zwangsmodus von selbst zurücknimmt, ist unbestätigt (Hinweis:
+Register 43282 „Fernsteuer-Zeitlimit", in `cfg_rc_timeout_min` lesbar; wills106 schreibt den Zwangsmodus in HA
+dauernd neu); Dietmar vermutet (18.10.2026) einen Totmann wie bei GoodWe, die Heartbeat-Tabelle unten ist entsprechend angepasst. Wer den Zwangsmodus halten will, schreibt ihn regelmäßig neu (EMS).
+Noch an keiner Solis-Anlage erprobt.
+
 **Noch offen:** (1) Betrag 2,9 kW (InverterHub) gegenüber 5,6 kW (Portal, „x2" Akkus) — vermutlich
 nur der erste Akku gelesen; Register für einen zweiten Akku sind nicht belegt. (2) Tageswerte
 Bezug/Laden weichen vom Portal ab (48,5 gegen 17 kWh, 20,4 gegen 16 kWh) — Rohregister
@@ -1575,7 +1585,7 @@ Recherchen, Quellen im Verbund-Vertrag in SUITE.md). Konfidenz je Zeile ehrlich 
 | Growatt SPH/MOD/MIX | NEIN | persistente Holding-Register (TOU/AC-Charge), überleben sogar Neustarts; EEPROM-Verschleiß bei häufigem Schreiben! | letzter Befehl bleibt eingefroren | [Comm] |
 | Growatt WIT | JA (Ablaufzeit) | 30407 Enable + 30408 Dauer (0-1440 min) + 30409 Leistung | Rückfall TOU-Schedule | [Comm] |
 | Deye SG04LP3 | NEIN | persistente Register (TOU 146-172, Ein/Aus 80); EEPROM-Thema aktiv in Foren | letzter Befehl bleibt eingefroren (BMS-Grenzen gelten weiter) | [Comm] |
-| Solis | NEIN (öffentlich) | 43110 Bitfeld + Timed-Charge 43141ff. persistieren; vollständige Schreib-Doku nur unter NDA — NDA-Watchdog nicht ausschließbar | letzter Modus bleibt eingefroren | [Comm] |
+| Solis | **JA, wohl (Dietmar 18.10.2026, Dauer/Verhalten ungeprüft)** | Zwangsmodus 43135 (+ Leistung 43136/43129); Hinweis auf Zeitlimit-Register 43282 (Minuten, in HA als „geraten" markiert), wills106 schreibt den Zwangsmodus in HA dauernd neu; 43110 Bitfeld + Timed-Charge 43141ff. persistieren | vermutlich Rückfall in den normalen Speicherbetrieb nach Ablauf (unbestätigt) | [Comm] + Dietmar |
 | Solplanet | UNKLAR | keine öffentliche Hybrid-Schreib-Doku; Doku bei AISWEI anfragbar | vermutlich eingefroren (unbelegt) | [?] |
 
 **Kernerkenntnis — zwei gegensätzliche Risikoklassen:**

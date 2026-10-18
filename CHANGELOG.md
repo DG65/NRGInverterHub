@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.76.0-beta.48 (2026-10-18)
+
+- **Solis: Steuerung (Vorabversion, nur durchreichen).** Neue Gruppe „Steuerung" mit drei Schreibpunkten:
+  „Zwangsladen/-entladen" (Register 43135: Aus, Laden, Entladen), „Zwangsleistung (W)" (43136 beim Laden,
+  43129 beim Entladen, in Schritten zu 10 W, 0 bis 9900 W) und „Speicherbetrieb" (43110, nur ausgewählte
+  Betriebsarten: Eigenverbrauch, Zeitladen, Backup/Reserve, Einspeisevorrang — **nicht** Inselbetrieb und
+  Batterie-Wecken). Geschrieben wird nur, wenn die Steuerhoheit der Instanz auf „EMS" steht, wie bei den anderen
+  Treibern. Gilt wie überall bei InverterHub: **keine eigene Wiederholung und kein Totmann** — wer
+  Zwangsladen/-entladen dauerhaft halten will, schreibt regelmäßig neu (Aufgabe des EMS). Der Solis hat
+  nach bisheriger Einschätzung (Dietmar) wie GoodWe einen Totmann: Der Zwangsmodus fällt vermutlich nach einiger Zeit ohne
+  erneutes Schreiben zurück, die Dauer ist unbestätigt (Hinweis: Zeitlimit-Register 43282, in der Gruppe „Einstellungen"
+  lesbar). Ohne Zeitlimit bliebe der Modus stehen, bis die SOC-Grenzen des Wechselrichters greifen. **Noch an keiner Solis-Anlage erprobt.** Prüfstand `.tools/test-solis.php`.
+
 ## 0.76.0-beta.47 (2026-10-18)
 
 - **Solis: Aufbau wie bei GoodWe (Stufe 2).** Neu: Leistung und Strom je Phase am Smart Meter
