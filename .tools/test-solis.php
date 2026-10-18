@@ -14,11 +14,16 @@ if (!preg_match('/(class IHUB_SolisDriver implements IHUB_InverterDriverInterfac
 }
 define('VARIABLETYPE_FLOAT', 2);
 interface IHUB_InverterDriverInterface {}
+$GLOBALS['solisSrc'] = $m[1];
 eval($m[1]);
 
 class MockMb
 {
     public $regs = [];
+    public function readHolding($start, $count)
+    {
+        return $this->readInput($start, $count);
+    }
     public function readInput($start, $count)
     {
         $out = [];
@@ -92,6 +97,21 @@ ok(!isset($v['bat_b_volt']) && !isset($v['bat_b_power']) && $v['bat_power'] === 
 $r[33097] = 588;
 $v = run($r, false, ['GroupBat2' => false]);
 ok(!isset($v['bat_b_volt']) && $v['bat_power'] === 400.0, 'Gruppe Akku 2 abgeschaltet: keine Akku-2-Werte, Leistung nur Akku 1');
+
+echo "Einstellungen (nur lesen)\n";
+$r = [33049 => 0];
+$r[43010] = 100; $r[43011] = 10; $r[43012] = 1000; $r[43013] = 1000; $r[43018] = 8; $r[43024] = 80;
+$r[43110] = 35; $r[43129] = 150; $r[43130] = 600; $r[43131] = 500; $r[43132] = 1; $r[43135] = 2; $r[43136] = 200; $r[43282] = 5;
+$v = run($r, true);
+ok($v['cfg_storage_mode'] === 35 && $v['cfg_force_mode'] === 2, 'Speicherbetrieb 35, Zwangsmodus 2 (Entladen)');
+ok($v['cfg_force_charge_w'] === 2000.0 && $v['cfg_force_disch_w'] === 1500.0, 'Zwangsleistungen in W (x10)');
+ok($v['cfg_charge_limit_w'] === 6000.0 && $v['cfg_disch_limit_w'] === 5000.0 && $v['cfg_grid_adjust'] === 1, 'Leistungsgrenzen und Netzabgleich');
+ok($v['cfg_soc_max'] === 100 && $v['cfg_soc_min'] === 10 && $v['cfg_soc_forcecharge'] === 8 && $v['cfg_soc_backup'] === 80, 'SOC-Grenzen');
+ok($v['cfg_max_charge_a'] === 100.0 && $v['cfg_max_disch_a'] === 100.0 && $v['cfg_rc_timeout_min'] === 5, 'Stromgrenzen (0,1 A) und Zeitlimit');
+$v = run($r, true, ['GroupSettings' => false]);
+ok(!isset($v['cfg_storage_mode']), 'Gruppe Einstellungen abgeschaltet: nichts gelesen');
+// Der Treiber darf nirgends schreiben.
+ok(strpos($GLOBALS['solisSrc'], 'writeSingle') === false && strpos($GLOBALS['solisSrc'], 'writeMultiple') === false, 'Solis-Treiber enthaelt keinen Schreibzugriff');
 
 echo "Energiezaehler\n";
 $r = [33049 => 0];

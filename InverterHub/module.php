@@ -1814,6 +1814,22 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 ['bat_b_soc',   'Akku 2 SOC',       'I', '~Battery.100', false,'bat2', 'RO 34278'],
                 ['bat_b_power', 'Akku 2 Leistung (+ Entladen / − Laden, berechnet)', 'F', 'SLS.Watt', false,'bat2', 'Spannung × Strom'],
             ]],
+            'GroupSettings' => ['caption' => 'Einstellungen des Wechselrichters (nur lesen, Vorabversion)', 'vars' => [
+                ['cfg_storage_mode',     'Speicherbetrieb (Einstellung)',        'I', 'SLS.StorageMode', false, 'device', 'HR 43110'],
+                ['cfg_force_mode',       'Zwangsladen/-entladen (Einstellung)',  'I', 'SLS.ForceMode',   false, 'device', 'HR 43135'],
+                ['cfg_force_charge_w',   'Zwangs-Ladeleistung',                  'F', 'SLS.Watt',        false, 'device', 'HR 43136 (x10 W)'],
+                ['cfg_force_disch_w',    'Zwangs-Entladeleistung',               'F', 'SLS.Watt',        false, 'device', 'HR 43129 (x10 W)'],
+                ['cfg_charge_limit_w',   'Begrenzung Ladeleistung',              'F', 'SLS.Watt',        false, 'device', 'HR 43130 (x10 W)'],
+                ['cfg_disch_limit_w',    'Begrenzung Entladeleistung',           'F', 'SLS.Watt',        false, 'device', 'HR 43131 (x10 W)'],
+                ['cfg_grid_adjust',      'Netzabgleich (0 aus, 1 System, 2 WR)', 'I', '',                false, 'device', 'HR 43132'],
+                ['cfg_soc_max',          'SOC Ladegrenze (Overcharge)',          'I', '~Intensity.100',  false, 'device', 'HR 43010'],
+                ['cfg_soc_min',          'SOC Entladegrenze (Overdischarge)',    'I', '~Intensity.100',  false, 'device', 'HR 43011'],
+                ['cfg_soc_forcecharge',  'SOC Zwangsladung',                     'I', '~Intensity.100',  false, 'device', 'HR 43018'],
+                ['cfg_soc_backup',       'SOC Backup-Reserve',                   'I', '~Intensity.100',  false, 'device', 'HR 43024'],
+                ['cfg_max_charge_a',     'Max. Ladestrom',                       'F', 'SLS.Ampere',      false, 'device', 'HR 43012 (÷10)'],
+                ['cfg_max_disch_a',      'Max. Entladestrom',                    'F', 'SLS.Ampere',      false, 'device', 'HR 43013 (÷10)'],
+                ['cfg_rc_timeout_min',   'Fernsteuer-Zeitlimit (Minuten)',       'I', '',                false, 'device', 'HR 43282'],
+            ]],
             'GroupMeter' => ['caption' => 'Smart Meter (Spannung, Strom je Phase)', 'vars' => [
                 ['mt_l1_volt', 'Meter L1 Spannung', 'F', 'SLS.Volt',   false, 'meter', 'RO 33251'],
                 ['mt_l2_volt', 'Meter L2 Spannung', 'F', 'SLS.Volt',   false, 'meter', 'RO 33253'],
@@ -1859,9 +1875,24 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
         ];
     }
 
+    // Speicherbetrieb laut Register 43110 (Bitfeld, Werte aus dem wills106-Plugin und der Solis-Doku).
+    const STORAGE_MODES = [
+        1 => 'Eigenverbrauch, kein Netzladen', 3 => 'Zeitladen, kein Netzladen', 17 => 'Backup/Reserve, kein Netzladen',
+        33 => 'Eigenverbrauch, ohne Zeitladen', 35 => 'Eigenverbrauch', 37 => 'Inselbetrieb', 41 => 'Batterie wecken',
+        43 => 'Batterie wecken + Zeitladen', 49 => 'Backup/Reserve, ohne Zeitladen', 51 => 'Backup/Reserve',
+        64 => 'Einspeisevorrang, kein Netzladen', 96 => 'Einspeisevorrang, ohne Zeitladen', 98 => 'Einspeisevorrang',
+    ];
+
     public function getEnumProfiles()
     {
-        return [];
+        $modes = [];
+        foreach (self::STORAGE_MODES as $k => $label) {
+            $modes[$k] = [$label, 0x7A8A99];
+        }
+        return [
+            'SLS.StorageMode' => $modes,
+            'SLS.ForceMode'   => [0 => ['Aus', 0x7A8A99], 1 => ['Laden', 0x3BA55D], 2 => ['Entladen', 0xE08A2B]],
+        ];
     }
 
     public function readFast($mb, $hub)
@@ -1987,6 +2018,42 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
 
     public function readSlow($mb, $hub)
     {
+        // Einstellungs-Register (nur lesen, Holding/FC03). Jeder Block wird einzeln und
+        // fehlertolerant gelesen - nicht unterstuetzte Register bleiben einfach leer.
+        if ($hub->GetPropBool('GroupSettings')) {
+            $r = $mb->readHolding(43010, 4);   // 43010-43013
+            if ($r !== null) {
+                $hub->SetVarInt('cfg_soc_max', $mb->u16($r, 0));
+                $hub->SetVarInt('cfg_soc_min', $mb->u16($r, 1));
+                $hub->SetVarFloat('cfg_max_charge_a', $mb->u16($r, 2) / 10.0);
+                $hub->SetVarFloat('cfg_max_disch_a', $mb->u16($r, 3) / 10.0);
+            }
+            $r = $mb->readHolding(43018, 1);
+            if ($r !== null) {
+                $hub->SetVarInt('cfg_soc_forcecharge', $mb->u16($r, 0));
+            }
+            $r = $mb->readHolding(43024, 1);
+            if ($r !== null) {
+                $hub->SetVarInt('cfg_soc_backup', $mb->u16($r, 0));
+            }
+            $r = $mb->readHolding(43110, 1);
+            if ($r !== null) {
+                $hub->SetVarInt('cfg_storage_mode', $mb->u16($r, 0));
+            }
+            $r = $mb->readHolding(43129, 8);   // 43129-43136
+            if ($r !== null) {
+                $hub->SetVarFloat('cfg_force_disch_w', $mb->u16($r, 0) * 10.0);   // 43129
+                $hub->SetVarFloat('cfg_charge_limit_w', $mb->u16($r, 1) * 10.0);  // 43130
+                $hub->SetVarFloat('cfg_disch_limit_w', $mb->u16($r, 2) * 10.0);   // 43131
+                $hub->SetVarInt('cfg_grid_adjust', $mb->u16($r, 3));              // 43132
+                $hub->SetVarInt('cfg_force_mode', $mb->u16($r, 6));               // 43135
+                $hub->SetVarFloat('cfg_force_charge_w', $mb->u16($r, 7) * 10.0);  // 43136
+            }
+            $r = $mb->readHolding(43282, 1);
+            if ($r !== null) {
+                $hub->SetVarInt('cfg_rc_timeout_min', $mb->u16($r, 0));
+            }
+        }
         if ($hub->GetPropBool('GroupEnergy')) {
             // Gesamtstaende (U32) haben 1 kWh Aufloesung, nur die Tageswerte (U16) 0,1 kWh
             // (evcc: "register has 1 kWh resolution"; openHAB/HA: Faktor 1). Bis 0.77.0-beta.27 fehlerhaft durch 10 geteilt.
