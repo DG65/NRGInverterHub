@@ -6080,6 +6080,11 @@ class InverterHub extends IPSModule
             $this->UpdateFormField('BridgeStatus', 'caption', $this->BridgeStatusLine((int)$Value));
             return;
         }
+        if ($Ident === 'ArchiveNow') {
+            $this->UpdateFormField('ArchiveNowResult', 'caption', $this->ArchiveAllNow());
+            $this->UpdateFormField('AutoArchive', 'value', true);
+            return;
+        }
         if (!$this->ReadPropertyBoolean('Active')) {
             return;
         }
@@ -6381,9 +6386,20 @@ class InverterHub extends IPSModule
         if (!$this->ReadPropertyBoolean('AutoArchive')) {
             $groupItems[] = [
                 'type'    => 'Label',
-                'caption' => '⚠️ Automatische Archivierung ist aus. Neue Messwert-Variablen werden nicht ins Archiv aufgenommen. Das ist nur für eine Migration aus einem Altmodul (z. B. GoodweET) gedacht — dabei muss die Zielvariable ohne eigene Historie bleiben, damit MigrationsHub die Alt-Historie übernehmen kann. Nach der Migration wieder einschalten.',
+                'caption' => '⚠️ Automatische Archivierung ist aus (Vorgabe). Ohne Archiv zeigen Dashboard, Tages- und Verlaufswerte nichts an. Empfohlen: unten „Archivierung jetzt einrichten" klicken und das Häkchen setzen. Nur bei einer Migration aus einem Altmodul (z. B. GoodweET) bis zur Übernahme der Alt-Historie ausgeschaltet lassen — die Zielvariable muss dabei ohne eigene Historie bleiben.',
             ];
         }
+        $groupItems[] = [
+            'type'    => 'Button',
+            'name'    => 'ArchiveNowButton',
+            'caption' => '🗄️ Archivierung jetzt für alle empfohlenen Messwerte einrichten',
+            'onClick' => 'IPS_RequestAction($id, "ArchiveNow", true);',
+        ];
+        $groupItems[] = [
+            'type'    => 'Label',
+            'name'    => 'ArchiveNowResult',
+            'caption' => '',
+        ];
         $groupItems[] = [
             'type' => 'ExpansionPanel', 'caption' => '🗄️  Archiv-Verdichtung', 'expanded' => false,
             'items' => array_merge(
@@ -7534,6 +7550,47 @@ class InverterHub extends IPSModule
         ['caption' => '1× pro Monat', 'value' => 5],
         ['caption' => '1× pro Jahr', 'value' => 6],
     ];
+
+    // Vom Nutzer ausgeloest (Schaltflaeche): schaltet das Archiv fuer alle Variablen ein, die der
+    // Treiber als archivierungswuerdig kennzeichnet und die noch NICHT geloggt werden. Bereits
+    // archivierte Variablen bleiben unberuehrt. Gibt einen Ergebnistext fuer das Formular zurueck.
+    private function ArchiveAllNow(): string
+    {
+        $archiveIDs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
+        if (count($archiveIDs) === 0) {
+            return '⚠️ Keine Archiv-Instanz gefunden — es wurde nichts eingerichtet.';
+        }
+        $driver = $this->GetDriver();
+        $vars = $driver->getBaseVars();
+        foreach ($driver->getOptionalGroups() as $propName => $group) {
+            if ($this->ReadPropertyBoolean($propName)) {
+                foreach ($this->MpptFiltered($group['vars']) as $v) {
+                    $vars[] = $v;
+                }
+            }
+        }
+        $done = 0;
+        $already = 0;
+        foreach ($vars as $v) {
+            if (empty($v[4])) {
+                continue;   // Treiber empfiehlt dafuer kein Archiv
+            }
+            $vid = $this->FindVarByIdent($v[0]);
+            if (!$vid) {
+                continue;
+            }
+            if (@AC_GetLoggingStatus($archiveIDs[0], $vid)) {
+                $already++;
+                continue;
+            }
+            $this->SetArchive($vid, $v[3] === '~Electricity');
+            $done++;
+        }
+        IPS_ApplyChanges($archiveIDs[0]);
+        return '✅ Archivierung eingerichtet für ' . $done . ' Variable' . ($done === 1 ? '' : 'n')
+            . ($already > 0 ? ' (' . $already . ' waren schon archiviert)' : '')
+            . '. Bitte das Häkchen oben mit „Übernehmen" speichern, damit künftig neue Messwerte ebenfalls archiviert werden.';
+    }
 
     private function SetArchive($vid, bool $isEnergy = false)
     {

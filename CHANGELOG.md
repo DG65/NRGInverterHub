@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.76.0-beta.50 (2026-10-19)
+
+- **Archivierung nachträglich einrichten (Schaltfläche).** Seit der Store-Review-Änderung (AutoArchive-Vorgabe
+  „aus", 0.77.0-beta.23) archivieren neu angelegte Instanzen keine Messwerte mehr. Dashboard und EMS brauchen aber
+  Archivwerte (z. B. Tages-/Verlaufsanzeigen: bei einer neuen Solis-Instanz blieb „heute" leer). Der Hinweis im
+  Formular behauptete zudem, die Archivierung sei nur für Migrationen ausgeschaltet. Jetzt: ehrlicher Hinweistext
+  und eine Schaltfläche **„Archivierung jetzt für alle empfohlenen Messwerte einrichten"**: Sie schaltet das
+  Archiv für alle Variablen ein, die der Treiber als archivierungswürdig kennzeichnet und die noch nicht
+  archiviert werden (inkl. Verdichtung wie sonst), und setzt das Häkchen „Messwerte automatisch archivieren" im offenen
+  Formular (danach „Übernehmen"). Die Vorgabe bleibt aus (Store-Vorgabe); es geschieht nur auf ausdrücklichen Klick.
+  Prüfstand `.tools/test-archive-now.php`.
+
 ## 0.76.0-beta.49 (2026-10-18)
 
 - **Solis: Leistung je MPPT.** Der Solis meldet je Eingang nur Spannung und Strom (33049-33056) und
