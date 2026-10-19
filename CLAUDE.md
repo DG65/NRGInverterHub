@@ -1012,6 +1012,10 @@ Strang (bis zu 4). Ident-Schreibweise unterscheidet sich je Treiber (GoodWe: `mp
 `mpptN_current`; Sungrow/Victron: `mpptN_power`/`mpptN_curr`/`mpptN_volt`) — beide Varianten
 werden anhand des Idents probiert, generisch über `FindVarByIdent()`, kein Treiber-Sonderfall.
 
+**`contractVersion` 1.3 → 1.4 (19.10.2026, additiv, kein Bruch):** neues Feld `houseLoadID` (Variable `house_load_total`,
+gemessener/berechneter Gesamtverbrauch als Leistung; 0, wenn der Treiber ihn nicht liefert — bisher nur Solis:
+`household_load` + `backup_load`). Wunsch NRGDashboard; deren Hauslast-Vorrang liegt sonst bei `IHUBTILE_GetHouseLoad`.
+
 **`controlAuthority` wird durchgesetzt, nicht nur gemeldet.** `RequestAction` verweigert jeden
 Schreibzugriff, wenn die Instanz nicht auf `ems` steht (Verteidigung in der Tiefe — das EMS soll
 den Wert selbst prüfen, aber ein Fehler dort darf hier nicht zu einer ungewollten Schreibaktion

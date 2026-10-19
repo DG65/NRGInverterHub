@@ -213,6 +213,12 @@ $v = run($r, false, ['GroupPV' => false]);
 ok(!isset($v['mppt1_power']), 'Gruppe PV abgeschaltet: keine MPPT-Leistung');
 ok(strpos($GLOBALS['coreSrc'], "\$c = \$c ?: \$find('pv' . \$i . '_curr');") !== false, 'GetFunctions: Strom/Spannung-Rueckfall nur bei vorhandener MPPT-Leistung');
 
+echo "Gesamtverbrauch und Vertrag 1.4\n";
+$r = $base; $r[33147] = 700; $r[33148] = 3500;
+$v = run($r);
+ok($v['household_load'] === 700.0 && $v['backup_load'] === 3500.0 && $v['house_load_total'] === 4200.0, 'Last gesamt = Netzanschluss 700 W + Backup 3500 W = 4200 W');
+ok(strpos($GLOBALS['coreSrc'], "'contractVersion'  => '1.4'") !== false && strpos($GLOBALS['coreSrc'], "'houseLoadID'      => \$find('house_load_total')") !== false, 'IHUB_GetFunctions: Vertrag 1.4 mit houseLoadID');
+
 echo "Energiezaehler\n";
 $r = [33049 => 0];
 put32($r, 33029, 1940); $r[33035] = 126;                      // PV gesamt 1940 kWh, heute 12,6 kWh

@@ -1822,6 +1822,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 ['bat1_dis_max_a', 'Bat.1 max. Entladestrom', 'F', 'SLS.Ampere', false, 'bat1', 'RO 33144 (÷10)'],
                 ['household_load', 'Last am Netzanschluss', 'F', 'SLS.Watt', true, 'grid', 'RO 33147'],
                 ['backup_load',    'Last am Notstromausgang (Backup)', 'F', 'SLS.Watt', true, 'backup', 'RO 33148'],
+                ['house_load_total', 'Last gesamt (Netz + Backup)', 'F', 'SLS.Watt', true, 'grid', 'calc 33147 + 33148'],
             ]],
             'GroupBat2' => ['caption' => 'Batterie 2 (nur bei zwei unabhängigen Akkus, Vorabversion)', 'vars' => [
                 ['bat2_volt', 'Bat.2 Spannung', 'F', 'SLS.Volt',   false, 'bat2', 'RO 34289 (÷10)'],
@@ -2050,6 +2051,8 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             $hub->SetVarFloat('bat1_dis_max_a', $mb->u16($bat, 12) / 10.0);         // 33144
             $hub->SetVarFloat('household_load', (float)$mb->u16($bat, 15)); // 33147
             $hub->SetVarFloat('backup_load',    (float)$mb->u16($bat, 16)); // 33148
+            // Gesamtverbrauch: Solis versorgt das Haus teils ueber den Netzanschluss, teils ueber den Backup-Ausgang.
+            $hub->SetVarFloat('house_load_total', (float)($mb->u16($bat, 15) + $mb->u16($bat, 16)));
         }
 
         // Zweiter Akku (siehe readBattery2()): Einzelwerte; Summe und Mittelwert stecken in bat_power/bat_soc.
@@ -6230,8 +6233,10 @@ class InverterHub extends IPSModule
             // mpptVoltageIDs. 1.2 -> 1.3: gridServiceCapabilities (EMS-Vertrag,
             // 12.09.2026, Netzdienlich-Konzept). Alles additiv, kein Feld
             // entfernt/umbenannt/umgedeutet, Major bleibt unveraendert (siehe
-            // CLAUDE.md "Vertragsversionierung").
-            'contractVersion'  => '1.3',
+            // CLAUDE.md "Vertragsversionierung"). 1.3 -> 1.4: houseLoadID (Dashboard-Wunsch
+            // 19.10.2026, gemessener Gesamtverbrauch; bisher nur Solis: house_load_total).
+            'contractVersion'  => '1.4',
+            'houseLoadID'      => $find('house_load_total'),
             'gridServiceCapabilities' => $gridServiceCapabilities,
             'instanceID'       => $this->InstanceID,
             'manufacturer'     => $this->ReadPropertyString('Manufacturer'),
