@@ -1992,12 +1992,16 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             $hub->SetVarFloat('bat_power', $power1 + ($bat2 !== null ? $bat2['power'] : 0.0));
             $hub->SetVarInt('bat_soc', $bat2 !== null ? (int)round(($soc1 + $bat2['soc']) / 2) : $soc1);
             // Maximale Lade-/Entladeleistung aus dem BMS-Grenzstrom (wie bei GoodWe "BMS calc").
+            // Je Batterieeingang gilt zusaetzlich die Spannungskennlinie des Wechselrichters
+            // (Handbuch Kap. 3.13): das Minimum aus BMS-Grenze und Kennlinie.
             $v1   = $mb->u16($bat, 1) / 10.0;                              // 33133
-            $chgW = ($mb->u16($bat, 11) / 10.0) * $v1;                     // 33143
-            $disW = ($mb->u16($bat, 12) / 10.0) * $v1;                     // 33144
+            $lim1 = self::wrCurrentLimit($v1);
+            $chgW = min($mb->u16($bat, 11) / 10.0, $lim1) * $v1;           // 33143
+            $disW = min($mb->u16($bat, 12) / 10.0, $lim1) * $v1;           // 33144
             if ($bat2 !== null) {
-                $chgW += $bat2['chg_max'] * $bat2['volt'];
-                $disW += $bat2['dis_max'] * $bat2['volt'];
+                $lim2 = self::wrCurrentLimit($bat2['volt']);
+                $chgW += min($bat2['chg_max'], $lim2) * $bat2['volt'];
+                $disW += min($bat2['dis_max'], $lim2) * $bat2['volt'];
             }
             $hub->SetVarFloat('bat_charge_max_w', round($chgW));
             $hub->SetVarFloat('bat_discharge_max_w', round($disW));
@@ -2160,6 +2164,24 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             'dis_max'  => $mb->u16($b2, 7) / 10.0,        // 34282
             'power'    => (float)round($volt * $signed),
         ];
+    }
+
+    // Maximaler Batteriestrom je Eingang in Abhaengigkeit der Batteriespannung (S6-EH3P(29.9-50)K-H,
+    // Handbuch Kap. 3.13, Tabelle "Batteriespannung / -strom / -leistung"), linear dazwischen.
+    const WR_CURRENT_CURVE = [[150.0, 30.0], [310.0, 56.0], [320.0, 70.0], [500.0, 70.0], [800.0, 44.0]];
+
+    private static function wrCurrentLimit($volt)
+    {
+        $c = self::WR_CURRENT_CURVE;
+        if ($volt <= $c[0][0]) {
+            return $c[0][1];
+        }
+        for ($i = 1; $i < count($c); $i++) {
+            if ($volt <= $c[$i][0]) {
+                return $c[$i - 1][1] + ($volt - $c[$i - 1][0]) * ($c[$i][1] - $c[$i - 1][1]) / ($c[$i][0] - $c[$i - 1][0]);
+            }
+        }
+        return $c[count($c) - 1][1];
     }
 
     // Modus eines Akkus aus der (vorzeichenbehafteten) Leistung: + Entladen, - Laden.

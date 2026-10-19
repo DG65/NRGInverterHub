@@ -133,13 +133,19 @@ ok($v['bat_soc'] === 27 || $v['bat_soc'] === 26, 'Gemeinsamer SOC ist der Mittel
 ok(abs($v['bat1_bms_volt'] - 210.6) < 0.001 && abs($v['bat1_bms_curr'] - 2.1) < 0.001, 'Akku 1: BMS-Spannung/-Strom (Entladen +)');
 ok(abs($v['bat1_temp'] - 22.8) < 0.001, 'Akku 1: Temperatur aus 33043 (langsamer Zyklus)');
 // 140 A * 213,0 V (Akku 1: 33133) + 140 A * 212,6 V (Akku 2) = 59564 W; Entladen 201,6 A analog
-$expCharge = round(140.0 * 210.1 + 140.0 * 212.6);
+$curve = function ($vv) { return 30.0 + ($vv - 150.0) * 26.0 / 160.0; };   // 150..310 V: 30..56 A
+$expCharge = round(min(140.0, $curve(210.1)) * 210.1 + min(140.0, $curve(212.6)) * 212.6);
 $r2 = $r; $r2[33133] = 2101;
 $v2 = run($r2, true);
-ok($v2['bat_charge_max_w'] === $expCharge, 'max. Ladeleistung = Grenzstrom x Spannung beider Akkus (' . $expCharge . ' W)');
+ok($v2['bat_charge_max_w'] === $expCharge, 'max. Ladeleistung = min(BMS-Grenze, Kennlinie) x Spannung beider Akkus (' . $expCharge . ' W)');
+ok(abs($v2['bat_charge_max_w'] - 16895) <= 2, 'Beispiel 210 V / 213 V: etwa 16,9 kW statt 59 kW (Wert ' . $v2['bat_charge_max_w'] . ')');
+ok($v2['bat_discharge_max_w'] === $expCharge, 'Entladeleistung ebenfalls nach Kennlinie begrenzt (BMS 201,6 A liegt darueber)');
+$r4 = $r; $r4[33133] = 4000; $r4[34289] = 4000;   // 400 V: volle 70 A je Eingang
+$v4 = run($r4, true);
+ok($v4['bat_charge_max_w'] === round(2 * 70.0 * 400.0), 'bei 400 V: 70 A je Eingang, zusammen 56 kW');
 $r3 = $r; $r3[33097] = 588 & ~0x40;
 $v3 = run($r3, true);
-ok($v3['bat_soc'] === 27 && !isset($v3['bat2_soc']) && $v3['bat_charge_max_w'] === round(140.0 * 210.1), 'ein Akku: SOC unveraendert, max. Ladeleistung nur Akku 1');
+ok($v3['bat_soc'] === 27 && !isset($v3['bat2_soc']) && $v3['bat_charge_max_w'] === round(min(140.0, $curve(210.1)) * 210.1), 'ein Akku: SOC unveraendert, max. Ladeleistung nur Akku 1');
 $r4 = $base; put32($r4, 33151, 3000);
 $v4 = run($r4);
 ok($v4['grid_mode'] === 1, 'Netzmodus Einspeisung bei +3000 W');
