@@ -1841,6 +1841,8 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 ['ctl_force_mode',   'Zwangsladen/-entladen', 'I', 'SLS.ForceMode',   false, 'control', 'RW 43135'],
                 ['ctl_force_w',      'Zwangsleistung (W)',    'I', 'SLS.WattInt',     false, 'control', 'RW 43136 (Laden) / 43129 (Entladen), x10 W'],
                 ['ctl_storage_mode', 'Speicherbetrieb',       'I', 'SLS.StorageMode', false, 'control', 'RW 43110 (nur Auswahl)'],
+                ['ctl_max_charge_a', 'Max. Ladestrom (A)',    'F', 'SLS.AmpereSet',   false, 'control', 'RW 43012 (÷10), fest gespeichert'],
+                ['ctl_max_disch_a',  'Max. Entladestrom (A)', 'F', 'SLS.AmpereSet',   false, 'control', 'RW 43013 (÷10), fest gespeichert'],
             ]],
             'GroupSettings' => ['caption' => 'Einstellungen des Wechselrichters (nur lesen, Vorabversion)', 'vars' => [
                 ['cfg_storage_mode',     'Speicherbetrieb (Einstellung)',        'I', 'SLS.StorageMode', false, 'settings', 'HR 43110'],
@@ -1922,6 +1924,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             'SLS.WattInt' => [VARIABLETYPE_INTEGER, ' W',        0,   30000,  10,  0],
             'SLS.Volt'   => [VARIABLETYPE_FLOAT, ' V',       0.0,  1000.0, 0.1,  1],
             'SLS.Ampere' => [VARIABLETYPE_FLOAT, ' A',    -200.0,   200.0, 0.1,  1],
+            'SLS.AmpereSet' => [VARIABLETYPE_FLOAT, ' A',     0.0,   200.0, 0.1,  1],
             'SLS.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',     45.0,    65.0, 0.01, 2],
         ];
     }
@@ -2259,6 +2262,9 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
     const REG_FORCE_DISCH_W = 43129;  // Zwangs-Entladeleistung, 10 W
     const REG_FORCE_MODE   = 43135;   // 0 aus, 1 Laden, 2 Entladen
     const REG_FORCE_CHG_W  = 43136;   // Zwangs-Ladeleistung, 10 W
+    const REG_MAX_CHARGE_A = 43012;   // max. Ladestrom, 0,1 A (fest gespeichert)
+    const REG_MAX_DISCH_A  = 43013;   // max. Entladestrom, 0,1 A (fest gespeichert)
+    const CURRENT_MAX_A    = 200.0;
     const FORCE_MAX_W      = 30000;   // Obergrenze der Vorgabe; der WR begrenzt selbst (z. B. 2 x 70 A beim S6-EH3P29.9K-H)
     // Erlaubte Speicherbetriebsarten: bewusst OHNE Inselbetrieb (37) und Batterie-Wecken (41/43).
     const STORAGE_MODES_ALLOWED = [1, 3, 17, 33, 35, 49, 51, 64, 96, 98];
@@ -2302,6 +2308,22 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                     return;
                 }
                 $hub->SetVarInt('ctl_force_mode', $mode);
+                return;
+
+            case 'ctl_max_charge_a':
+            case 'ctl_max_disch_a':
+                $chg  = ($ident === 'ctl_max_charge_a');
+                $reg  = $chg ? self::REG_MAX_CHARGE_A : self::REG_MAX_DISCH_A;
+                $cfg  = $chg ? 'cfg_max_charge_a' : 'cfg_max_disch_a';
+                $amps = round(max(0.0, min(self::CURRENT_MAX_A, (float)$value)), 1);
+                // Fest gespeichert (EEPROM): nur schreiben, wenn der zuletzt gelesene Wert abweicht.
+                if (abs($hub->GetVarFloat($cfg) - $amps) >= 0.05) {
+                    if (!$mb->writeSingle($reg, (int)round($amps * 10))) {
+                        $hub->WarnUser('Solis: Stromgrenze konnte nicht geschrieben werden (Register ' . $reg . ').');
+                        return;
+                    }
+                }
+                $hub->SetVarFloat($ident, $amps);
                 return;
 
             case 'ctl_storage_mode':
@@ -7795,6 +7817,13 @@ class InverterHub extends IPSModule
     {
         $vid = $this->FindVarByIdent($ident);
         return $vid ? GetValueInteger($vid) : -1;
+    }
+
+    // Wie GetVarInt, fuer Float-Variablen. -1.0, wenn nicht vorhanden.
+    public function GetVarFloat(string $ident)
+    {
+        $vid = $this->FindVarByIdent($ident);
+        return $vid ? GetValueFloat($vid) : -1.0;
     }
 
     // -----------------------------------------------------------------------

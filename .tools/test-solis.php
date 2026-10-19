@@ -44,6 +44,7 @@ class MockHub
     public $v = [];
     public $warn = [];
     public function GetVarInt($i) { return $this->v[$i] ?? -1; }
+    public function GetVarFloat($i) { return $this->v[$i] ?? -1.0; }
     public function WarnUser($m) { $this->warn[] = $m; }
     public $props = [];
     public function GetPropBool($n) { return $this->props[$n] ?? true; }
@@ -205,6 +206,17 @@ ok($mb3->writes === [[43110, 35]] && $h3->v['ctl_storage_mode'] === 35, 'Speiche
 $mb3->writes = []; $h3->v['cfg_storage_mode'] = 35;
 ctl($d, $h3, $mb3, 'ctl_storage_mode', 35);
 ok($mb3->writes === [], 'unveraendert (gelesen = 35): nicht erneut geschrieben');
+$mb4 = new MockMb(); $h4 = new MockHub(); $h4->v['cfg_max_charge_a'] = 50.0;
+ctl($d, $h4, $mb4, 'ctl_max_charge_a', 140);
+ok($mb4->writes === [[43012, 1400]] && $h4->v['ctl_max_charge_a'] === 140.0, 'Max. Ladestrom 140 A -> 43012 = 1400');
+$mb4->writes = []; $h4->v['cfg_max_charge_a'] = 140.0;
+ctl($d, $h4, $mb4, 'ctl_max_charge_a', 140);
+ok($mb4->writes === [], 'Stromgrenze unveraendert: nicht erneut geschrieben');
+ctl($d, $h4, $mb4, 'ctl_max_disch_a', 999);
+ok($mb4->writes === [[43013, 2000]], 'Entladestrom wird auf 200 A begrenzt -> 43013 = 2000');
+$mb5 = new MockMb(); $mb5->failWrites = true; $h5 = new MockHub();
+ctl($d, $h5, $mb5, 'ctl_max_charge_a', 100);
+ok(!isset($h5->v['ctl_max_charge_a']) && count($h5->warn) === 1, 'Schreibfehler Stromgrenze: Variable unveraendert, Warnung');
 ok(strpos($GLOBALS['solisSrc'], 'ReassertEmsControl') === false && strpos($GLOBALS['solisSrc'], 'sleep') === false, 'keine eigene Wiederholung im Treiber');
 
 echo "MPPT-Leistung (berechnet)\n";
