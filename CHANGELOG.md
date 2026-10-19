@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.76.0-beta.53 (2026-10-19)
+
+- **Solis: Stromgrenzen schreibbar.** Neue Steuerpunkte „Max. Ladestrom (A)" (`ctl_max_charge_a`, Register 43012) und
+  „Max. Entladestrom (A)" (`ctl_max_disch_a`, 43013), je 0 bis 200 A in 0,1-A-Schritten. Hintergrund: Beim 29.9K meldet
+  das Gerät nur 50 A, die Hardware kann 2 x 70 A. Das Register ist fest gespeichert (EEPROM) und wird nur geschrieben,
+  wenn der zuletzt gelesene Wert abweicht; nicht für zyklisches Nachführen gedacht. **Vorsicht:** Die Grenze muss zur
+  Batterie passen (BMS-Werte in „Bat. max. Lade-/Entladestrom"); die Registerbelegung 43012/43013 stammt aus
+  Community-Quellen und ist an Dietmars Anlage noch nicht bestätigt (gelesen werden sie bereits als `cfg_max_*_a`).
+  Neu: `GetVarFloat()` am Hauptmodul für Treiber.
+
 ## 0.76.0-beta.52 (2026-10-19)
 
 - **Solis: Zwangsleistung bis 30 kW.** Die Obergrenze von „Zwangsleistung (W)" lag bei 9900 W (vorsichtig gewählt,
