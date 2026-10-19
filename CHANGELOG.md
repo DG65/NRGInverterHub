@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.76.0-beta.52 (2026-10-19)
+
+- **Solis: Zwangsleistung bis 30 kW.** Die Obergrenze von „Zwangsleistung (W)" lag bei 9900 W (vorsichtig gewählt,
+  die Quellen kennen keine feste Grenze) und bremste damit größere Wechselrichter, z. B. den S6-EH3P29.9K-H mit
+  bis zu 140 A (2 × 70 A) Lade-/Entladestrom. Jetzt 30000 W; den tatsächlichen Wert begrenzt der Wechselrichter
+  selbst (Strombegrenzung, BMS). **Achtung:** Zwangsladen aus dem Netz mit großer Leistung belastet den
+  Netzanschluss — Hausanschluss und Absicherung beachten (Aufgabe des Aufrufers/EMS). Prüfstand `.tools/test-solis.php`.
+
 ## 0.76.0-beta.51 (2026-10-19)
 
 - **Solis: Gesamtverbrauch als Leistung.** Neue berechnete Variable „Last gesamt (Netz + Backup)"
