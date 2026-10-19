@@ -1919,7 +1919,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
     {
         return [
             'SLS.Watt'   => [VARIABLETYPE_FLOAT, ' W',  -40000.0, 40000.0, 1.0,  0],
-            'SLS.WattInt' => [VARIABLETYPE_INTEGER, ' W',        0,    9900,  10,  0],
+            'SLS.WattInt' => [VARIABLETYPE_INTEGER, ' W',        0,   30000,  10,  0],
             'SLS.Volt'   => [VARIABLETYPE_FLOAT, ' V',       0.0,  1000.0, 0.1,  1],
             'SLS.Ampere' => [VARIABLETYPE_FLOAT, ' A',    -200.0,   200.0, 0.1,  1],
             'SLS.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',     45.0,    65.0, 0.01, 2],
@@ -2259,7 +2259,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
     const REG_FORCE_DISCH_W = 43129;  // Zwangs-Entladeleistung, 10 W
     const REG_FORCE_MODE   = 43135;   // 0 aus, 1 Laden, 2 Entladen
     const REG_FORCE_CHG_W  = 43136;   // Zwangs-Ladeleistung, 10 W
-    const FORCE_MAX_W      = 9900;
+    const FORCE_MAX_W      = 30000;   // Obergrenze der Vorgabe; der WR begrenzt selbst (z. B. 2 x 70 A beim S6-EH3P29.9K-H)
     // Erlaubte Speicherbetriebsarten: bewusst OHNE Inselbetrieb (37) und Batterie-Wecken (41/43).
     const STORAGE_MODES_ALLOWED = [1, 3, 17, 33, 35, 49, 51, 64, 96, 98];
 
