@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.76.0-beta.54 (2026-10-19)
+
+- **Solis: mögliche Lade-/Entladeleistung nach Spannungskennlinie.** „Bat. max. Ladeleistung" und „Bat. max. Entladeleistung"
+  rechneten bisher nur BMS-Grenzstrom × Spannung (bei Dietmars Anlage rund 60 kW). Der Wechselrichter begrenzt den Strom je
+  Batterieeingang aber zusätzlich nach der Batteriespannung (Solis-Handbuch S6-EH3P(29.9-50)K-H, Kapitel 3.13: 150 V → 30 A,
+  310 V → 56 A, 320 bis 500 V → 70 A, 800 V → 44 A, linear dazwischen). Der Treiber nimmt jetzt je Eingang das Minimum aus
+  BMS-Grenze und Kennlinie. Gemessen: bei etwa 216 V lädt der Wechselrichter mit 41,8 A je Akku, zusammen 18,06 kW, genau
+  der Kennlinienwert (rechnerisch rund 41 A). Die Kennlinie gilt laut Handbuch für das Laden; für das Entladen ist sie
+  angenommen (gleiche Leistungsstufe). Prüfstand `.tools/test-solis.php`.
+
 ## 0.76.0-beta.53 (2026-10-19)
 
 - **Solis: Stromgrenzen schreibbar.** Neue Steuerpunkte „Max. Ladestrom (A)" (`ctl_max_charge_a`, Register 43012) und
