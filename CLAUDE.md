@@ -411,7 +411,7 @@ wecken). **Die Steuerung reicht nur durch — keine eigene Wiederholung, kein To
 29.08.2026, Politik liegt beim EMS). Ob der Solis den Zwangsmodus von selbst zurücknimmt, ist unbestätigt (Hinweis:
 Register 43282 „Fernsteuer-Zeitlimit", in `cfg_rc_timeout_min` lesbar; wills106 schreibt den Zwangsmodus in HA
 dauernd neu); Dietmar vermutet (18.10.2026) einen Totmann wie bei GoodWe, die Heartbeat-Tabelle unten ist entsprechend angepasst. Wer den Zwangsmodus halten will, schreibt ihn regelmäßig neu (EMS).
-Noch an keiner Solis-Anlage erprobt.
+**Messung 19.10.2026 (Dietmar, Skript `solis-steuertest.php`):** Zwangsladen mit 500 W wirkte (Bat. ca. −476 W gegen −1360 W durch PV-Überschuss davor), blieb 152 s stabil und war nach **182 s** zurückgenommen (Modus am Gerät 0); `cfg_rc_timeout_min` (43282) stand auf **3 min**. Damit ist 43282 das Totmann-Zeitlimit: Das EMS muss den Zwangsmodus deutlich schneller als dieses Zeitlimit neu schreiben (Vorschlag: höchstens die Hälfte, z. B. alle 60 s). Schreibseite für 43282 ist NICHT gebaut (Bereich 1-30 min in HA als „geraten" markiert). Hin-und-her-Test (Laden/Entladen im Wechsel) steht aus.
 
 **Noch offen:** (1) Betrag 2,9 kW (InverterHub) gegenüber 5,6 kW (Portal, „x2" Akkus) — vermutlich
 nur der erste Akku gelesen; Register für einen zweiten Akku sind nicht belegt. (2) Tageswerte
@@ -1589,7 +1589,7 @@ Recherchen, Quellen im Verbund-Vertrag in SUITE.md). Konfidenz je Zeile ehrlich 
 | Growatt SPH/MOD/MIX | NEIN | persistente Holding-Register (TOU/AC-Charge), überleben sogar Neustarts; EEPROM-Verschleiß bei häufigem Schreiben! | letzter Befehl bleibt eingefroren | [Comm] |
 | Growatt WIT | JA (Ablaufzeit) | 30407 Enable + 30408 Dauer (0-1440 min) + 30409 Leistung | Rückfall TOU-Schedule | [Comm] |
 | Deye SG04LP3 | NEIN | persistente Register (TOU 146-172, Ein/Aus 80); EEPROM-Thema aktiv in Foren | letzter Befehl bleibt eingefroren (BMS-Grenzen gelten weiter) | [Comm] |
-| Solis | **JA, wohl (Dietmar 18.10.2026, Dauer/Verhalten ungeprüft)** | Zwangsmodus 43135 (+ Leistung 43136/43129); Hinweis auf Zeitlimit-Register 43282 (Minuten, in HA als „geraten" markiert), wills106 schreibt den Zwangsmodus in HA dauernd neu; 43110 Bitfeld + Timed-Charge 43141ff. persistieren | vermutlich Rückfall in den normalen Speicherbetrieb nach Ablauf (unbestätigt) | [Comm] + Dietmar |
+| Solis | **JA, gemessen (Dietmar, 19.10.2026): Zwangsmodus fällt nach dem Zeitlimit aus Register 43282 zurück, dort stand 3 min; gemessen 182 s (Abfragetakt 30 s)** | Zwangsmodus 43135 (+ Leistung 43136/43129) muss innerhalb des Zeitlimits (43282, Minuten, am Gerät einstellbar, Standard/Bereich unbestätigt) neu geschrieben werden; wills106 schreibt in HA dauernd neu; 43110 Bitfeld + Timed-Charge 43141ff. persistieren | Rückfall auf Modus 0 (Aus), danach lädt/entlädt der WR wieder nach seinem Speicherbetrieb | [Messung Dietmar 19.10.2026] |
 | Solplanet | UNKLAR | keine öffentliche Hybrid-Schreib-Doku; Doku bei AISWEI anfragbar | vermutlich eingefroren (unbelegt) | [?] |
 
 **Kernerkenntnis — zwei gegensätzliche Risikoklassen:**
