@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.77.0-beta.38 (2026-10-19)
+
+- **Solis: Gesamtverbrauch als Leistung.** Neue berechnete Variable „Last gesamt (Netz + Backup)"
+  (`house_load_total`, Summe aus „Last am Netzanschluss" und „Last am Notstromausgang", archiviert). Solis versorgt
+  das Haus teils oder ganz über den Backup-Ausgang; ein einzelner Messwert für den Gesamtverbrauch fehlte bisher.
+  **Verbundvertrag `IHUB_GetFunctions` 1.3 → 1.4 (additiv):** neues Feld `houseLoadID` (ID der Variable
+  `house_load_total`, 0 bei Treibern ohne diesen Wert); bisher nur Solis. Nichts entfernt oder umgedeutet, Major
+  bleibt 1. Prüfstand `.tools/test-solis.php`.
+
 ## 0.77.0-beta.37 (2026-10-19)
 
 - **Archivierung nachträglich einrichten (Schaltfläche).** Seit der Store-Review-Änderung (AutoArchive-Vorgabe
