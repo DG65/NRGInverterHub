@@ -1016,6 +1016,8 @@ Strang (bis zu 4). Ident-Schreibweise unterscheidet sich je Treiber (GoodWe: `mp
 `mpptN_current`; Sungrow/Victron: `mpptN_power`/`mpptN_curr`/`mpptN_volt`) — beide Varianten
 werden anhand des Idents probiert, generisch über `FindVarByIdent()`, kein Treiber-Sonderfall.
 
+**`contractVersion` 1.4 → 1.5 (20.10.2026, additiv, kein Bruch):** neue Fähigkeit `dischargeInhibit` in `gridServiceCapabilities` („Entladen sperren / Akku halten"), erkannt über den Ident `svc_discharge_inhibit`, derzeit nur Solis. Solis: `true` → Speicherbetrieb 43110 = 17 (Reserve OHNE Netzladen), vorher gemerkt in `svc_prev_storage`, `false` → zurück; mit Rücklesen und einmaligem Neuschreiben. Gemessen 20.10.2026 an Pauls Anlage: 17 hält die Batterie (21 bis 42 W), kein Netzladen; **49/51 (mit Netzladen, Bit 5) laden sofort mit voller Leistung aus dem Netz, nie zum Halten verwenden.** Das Schreiben von 43110 kam bei vier Versuchen nur zweimal an, Ursache ungeklärt. Merken des Nutzerwerts/Wiederherstellung bei Ausfall bleibt beim EMS.
+
 **`contractVersion` 1.3 → 1.4 (19.10.2026, additiv, kein Bruch):** neues Feld `houseLoadID` (Variable `house_load_total`,
 gemessener/berechneter Gesamtverbrauch als Leistung; 0, wenn der Treiber ihn nicht liefert — bisher nur Solis:
 `household_load` + `backup_load`). Wunsch NRGDashboard; deren Hauslast-Vorrang liegt sonst bei `IHUBTILE_GetHouseLoad`.

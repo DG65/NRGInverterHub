@@ -1841,6 +1841,8 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 ['ctl_force_mode',   'Zwangsladen/-entladen', 'I', 'SLS.ForceMode',   false, 'control', 'RW 43135'],
                 ['ctl_force_w',      'Zwangsleistung (W)',    'I', 'SLS.WattInt',     false, 'control', 'RW 43136 (Laden) / 43129 (Entladen), x10 W'],
                 ['ctl_storage_mode', 'Speicherbetrieb',       'I', 'SLS.StorageMode', false, 'control', 'RW 43110 (nur Auswahl)'],
+                ['svc_discharge_inhibit', 'Netzdienlich: Entladen sperren (Akku halten)', 'B', '~Switch', false, 'control', 'schreibt 43110 = 17 (Reserve ohne Netzladen), merkt den bisherigen Wert; aus = zurueck'],
+                ['svc_prev_storage', 'Gemerkter Speicherbetrieb (vor "Akku halten")', 'I', '', false, 'control', 'nur Anzeige'],
                 ['ctl_max_charge_a', 'Max. Ladestrom (A)',    'F', 'SLS.AmpereSet',   false, 'control', 'RW 43012 (÷10), fest gespeichert'],
                 ['ctl_max_disch_a',  'Max. Entladestrom (A)', 'F', 'SLS.AmpereSet',   false, 'control', 'RW 43013 (÷10), fest gespeichert'],
             ]],
@@ -2287,9 +2289,26 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
     const REG_MAX_CHARGE_A = 43012;   // max. Ladestrom, 0,1 A (fest gespeichert)
     const REG_MAX_DISCH_A  = 43013;   // max. Entladestrom, 0,1 A (fest gespeichert)
     const CURRENT_MAX_A    = 200.0;
+    const STORAGE_HOLD     = 17;      // Reserve ohne Netzladen: Akku wird nicht entladen, kein Netzladen (gemessen 20.10.2026)
     const FORCE_MAX_W      = 30000;   // Obergrenze der Vorgabe; der WR begrenzt selbst (z. B. 2 x 70 A beim S6-EH3P29.9K-H)
     // Erlaubte Speicherbetriebsarten: bewusst OHNE Inselbetrieb (37) und Batterie-Wecken (41/43).
     const STORAGE_MODES_ALLOWED = [1, 3, 17, 33, 35, 49, 51, 64, 96, 98];
+
+    // Schreibt 43110, liest zurueck und schreibt bei Abweichung einmal neu (ein Schreibbefehl kam an der Anlage
+    // nicht immer an). true = Geraet hat den Wert.
+    private function writeStorageVerified($mb, $value)
+    {
+        for ($try = 0; $try < 2; $try++) {
+            if (!$mb->writeSingle(self::REG_STORAGE_MODE, $value)) {
+                continue;
+            }
+            $r = $mb->readHolding(self::REG_STORAGE_MODE, 1);
+            if ($r !== null && $mb->u16($r, 0) === $value) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     // Reine Weitergabe (Architekturentscheidung 29.08.2026): keine eigene Wiederholung, kein Totmann -
     // Dauerhalten und Rueckfall liegen beim Aufrufer (EMS).
@@ -2330,6 +2349,47 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                     return;
                 }
                 $hub->SetVarInt('ctl_force_mode', $mode);
+                return;
+
+            case 'svc_discharge_inhibit':
+                $on = (bool)$value;
+                $cur = $mb->readHolding(self::REG_STORAGE_MODE, 1);
+                if ($cur === null) {
+                    $hub->WarnUser('Solis: Speicherbetrieb konnte nicht gelesen werden (Register 43110), "Akku halten" nicht geaendert.');
+                    return;
+                }
+                $cur = $mb->u16($cur, 0);
+                if ($on) {
+                    if ($cur === self::STORAGE_HOLD) {
+                        $hub->SetVarBool('svc_discharge_inhibit', true);   // bereits gesetzt, nichts schreiben
+                        return;
+                    }
+                    if (!in_array($cur, self::STORAGE_MODES_ALLOWED, true)) {
+                        $hub->WarnUser('Solis: Speicherbetrieb ' . $cur . ' ist nicht in der erlaubten Auswahl, "Akku halten" wird nicht gesetzt.');
+                        return;
+                    }
+                    $hub->SetVarInt('svc_prev_storage', $cur);
+                    if (!$this->writeStorageVerified($mb, self::STORAGE_HOLD)) {
+                        $hub->WarnUser('Solis: "Akku halten" (Speicherbetrieb 17) wurde vom Geraet nicht uebernommen (Register 43110).');
+                        return;
+                    }
+                    $hub->SetVarBool('svc_discharge_inhibit', true);
+                    return;
+                }
+                $prev = $hub->GetVarInt('svc_prev_storage');
+                if ($cur !== self::STORAGE_HOLD) {   // nicht von uns gehalten: nur die Anzeige nachziehen
+                    $hub->SetVarBool('svc_discharge_inhibit', false);
+                    return;
+                }
+                if (!in_array($prev, self::STORAGE_MODES_ALLOWED, true) || $prev === self::STORAGE_HOLD) {
+                    $hub->WarnUser('Solis: kein gemerkter Speicherbetrieb vorhanden, bitte "ctl_storage_mode" auf den gewuenschten Wert setzen.');
+                    return;
+                }
+                if (!$this->writeStorageVerified($mb, $prev)) {
+                    $hub->WarnUser('Solis: Speicherbetrieb ' . $prev . ' wurde vom Geraet nicht uebernommen (Register 43110).');
+                    return;
+                }
+                $hub->SetVarBool('svc_discharge_inhibit', false);
                 return;
 
             case 'ctl_max_charge_a':
@@ -6284,6 +6344,9 @@ class InverterHub extends IPSModule
         if ($find('svc_discharge_to_grid_w') > 0) {
             $gridServiceCapabilities[] = 'dischargeToGrid';
         }
+        if ($find('svc_discharge_inhibit') > 0) {
+            $gridServiceCapabilities[] = 'dischargeInhibit';
+        }
         if ($find('svc_release') > 0) {
             $gridServiceCapabilities[] = 'release';
         }
@@ -6295,7 +6358,7 @@ class InverterHub extends IPSModule
             // entfernt/umbenannt/umgedeutet, Major bleibt unveraendert (siehe
             // CLAUDE.md "Vertragsversionierung"). 1.3 -> 1.4: houseLoadID (Dashboard-Wunsch
             // 19.10.2026, gemessener Gesamtverbrauch; bisher nur Solis: house_load_total).
-            'contractVersion'  => '1.4',
+            'contractVersion'  => '1.5',
             'houseLoadID'      => $find('house_load_total'),
             'gridServiceCapabilities' => $gridServiceCapabilities,
             'instanceID'       => $this->InstanceID,
