@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.76.0-beta.55 (2026-10-20)
+
+- **Vertrag `IHUB_GetFunctions` 1.4 -> 1.5 (additiv): neue Netzdienst-Fähigkeit `dischargeInhibit` („Entladen sperren / Akku halten").**
+  Wunsch EMS. Wird wie die übrigen Fähigkeiten über das Vorhandensein des Idents `svc_discharge_inhibit` erkannt, derzeit nur
+  beim Solis-Treiber. Solis: `true` schreibt den Speicherbetrieb 43110 auf 17 (Reserve OHNE Netzladen; am 20.10.2026 an der
+  Anlage gemessen: Batterie ruht, Haus läuft aus dem Netz, kein Laden aus dem Netz), merkt sich vorher den bisherigen
+  Speicherbetrieb in `svc_prev_storage`; `false` schreibt ihn zurück. Das Register wird nach dem Schreiben zurückgelesen
+  und bei Abweichung einmal neu geschrieben (an der Anlage kam ein Schreibbefehl zweimal von vier nicht an). Nur bei Werten
+  aus der erlaubten Auswahl (kein Inselbetrieb, kein Batterie-Wecken); der Wert ist fest gespeichert, nicht zyklisch schreiben.
+  Wie bisher keine Wiederholung und kein Totmann im InverterHub; das Merken des Nutzerwerts und die Wiederherstellung bei
+  Ausfall liegen beim EMS. Achtung: Mit 17 entfällt ein eingestelltes Zeitladen/-entladen, bis zurückgestellt wird.
+  Prüfstand `.tools/test-solis.php`.
+
 ## 0.76.0-beta.54 (2026-10-19)
 
 - **Solis: mögliche Lade-/Entladeleistung nach Spannungskennlinie.** „Bat. max. Ladeleistung" und „Bat. max. Entladeleistung"

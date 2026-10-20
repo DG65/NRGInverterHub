@@ -23,7 +23,14 @@ class MockMb
     public $regs = [];
     public $writes = [];
     public $failWrites = false;
-    public function writeSingle($reg, $val) { if ($this->failWrites) { return false; } $this->writes[] = [$reg, $val]; return true; }
+    public $dropWrites = 0;   // so viele Schreibbefehle werden bestaetigt, aber nicht uebernommen (wie an der Anlage beobachtet)
+    public function writeSingle($reg, $val)
+    {
+        if ($this->failWrites) { return false; }
+        $this->writes[] = [$reg, $val];
+        if ($this->dropWrites > 0) { $this->dropWrites--; } else { $this->regs[$reg] = $val; }
+        return true;
+    }
     public function readHolding($start, $count)
     {
         return $this->readInput($start, $count);
@@ -223,6 +230,27 @@ ok($mb4->writes === [[43013, 2000]], 'Entladestrom wird auf 200 A begrenzt -> 43
 $mb5 = new MockMb(); $mb5->failWrites = true; $h5 = new MockHub();
 ctl($d, $h5, $mb5, 'ctl_max_charge_a', 100);
 ok(!isset($h5->v['ctl_max_charge_a']) && count($h5->warn) === 1, 'Schreibfehler Stromgrenze: Variable unveraendert, Warnung');
+echo "dischargeInhibit (Vertrag 1.5)\n";
+$mb6 = new MockMb(); $h6 = new MockHub(); $mb6->regs[43110] = 33;
+ctl($d, $h6, $mb6, 'svc_discharge_inhibit', true);
+ok($mb6->writes === [[43110, 17]] && $h6->v['svc_discharge_inhibit'] === true && $h6->v['svc_prev_storage'] === 33, 'Halten: 43110 33 -> 17, bisheriger Wert 33 gemerkt');
+$mb6->writes = [];
+ctl($d, $h6, $mb6, 'svc_discharge_inhibit', true);
+ok($mb6->writes === [], 'Halten bei bereits gesetztem 17: nichts erneut geschrieben');
+ctl($d, $h6, $mb6, 'svc_discharge_inhibit', false);
+ok($mb6->writes === [[43110, 33]] && $h6->v['svc_discharge_inhibit'] === false, 'Freigeben: 43110 zurueck auf den gemerkten Wert 33');
+$mb7 = new MockMb(); $h7 = new MockHub(); $mb7->regs[43110] = 35; $mb7->dropWrites = 1;
+ctl($d, $h7, $mb7, 'svc_discharge_inhibit', true);
+ok($mb7->writes === [[43110, 17], [43110, 17]] && $h7->v['svc_discharge_inhibit'] === true && !$h7->warn, 'Schreibbefehl kam nicht an: einmal neu geschrieben, dann uebernommen');
+$mb8 = new MockMb(); $h8 = new MockHub(); $mb8->regs[43110] = 33; $mb8->dropWrites = 5;
+ctl($d, $h8, $mb8, 'svc_discharge_inhibit', true);
+ok(!isset($h8->v['svc_discharge_inhibit']) && count($h8->warn) === 1, 'Geraet uebernimmt den Wert nie: Anzeige bleibt unveraendert, Warnung');
+$mb9 = new MockMb(); $h9 = new MockHub(); $mb9->regs[43110] = 37;
+ctl($d, $h9, $mb9, 'svc_discharge_inhibit', true);
+ok($mb9->writes === [] && count($h9->warn) === 1, 'Inselbetrieb (37) ausserhalb der Auswahl: nichts geschrieben, Warnung');
+$mb10 = new MockMb(); $h10 = new MockHub(); $mb10->regs[43110] = 17;
+ctl($d, $h10, $mb10, 'svc_discharge_inhibit', false);
+ok($mb10->writes === [] && count($h10->warn) === 1 && !isset($h10->v['svc_discharge_inhibit']), 'Freigeben ohne gemerkten Wert: nichts geschrieben, Warnung');
 ok(strpos($GLOBALS['solisSrc'], 'ReassertEmsControl') === false && strpos($GLOBALS['solisSrc'], 'sleep') === false, 'keine eigene Wiederholung im Treiber');
 
 echo "MPPT-Leistung (berechnet)\n";
@@ -237,7 +265,8 @@ echo "Gesamtverbrauch und Vertrag 1.4\n";
 $r = $base; $r[33147] = 700; $r[33148] = 3500;
 $v = run($r);
 ok($v['household_load'] === 700.0 && $v['backup_load'] === 3500.0 && $v['house_load_total'] === 4200.0, 'Last gesamt = Netzanschluss 700 W + Backup 3500 W = 4200 W');
-ok(strpos($GLOBALS['coreSrc'], "'contractVersion'  => '1.4'") !== false && strpos($GLOBALS['coreSrc'], "'houseLoadID'      => \$find('house_load_total')") !== false, 'IHUB_GetFunctions: Vertrag 1.4 mit houseLoadID');
+ok(strpos($GLOBALS['coreSrc'], "'contractVersion'  => '1.5'") !== false && strpos($GLOBALS['coreSrc'], "'houseLoadID'      => \$find('house_load_total')") !== false, 'IHUB_GetFunctions: Vertrag 1.5 mit houseLoadID');
+ok(strpos($GLOBALS['coreSrc'], "\$gridServiceCapabilities[] = 'dischargeInhibit'") !== false, 'IHUB_GetFunctions: Fähigkeit dischargeInhibit wird über svc_discharge_inhibit erkannt');
 
 echo "Energiezaehler\n";
 $r = [33049 => 0];
