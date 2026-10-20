@@ -204,6 +204,10 @@ class IHUB_ModbusTcpClient
     // sind ab Werk auf CDAB gestellt und liefern sonst Datenmüll.
     public $floatWordSwap = false;
 
+    // Letzte Antwort eines Schreibzugriffs (writeSingle): '' = bestaetigt, sonst "keine Verbindung",
+    // "keine Antwort", "Ausnahmecode N". Treiber nehmen das in ihre Warnungen auf.
+    public $lastError = '';
+
     // Batch-Modus: eine offene Verbindung für viele Reads. Manche Geräte
     // (z. B. Sungrow WiNet-S) erlauben nur EINE Modbus-Verbindung und lehnen
     // schnelle Reconnects ab - dann fielen spätere Reads eines Zyklus aus.
@@ -350,6 +354,7 @@ class IHUB_ModbusTcpClient
     {
         $sock = @fsockopen($this->host, $this->port, $errno, $errstr, 3.0);
         if ($sock === false) {
+            $this->lastError = 'keine Verbindung';
             return false;
         }
         stream_set_timeout($sock, 3);
@@ -362,7 +367,16 @@ class IHUB_ModbusTcpClient
         $resp = @fread($sock, 64);
         fclose($sock);
 
-        return ($resp !== false && strlen($resp) >= 8 && ord($resp[7]) === 0x06);
+        if ($resp === false || strlen($resp) < 8) {
+            $this->lastError = 'keine Antwort';
+            return false;
+        }
+        if (ord($resp[7]) === 0x06) {
+            $this->lastError = '';
+            return true;
+        }
+        $this->lastError = (ord($resp[7]) & 0x80) ? 'Ausnahmecode ' . (strlen($resp) >= 9 ? ord($resp[8]) : '?') : 'unerwartete Antwort';
+        return false;
     }
 
     public function writeMultiple($startReg, $values)
@@ -2296,16 +2310,24 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
 
     // Schreibt 43110, liest zurueck und schreibt bei Abweichung einmal neu (ein Schreibbefehl kam an der Anlage
     // nicht immer an). true = Geraet hat den Wert.
-    private function writeStorageVerified($mb, $value)
+    // Schreibt ein Register, liest es nach 0,4 s zurueck und schreibt bei Abweichung einmal neu (das Geraet
+    // bestaetigte Schreibbefehle gelegentlich, ohne den Wert zu uebernehmen). true = Geraet hat den Wert.
+    // $err bekommt die Antwort des Geraets (Ausnahmecode usw.) fuer die Warnung.
+    private function writeVerified($mb, $reg, $value, &$err)
     {
+        $err = '';
         for ($try = 0; $try < 2; $try++) {
-            if (!$mb->writeSingle(self::REG_STORAGE_MODE, $value)) {
+            if (!$mb->writeSingle($reg, $value)) {
+                $err = isset($mb->lastError) && $mb->lastError !== '' ? $mb->lastError : 'Schreiben fehlgeschlagen';
                 continue;
             }
-            $r = $mb->readHolding(self::REG_STORAGE_MODE, 1);
-            if ($r !== null && $mb->u16($r, 0) === $value) {
+            usleep(400000);
+            $r = $mb->readHolding($reg, 1);
+            if ($r !== null && $mb->u16($r, 0) === ($value & 0xFFFF)) {
+                $err = '';
                 return true;
             }
+            $err = ($r === null) ? 'Zuruecklesen ohne Antwort' : 'Geraet bestaetigt, hat aber ' . $mb->u16($r, 0) . ' statt ' . $value . ' gespeichert';
         }
         return false;
     }
@@ -2321,8 +2343,8 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 if ($mode === 1 || $mode === 2) {
                     // Zwangsmodus laeuft: neue Leistung sofort ins passende Register schreiben.
                     $reg = ($mode === 1) ? self::REG_FORCE_CHG_W : self::REG_FORCE_DISCH_W;
-                    if (!$mb->writeSingle($reg, intdiv($w, 10))) {
-                        $hub->WarnUser('Solis: Zwangsleistung konnte nicht geschrieben werden (Register ' . $reg . ').');
+                    if (!$this->writeVerified($mb, $reg, intdiv($w, 10), $err)) {
+                        $hub->WarnUser('Solis: Zwangsleistung konnte nicht geschrieben werden (Register ' . $reg . '): ' . $err);
                         return;
                     }
                 }
@@ -2339,13 +2361,13 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                     // Erst die Leistung, dann den Modus - sonst gilt kurz der neue Modus mit alter Leistung.
                     $w   = max(0, $hub->GetVarInt('ctl_force_w'));
                     $reg = ($mode === 1) ? self::REG_FORCE_CHG_W : self::REG_FORCE_DISCH_W;
-                    if (!$mb->writeSingle($reg, intdiv($w, 10))) {
-                        $hub->WarnUser('Solis: Zwangsleistung konnte nicht geschrieben werden (Register ' . $reg . '), Modus bleibt unveraendert.');
+                    if (!$this->writeVerified($mb, $reg, intdiv($w, 10), $err)) {
+                        $hub->WarnUser('Solis: Zwangsleistung konnte nicht geschrieben werden (Register ' . $reg . '), Modus bleibt unveraendert: ' . $err);
                         return;
                     }
                 }
-                if (!$mb->writeSingle(self::REG_FORCE_MODE, $mode)) {
-                    $hub->WarnUser('Solis: Zwangsmodus konnte nicht geschrieben werden (Register 43135).');
+                if (!$this->writeVerified($mb, self::REG_FORCE_MODE, $mode, $err)) {
+                    $hub->WarnUser('Solis: Zwangsmodus konnte nicht geschrieben werden (Register 43135): ' . $err);
                     return;
                 }
                 $hub->SetVarInt('ctl_force_mode', $mode);
@@ -2369,8 +2391,8 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                         return;
                     }
                     $hub->SetVarInt('svc_prev_storage', $cur);
-                    if (!$this->writeStorageVerified($mb, self::STORAGE_HOLD)) {
-                        $hub->WarnUser('Solis: "Akku halten" (Speicherbetrieb 17) wurde vom Geraet nicht uebernommen (Register 43110).');
+                    if (!$this->writeVerified($mb, self::REG_STORAGE_MODE, self::STORAGE_HOLD, $err)) {
+                        $hub->WarnUser('Solis: "Akku halten" (Speicherbetrieb 17) wurde vom Geraet nicht uebernommen (Register 43110): ' . $err);
                         return;
                     }
                     $hub->SetVarBool('svc_discharge_inhibit', true);
@@ -2385,8 +2407,8 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                     $hub->WarnUser('Solis: kein gemerkter Speicherbetrieb vorhanden, bitte "ctl_storage_mode" auf den gewuenschten Wert setzen.');
                     return;
                 }
-                if (!$this->writeStorageVerified($mb, $prev)) {
-                    $hub->WarnUser('Solis: Speicherbetrieb ' . $prev . ' wurde vom Geraet nicht uebernommen (Register 43110).');
+                if (!$this->writeVerified($mb, self::REG_STORAGE_MODE, $prev, $err)) {
+                    $hub->WarnUser('Solis: Speicherbetrieb ' . $prev . ' wurde vom Geraet nicht uebernommen (Register 43110): ' . $err);
                     return;
                 }
                 $hub->SetVarBool('svc_discharge_inhibit', false);
@@ -2401,7 +2423,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 // Fest gespeichert (EEPROM): nur schreiben, wenn der zuletzt gelesene Wert abweicht.
                 if (abs($hub->GetVarFloat($cfg) - $amps) >= 0.05) {
                     if (!$mb->writeSingle($reg, (int)round($amps * 10))) {
-                        $hub->WarnUser('Solis: Stromgrenze konnte nicht geschrieben werden (Register ' . $reg . ').');
+                        $hub->WarnUser('Solis: Stromgrenze konnte nicht geschrieben werden (Register ' . $reg . '): ' . (isset($mb->lastError) ? $mb->lastError : ''));
                         return;
                     }
                 }
@@ -2419,8 +2441,8 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                     $hub->SetVarInt('ctl_storage_mode', $mode);
                     return;
                 }
-                if (!$mb->writeSingle(self::REG_STORAGE_MODE, $mode)) {
-                    $hub->WarnUser('Solis: Speicherbetrieb konnte nicht geschrieben werden (Register 43110).');
+                if (!$this->writeVerified($mb, self::REG_STORAGE_MODE, $mode, $err)) {
+                    $hub->WarnUser('Solis: Speicherbetrieb konnte nicht geschrieben werden (Register 43110): ' . $err);
                     return;
                 }
                 $hub->SetVarInt('ctl_storage_mode', $mode);

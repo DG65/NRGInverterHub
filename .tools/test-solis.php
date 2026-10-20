@@ -26,11 +26,12 @@ class MockMb
     public $dropWrites = 0;   // so viele Schreibbefehle werden bestaetigt, aber nicht uebernommen (wie an der Anlage beobachtet)
     public function writeSingle($reg, $val)
     {
-        if ($this->failWrites) { return false; }
+        if ($this->failWrites) { $this->lastError = 'Ausnahmecode 3'; return false; }
         $this->writes[] = [$reg, $val];
         if ($this->dropWrites > 0) { $this->dropWrites--; } else { $this->regs[$reg] = $val; }
         return true;
     }
+    public $lastError = '';
     public function readHolding($start, $count)
     {
         return $this->readInput($start, $count);
@@ -251,7 +252,20 @@ ok($mb9->writes === [] && count($h9->warn) === 1, 'Inselbetrieb (37) ausserhalb 
 $mb10 = new MockMb(); $h10 = new MockHub(); $mb10->regs[43110] = 17;
 ctl($d, $h10, $mb10, 'svc_discharge_inhibit', false);
 ok($mb10->writes === [] && count($h10->warn) === 1 && !isset($h10->v['svc_discharge_inhibit']), 'Freigeben ohne gemerkten Wert: nichts geschrieben, Warnung');
-ok(strpos($GLOBALS['solisSrc'], 'ReassertEmsControl') === false && strpos($GLOBALS['solisSrc'], 'sleep') === false, 'keine eigene Wiederholung im Treiber');
+echo "Zurücklesen der Steuerregister\n";
+$mbA = new MockMb(); $hA = new MockHub(); $hA->v['ctl_force_w'] = 1000; $mbA->dropWrites = 1;
+ctl($d, $hA, $mbA, 'ctl_force_mode', 2);
+ok($mbA->writes === [[43129, 100], [43129, 100], [43135, 2]] && $hA->v['ctl_force_mode'] === 2 && !$hA->warn, 'Zwangsentladen: Leistung kam nicht an, einmal neu geschrieben, danach Modus 2');
+$mbB = new MockMb(); $hB = new MockHub(); $hB->v['ctl_force_w'] = 1000; $mbB->dropWrites = 10;
+ctl($d, $hB, $mbB, 'ctl_force_mode', 1);
+ok(!isset($hB->v['ctl_force_mode']) && count($hB->warn) === 1 && strpos($hB->warn[0], 'statt') !== false, 'Leistung wird nie uebernommen: Modus nicht geschrieben, Warnung nennt gespeicherten Wert');
+$mbC = new MockMb(); $hC = new MockHub(); $mbC->failWrites = true;
+ctl($d, $hC, $mbC, 'ctl_force_mode', 0);
+ok(!isset($hC->v['ctl_force_mode']) && count($hC->warn) === 1 && strpos($hC->warn[0], 'Ausnahmecode 3') !== false, 'Schreibfehler: Warnung enthaelt den Ausnahmecode des Geraets');
+$mbD = new MockMb(); $hD = new MockHub(); $mbD->regs[43135] = 1; $mbD->dropWrites = 1;
+ctl($d, $hD, $mbD, 'ctl_force_mode', 0);
+ok($mbD->writes === [[43135, 0], [43135, 0]] && $hD->v['ctl_force_mode'] === 0, 'Zwangsmodus Aus: erster Befehl kam nicht an, nach Neuschreiben uebernommen');
+ok(strpos($GLOBALS['solisSrc'], 'ReassertEmsControl') === false && preg_match('/(?<![a-z])sleep\(/', $GLOBALS['solisSrc']) === 0 && strpos($GLOBALS['solisSrc'], 'while') === false, 'keine zeitgesteuerte Wiederholung/kein Totmann im Treiber (nur einmaliges Neuschreiben nach dem Zuruecklesen)');
 
 echo "MPPT-Leistung (berechnet)\n";
 $r = [33049 => 5411, 33050 => 50, 33051 => 4747, 33052 => 17, 33053 => 4817, 33054 => 15, 33055 => 17, 33056 => 0];
