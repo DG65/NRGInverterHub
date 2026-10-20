@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.76.0-beta.56 (2026-10-21)
+
+- **Solis: Schreibzugriffe auf die Steuerregister werden zurückgelesen und bei Abweichung einmal neu geschrieben.** An Pauls
+  Anlage kamen Schreibbefehle gelegentlich nicht an, ohne dass der Treiber eine Meldung schrieb (Speicherbetrieb 43110 zwei von
+  vier Versuchen, Zwangsladen einmal von zwei, Zwangsentladen zweimal von zwei nicht; das Gerät bestätigte den Befehl, übernahm
+  den Wert aber nicht). Betroffen sind jetzt `ctl_force_w`, `ctl_force_mode` (Leistungsregister vor dem Modus, Modus 0 ebenfalls),
+  `ctl_storage_mode`/`svc_discharge_inhibit` und die Stromgrenzen. Jede Meldung nennt jetzt die Antwort des Geräts
+  (Ausnahmecode oder „keine Antwort"), `IHUB_ModbusTcpClient` hat dafür `lastError`. Zwischen Schreiben und Zurücklesen liegen
+  0,4 s. Die Variable ändert sich weiter nur bei bestätigter Übernahme. Ursache der verlorenen Befehle ungeklärt (Vermutung: das
+  WLAN-Modul des Wechselrichters verwirft Schreibbefehle, wenn es gerade beschäftigt ist). Prüfstand `.tools/test-solis.php`.
+
 ## 0.76.0-beta.55 (2026-10-20)
 
 - **Vertrag `IHUB_GetFunctions` 1.4 -> 1.5 (additiv): neue Netzdienst-Fähigkeit `dischargeInhibit` („Entladen sperren / Akku halten").**
