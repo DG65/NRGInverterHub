@@ -20,7 +20,9 @@ $chk(($g[1] ?? '') === $bridge['id'], 'Hub-Konstante BRIDGE_GUID = GUID der Brue
 foreach (['GatewayPick', 'CreateBridgeButton', 'BridgeInstanceID'] as $f) {
     $pos = strpos($src, "'name'         => '$f'") ?: strpos($src, "'name'    => '$f'") ?: strpos($src, "'name' => '$f'");
     $slice = $pos === false ? '' : substr($src, $pos, 500);
-    $chk($pos !== false && strpos($slice, "ReadPropertyString('ConnectionType') === 'gateway'") !== false, "Feld $f: Anfangs-Sichtbarkeit nur im Gateway-Modus");
+    // BridgeInstanceID dient seit der MQTT-Erweiterung (0.77.0-beta.45) Gateway UND MQTT.
+    $needle = $f === 'BridgeInstanceID' ? "['gateway', 'mqtt']" : "ReadPropertyString('ConnectionType') === 'gateway'";
+    $chk($pos !== false && strpos($slice, $needle) !== false, "Feld $f: Anfangs-Sichtbarkeit nur im Gateway-Modus" . ($f === 'BridgeInstanceID' ? ' (und MQTT)' : ''));
     $chk(strpos($src, "UpdateFormField('$f', 'visible'") !== false, "Feld $f: live umschaltbar (RequestAction)");
 }
 foreach (['Host', 'Port', 'UnitId'] as $f) {
@@ -79,7 +81,7 @@ foreach (['ApplyChanges', 'GetConfigurationForm'] as $fn) {
 }
 // --- Einheitliche Woerter in den drei Hubs (Mstaudi-Feedback 19.09.2026)
 $chk(strpos($src, "'caption'      => 'ModBus Gateway zum Gerät'") !== false, 'Feldname "ModBus Gateway zum Gerät"');
-$chk(strpos($src, "'caption'      => 'NRG-Stack Brücke zum ModBus Gateway'") !== false, 'Feldname "NRG-Stack Brücke zum ModBus Gateway"');
+$chk(strpos($src, "'caption'      => 'NRG-Stack Brücke (ModBus Gateway oder MQTT)'") !== false, 'Feldname "NRG-Stack Brücke (ModBus Gateway oder MQTT)"');
 $chk(strpos($src, "'caption' => 'Brücke anlegen und verbinden'") !== false && strpos($src, '… und Brücke') === false, 'Knopf "Brücke anlegen und verbinden" (ohne Auslassungspunkte), nirgends mehr im Modul');
 $chk(strpos($src, "'caption' => 'Bitte Verbindung einstellen.'") !== false && strpos($src, 'Bitte die Brücke zum ModBus Gateway eintragen') === false && strpos($src, "'Bitte IP-Adresse oder Hostname eintragen.'") === false, 'Statuszeile 104 in jedem Verbindungsweg neutral (folgt dem gespeicherten Stand)');
 $chk(strpos($src, 'keine Antwort über die Brücke') !== false && strpos($src, "'Verbindungsfehler – Wechselrichter nicht erreichbar.'") !== false, 'Statuszeile 201 je Verbindungsweg (Bruecke / Direkt)');

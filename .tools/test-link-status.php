@@ -38,9 +38,9 @@ $chk(strpos($h->t(20), 'nicht lesbar') !== false, '✅ ohne lesbare Geraete-ID s
 
 // Zeile steht im ausgelieferten Formular: als Element direkt in den items, sichtbar nur im Gateway-Modus,
 // live nachgefuehrt bei Auswahlwechsel, Umschalten und nach dem Anlegen.
-$chk(preg_match("/'name'\\s*=>\\s*'BridgeStatus',\\s*'caption'\\s*=>\\s*\\\$this->BridgeStatusLine\\(\\\$this->ReadPropertyInteger\\('BridgeInstanceID'\\)\\),\\s*'visible'\\s*=>\\s*\\\$this->ReadPropertyString\\('ConnectionType'\\) === 'gateway'/s", $hub) === 1, 'Formular: BridgeStatus mit berechneter Zeile, nur im Gateway-Modus sichtbar');
+$chk(preg_match("/'name'\\s*=>\\s*'BridgeStatus',\\s*'caption'\\s*=>\\s*\\\$this->BridgeStatusLine\\(\\\$this->ReadPropertyInteger\\('BridgeInstanceID'\\)\\),\\s*'visible'\\s*=>\\s*in_array\\(\\\$this->ReadPropertyString\\('ConnectionType'\\), \\['gateway', 'mqtt'\\], true\\)/s", $hub) === 1, 'Formular: BridgeStatus mit berechneter Zeile, nur im Gateway- und MQTT-Modus sichtbar');
 $chk(strpos($hub, "'onChange'     => 'IPS_RequestAction(\$id, \"BridgeChanged\", \$BridgeInstanceID);'") !== false && strpos($hub, "if (\$Ident === 'BridgeChanged')") !== false, 'Auswahlwechsel fuehrt die Zeile live nach');
-$chk(strpos($hub, "UpdateFormField('BridgeStatus', 'visible', !\$direct)") !== false, 'Umschalten Direkt/Gateway blendet die Zeile mit');
+$chk(strpos($hub, "UpdateFormField('BridgeStatus', 'visible', \$gateway || \$mqtt)") !== false, 'Umschalten Direkt/Gateway/MQTT blendet die Zeile mit');
 $chk(preg_match("/UpdateFormField\\('BridgeInstanceID', 'value', \\\$bridge\\);\\s*\\\$this->UpdateFormField\\('BridgeStatus', 'caption'/", $hub) === 1, 'nach "Bruecke anlegen und verbinden" wird die Zeile aktualisiert');
 
 // ------------------------------------------------------------ Gerätesuche: MeterHub, MigrationsHub
