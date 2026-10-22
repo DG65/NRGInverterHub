@@ -9,8 +9,13 @@ SOC 71 %, Ziel 80 %):** 10 % → −3019 W Batterie, 30 % → −8999 W; je Proz
 stand am Gerät schon vorher auf 10 (Protokoll nennt 100 als Standard). Ungeklärt: Verhalten bei erreichtem Ziel-SOC, Vorrang gegen
 andere Modi als 8, Zusammenspiel mit `ctl_ems_enable=true`. **Beobachtet:** `ctl_ems_mode=1` wurde im zweiten Lauf nicht übernommen
 (Register blieb auf 8, zwei Wiederholungen ohne Wirkung); der Ziel-SOC-Schreibvorgang ging beim ersten Versuch verloren (wie
-beim Solis, erstes Schreiben gelegentlich verloren). Beim ersten Messversuch schrieb das EMS nach dem Ausschalten noch ein, zwei
-Zyklen nach (Modus sprang auf 3): nach „EMS aus" erst einige Minuten warten, dann messen.
+beim Solis, erstes Schreiben gelegentlich verloren). Beim ersten Messversuch war der Ablauf (EMS-Einordnung 23.10.2026):
+Das EMS schreibt beim ersten Zyklus nach „EMS aus" GENAU EINMAL `ctl_ems_enable=false`, `ctl_ems_mode=1`, `ctl_ems_power=0`
+(Übergabe, bis ca. 30 s nach dem Umschalten); danach schreibt es nichts mehr. Das anschließende Springen von `ctl_ems_mode` auf 3 und
+das Wechseln von `ctl_ems_power` (286 bis 567 W alle ca. 6 s) war NICHT das EMS, sondern das Gerät selbst: bei `ctl_ems_enable=false`
+regelt es eigenständig, die Variablen zeigen dessen Rücklesewerte (`ctl_ems_mode` ändert sich dann auch von selbst). Folge für
+Messungen: nach „EMS aus" etwa eine Minute warten; `ctl_ems_mode`/`ctl_ems_power` zeigen bei `enable=false` nicht zwingend den
+geschriebenen Wert.
 
 ## Anzeigenamen: genau EIN Alias je Modul (20.09.2026, Mstaudi/MeterHub)
 
