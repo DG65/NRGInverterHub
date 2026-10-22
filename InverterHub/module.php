@@ -1175,6 +1175,17 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
         $hub->SetVarInt('dev_fw_arm',  $mb->u16($dev, 18));
     }
 
+    /**
+     * Steht der Wert schon im Register? Lesen kostet kein Flash; die Register
+     * 47509/47510/45356 sind laut GoodWe-Protokoll "einmal schreiben". Bei
+     * Lesefehler false -> es wird geschrieben wie bisher.
+     */
+    private function regAlready($mb, int $reg, int $val): bool
+    {
+        $r = $mb->readHolding($reg, 1);
+        return $r !== null && $mb->u16($r, 0) === $val;
+    }
+
     public function writeControl($mb, $hub, string $ident, $value){
         switch ($ident) {
             case 'ctl_work_mode':
@@ -1214,6 +1225,11 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
 
             case 'ctl_export_enable':
                 $val = (bool)$value ? 1 : 0;
+                // Flash-Register (GoodWe: einmal schreiben): nur bei geaendertem Wert
+                if ($this->regAlready($mb, self::REG_FEED_POWER_ENABLE, $val)) {
+                    $hub->SetVarBool('ctl_export_enable', (bool)$value);
+                    break;
+                }
                 // Einschalten heisst: Die Begrenzung aus 47510 gilt ab jetzt.
                 // Steht dort 0 W, ist das Ergebnis NULLEINSPEISUNG. Das kann
                 // gewollt sein (Direktvermarktung, Netzbetreiberauflage), ist
@@ -1237,6 +1253,10 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
 
             case 'ctl_export_limit':
                 $val = max(0, min(self::EMS_POWER_MAX, (int)$value));
+                if ($this->regAlready($mb, self::REG_FEED_POWER_LIMIT, $val)) {
+                    $hub->SetVarInt('ctl_export_limit', $val);
+                    break;
+                }
                 if ($mb->writeSingle(self::REG_FEED_POWER_LIMIT, $val)) {
                     $hub->SetVarInt('ctl_export_limit', $val);
                 }
@@ -1244,6 +1264,10 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
 
             case 'ctl_soc_min':
                 $val = max(0, min(100, (int)$value));
+                if ($this->regAlready($mb, self::REG_SOC_MIN, $val)) {
+                    $hub->SetVarInt('ctl_soc_min', $val);
+                    break;
+                }
                 if ($mb->writeSingle(self::REG_SOC_MIN, $val)) {
                     $hub->SetVarInt('ctl_soc_min', $val);
                 }

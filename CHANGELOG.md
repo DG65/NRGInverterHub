@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.76.0-beta.59 (2026-10-22)
+
+- **GoodWe: Flash-Register schonen.** Laut GoodWe-Protokoll (Third-Party EMS Modbus V1.1.1) sind 47509/47510 (Einspeisebegrenzung)
+  und 45356 (SOC Min.) „einmal schreiben". Der Treiber liest den Registerwert jetzt vor dem Schreiben und schreibt nur, wenn er
+  abweicht (Lesefehler: wie bisher schreiben). Das EMS schrieb die Einspeisebegrenzung bei aktiver Vorgabe in jedem Durchlauf.
+
 ## 0.76.0-beta.58 (2026-10-22)
 
 - **Neu (Vorabversion, am Gerät nicht erprobt): Hoymiles MS-A2 per MQTT.** Neuer Hersteller „Hoymiles MS-A2" mit neuem
