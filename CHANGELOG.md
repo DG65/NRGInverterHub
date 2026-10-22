@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.76.0-beta.61 (2026-10-22)
+
+- **GoodWe: Schnellladung (Vorabversion, am Gerät nicht erprobt).** Neue Steuervariablen `ctl_fastcharge_enable` (47545),
+  `ctl_fastcharge_soc` (47546, 1 bis 100 %) und `ctl_fastcharge_pct` (47603, erlaubte Netzladeleistung in %, Standard 100) nach dem
+  GoodWe-Protokoll „Third-Party EMS Modbus V1.1.1". Die Werte werden langsam zurückgelesen. Die genaue Wirkung (Zusammenspiel mit
+  `ctl_ems_mode`) ist aus der Registerliste nicht ersichtlich und noch zu messen. Die EMS-Modi 4 (Import-AC) und 5 (Export-AC) waren
+  über `ctl_ems_mode` schon bisher schreibbar.
+
 ## 0.76.0-beta.60 (2026-10-22)
 
 - **Archiv: Verdichtung nur noch bei Abweichung schreiben.** Bei jedem „Übernehmen" und jedem Modul-Update setzte der InverterHub
