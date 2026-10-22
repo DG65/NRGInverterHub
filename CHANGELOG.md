@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.76.0-beta.57 (2026-10-22)
+
+- **Solis: generische Netzdienst-Fähigkeiten wie beim GoodWe (Vertrag bleibt 1.5, additiv je Instanz).** Neue Steuerpunkte
+  `svc_grid_charge_w` (Netzladen mit W, 0 = Freigabe), `svc_discharge_to_grid_w` (Entladen auf Vorgabe W, 0 = Freigabe) und
+  `svc_release` (Zwangsmodus aus und „Akku halten" zurück). `IHUB_GetFunctions` meldet damit beim Solis zusätzlich
+  `gridCharge`, `dischargeToGrid` und `release` (bisher nur `dischargeInhibit`); `chargeInhibit` („Laden sperren, Überschuss
+  ins Netz") gibt es beim Solis NICHT (nicht gemessen). Intern: Zwangsladen 43136/43135 = 1 bzw. Zwangsentladen 43129/43135 = 2,
+  jeweils Leistung vor Modus und mit Zurücklesen; ein laufender anderer Zwangsmodus wird vorher auf Aus gesetzt. Gemessen an
+  Pauls Anlage: Zeitlimit ca. 182 s, Neuschreiben alle <= 60 s hält den Modus (Aufrufer/EMS), Entladen über Hausbedarf
+  speist ins Netz ein (die Einspeisebegrenzung des WR greift nicht), Leistungstreue 96-98 % (bei sehr niedrigem SOC ca. 70 %).
+  Wie bisher keine Wiederholung und kein Totmann im InverterHub. Prüfstand `.tools/test-solis.php`.
+
 ## 0.76.0-beta.56 (2026-10-21)
 
 - **Solis: Schreibzugriffe auf die Steuerregister werden zurückgelesen und bei Abweichung einmal neu geschrieben.** An Pauls

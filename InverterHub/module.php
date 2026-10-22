@@ -1855,6 +1855,9 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 ['ctl_force_mode',   'Zwangsladen/-entladen', 'I', 'SLS.ForceMode',   false, 'control', 'RW 43135'],
                 ['ctl_force_w',      'Zwangsleistung (W)',    'I', 'SLS.WattInt',     false, 'control', 'RW 43136 (Laden) / 43129 (Entladen), x10 W'],
                 ['ctl_storage_mode', 'Speicherbetrieb',       'I', 'SLS.StorageMode', false, 'control', 'RW 43110 (nur Auswahl)'],
+                ['svc_grid_charge_w', 'Netzdienlich: Netzladen (W)', 'I', 'SLS.WattInt', false, 'control', 'Zwangsladen 43136/43135 = 1; 0 = Freigabe; Aufrufer schreibt alle <= 60 s neu (Zeitlimit ca. 182 s)'],
+                ['svc_discharge_to_grid_w', 'Netzdienlich: Entladen auf Vorgabe (W)', 'I', 'SLS.WattInt', false, 'control', 'Zwangsentladen 43129/43135 = 2; 0 = Freigabe; speist ein, wenn Vorgabe > Hausbedarf'],
+                ['svc_release', 'Netzdienlich: Freigeben (Automatik)', 'B', '~Switch', false, 'control', 'Zwangsmodus 43135 = 0 und "Akku halten" zurueck'],
                 ['svc_discharge_inhibit', 'Netzdienlich: Entladen sperren (Akku halten)', 'B', '~Switch', false, 'control', 'schreibt 43110 = 17 (Reserve ohne Netzladen), merkt den bisherigen Wert; aus = zurueck'],
                 ['svc_prev_storage', 'Gemerkter Speicherbetrieb (vor "Akku halten")', 'I', '', false, 'control', 'nur Anzeige'],
                 ['ctl_max_charge_a', 'Max. Ladestrom (A)',    'F', 'SLS.AmpereSet',   false, 'control', 'RW 43012 (÷10), fest gespeichert'],
@@ -2371,6 +2374,39 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                     return;
                 }
                 $hub->SetVarInt('ctl_force_mode', $mode);
+                return;
+
+            case 'svc_grid_charge_w':
+            case 'svc_discharge_to_grid_w':
+                $mode = ($ident === 'svc_grid_charge_w') ? 1 : 2;
+                $other = ($mode === 1) ? 'svc_discharge_to_grid_w' : 'svc_grid_charge_w';
+                $w = (int)(round(max(0, min(self::FORCE_MAX_W, (float)$value)) / 10) * 10);
+                if ($w === 0) {
+                    $this->writeControl($mb, $hub, 'svc_release', true);
+                    return;
+                }
+                $cur = $hub->GetVarInt('ctl_force_mode');
+                if ($cur > 0 && $cur !== $mode) {
+                    // Anderer Zwangsmodus laeuft: erst auf Aus, sonst ginge die neue Leistung ins falsche Register.
+                    $this->writeControl($mb, $hub, 'ctl_force_mode', 0);
+                    if ($hub->GetVarInt('ctl_force_mode') !== 0) { return; }
+                }
+                $this->writeControl($mb, $hub, 'ctl_force_w', $w);
+                $this->writeControl($mb, $hub, 'ctl_force_mode', $mode);
+                if ($hub->GetVarInt('ctl_force_mode') === $mode && $hub->GetVarInt('ctl_force_w') === $w) {
+                    $hub->SetVarInt($ident, $w);
+                    $hub->SetVarInt($other, 0);
+                }
+                return;
+
+            case 'svc_release':
+                if (!(bool)$value) { return; }
+                $this->writeControl($mb, $hub, 'ctl_force_mode', 0);
+                $this->writeControl($mb, $hub, 'svc_discharge_inhibit', false);
+                if ($hub->GetVarInt('ctl_force_mode') === 0) {
+                    $hub->SetVarInt('svc_grid_charge_w', 0);
+                    $hub->SetVarInt('svc_discharge_to_grid_w', 0);
+                }
                 return;
 
             case 'svc_discharge_inhibit':
