@@ -8133,13 +8133,20 @@ class InverterHub extends IPSModule
             if (count($archiveIDs) > 0 && @AC_GetLoggingStatus($archiveIDs[0], $vid)) {
                 $kind = $isEnergy ? 'Energy' : 'Power';
                 $interval = $isEnergy ? $this->ReadPropertyInteger('IntervalSlow') : $this->ReadPropertyInteger('IntervalFast');
-                foreach ($this->CompactionPlan($interval, $kind) as [$months, $type]) {
-                    // Typ -1 loescht eine Regel; existiert keine, warnt Symcon
-                    // ("Verdichtungseintrag nicht gefunden") - harmlos, nur dafuer @.
-                    if ($type === -1) {
-                        @AC_SetCompaction($archiveIDs[0], $vid, $months, $type);
-                    } else {
-                        AC_SetCompaction($archiveIDs[0], $vid, $months, $type);
+                // Nur schreiben, wenn die Regeln im Archiv vom Plan abweichen: Jedes
+                // AC_SetCompaction kann Symcon die Variable als "braucht Reaggregation"
+                // markieren lassen (Dashboard-Frage 22.10.2026, Stefan/somm) - bei jedem
+                // ApplyChanges/Modul-Update ohne Aenderung unnoetig.
+                $plan = $this->CompactionPlan($interval, $kind);
+                if (!$this->CompactionMatches($archiveIDs[0], $vid, $plan)) {
+                    foreach ($plan as [$months, $type]) {
+                        // Typ -1 loescht eine Regel; existiert keine, warnt Symcon
+                        // ("Verdichtungseintrag nicht gefunden") - harmlos, nur dafuer @.
+                        if ($type === -1) {
+                            @AC_SetCompaction($archiveIDs[0], $vid, $months, $type);
+                        } else {
+                            AC_SetCompaction($archiveIDs[0], $vid, $months, $type);
+                        }
                     }
                 }
             }
@@ -8305,6 +8312,37 @@ class InverterHub extends IPSModule
         return '✅ Archivierung eingerichtet für ' . $done . ' Variable' . ($done === 1 ? '' : 'n')
             . ($already > 0 ? ' (' . $already . ' waren schon archiviert)' : '')
             . '. Bitte das Häkchen oben mit „Übernehmen" speichern, damit künftig neue Messwerte ebenfalls archiviert werden.';
+    }
+
+    /**
+     * Stimmen die im Archiv gespeicherten Verdichtungsregeln mit dem Plan ueberein?
+     * AC_GetCompaction liefert [['MonthOffset'=>..,'CompactionType'=>..], ...].
+     * Typ -1 im Plan heisst "keine Regel an diesem Versatz". Im Zweifel (Fehler,
+     * unerwartetes Format) false -> es wird wie bisher geschrieben.
+     */
+    private function CompactionMatches(int $archiveID, int $vid, array $plan): bool
+    {
+        $cur = @AC_GetCompaction($archiveID, $vid);
+        if (!is_array($cur)) {
+            return false;
+        }
+        $have = [];
+        foreach ($cur as $r) {
+            if (!is_array($r) || !isset($r['MonthOffset'], $r['CompactionType'])) {
+                return false;
+            }
+            $have[(int)$r['MonthOffset']] = (int)$r['CompactionType'];
+        }
+        foreach ($plan as [$months, $type]) {
+            if ($type === -1) {
+                if (isset($have[$months])) {
+                    return false;
+                }
+            } elseif (!isset($have[$months]) || $have[$months] !== $type) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private function SetArchive($vid, bool $isEnergy = false)
