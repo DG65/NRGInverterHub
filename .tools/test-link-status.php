@@ -15,7 +15,7 @@ function IPS_InstanceExists($id) { return isset($GLOBALS['G']['inst'][$id]); }
 function IPS_GetName($id) { return 'Name' . $id; }
 function IPS_GetInstance($id) { return $GLOBALS['G']['inst'][$id]; }
 function IHUBB_GetState($id) { return $GLOBALS['G']['state']; }
-eval('class HB { ' . str_replace('function_exists(\'IHUBB_GetState\')', '$GLOBALS["G"]["hasFn"]', $m[0]) . ' public function t($i) { return $this->BridgeStatusLine($i); } }');
+eval('class HB { ' . str_replace('function_exists(\'IHUBB_GetState\')', '$GLOBALS["G"]["hasFn"]', $m[0]) . ' public function ReadPropertyString($n) { return \'gateway\'; } public function t($i) { return $this->BridgeStatusLine($i); } }');
 $h = new HB();
 
 $r = $h->t(0);
