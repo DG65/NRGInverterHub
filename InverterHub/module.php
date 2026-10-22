@@ -507,6 +507,9 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
     const REG_EMS_POWER_SET     = 47512;
     const REG_SOC_MIN           = 45356;
     const REG_SOC_MAX           = 45559;
+    const REG_FAST_CHG_ENABLE   = 47545;   // Schnellladung aus dem Netz: 0 aus, 1 an
+    const REG_FAST_CHG_SOC      = 47546;   // Ziel-SOC der Schnellladung, 1-100 %
+    const REG_FAST_CHG_PCT      = 47603;   // erlaubte Netzladeleistung in % (Standard 100)
     const REG_INTERNET_MODE     = 47017;
     const REG_RESTART           = 45220;
 
@@ -759,6 +762,12 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 // funktionierenden Kontrollmechanismus behandeln oder Nutzern
                 // als Loesung gegen Ueberladung nahe 100% SOC empfehlen.
                 ['ctl_soc_max',       'SOC Max. Ladung (bestätigt wirkungslos)', 'I', 'GWH.Percent', false, 'control', 'RW 45559'],
+                // Schnellladung (GoodWe Third-Party-EMS-Protokoll V1.1.1, Tabelle 9, Nr. 29-31): am
+                // Geraet NICHT erprobt, Bedeutung nur aus der Registerliste ("Fast Charge Enable/
+                // Stop SOC/Power Percent, allowable Grid charge power"). Kein Flash-Register.
+                ['ctl_fastcharge_enable', 'Schnellladung aktiv',          'B', '~Switch',      false, 'control', 'RW 47545 (ungetestet)'],
+                ['ctl_fastcharge_soc',    'Schnellladung bis SOC (%)',    'I', 'GWH.Percent',  false, 'control', 'RW 47546 (ungetestet)'],
+                ['ctl_fastcharge_pct',    'Schnellladung Netzleistung (%)', 'I', 'GWH.Percent', false, 'control', 'RW 47603 (ungetestet, Standard 100)'],
                 ['ctl_internet',      'Cloud-Verbindung',     'B', '~Switch',      false, 'control', 'RW 47017'],
                 ['ctl_restart',       'WR Neustart',          'B', '~Switch',      false, 'control', 'WO 45220'],
                 // Generische Netzdienlichkeits-Operationen (Verbund-Vertrag mit
@@ -1110,6 +1119,19 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
     }
 
     public function readSlow($mb, $hub){
+        // Schnellladung zuruecklesen (nur wenn die Steuerung eingeschaltet ist; Fehler still)
+        if ($hub->GetPropBool('GroupControl')) {
+            $fc = $mb->readHolding(self::REG_FAST_CHG_ENABLE, 2);
+            if ($fc !== null) {
+                $hub->SetVarBool('ctl_fastcharge_enable', $mb->u16($fc, 0) === 1);
+                $hub->SetVarInt('ctl_fastcharge_soc', $mb->u16($fc, 1));
+            }
+            $fp = $mb->readHolding(self::REG_FAST_CHG_PCT, 1);
+            if ($fp !== null) {
+                $hub->SetVarInt('ctl_fastcharge_pct', $mb->u16($fp, 0));
+            }
+        }
+
         if ($hub->GetPropBool('GroupEnergy')) {
             $e = $mb->readHolding(35191, 22);
             if ($e !== null) {
@@ -1259,6 +1281,27 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 }
                 if ($mb->writeSingle(self::REG_FEED_POWER_LIMIT, $val)) {
                     $hub->SetVarInt('ctl_export_limit', $val);
+                }
+                break;
+
+            case 'ctl_fastcharge_enable':
+                $val = (bool)$value ? 1 : 0;
+                if ($mb->writeSingle(self::REG_FAST_CHG_ENABLE, $val)) {
+                    $hub->SetVarBool('ctl_fastcharge_enable', (bool)$value);
+                }
+                break;
+
+            case 'ctl_fastcharge_soc':
+                $val = max(1, min(100, (int)$value));
+                if ($mb->writeSingle(self::REG_FAST_CHG_SOC, $val)) {
+                    $hub->SetVarInt('ctl_fastcharge_soc', $val);
+                }
+                break;
+
+            case 'ctl_fastcharge_pct':
+                $val = max(0, min(100, (int)$value));
+                if ($mb->writeSingle(self::REG_FAST_CHG_PCT, $val)) {
+                    $hub->SetVarInt('ctl_fastcharge_pct', $val);
                 }
                 break;
 
