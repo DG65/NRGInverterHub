@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.76.0-beta.62 (2026-10-23)
+
+- **GoodWe-Schnellladung gemessen (Dietmars Anlage, nachts, SOC 71 %, Ziel 80 %, EMS aus).** Netzleistung 10 % ergab 3,0 kW
+  Laden aus dem Netz, 30 % ergaben 9,0 kW (rund 300 W je Prozent); Ausschalten: Ruhelast binnen 15 s; die Schnellladung lud auch
+  bei Modus 8 (Bereitschaft) mit voller Leistung weiter. Ungeklärt: Modus 1 (Automatik) wurde im zweiten Lauf nicht übernommen
+  (Register blieb auf 8), das erste Schreiben des Ziel-SOC ging einmal verloren. Vorrang gegenüber anderen Modi als 8 nicht gemessen.
+  Nur Beschriftungen/Doku, kein Funktionsunterschied.
+
 ## 0.76.0-beta.61 (2026-10-22)
 
 - **GoodWe: Schnellladung (Vorabversion, am Gerät nicht erprobt).** Neue Steuervariablen `ctl_fastcharge_enable` (47545),
