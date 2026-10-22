@@ -1,5 +1,17 @@
 # Hinweise für die Arbeit an diesem Repository
 
+## GoodWe-Schnellladung 47545/47546/47603 gemessen (23.10.2026)
+
+Variablen `ctl_fastcharge_enable` (47545), `ctl_fastcharge_soc` (47546, 1-100 %), `ctl_fastcharge_pct` (47603, Netzleistung in %).
+Quelle der Adressen: GoodWe „Third-Party EMS Protocol Modbus V1.1.1", Tabelle 9. **Gemessen an Dietmars Anlage (nachts, EMS aus,
+SOC 71 %, Ziel 80 %):** 10 % → −3019 W Batterie, 30 % → −8999 W; je Prozent rund 300 W (Bezugsbasis rund 30 kW); Aus → Ruhelast
+(−82 W) binnen 15 s; mit Schnellladung an lud der WR auch in Modus 8 (Bereitschaft) mit voller Leistung weiter. Das Register 47603
+stand am Gerät schon vorher auf 10 (Protokoll nennt 100 als Standard). Ungeklärt: Verhalten bei erreichtem Ziel-SOC, Vorrang gegen
+andere Modi als 8, Zusammenspiel mit `ctl_ems_enable=true`. **Beobachtet:** `ctl_ems_mode=1` wurde im zweiten Lauf nicht übernommen
+(Register blieb auf 8, zwei Wiederholungen ohne Wirkung); der Ziel-SOC-Schreibvorgang ging beim ersten Versuch verloren (wie
+beim Solis, erstes Schreiben gelegentlich verloren). Beim ersten Messversuch schrieb das EMS nach dem Ausschalten noch ein, zwei
+Zyklen nach (Modus sprang auf 3): nach „EMS aus" erst einige Minuten warten, dann messen.
+
 ## Anzeigenamen: genau EIN Alias je Modul (20.09.2026, Mstaudi/MeterHub)
 
 Jeder Alias in `module.json` ist in „Instanz hinzufügen“ ein eigener Eintrag und zugleich der

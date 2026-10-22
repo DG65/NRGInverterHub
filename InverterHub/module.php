@@ -762,12 +762,13 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 // funktionierenden Kontrollmechanismus behandeln oder Nutzern
                 // als Loesung gegen Ueberladung nahe 100% SOC empfehlen.
                 ['ctl_soc_max',       'SOC Max. Ladung (bestätigt wirkungslos)', 'I', 'GWH.Percent', false, 'control', 'RW 45559'],
-                // Schnellladung (GoodWe Third-Party-EMS-Protokoll V1.1.1, Tabelle 9, Nr. 29-31): am
-                // Geraet NICHT erprobt, Bedeutung nur aus der Registerliste ("Fast Charge Enable/
-                // Stop SOC/Power Percent, allowable Grid charge power"). Kein Flash-Register.
-                ['ctl_fastcharge_enable', 'Schnellladung aktiv',          'B', '~Switch',      false, 'control', 'RW 47545 (ungetestet)'],
-                ['ctl_fastcharge_soc',    'Schnellladung bis SOC (%)',    'I', 'GWH.Percent',  false, 'control', 'RW 47546 (ungetestet)'],
-                ['ctl_fastcharge_pct',    'Schnellladung Netzleistung (%)', 'I', 'GWH.Percent', false, 'control', 'RW 47603 (ungetestet, Standard 100)'],
+                // Schnellladung (GoodWe Third-Party-EMS-Protokoll V1.1.1, Tabelle 9, Nr. 29-31). Gemessen
+                // 23.10.2026 an Dietmars Anlage (SOC 71 %, Ziel 80 %): laedt aus dem Netz mit ca. 300 W je
+                // Prozent Netzleistung (10 % = 3,0 kW, 30 % = 9,0 kW), auch bei Modus 8; aus -> Ruhelast
+                // binnen 15 s. Kein Flash-Register.
+                ['ctl_fastcharge_enable', 'Schnellladung aktiv',          'B', '~Switch',      false, 'control', 'RW 47545 (gemessen)'],
+                ['ctl_fastcharge_soc',    'Schnellladung bis SOC (%)',    'I', 'GWH.Percent',  false, 'control', 'RW 47546 (gemessen)'],
+                ['ctl_fastcharge_pct',    'Schnellladung Netzleistung (%)', 'I', 'GWH.Percent', false, 'control', 'RW 47603 (gemessen, ca. 300 W je %)'],
                 ['ctl_internet',      'Cloud-Verbindung',     'B', '~Switch',      false, 'control', 'RW 47017'],
                 ['ctl_restart',       'WR Neustart',          'B', '~Switch',      false, 'control', 'WO 45220'],
                 // Generische Netzdienlichkeits-Operationen (Verbund-Vertrag mit
