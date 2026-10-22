@@ -265,6 +265,28 @@ ok(!isset($hC->v['ctl_force_mode']) && count($hC->warn) === 1 && strpos($hC->war
 $mbD = new MockMb(); $hD = new MockHub(); $mbD->regs[43135] = 1; $mbD->dropWrites = 1;
 ctl($d, $hD, $mbD, 'ctl_force_mode', 0);
 ok($mbD->writes === [[43135, 0], [43135, 0]] && $hD->v['ctl_force_mode'] === 0, 'Zwangsmodus Aus: erster Befehl kam nicht an, nach Neuschreiben uebernommen');
+echo "svc-Faehigkeiten Solis\n";
+$mbS = new MockMb(); $hS = new MockHub(); $hS->v['ctl_force_mode'] = 0;
+ctl($d, $hS, $mbS, 'svc_grid_charge_w', 3000);
+ok($hS->v['ctl_force_mode'] === 1 && $hS->v['ctl_force_w'] === 3000 && $hS->v['svc_grid_charge_w'] === 3000 && $hS->v['svc_discharge_to_grid_w'] === 0
+   && $mbS->regs[43136] === 300 && $mbS->regs[43135] === 1, 'Netzladen 3000 W: 43136 = 300, 43135 = 1, Anzeige gesetzt');
+ctl($d, $hS, $mbS, 'svc_discharge_to_grid_w', 1000);
+ok($hS->v['ctl_force_mode'] === 2 && $mbS->regs[43129] === 100 && $mbS->regs[43135] === 2 && $hS->v['svc_discharge_to_grid_w'] === 1000 && $hS->v['svc_grid_charge_w'] === 0,
+   'Wechsel auf Entladen 1000 W: erst Aus, dann 43129 = 100, 43135 = 2, Netzladen-Anzeige 0');
+ok($mbS->regs[43136] === 300, 'Ladeleistung 43136 wurde beim Wechsel nicht veraendert');
+ctl($d, $hS, $mbS, 'svc_release', true);
+ok($hS->v['ctl_force_mode'] === 0 && $mbS->regs[43135] === 0 && $hS->v['svc_discharge_to_grid_w'] === 0 && $hS->v['svc_grid_charge_w'] === 0, 'Freigeben: Zwangsmodus 0, Anzeigen 0');
+ctl($d, $hS, $mbS, 'svc_grid_charge_w', 2000);
+ctl($d, $hS, $mbS, 'svc_grid_charge_w', 0);
+ok($hS->v['ctl_force_mode'] === 0 && $hS->v['svc_grid_charge_w'] === 0 && $mbS->regs[43135] === 0, 'Netzladen 0 W = Freigabe');
+$mbT = new MockMb(); $hT = new MockHub(); $hT->v['ctl_force_mode'] = 0; $mbT->regs[43110] = 17; $hT->v['svc_discharge_inhibit'] = true; $hT->v['svc_prev_storage'] = 33;
+ctl($d, $hT, $mbT, 'svc_grid_charge_w', 1000);
+ctl($d, $hT, $mbT, 'svc_release', true);
+ok($mbT->regs[43110] === 33 && $hT->v['svc_discharge_inhibit'] === false && $hT->v['ctl_force_mode'] === 0, 'Freigeben stellt auch "Akku halten" auf den gemerkten Speicherbetrieb zurueck');
+$mbU = new MockMb(); $hU = new MockHub(); $hU->v['ctl_force_mode'] = 0; $mbU->dropWrites = 10;
+ctl($d, $hU, $mbU, 'svc_grid_charge_w', 1000);
+ok(!isset($hU->v['svc_grid_charge_w']) && $hU->v['ctl_force_mode'] === 0 && count($hU->warn) >= 1, 'Geraet uebernimmt nichts: Anzeige bleibt unveraendert, Warnung');
+ok(strpos($GLOBALS['coreSrc'], "\$gridServiceCapabilities[] = 'gridCharge'") !== false && strpos($GLOBALS['coreSrc'], "\$gridServiceCapabilities[] = 'dischargeToGrid'") !== false && strpos($GLOBALS['coreSrc'], "\$gridServiceCapabilities[] = 'release'") !== false, 'Faehigkeiten gridCharge/dischargeToGrid/release werden ueber die svc_*-Idents erkannt');
 ok(strpos($GLOBALS['solisSrc'], 'ReassertEmsControl') === false && preg_match('/(?<![a-z])sleep\(/', $GLOBALS['solisSrc']) === 0 && strpos($GLOBALS['solisSrc'], 'while') === false, 'keine zeitgesteuerte Wiederholung/kein Totmann im Treiber (nur einmaliges Neuschreiben nach dem Zuruecklesen)');
 
 echo "MPPT-Leistung (berechnet)\n";
