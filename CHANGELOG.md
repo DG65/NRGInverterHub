@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.76.0-beta.60 (2026-10-22)
+
+- **Archiv: Verdichtung nur noch bei Abweichung schreiben.** Bei jedem „Übernehmen" und jedem Modul-Update setzte der InverterHub
+  für alle bereits archivierten Variablen die Verdichtungsregeln (`AC_SetCompaction`) erneut, auch wenn sich nichts geändert hatte.
+  Jetzt werden sie zuerst mit `AC_GetCompaction` verglichen und nur bei Abweichung geschrieben (Lesefehler oder unbekanntes Format:
+  wie bisher schreiben). Hintergrund: Anfrage Dashboard / Meldung „N Variablen benötigen eine Reaggregation" (Stefan, somm). Ob das
+  Neusetzen unveränderter Regeln diese Meldung tatsächlich auslöst, ist nicht belegt; die Änderung beseitigt die Möglichkeit.
+
 ## 0.76.0-beta.59 (2026-10-22)
 
 - **GoodWe: Flash-Register schonen.** Laut GoodWe-Protokoll (Third-Party EMS Modbus V1.1.1) sind 47509/47510 (Einspeisebegrenzung)
