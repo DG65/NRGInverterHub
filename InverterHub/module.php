@@ -5780,6 +5780,329 @@ class IHUB_VictronDriver implements IHUB_InverterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
+// IHUB_HoymilesMsa2Driver — Hoymiles MS-A2 (Speicher mit MQTT-Schnittstelle).
+//
+// ANDERS als alle anderen Treiber: kein Modbus, sondern MQTT. Das Gerät sendet an den
+// MQTT-Server von Symcon; die Nachrichten kommen über die "NRG-Stack InverterHub Brücke
+// (MQTT)" in IHUB_MqttReceive() -> onMqtt(). readFast() prüft nur, ob noch Nachrichten
+// eintreffen. Geräte-ID, z. B. "MSA-280520260806" (= client_prefix-SN).
+//
+// Quellen (nicht am Gerät erprobt, VORABVERSION): Quellcode Lin071/ha (Hoymiles-Integration
+// für Home Assistant, Felder und Vorzeichen), Mitschnitt von AKL (Forum, Firmware V01.07.02).
+//   quick/state  (1 s):   soc, bat_p, bat_sts, heat, pv_p, grid_on_p, grid_off_p,
+//                         sys_pv_p, sys_pv2_p, sys_bat_p, sys_grid_p, sys_load_p, sys_plug_p,
+//                         sys_sp_p, sys_eps_p, sys_soc, sys_heat
+//   device/state (5 min): bat_v, bat_i, bat_temp, rssi, pack_num, packs[], pvs[], grid[]
+//   system/state (5 min): pv_e, pv2_e, chg_e, dchg_e, plug_*_e, eps_*_e, ems_mode
+// Vorzeichen: Batterie (sys_bat_p/bat_p) < 0 = Laden, > 0 = Entladen (= InverterHub-Konvention);
+// sys_grid_p > 0 = Netzbezug -> meter_total = -sys_grid_p (InverterHub: + = Einspeisung).
+// sys_*-Felder gibt es nur bei Master/Einzelgerät. Der am MS-A2 angehängte Wechselrichter
+// (z. B. HMS-2000-4WB) liefert seine Erzeugung über sys_pv2_p.
+//
+// Steuerung (nur Befehle, kein Rücklesen): EMS-Modus über .../select/<id>/ems_mode/command
+// (general | mqtt_ctrl | tou_plan, belegt) und Leistungsvorgabe .../number/<id>/power_ctrl/set
+// (Einheit und Vorzeichen NICHT belegt, deshalb nur durchgereicht).
+// ---------------------------------------------------------------------------
+
+class IHUB_HoymilesMsa2Driver implements IHUB_InverterDriverInterface
+{
+    const EMS_MODES = [0 => 'general', 1 => 'mqtt_ctrl', 2 => 'tou_plan'];
+    const BAT_STATUS = ['standby' => 0, 'charge' => 1, 'discharge' => 2, 'lock' => 3];
+    const STALE_SECONDS = 120;   // quick/state kommt im Sekundentakt
+
+    public function getBaseVars()
+    {
+        return [
+            ['connected',   'Verbindung',                       'B', '~Alert.Reversed', false, 'errors',    'MQTT'],
+            ['pv_total',    'PV Gesamtleistung',                'F', 'MSA.Watt', true,  'pv',        'quick/state sys_pv_p + sys_pv2_p'],
+            ['bat_power',   'Bat. Leistung (+ Entladen / − Laden)', 'F', 'MSA.Watt', true,  'batcommon', 'quick/state sys_bat_p (Rückfall bat_p)'],
+            ['bat_soc',     'SOC (eigene Packs)',               'I', '~Intensity.100', true, 'batcommon', 'quick/state soc'],
+            ['meter_total', 'Netz Leistung (+ Einspeisung / − Bezug)', 'F', 'MSA.Watt', true, 'grid',    'quick/state -sys_grid_p (nur mit Zähler)'],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupPV' => ['caption' => 'PV (Einzelwerte)', 'vars' => [
+                ['pv1_power', 'PV1 Leistung', 'F', 'MSA.Watt', true, 'pv', 'quick/state sys_pv_p'],
+                ['pv2_power', 'PV2 Leistung (angehängter Wechselrichter)', 'F', 'MSA.Watt', true, 'pv', 'quick/state sys_pv2_p'],
+                ['pv_device', 'PV Leistung (nur dieses Gerät)', 'F', 'MSA.Watt', false, 'pv', 'quick/state pv_p'],
+            ]],
+            'GroupBat' => ['caption' => 'Batterie', 'vars' => [
+                ['bat_mode',    'Batteriestatus',        'I', 'MSA.BatStatus', false, 'bat', 'quick/state bat_sts'],
+                ['bat_soc_sys', 'SOC (gesamtes System, kapazitätsgewichtet)', 'I', '~Intensity.100', false, 'bat', 'quick/state sys_soc'],
+                ['bat_heat',    'Batterieheizung',       'B', '~Switch', false, 'bat', 'quick/state heat'],
+                ['bat_volt',    'Batteriespannung',      'F', 'MSA.Volt', false, 'bat', 'device/state bat_v'],
+                ['bat_curr',    'Batteriestrom',         'F', 'MSA.Ampere', false, 'bat', 'device/state bat_i'],
+                ['bat_temp',    'Batterietemperatur',    'F', 'MSA.Celsius', false, 'bat', 'device/state bat_temp'],
+                ['pack1_soc',   'Pack 1 SOC',            'I', '~Intensity.100', false, 'bat', 'device/state packs[1].soc'],
+                ['pack1_temp',  'Pack 1 Temperatur',     'F', 'MSA.Celsius', false, 'bat', 'device/state packs[1].temp'],
+                ['pack2_soc',   'Pack 2 SOC',            'I', '~Intensity.100', false, 'bat', 'device/state packs[2].soc'],
+                ['pack2_temp',  'Pack 2 Temperatur',     'F', 'MSA.Celsius', false, 'bat', 'device/state packs[2].temp'],
+                ['pack3_soc',   'Pack 3 SOC',            'I', '~Intensity.100', false, 'bat', 'device/state packs[3].soc'],
+                ['pack3_temp',  'Pack 3 Temperatur',     'F', 'MSA.Celsius', false, 'bat', 'device/state packs[3].temp'],
+                ['pack4_soc',   'Pack 4 SOC',            'I', '~Intensity.100', false, 'bat', 'device/state packs[4].soc'],
+                ['pack4_temp',  'Pack 4 Temperatur',     'F', 'MSA.Celsius', false, 'bat', 'device/state packs[4].temp'],
+            ]],
+            'GroupSystem' => ['caption' => 'System (Last, Netzport, Steckdose)', 'vars' => [
+                ['load_power',  'Last (Systemwert)',     'F', 'MSA.Watt', false, 'meter', 'quick/state sys_load_p (beim Laden negativ, enthält die Ladeleistung)'],
+                ['plug_power',  'Steckdose Leistung',    'F', 'MSA.Watt', false, 'meter', 'quick/state sys_plug_p'],
+                ['sp_power',    'Smart-Plug Leistung',   'F', 'MSA.Watt', false, 'meter', 'quick/state sys_sp_p'],
+                ['eps_power',   'EPS Leistung',          'F', 'MSA.Watt', false, 'meter', 'quick/state sys_eps_p'],
+                ['grid_on_power',  'Netzport Gerät (negativ = Bezug)', 'F', 'MSA.Watt', false, 'meter', 'quick/state grid_on_p (Vorzeichen umgekehrt zu sys_grid_p)'],
+                ['grid_off_power', 'Inselport Gerät',    'F', 'MSA.Watt', false, 'meter', 'quick/state grid_off_p'],
+            ]],
+            'GroupGrid' => ['caption' => 'Netz und Wechselrichter (alle 5 Minuten)', 'vars' => [
+                ['grid_volt', 'Netzspannung',   'F', 'MSA.Volt', false, 'grid', 'device/state grid[grid_on].v'],
+                ['grid_freq', 'Netzfrequenz',   'F', 'MSA.Hertz', false, 'grid', 'device/state grid[grid_on].f'],
+                ['inv_power', 'Wechselrichter Leistung (5 min)', 'F', 'MSA.Watt', false, 'grid', 'device/state grid[inv].p'],
+            ]],
+            'GroupEnergy' => ['caption' => 'Energie heute (alle 5 Minuten)', 'vars' => [
+                ['e_pv_day',        'PV1 Ertrag Heute',      'F', '~Electricity', true, 'energy', 'system/state pv_e (Wh)'],
+                ['e_pv2_day',       'PV2 Ertrag Heute',      'F', '~Electricity', true, 'energy', 'system/state pv2_e (Wh)'],
+                ['e_charge_day',    'Batterie Laden Heute',  'F', '~Electricity', true, 'energy', 'system/state chg_e (Wh)'],
+                ['e_discharge_day', 'Batterie Entladen Heute', 'F', '~Electricity', true, 'energy', 'system/state dchg_e (Wh)'],
+            ]],
+            'GroupDevice' => ['caption' => 'Gerät', 'vars' => [
+                ['dev_rssi',      'WLAN-Signal (dBm)',   'F', 'MSA.Dbm', false, 'device', 'device/state rssi'],
+                ['dev_ems_mode',  'EMS-Modus (Gerät meldet)', 'S', '', false, 'device', 'system/state ems_mode'],
+            ]],
+            'GroupControlMsa' => ['caption' => 'Steuerung (Vorabversion, am Gerät nicht erprobt)', 'vars' => [
+                ['ctl_ems_mode',   'EMS-Modus',          'I', 'MSA.EmsMode', false, 'control', 'Befehl select/<id>/ems_mode/command'],
+                ['ctl_power_ctrl', 'Leistungsvorgabe MQTT-Steuerung (W, Vorzeichen unbestätigt)', 'I', 'MSA.WattInt', false, 'control', 'Befehl number/<id>/power_ctrl/set, nur im EMS-Modus mqtt_ctrl'],
+            ]],
+        ];
+    }
+
+    public function getExtraBooleanProperties()
+    {
+        return [];
+    }
+
+    public function getProfiles()
+    {
+        return [
+            'MSA.Watt'    => [VARIABLETYPE_FLOAT, ' W',  -40000.0, 40000.0, 1.0, 0],
+            'MSA.WattInt' => [VARIABLETYPE_INTEGER, ' W', -10000, 10000, 10, 0],
+            'MSA.Volt'    => [VARIABLETYPE_FLOAT, ' V',  0.0, 1000.0, 0.1, 1],
+            'MSA.Ampere'  => [VARIABLETYPE_FLOAT, ' A', -200.0, 200.0, 0.1, 1],
+            'MSA.Hertz'   => [VARIABLETYPE_FLOAT, ' Hz', 45.0, 65.0, 0.01, 2],
+            'MSA.Celsius' => [VARIABLETYPE_FLOAT, ' °C', -40.0, 100.0, 0.1, 1],
+            'MSA.Dbm'     => [VARIABLETYPE_FLOAT, ' dBm', -120.0, 0.0, 1.0, 0],
+        ];
+    }
+
+    public function getEnumProfiles()
+    {
+        return [
+            'MSA.BatStatus' => [0 => ['Bereitschaft', -1], 1 => ['Laden', 0x2E9E5B], 2 => ['Entladen', 0xE8A33D], 3 => ['Gesperrt', 0xC0392B]],
+            'MSA.EmsMode'   => [0 => ['Eigenverbrauch (general)', -1], 1 => ['MQTT-Leistungssteuerung (mqtt_ctrl)', 0x3D7BE8], 2 => ['Zeitplan (tou_plan)', 0x8E44AD]],
+        ];
+    }
+
+    // --- Empfang (statt Abfrage) -------------------------------------------------------
+
+    private static function num($a, $key)
+    {
+        return (is_array($a) && isset($a[$key]) && is_numeric($a[$key])) ? (float)$a[$key] : null;
+    }
+
+    private static function pick($list, $type, $index)
+    {
+        if (!is_array($list)) {
+            return null;
+        }
+        foreach ($list as $item) {
+            if (is_array($item) && ($item['type'] ?? null) === $type) {
+                return $item;
+            }
+        }
+        return (isset($list[$index]) && is_array($list[$index])) ? $list[$index] : null;
+    }
+
+    private static function byId($list, $id)
+    {
+        if (!is_array($list)) {
+            return null;
+        }
+        foreach ($list as $item) {
+            if (is_array($item) && (int)($item['id'] ?? 0) === $id) {
+                return $item;
+            }
+        }
+        return (isset($list[$id - 1]) && is_array($list[$id - 1])) ? $list[$id - 1] : null;
+    }
+
+    /**
+     * Verarbeitet eine MQTT-Nachricht des Geräts. $topic endet auf /quick/state, /device/state
+     * oder /system/state; alles andere wird ignoriert.
+     */
+    public function onMqtt($hub, $topic, $payload)
+    {
+        $a = json_decode($payload, true);
+        if (!is_array($a)) {
+            return;
+        }
+        if (substr($topic, -12) === '/quick/state') {
+            $this->quick($hub, $a);
+        } elseif (substr($topic, -13) === '/device/state') {
+            $this->device($hub, $a);
+        } elseif (substr($topic, -13) === '/system/state') {
+            $this->system($hub, $a);
+        }
+    }
+
+    private function quick($hub, $a)
+    {
+        $soc = self::num($a, 'soc');
+        if ($soc !== null) {
+            $hub->SetVarInt('bat_soc', (int)round($soc));
+        }
+        $bat = self::num($a, 'sys_bat_p');
+        if ($bat === null) {
+            $bat = self::num($a, 'bat_p');
+        }
+        if ($bat !== null) {
+            $hub->SetVarFloat('bat_power', $bat);
+        }
+        $pv1 = self::num($a, 'sys_pv_p');
+        $pv2 = self::num($a, 'sys_pv2_p');
+        if ($pv1 !== null || $pv2 !== null) {
+            $hub->SetVarFloat('pv_total', (float)($pv1 ?? 0.0) + (float)($pv2 ?? 0.0));
+        } elseif (self::num($a, 'pv_p') !== null) {
+            $hub->SetVarFloat('pv_total', self::num($a, 'pv_p'));
+        }
+        if ($pv1 !== null) { $hub->SetVarFloat('pv1_power', $pv1); }
+        if ($pv2 !== null) { $hub->SetVarFloat('pv2_power', $pv2); }
+        $map = ['pv_p' => 'pv_device', 'sys_load_p' => 'load_power', 'sys_plug_p' => 'plug_power', 'sys_sp_p' => 'sp_power',
+                'sys_eps_p' => 'eps_power', 'grid_on_p' => 'grid_on_power', 'grid_off_p' => 'grid_off_power'];
+        foreach ($map as $key => $ident) {
+            $v = self::num($a, $key);
+            if ($v !== null) {
+                $hub->SetVarFloat($ident, $v);
+            }
+        }
+        // sys_grid_p: + = Bezug (Hoymiles), InverterHub: + = Einspeisung.
+        $grid = self::num($a, 'sys_grid_p');
+        if ($grid !== null) {
+            $hub->SetVarFloat('meter_total', -$grid);
+        }
+        $sys = self::num($a, 'sys_soc');
+        if ($sys !== null) {
+            $hub->SetVarInt('bat_soc_sys', (int)round($sys));
+        }
+        if (isset($a['bat_sts']) && is_string($a['bat_sts']) && isset(self::BAT_STATUS[$a['bat_sts']])) {
+            $hub->SetVarInt('bat_mode', self::BAT_STATUS[$a['bat_sts']]);
+        }
+        if (isset($a['heat'])) {
+            $hub->SetVarBool('bat_heat', (bool)$a['heat']);
+        }
+    }
+
+    private function device($hub, $a)
+    {
+        $map = ['bat_v' => 'bat_volt', 'bat_i' => 'bat_curr', 'bat_temp' => 'bat_temp', 'rssi' => 'dev_rssi'];
+        foreach ($map as $key => $ident) {
+            $v = self::num($a, $key);
+            if ($v !== null) {
+                $hub->SetVarFloat($ident, $v);
+            }
+        }
+        for ($i = 1; $i <= 4; $i++) {
+            $p = self::byId($a['packs'] ?? null, $i);
+            if ($p !== null) {
+                $soc = self::num($p, 'soc');
+                $temp = self::num($p, 'temp');
+                if ($soc !== null) { $hub->SetVarInt('pack' . $i . '_soc', (int)round($soc)); }
+                if ($temp !== null) { $hub->SetVarFloat('pack' . $i . '_temp', $temp); }
+            }
+        }
+        $on = self::pick($a['grid'] ?? null, 'grid_on', 0);
+        if ($on !== null) {
+            if (self::num($on, 'v') !== null) { $hub->SetVarFloat('grid_volt', self::num($on, 'v')); }
+            if (self::num($on, 'f') !== null) { $hub->SetVarFloat('grid_freq', self::num($on, 'f')); }
+        }
+        $inv = self::pick($a['grid'] ?? null, 'inv', 2);
+        if ($inv !== null && self::num($inv, 'p') !== null) {
+            $hub->SetVarFloat('inv_power', self::num($inv, 'p'));
+        }
+    }
+
+    private function system($hub, $a)
+    {
+        // Tagesenergie in Wh -> kWh (die Treiber liefern kWh, der Wh-Schalter rechnet ggf. hoch).
+        $map = ['pv_e' => 'e_pv_day', 'pv2_e' => 'e_pv2_day', 'chg_e' => 'e_charge_day', 'dchg_e' => 'e_discharge_day'];
+        foreach ($map as $key => $ident) {
+            $v = self::num($a, $key);
+            if ($v !== null) {
+                $hub->SetVarFloat($ident, $v / 1000.0);
+            }
+        }
+        if (isset($a['ems_mode']) && is_string($a['ems_mode'])) {
+            $hub->SetVarStr('dev_ems_mode', $a['ems_mode']);
+            $idx = array_search($a['ems_mode'], self::EMS_MODES, true);
+            if ($idx !== false) {
+                $hub->SetVarInt('ctl_ems_mode', (int)$idx);
+            }
+        }
+    }
+
+    // --- Takt und Steuerung ------------------------------------------------------------
+
+    /** Wird vom Timer gerufen: Verbindung = es kommen noch Nachrichten. */
+    public function readFast($mb, $hub)
+    {
+        $age = $hub->MqttAge();
+        $ok = ($age >= 0 && $age <= self::STALE_SECONDS);
+        $hub->SetVarBool('connected', $ok);
+        return $ok;
+    }
+
+    public function readSlow($mb, $hub)
+    {
+        // Nichts zu lesen: alle Werte kommen per MQTT.
+        return true;
+    }
+
+    public function readDeviceInfo($mb, $hub)
+    {
+    }
+
+    public function writeControl($mb, $hub, $ident, $value)
+    {
+        $dev = $hub->MqttDeviceId();
+        if ($dev === '') {
+            $hub->WarnUser('MS-A2: Geräte-ID fehlt, Befehl nicht gesendet.');
+            return;
+        }
+        switch ($ident) {
+            case 'ctl_ems_mode':
+                $mode = (int)$value;
+                if (!isset(self::EMS_MODES[$mode])) {
+                    $hub->WarnUser('MS-A2: unbekannter EMS-Modus ' . $mode . ' (0 general, 1 mqtt_ctrl, 2 tou_plan).');
+                    return;
+                }
+                if (!$hub->MqttPublish('homeassistant/select/' . $dev . '/ems_mode/command', self::EMS_MODES[$mode])) {
+                    $hub->WarnUser('MS-A2: Befehl EMS-Modus konnte nicht gesendet werden (MQTT-Brücke/-Server prüfen).');
+                    return;
+                }
+                $hub->SetVarInt('ctl_ems_mode', $mode);
+                return;
+
+            case 'ctl_power_ctrl':
+                $w = (int)round((float)$value);
+                if (!$hub->MqttPublish('homeassistant/number/' . $dev . '/power_ctrl/set', (string)$w)) {
+                    $hub->WarnUser('MS-A2: Leistungsvorgabe konnte nicht gesendet werden (MQTT-Brücke/-Server prüfen).');
+                    return;
+                }
+                $hub->SetVarInt('ctl_power_ctrl', $w);
+                return;
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // InverterHub — Hauptmodul, lädt den Treiber laut Manufacturer-Property
 // ---------------------------------------------------------------------------
 
@@ -5801,6 +6124,7 @@ class InverterHub extends IPSModule
         'huawei'    => 'IHUB_HuaweiDriver',
         'foxess'    => 'IHUB_FoxEssDriver',
         'foxess_smart' => 'IHUB_FoxEssSmartDriver',
+        'hoymiles_msa2' => 'IHUB_HoymilesMsa2Driver',
     ];
 
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-inverterhub-multi-wechselrichter-ein-modbus-tcp-modul-fuer-goodwe-sma-fronius-sungrow-solis-growatt-solax/144121';
@@ -5819,10 +6143,13 @@ class InverterHub extends IPSModule
     // bitte bei jeder nutzerrelevanten Aenderungsrunde mit hochziehen - sie
     // stand seit ihrer Einfuehrung bei 0.45 unveraendert, waehrend das Modul
     // laengst bei 0.72 war.
-    private const NEWS_VERSION = '0.77';
+    private const NEWS_VERSION = '0.78';
     private const NATIVE_GATEWAY_GUID = '{A5F663AB-C400-4FE5-B207-4D67CC030564}';
     private const BRIDGE_GUID = '{901E0B93-83EC-4819-B111-BDEF465BB166}';
+    private const MQTT_BRIDGE_GUID = '{B8E699DE-22E4-4DF3-926B-8F4C118852B7}';
+    private const MQTT_SERVER_GUID = '{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}';
     private const NEWS_ITEMS = [
+        'Neuer Hersteller: Hoymiles MS-A2 (Speicher, per MQTT statt Modbus, Vorabversion ohne Gerätetest). Verbindungsweg „MQTT“ mit der neuen „NRG-Stack InverterHub Brücke (MQTT)“ am MQTT-Server von Symcon; Geräte-ID eintragen.',
         'Symbox-Gateway (eingebauter RS485-Port): läuft jetzt über die neue „NRG-Stack InverterHub Brücke (ModBus-Gateway)“. Im Verbindungsweg „Symbox-Gateway“ das ModBus-Gateway wählen und „Brücke anlegen und verbinden“ klicken, danach übernehmen. Wer den Gateway-Weg mit früheren Beta-Ständen direkt an der Instanz eingerichtet hatte: Instanz und Historie bleiben, einfach Gateway wählen, den Knopf klicken und übernehmen. Direktverbindungen sind nicht betroffen, der Hinweis „benötigt eine übergeordnete Instanz“ verschwindet.',
         'Neuer Wechselrichter: FoxESS H1/H3 (Read-Only-Vorabversion, Beta).',
         'FoxESS H3 Smart / H3 Pro / KH: eigener Treiber für die neuere Registerbelegung (Holding 39xxx, wie in Home Assistant) — Read-Only-Vorabversion, bitte Rückmeldung im Forum.',
@@ -5937,6 +6264,9 @@ class InverterHub extends IPSModule
         // Nur Auswahlfeld fuer den Knopf "Brücke anlegen und verbinden": muss eine
         // registrierte Property sein, damit $GatewayPick im onClick ankommt.
         $this->RegisterPropertyInteger('GatewayPick', 0);
+        // MQTT-Verbindungsweg (Hoymiles MS-A2): Geräte-ID und Auswahlfeld fuer den Knopf "MQTT-Brücke anlegen".
+        $this->RegisterPropertyString('MqttDeviceID', '');
+        $this->RegisterPropertyInteger('MqttServerPick', 0);
         $this->RegisterPropertyInteger('IntervalFast', 5);
         $this->RegisterPropertyInteger('IntervalSlow', 300);
         $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
@@ -6078,8 +6408,18 @@ class InverterHub extends IPSModule
             $this->SetTimerInterval('EnableActionsTimer', 0);
             return;
         }
+        $mqttMode = ($this->ReadPropertyString('ConnectionType') === 'mqtt');
+        if ($mqttMode && ($this->ReadPropertyString('Manufacturer') !== 'hoymiles_msa2'
+            || $this->ReadPropertyInteger('BridgeInstanceID') <= 0
+            || trim($this->ReadPropertyString('MqttDeviceID')) === '')) {
+            $this->SetStatus(104);
+            $this->SetTimerInterval('FastTimer', 0);
+            $this->SetTimerInterval('SlowTimer', 0);
+            $this->SetTimerInterval('EnableActionsTimer', 0);
+            return;
+        }
         $host = $this->ReadPropertyString('Host');
-        if ($host === '' && !$gatewayMode) {
+        if ($host === '' && !$gatewayMode && !$mqttMode) {
             $this->SetStatus(104);
             $this->SetTimerInterval('FastTimer', 0);
             $this->SetTimerInterval('SlowTimer', 0);
@@ -6091,6 +6431,13 @@ class InverterHub extends IPSModule
         $this->SetTimerInterval('SlowTimer', $this->ReadPropertyInteger('IntervalSlow') * 1000);
         $this->SetTimerInterval('EnableActionsTimer', 200);
         $this->WriteAttributeBoolean('DeviceInfoRead', false);
+        if ($mqttMode) {
+            // Die Bruecke baut ihren Empfangsfilter aus der Geraete-ID dieser Instanz.
+            $bridgeId = $this->ReadPropertyInteger('BridgeInstanceID');
+            if (IPS_InstanceExists($bridgeId) && function_exists('IHUBM_Refresh')) {
+                @IHUBM_Refresh($bridgeId);
+            }
+        }
         $this->SetStatus(102);
     }
 
@@ -6177,6 +6524,22 @@ class InverterHub extends IPSModule
             $this->LogReadProblem($msg);
             return $msg;
         }
+        // MQTT-Modus (Hoymiles MS-A2): nichts wird abgefragt; "verbunden" heisst, dass noch
+        // Nachrichten des Geraets eintreffen.
+        if ($this->ReadPropertyString('ConnectionType') === 'mqtt') {
+            $this->EnableActions();
+            $age = $this->MqttAge();
+            if ($age < 0) {
+                $this->SetStatus(201);
+                return '⚠️ Noch keine MQTT-Nachricht des Geräts empfangen. Geräte-ID, MQTT-Zugang am Gerät und Brücke prüfen.';
+            }
+            if ($age > IHUB_HoymilesMsa2Driver::STALE_SECONDS) {
+                $this->SetStatus(201);
+                return '⚠️ Letzte MQTT-Nachricht vor ' . $age . ' s - das Gerät sendet nicht mehr.';
+            }
+            $this->SetStatus(102);
+            return '✅ MQTT: letzte Nachricht vor ' . $age . ' s.';
+        }
         // Gateway-Modus: "Verbindung aktiv" haengt sonst nur an ApplyChanges und sagt
         // nichts ueber echte Antworten. Ohne verbundenes Gateway oder bei falscher
         // Geraete-ID am Gateway kommt nichts zurueck (MeterHub-Hinweis, 19.09.2026).
@@ -6247,14 +6610,19 @@ class InverterHub extends IPSModule
     public function RequestAction($Ident, $Value)
     {
         if ($Ident === 'ConnectionTypeChanged') {
-            $direct = ($Value !== 'gateway');
+            $direct = ($Value === 'direct');
+            $gateway = ($Value === 'gateway');
+            $mqtt = ($Value === 'mqtt');
             $this->UpdateFormField('Host', 'visible', $direct);
             $this->UpdateFormField('Port', 'visible', $direct);
             $this->UpdateFormField('UnitId', 'visible', $direct);
-            $this->UpdateFormField('BridgeInstanceID', 'visible', !$direct);
-            $this->UpdateFormField('GatewayPick', 'visible', !$direct);
-            $this->UpdateFormField('CreateBridgeButton', 'visible', !$direct);
-            $this->UpdateFormField('BridgeStatus', 'visible', !$direct);
+            $this->UpdateFormField('BridgeInstanceID', 'visible', $gateway || $mqtt);
+            $this->UpdateFormField('GatewayPick', 'visible', $gateway);
+            $this->UpdateFormField('CreateBridgeButton', 'visible', $gateway);
+            $this->UpdateFormField('BridgeStatus', 'visible', $gateway || $mqtt);
+            $this->UpdateFormField('MqttDeviceID', 'visible', $mqtt);
+            $this->UpdateFormField('MqttServerPick', 'visible', $mqtt);
+            $this->UpdateFormField('CreateMqttBridgeButton', 'visible', $mqtt);
             return;
         }
         if ($Ident === 'BridgeChanged') {
@@ -6729,6 +7097,7 @@ class InverterHub extends IPSModule
                         ['label' => 'Huawei SUN2000 (+ DTSU666 / LUNA2000, Unit-ID meist 1)', 'value' => 'huawei'],
                         ['label' => 'FoxESS H1/H3 (Read-Only-Vorabversion, Beta)', 'value' => 'foxess'],
                         ['label' => 'FoxESS H3 Smart / H3 Pro / KH (Read-Only-Vorabversion, Beta)', 'value' => 'foxess_smart'],
+                        ['label' => 'Hoymiles MS-A2 (per MQTT, Vorabversion ohne Gerätetest)', 'value' => 'hoymiles_msa2'],
                     ],
                 ],
                 [
@@ -6743,6 +7112,7 @@ class InverterHub extends IPSModule
                             'options' => [
                                 ['label' => 'Direkt (eigene TCP-Verbindung)', 'value' => 'direct'],
                                 ['label' => 'Symbox-Gateway (eingebauter RS485-Port, Beta)', 'value' => 'gateway'],
+                                ['label' => 'MQTT (Symcon-MQTT-Server, nur Hoymiles MS-A2, Vorabversion)', 'value' => 'mqtt'],
                             ],
                             'onChange' => 'IPS_RequestAction($id, "ConnectionTypeChanged", $ConnectionType);',
                         ],
@@ -6763,9 +7133,9 @@ class InverterHub extends IPSModule
                         [
                             'type'         => 'SelectInstance',
                             'name'         => 'BridgeInstanceID',
-                            'caption'      => 'NRG-Stack Brücke zum ModBus Gateway',
-                            'validModules' => [self::BRIDGE_GUID],
-                            'visible'      => $this->ReadPropertyString('ConnectionType') === 'gateway',
+                            'caption'      => 'NRG-Stack Brücke (ModBus Gateway oder MQTT)',
+                            'validModules' => [self::BRIDGE_GUID, self::MQTT_BRIDGE_GUID],
+                            'visible'      => in_array($this->ReadPropertyString('ConnectionType'), ['gateway', 'mqtt'], true),
                             'onChange'     => 'IPS_RequestAction($id, "BridgeChanged", $BridgeInstanceID);',
                         ],
                         // Verbund-Konvention (SUITE.md, 21.09.2026): jede Verbindung zeigt live, ob sie
@@ -6775,16 +7145,36 @@ class InverterHub extends IPSModule
                             'type'    => 'Label',
                             'name'    => 'BridgeStatus',
                             'caption' => $this->BridgeStatusLine($this->ReadPropertyInteger('BridgeInstanceID')),
-                            'visible' => $this->ReadPropertyString('ConnectionType') === 'gateway',
+                            'visible' => in_array($this->ReadPropertyString('ConnectionType'), ['gateway', 'mqtt'], true),
+                        ],
+                        [
+                            'type'    => 'ValidationTextBox',
+                            'name'    => 'MqttDeviceID',
+                            'caption' => 'Geräte-ID des MS-A2 (z. B. MSA-280520260806)',
+                            'visible' => $this->ReadPropertyString('ConnectionType') === 'mqtt',
+                        ],
+                        [
+                            'type'         => 'SelectInstance',
+                            'name'         => 'MqttServerPick',
+                            'caption'      => 'MQTT-Server von Symcon (an den der MS-A2 sendet)',
+                            'validModules' => [self::MQTT_SERVER_GUID],
+                            'visible'      => $this->ReadPropertyString('ConnectionType') === 'mqtt',
+                        ],
+                        [
+                            'type'    => 'Button',
+                            'name'    => 'CreateMqttBridgeButton',
+                            'caption' => 'MQTT-Brücke anlegen und verbinden',
+                            'onClick' => 'echo IHUB_CreateMqttBridge($id, $MqttServerPick);',
+                            'visible' => $this->ReadPropertyString('ConnectionType') === 'mqtt',
                         ],
                         ['type' => 'Label', 'caption' => 'ℹ️ „Symbox-Gateway" spricht den eingebauten RS485-Port der Symcon-Hardware über ein natives ModBus-Gateway an. Vorgehen: unten das ModBus-Gateway wählen, „Brücke anlegen und verbinden“ klicken (legt die Brücke an, verbindet sie und trägt sie ein) und danach „Übernehmen“ klicken. IP-Adresse, Port und Unit ID entfallen dann — die Geräteadresse (Unit ID) wird am Gateway als „Geräte-ID“ eingestellt, eine Brücke bedient genau ein Gerät. Kommen keine Werte, zuerst diese Geräte-ID prüfen. Lesen ist nach dem Schema von Symcons Referenzmodul umgesetzt, Schreiben (Steuerbefehle) ist noch ungetestet. Für einen externen RTU-zu-TCP-Gateway (z. B. Waveshare/USR) bitte „Direkt" mit dessen IP/Port verwenden — das funktioniert schon heute.'],
                         // IP-Adresse ODER Hostname erlaubt (fsockopen löst den
                         // Namen per DNS auf) - so überlebt die Instanz einen
                         // IP-Wechsel des Wechselrichters, wenn ein fester Name
                         // (DHCP-Reservierung/mDNS, z. B. „wr-fronius.local") genutzt wird.
-                        ['type' => 'ValidationTextBox', 'name' => 'Host', 'caption' => 'IP-Adresse oder Hostname', 'visible' => $this->ReadPropertyString('ConnectionType') !== 'gateway', 'validate' => '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'],
-                        ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'TCP-Port', 'visible' => $this->ReadPropertyString('ConnectionType') !== 'gateway', 'minimum' => 1, 'maximum' => 65535],
-                        ['type' => 'NumberSpinner', 'name' => 'UnitId', 'caption' => 'Unit ID', 'visible' => $this->ReadPropertyString('ConnectionType') !== 'gateway', 'minimum' => 1, 'maximum' => 247],
+                        ['type' => 'ValidationTextBox', 'name' => 'Host', 'caption' => 'IP-Adresse oder Hostname', 'visible' => $this->ReadPropertyString('ConnectionType') === 'direct', 'validate' => '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'],
+                        ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'TCP-Port', 'visible' => $this->ReadPropertyString('ConnectionType') === 'direct', 'minimum' => 1, 'maximum' => 65535],
+                        ['type' => 'NumberSpinner', 'name' => 'UnitId', 'caption' => 'Unit ID', 'visible' => $this->ReadPropertyString('ConnectionType') === 'direct', 'minimum' => 1, 'maximum' => 247],
                     ],
                 ],
                 [
@@ -6826,7 +7216,9 @@ class InverterHub extends IPSModule
                 ['code' => 102, 'icon' => 'active',   'caption' => 'Verbindung aktiv.'],
                 ['code' => 201, 'icon' => 'error',    'caption' => ($this->ReadPropertyString('ConnectionType') === 'gateway')
                     ? 'Verbindungsfehler – keine Antwort über die Brücke: Brücke und ModBus Gateway prüfen (Unit ID = Geräte-ID am Gateway).'
-                    : 'Verbindungsfehler – Wechselrichter nicht erreichbar.'],
+                    : (($this->ReadPropertyString('ConnectionType') === 'mqtt')
+                        ? 'Keine MQTT-Nachrichten des Geräts: Geräte-ID, MQTT-Zugang am Gerät und Brücke prüfen.'
+                        : 'Verbindungsfehler – Wechselrichter nicht erreichbar.')],
             ],
         ];
 
@@ -7203,6 +7595,10 @@ class InverterHub extends IPSModule
 
     private function GetModbusClient()
     {
+        // MQTT-Modus (Hoymiles MS-A2): kein Modbus, die Treibermethoden bekommen null.
+        if ($this->ReadPropertyString('ConnectionType') === 'mqtt') {
+            return null;
+        }
         if ($this->ReadPropertyString('ConnectionType') === 'gateway') {
             return new IHUB_ModbusGatewayClient(
                 $this,
@@ -7261,6 +7657,111 @@ class InverterHub extends IPSModule
         return $raw;
     }
 
+    // --- MQTT (Hoymiles MS-A2) ----------------------------------------------------
+    // Von der MQTT-Bruecke aufgerufen (IHUB_MqttReceive): eine Nachricht des Geraets.
+    public function MqttReceive(string $topic, string $payload)
+    {
+        if ($this->ReadPropertyString('ConnectionType') !== 'mqtt' || !$this->ReadPropertyBoolean('Active')) {
+            return;
+        }
+        $dev = trim($this->ReadPropertyString('MqttDeviceID'));
+        if ($dev === '' || strpos($topic, '/' . $dev . '/') === false) {
+            return;   // Nachricht eines anderen Geraets
+        }
+        $driver = $this->GetDriver();
+        if (!method_exists($driver, 'onMqtt')) {
+            return;
+        }
+        $this->SetBuffer('MqttLast', (string)time());
+        try {
+            $driver->onMqtt($this, $topic, $payload);
+            $this->SetVarBool('connected', true);
+        } catch (Throwable $e) {
+            $this->LogReadProblem('⚠️ MQTT-Nachricht nicht verarbeitet: ' . $e->getMessage());
+        }
+    }
+
+    // Sekunden seit der letzten Nachricht, -1 = noch keine.
+    public function MqttAge(): int
+    {
+        $t = $this->GetBuffer('MqttLast');
+        return $t === '' ? -1 : max(0, time() - (int)$t);
+    }
+
+    public function MqttDeviceId(): string
+    {
+        return trim($this->ReadPropertyString('MqttDeviceID'));
+    }
+
+    // Befehl an das Geraet (ueber die Bruecke). true = an den MQTT-Server uebergeben.
+    public function MqttPublish(string $topic, string $payload): bool
+    {
+        $bridge = $this->ReadPropertyInteger('BridgeInstanceID');
+        if ($bridge <= 0 || !IPS_InstanceExists($bridge) || !function_exists('IHUBM_Publish')) {
+            return false;
+        }
+        return (bool)@IHUBM_Publish($bridge, $topic, $payload);
+    }
+
+    // Knopf "MQTT-Brücke anlegen und verbinden": legt eine InverterHubMqttBridge neben dieser Instanz an
+    // (oder nutzt eine vorhandene am selben MQTT-Server) und traegt sie ins offene Formular ein.
+    public function CreateMqttBridge(int $serverId): string
+    {
+        if ($serverId <= 0 || !IPS_InstanceExists($serverId)) {
+            return '⚠️ Bitte zuerst den MQTT-Server von Symcon auswählen.';
+        }
+        if ((IPS_GetInstance($serverId)['ModuleInfo']['ModuleID'] ?? '') !== self::MQTT_SERVER_GUID) {
+            return '⚠️ Die gewählte Instanz ist kein MQTT-Server.';
+        }
+        $bridge = 0;
+        foreach (IPS_GetInstanceListByModuleID(self::MQTT_BRIDGE_GUID) as $candidate) {
+            if ((int)(IPS_GetInstance($candidate)['ConnectionID'] ?? 0) === $serverId) {
+                $bridge = (int)$candidate;
+                break;
+            }
+        }
+        $created = false;
+        if ($bridge === 0) {
+            try {
+                $bridge = IPS_CreateInstance(self::MQTT_BRIDGE_GUID);
+                IPS_SetName($bridge, 'InverterHub Brücke MQTT (' . IPS_GetName($serverId) . ')');
+                IPS_SetParent($bridge, IPS_GetParent($this->InstanceID));
+                IPS_ConnectInstance($bridge, $serverId);
+                IPS_ApplyChanges($bridge);
+                $created = true;
+            } catch (Throwable $e) {
+                return '⚠️ Brücke konnte nicht angelegt werden: ' . $e->getMessage() . ' Ist die Bibliothek aktuell (Modul „NRG-Stack InverterHub Brücke (MQTT)“ vorhanden)?';
+            }
+        }
+        $this->UpdateFormField('BridgeInstanceID', 'value', $bridge);
+        $this->UpdateFormField('BridgeStatus', 'caption', $this->MqttBridgeStatusLine($bridge));
+        return ($created ? '✅ MQTT-Brücke angelegt und mit dem MQTT-Server verbunden.' : 'ℹ️ Vorhandene MQTT-Brücke an diesem Server wiederverwendet.')
+            . ' Sie ist oben eingetragen — jetzt Geräte-ID eintragen und „Übernehmen“ klicken.';
+    }
+
+    private function MqttBridgeStatusLine(int $bridgeId): string
+    {
+        if ($bridgeId <= 0 || !IPS_InstanceExists($bridgeId)) {
+            return 'ℹ️ Keine MQTT-Brücke gewählt: Die Instanz bleibt inaktiv (Status 104). MQTT-Server wählen und „MQTT-Brücke anlegen und verbinden“ klicken.';
+        }
+        $head = 'Brücke #' . $bridgeId . ' „' . IPS_GetName($bridgeId) . '“';
+        if (!function_exists('IHUBM_GetState')) {
+            return '⚠️ ' . $head . ' ist gewählt, das Brücken-Modul antwortet aber nicht. Bibliothek in der Modulverwaltung aktualisieren.';
+        }
+        $s = json_decode((string)@IHUBM_GetState($bridgeId), true);
+        if (!is_array($s)) {
+            return '⚠️ ' . $head . ' liefert keinen Zustand. Bibliothek in der Modulverwaltung aktualisieren.';
+        }
+        if (empty($s['connected'])) {
+            return '⚠️ ' . $head . ' ist mit keinem MQTT-Server verbunden.';
+        }
+        if (empty($s['parentActive'])) {
+            return '⚠️ ' . $head . ': der MQTT-Server ist nicht aktiv (Status ' . (int)($s['parentStatus'] ?? 0) . ').';
+        }
+        $last = ((int)($s['lastAge'] ?? -1) >= 0) ? ' Letzte Nachricht vor ' . (int)$s['lastAge'] . ' s.' : ' Bisher keine Nachricht empfangen.';
+        return '✅ ' . $head . ' mit dem MQTT-Server verbunden.' . $last;
+    }
+
     // Knopf "Brücke anlegen und verbinden": legt eine InverterHubBridge neben dieser
     // Instanz an (oder nutzt eine vorhandene am selben Gateway), verbindet sie mit dem
     // gewaehlten ModBus-Gateway und traegt sie ins offene Formular ein. Nie aus
@@ -7305,6 +7806,9 @@ class InverterHub extends IPSModule
     // ℹ️ nichts gewaehlt (und was dann gilt).
     private function BridgeStatusLine(int $bridgeId): string
     {
+        if ($this->ReadPropertyString('ConnectionType') === 'mqtt') {
+            return $this->MqttBridgeStatusLine($bridgeId);
+        }
         if ($bridgeId <= 0 || !IPS_InstanceExists($bridgeId)) {
             return 'ℹ️ Keine Brücke gewählt: Die Instanz bleibt inaktiv (Status 104). ModBus Gateway wählen und „Brücke anlegen und verbinden“ klicken.';
         }

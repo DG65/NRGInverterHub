@@ -58,6 +58,12 @@ nativen Symcon-Gateways werden (komplett anderer Datenaustausch-Mechanismus). Da
 echte Architekturarbeit, kein Quick-Fix — noch nicht eingeplant, keine Zusage gemacht.
 Verifiziert mit EMS (18.09.2026), die den Fund gegen die Symcon-Doku geprueft haben.
 
+## Hoymiles MS-A2 per MQTT (22.10.2026, Vorabversion, am Gerät nicht erprobt)
+
+Erster Treiber ohne Modbus: `IHUB_HoymilesMsa2Driver` (Hersteller `hoymiles_msa2`), Verbindungsweg `mqtt`, Kernmethoden `MqttReceive`/`MqttPublish`/`MqttAge`/`MqttDeviceId`, Zusatzmodul `InverterHubMqttBridge` (Präfix `IHUBM`, GUID `{B8E699DE-22E4-4DF3-926B-8F4C118852B7}`). **Wie bei der Gateway-Brücke trägt nur die Brücke die MQTT-Schnittstellen** (`parentRequirements` `{043EA491-0325-4ADD-8FC2-A30C8EEB4D3F}`, `implemented` `{7F7632D9-FA40-4F38-8DEA-C83CD4325A32}`); das Hauptmodul bleibt ohne Pflicht-Elterninstanz (sonst Hinweis „benötigt eine übergeordnete Instanz" bei allen ~240 Direkt-Instanzen). Die Geräte-ID (`MqttDeviceID`, z. B. `MSA-280520260806`) steht an der InverterHub-Instanz; die Brücke baut ihren Empfangsfilter aus den verbundenen Instanzen.
+
+Quellen: Felder und Vorzeichen aus dem Quellcode von `Lin071/ha` (`www/hoymiles-power-flow.js`, `docs/CARDS.md`, `sensor.py`) und AKLs Mitschnitt (Forum, Firmware V01.07.02); Datenfluss aus `Schnittcher/IPS-Zigbee2MQTT` (Empfang `{Topic, Payload}`, ab Kernel-Datum 1670886000 `utf8_decode`; Senden `DataID {043EA491-…}`, PacketType 3, `utf8_encode`). Vorzeichen: Batterie `sys_bat_p`/`bat_p` < 0 Laden, > 0 Entladen; `sys_grid_p` > 0 = Netzbezug → `meter_total` = −`sys_grid_p`; `sys_pv2_p` = PV des angehängten Wechselrichters; `sys_*` nur bei Master/Einzelgerät; `soc` = Mittel der eigenen Packs, `sys_soc` = kapazitätsgewichtet. Befehle: `homeassistant/select/<id>/ems_mode/command` (Text `general`/`mqtt_ctrl`/`tou_plan`, belegt) und `…/number/<id>/power_ctrl/set` (Einheit/Vorzeichen NICHT belegt). Nicht belegt: das Hoymiles-Protokolldokument „MQTT Protocol Development Guide V0.5.1". Nur den MQTT-**Server** von Symcon vorgesehen (kein Subscribe-Paket für den MQTT-Client). Prüfstand `.tools/test-msa2.php`.
+
 ## Migrationsvergleich vor jedem `beta`-Push (EMS-Werkzeug, SUITE.md 9e, 13.09.2026)
 
 `php /Users/dietmar/Nextcloud/Claude/.tools/migrationsvergleich.php . origin/beta HEAD` vor

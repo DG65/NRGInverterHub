@@ -105,6 +105,24 @@ IP-Symcon-Konfigurator-Ansicht — ihre Position und ein „einzeln als gesehen 
 sich modulseitig nicht beeinflussen bzw. ergänzen (IP-Symcon-API-Grenze, keine Dokumentation
 dafür vorhanden).
 
+### InverterHubMqttBridge (Hoymiles MS-A2 per MQTT, Vorabversion)
+
+Kleines Zusatzmodul („NRG-Stack InverterHub Brücke (MQTT)“), das InverterHub-Instanzen mit dem **MQTT-Server von Symcon**
+verbindet. Der Hoymiles MS-A2 (Speicher) spricht kein Modbus, sondern sendet per MQTT.
+
+Einrichtung in der InverterHub-Instanz: Hersteller **„Hoymiles MS-A2“** und Verbindungsweg **„MQTT“** wählen, die
+**Geräte-ID** des MS-A2 eintragen (z. B. `MSA-280520260806`, = Präfix und Seriennummer), den MQTT-Server von Symcon
+auswählen, **„MQTT-Brücke anlegen und verbinden“** klicken, danach **Übernehmen**. Das Gerät muss an den MQTT-Server der
+Symcon-Maschine senden (Zugang und Port am Gerät einstellen).
+
+- **Nur lesen und wenig steuern:** Gelesen werden PV (inkl. angehängtem Wechselrichter über `sys_pv2_p`), Batterie, SOC, Netz,
+  Last und Tagesenergien. Steuerbar sind der EMS-Modus (`general`, `mqtt_ctrl`, `tou_plan`) und eine Leistungsvorgabe,
+  deren Einheit und Vorzeichen nicht belegt sind (nur durchgereicht).
+- **Stand:** Zuordnung nach dem Quellcode von Lin071/ha und einem Mitschnitt (Firmware V01.07.02), **am Gerät nicht
+  erprobt**. Bitte Rückmeldung im Forum.
+- **Warum eine eigene Instanz:** Wie bei der Gateway-Brücke trägt nur die Brücke die MQTT-Schnittstellen, das Hauptmodul bleibt
+  ohne Pflicht-Elterninstanz.
+
 ### InverterHubBridge (Symbox-Gateway, eingebauter RS485-Port)
 
 Kleines Zusatzmodul („NRG-Stack InverterHub Brücke (ModBus-Gateway)“), das eine InverterHub-

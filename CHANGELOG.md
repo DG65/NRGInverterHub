@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.77.0-beta.45 (2026-10-22)
+
+- **Neu (Vorabversion, am Gerät nicht erprobt): Hoymiles MS-A2 per MQTT.** Neuer Hersteller „Hoymiles MS-A2" mit neuem
+  Verbindungsweg „MQTT" und neuem Zusatzmodul „NRG-Stack InverterHub Brücke (MQTT)" (`InverterHubMqttBridge`, Präfix `IHUBM`).
+  Das Gerät sendet an den MQTT-Server von Symcon; die Brücke (Kind des MQTT-Servers) filtert nach der Geräte-ID (z. B.
+  `MSA-280520260806`) und reicht die Nachrichten an die InverterHub-Instanz weiter (`IHUB_MqttReceive`). Nur die Brücke trägt die
+  MQTT-Schnittstellen in `module.json`; das Hauptmodul bekommt keine Pflicht-Elterninstanz, bestehende Instanzen bleiben
+  unberührt. Treiber `IHUB_HoymilesMsa2Driver`: liest `quick/state` (1 s), `device/state` und `system/state` (5 min). Zuordnung nach dem
+  Quellcode von Lin071/ha und dem Mitschnitt von AKL (Firmware V01.07.02): Batterie `sys_bat_p`/`bat_p` (< 0 Laden, > 0 Entladen =
+  InverterHub-Konvention), Netz `meter_total` = −`sys_grid_p` (Hoymiles: + = Bezug), PV gesamt = `sys_pv_p` + `sys_pv2_p`
+  (der am MS-A2 angehängte Wechselrichter läuft über `sys_pv2_p`), SOC `soc`, Last `sys_load_p`, Tagesenergien aus `system/state`.
+  „Verbunden" heißt: es kommen noch Nachrichten (nicht älter als 120 s). Steuerung (nur Befehle, kein Rücklesen): EMS-Modus
+  `general`/`mqtt_ctrl`/`tou_plan` (belegt) und Leistungsvorgabe `power_ctrl` (Einheit und Vorzeichen NICHT belegt, nur durchgereicht).
+  Sende- und Empfangsformat (`DataID {043EA491-…}`, PacketType 3, `utf8_encode`/`utf8_decode`) am Referenzmodul Schnittcher/IPS-Zigbee2MQTT
+  gelesen, nicht am Gerät erprobt. Prüfstand `.tools/test-msa2.php`. Hinweis: Der Wh-Schalter und die übrigen Hauptmodul-Funktionen
+  gelten unverändert; `IHUB_GetFunctions` (Vertrag 1.5) liefert die Idents `pv_total`, `bat_power`, `bat_soc`, `meter_total`, `connected`.
+
 ## 0.77.0-beta.44 (2026-10-22)
 
 - **Solis: generische Netzdienst-Fähigkeiten wie beim GoodWe (Vertrag bleibt 1.5, additiv je Instanz).** Neue Steuerpunkte
