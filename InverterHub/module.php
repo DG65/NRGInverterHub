@@ -1928,6 +1928,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 ['svc_release', 'Netzdienlich: Freigeben (Automatik)', 'B', '~Switch', false, 'control', 'Zwangsmodus 43135 = 0 und "Akku halten" zurueck'],
                 ['svc_discharge_inhibit', 'Netzdienlich: Entladen sperren (Akku halten)', 'B', '~Switch', false, 'control', 'schreibt 43110 = 17 (Reserve ohne Netzladen), merkt den bisherigen Wert; aus = zurueck'],
                 ['svc_prev_storage', 'Gemerkter Speicherbetrieb (vor "Akku halten")', 'I', '', false, 'control', 'nur Anzeige'],
+                ['svc_prev_grid_storage', 'Gemerkter Speicherbetrieb (vor Netzladen)', 'I', '', false, 'control', 'nur Anzeige; svc_grid_charge_w schreibt 43110 mit Bit 5 (Netzladen erlaubt), svc_release stellt zurueck'],
                 ['ctl_max_charge_a', 'Max. Ladestrom (A)',    'F', 'SLS.AmpereSet',   false, 'control', 'RW 43012 (÷10), fest gespeichert'],
                 ['ctl_max_disch_a',  'Max. Entladestrom (A)', 'F', 'SLS.AmpereSet',   false, 'control', 'RW 43013 (÷10), fest gespeichert'],
             ]],
@@ -2374,6 +2375,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
     const REG_MAX_CHARGE_A = 43012;   // max. Ladestrom, 0,1 A (fest gespeichert)
     const REG_MAX_DISCH_A  = 43013;   // max. Entladestrom, 0,1 A (fest gespeichert)
     const CURRENT_MAX_A    = 200.0;
+    const STORAGE_BIT_GRID = 32;      // Bit 5 von 43110: Netzladen erlaubt (ohne dieses Bit setzt der WR Zwangsladen nur aus PV um, gemessen 25.10.2026)
     const STORAGE_HOLD     = 17;      // Reserve ohne Netzladen: Akku wird nicht entladen, kein Netzladen (gemessen 20.10.2026)
     const FORCE_MAX_W      = 30000;   // Obergrenze der Vorgabe; der WR begrenzt selbst (z. B. 2 x 70 A beim S6-EH3P29.9K-H)
     // Erlaubte Speicherbetriebsarten: bewusst OHNE Inselbetrieb (37) und Batterie-Wecken (41/43).
@@ -2401,6 +2403,67 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             $err = ($r === null) ? 'Zuruecklesen ohne Antwort' : 'Geraet bestaetigt, hat aber ' . $mb->u16($r, 0) . ' statt ' . $value . ' gespeichert';
         }
         return false;
+    }
+
+    // Zielwert des Speicherbetriebs mit "Netzladen erlaubt" (Bit 5). Die Mischformen 49/51 (Reserve MIT Netzladen)
+    // laden von selbst mit voller Leistung aus dem Netz und werden deshalb nie gewaehlt; dafuer gilt 33.
+    private function gridStorageTarget($cur)
+    {
+        $t = $cur | self::STORAGE_BIT_GRID;
+        return (in_array($t, self::STORAGE_MODES_ALLOWED, true) && $t !== 49 && $t !== 51) ? $t : 33;
+    }
+
+    // Vor dem Netz-Zwangsladen: Ist Netzladen im Speicherbetrieb erlaubt? Sonst setzt der Solis das Zwangsladen
+    // nur aus PV um und der Akku entlaedt sogar fuer den Hausbedarf (Paul, 25.10.2026: 17 kW erst nach 43110 = 33).
+    // true = Zwangsladen darf geschrieben werden. Der bisherige Wert wird in svc_prev_grid_storage gemerkt
+    // (nur wenn dort noch keiner steht) und von svc_release zurueckgeschrieben.
+    private function ensureGridChargeAllowed($mb, $hub)
+    {
+        $r = $mb->readHolding(self::REG_STORAGE_MODE, 1);
+        if ($r === null) {
+            $hub->WarnUser('Solis: Speicherbetrieb konnte nicht gelesen werden (Register 43110), Netzladen wird ohne Pruefung versucht.');
+            return true;
+        }
+        $cur = $mb->u16($r, 0);
+        if (($cur & self::STORAGE_BIT_GRID) !== 0) {
+            return true;
+        }
+        if (!in_array($cur, self::STORAGE_MODES_ALLOWED, true)) {
+            $hub->WarnUser('Solis: Speicherbetrieb ' . $cur . ' erlaubt kein Netzladen und liegt nicht in der erlaubten Auswahl; Zwangsladen wird versucht, setzt sich aber evtl. nur aus PV um.');
+            return true;
+        }
+        $target = $this->gridStorageTarget($cur);
+        if ($hub->GetVarInt('svc_prev_grid_storage') <= 0) {
+            $hub->SetVarInt('svc_prev_grid_storage', $cur);
+        }
+        if (!$this->writeVerified($mb, self::REG_STORAGE_MODE, $target, $err)) {
+            $hub->WarnUser('Solis: Netzladen konnte nicht erlaubt werden (Speicherbetrieb ' . $target . ', Register 43110): ' . $err . '. Zwangsladen wird nicht geschrieben.');
+            return false;
+        }
+        return true;
+    }
+
+    // Gegenstueck: den vor dem Netzladen gemerkten Speicherbetrieb zurueckschreiben, aber nur, wenn das Geraet noch
+    // genau auf dem von uns gesetzten Wert steht (hat jemand anders ihn geaendert, bleibt es dabei).
+    private function restoreGridChargeStorage($mb, $hub)
+    {
+        $prev = $hub->GetVarInt('svc_prev_grid_storage');
+        if ($prev <= 0) {
+            return;
+        }
+        $r = $mb->readHolding(self::REG_STORAGE_MODE, 1);
+        if ($r === null) {
+            $hub->WarnUser('Solis: Speicherbetrieb konnte nicht gelesen werden (Register 43110), der vor dem Netzladen gemerkte Wert ' . $prev . ' wird nicht zurueckgeschrieben.');
+            return;
+        }
+        $cur = $mb->u16($r, 0);
+        if ($cur === $this->gridStorageTarget($prev) && $cur !== $prev) {
+            if (!$this->writeVerified($mb, self::REG_STORAGE_MODE, $prev, $err)) {
+                $hub->WarnUser('Solis: Speicherbetrieb ' . $prev . ' wurde vom Geraet nicht zurueckgenommen (Register 43110): ' . $err);
+                return;
+            }
+        }
+        $hub->SetVarInt('svc_prev_grid_storage', 0);
     }
 
     // Reine Weitergabe (Architekturentscheidung 29.08.2026): keine eigene Wiederholung, kein Totmann -
@@ -2453,6 +2516,9 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                     $this->writeControl($mb, $hub, 'svc_release', true);
                     return;
                 }
+                if ($mode === 1 && !$this->ensureGridChargeAllowed($mb, $hub)) {
+                    return;
+                }
                 $cur = $hub->GetVarInt('ctl_force_mode');
                 if ($cur > 0 && $cur !== $mode) {
                     // Anderer Zwangsmodus laeuft: erst auf Aus, sonst ginge die neue Leistung ins falsche Register.
@@ -2470,6 +2536,9 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             case 'svc_release':
                 if (!(bool)$value) { return; }
                 $this->writeControl($mb, $hub, 'ctl_force_mode', 0);
+                if ($hub->GetVarInt('ctl_force_mode') === 0) {
+                    $this->restoreGridChargeStorage($mb, $hub);
+                }
                 $this->writeControl($mb, $hub, 'svc_discharge_inhibit', false);
                 if ($hub->GetVarInt('ctl_force_mode') === 0) {
                     $hub->SetVarInt('svc_grid_charge_w', 0);

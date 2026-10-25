@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.77.0-beta.50 (2026-10-25)
+
+- **Solis: Netzladen (`svc_grid_charge_w`) stellt jetzt „Netzladen erlaubt" (Bit 5 im Speicherbetrieb, Register 43110) selbst sicher.**
+  Anlass: An Pauls Anlage setzte der Solis das Zwangsladen mit 17 kW nicht um, solange der Speicherbetrieb auf 1 (Eigenverbrauch
+  ohne Netzladen) stand; der Akku entlud sogar für den Hausbedarf. Nach dem Schreiben von 33 lud er sofort mit rund 17,4 kW aus
+  dem Netz (gemessen 25.10.2026). Jetzt liest der Treiber vor dem Zwangsladen 43110; fehlt Bit 5, schreibt er den passenden Wert
+  mit Bit 5 (1 → 33, 3 → 35, 64 → 96, 17 → 33, nie 49/51) und merkt den bisherigen Wert in der neuen Anzeigevariable
+  `svc_prev_grid_storage`. `svc_release` (und Netzladen 0 W) schreibt den gemerkten Wert zurück, aber nur, wenn das Gerät noch
+  auf dem von uns gesetzten Wert steht. Kann Bit 5 nicht gesetzt werden, wird das Zwangsladen nicht geschrieben (Warnung). Ist
+  Bit 5 schon gesetzt, wird 43110 nicht angefasst. Einspeisen aus der Batterie bleibt unberührt. Keine Vertragsänderung.
+
 ## 0.77.0-beta.49 (2026-10-23)
 
 - **GoodWe-Schnellladung gemessen (Dietmars Anlage, nachts, SOC 71 %, Ziel 80 %, EMS aus).** Netzleistung 10 % ergab 3,0 kW

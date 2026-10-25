@@ -1,5 +1,17 @@
 # Hinweise für die Arbeit an diesem Repository
 
+## Solis: Netzladen braucht Bit 5 im Speicherbetrieb (gemessen 25.10.2026, Pauls Anlage)
+
+Zwangsladen (43135 = 1, 43136 = Leistung) setzt der Solis nur dann aus dem Netz um, wenn der Speicherbetrieb (43110) Bit 5 (Wert 32,
+„Netzladen erlaubt") trägt. Bei 43110 = 1 (Eigenverbrauch ohne Netzladen) lud Pauls Akku trotz Zwangsladen „an" nur 0 bis 583 W aus PV
+und entlud zeitweise sogar (+700 bis +870 W für den Hausbedarf); nach dem Schreiben von 33 lud er binnen etwa 15 s mit rund 17,4 kW
+aus dem Netz (Netz −17,4 kW). `svc_grid_charge_w` sorgt deshalb vor dem Zwangsladen selbst für Bit 5 (Zielwerte 1 → 33, 3 → 35,
+64 → 96, 17 → 33, nie 49/51, die von selbst mit voller Leistung laden) und merkt den Vorwert in `svc_prev_grid_storage`;
+`svc_release` stellt ihn zurück, aber nur, wenn das Gerät noch auf dem von uns gesetzten Wert steht. Schlägt das Setzen fehl, wird das
+Zwangsladen nicht geschrieben. Offen: Wer 43110 bei Paul vorher von 33 auf 1 gestellt hat (EMS prüft das Archiv); ob die Solis-
+Firmware Bit 5 laut Handbuch voraussetzt, ist nicht belegt (nur die Messung). Der Logger lässt nur eine Verbindung zu: Schreiben des
+EMS und fremde Schreibzugriffe kollidieren gelegentlich („keine Verbindung"), einfach wiederholen.
+
 ## GoodWe-Schnellladung 47545/47546/47603 gemessen (23.10.2026)
 
 Variablen `ctl_fastcharge_enable` (47545), `ctl_fastcharge_soc` (47546, 1-100 %), `ctl_fastcharge_pct` (47603, Netzleistung in %).

@@ -320,5 +320,55 @@ ok($v['e_buy_total'] === 120.0 && abs($v['e_buy_day'] - 48.5) < 0.001, 'Bezug: G
 ok($v['e_sell_total'] === 497.0 && abs($v['e_sell_day'] - 1.6) < 0.001, 'Einspeisung: Gesamt/heute');
 ok($v['e_load_total'] === 1318.0 && abs($v['e_load_day'] - 30.2) < 0.001, 'Haus: Gesamt 1318 kWh (Faktor 1), heute 30,2 kWh (Faktor 0,1)');
 
+echo "Netzladen setzt Bit 5 (Speicherbetrieb), 25.10.2026 Paul\n";
+// 1 (Eigenverbrauch ohne Netzladen) -> 33 vor dem Zwangsladen, gemerkt, mit Release zurueck
+$mbG = new MockMb(); $hG = new MockHub(); $hG->v['ctl_force_mode'] = 0; $mbG->regs[43110] = 1;
+ctl($d, $hG, $mbG, 'svc_grid_charge_w', 17000);
+ok($mbG->regs[43110] === 33 && $hG->v['svc_prev_grid_storage'] === 1 && $hG->v['ctl_force_mode'] === 1 && $mbG->regs[43135] === 1,
+   'Speicherbetrieb 1 -> 33, Vorwert 1 gemerkt, Zwangsladen laeuft');
+$firstOrder = array_map(function ($w) { return $w[0]; }, $mbG->writes);
+ok(array_search(43110, $firstOrder) < array_search(43135, $firstOrder), 'Netzladen wird vor dem Zwangsmodus erlaubt');
+$n = count($mbG->writes);
+ctl($d, $hG, $mbG, 'svc_grid_charge_w', 17000);
+ok(count(array_filter(array_slice($mbG->writes, $n), function ($w) { return $w[0] === 43110; })) === 0 && $hG->v['svc_prev_grid_storage'] === 1,
+   'Nachfuehren bei Bit 5 schon gesetzt: 43110 wird nicht erneut geschrieben, Vorwert bleibt');
+ctl($d, $hG, $mbG, 'svc_release', true);
+ok($mbG->regs[43110] === 1 && $hG->v['svc_prev_grid_storage'] === 0 && $mbG->regs[43135] === 0, 'Freigeben: Speicherbetrieb zurueck auf 1, Merker geloescht, Zwangsmodus aus');
+// Bit 5 schon gesetzt (33): nichts schreiben, nichts merken
+$mbH = new MockMb(); $hH = new MockHub(); $hH->v['ctl_force_mode'] = 0; $mbH->regs[43110] = 33;
+ctl($d, $hH, $mbH, 'svc_grid_charge_w', 5000);
+ok($mbH->regs[43110] === 33 && !isset($hH->v['svc_prev_grid_storage']) && $hH->v['ctl_force_mode'] === 1, 'Speicherbetrieb 33: nichts geaendert, nichts gemerkt');
+ctl($d, $hH, $mbH, 'svc_release', true);
+ok($mbH->regs[43110] === 33, 'Freigeben ohne Merker laesst 43110 unberuehrt');
+// "Akku halten" (17) -> 33, nie 49
+$mbI = new MockMb(); $hI = new MockHub(); $hI->v['ctl_force_mode'] = 0; $mbI->regs[43110] = 17;
+ctl($d, $hI, $mbI, 'svc_grid_charge_w', 5000);
+ok($mbI->regs[43110] === 33 && $hI->v['svc_prev_grid_storage'] === 17, 'Speicherbetrieb 17 -> 33 (nie 49), Vorwert 17 gemerkt');
+ctl($d, $hI, $mbI, 'svc_release', true);
+ok($mbI->regs[43110] === 17, 'Freigeben: wieder 17');
+// Zeitladen/Einspeisevorrang: 3 -> 35, 64 -> 96
+foreach ([3 => 35, 64 => 96] as $from => $to) {
+    $mbJ = new MockMb(); $hJ = new MockHub(); $hJ->v['ctl_force_mode'] = 0; $mbJ->regs[43110] = $from;
+    ctl($d, $hJ, $mbJ, 'svc_grid_charge_w', 5000);
+    ok($mbJ->regs[43110] === $to, "Speicherbetrieb $from -> $to (Bit 5 dazu)");
+}
+// Hat jemand 43110 zwischenzeitlich geaendert, bleibt es dabei
+$mbK = new MockMb(); $hK = new MockHub(); $hK->v['ctl_force_mode'] = 0; $mbK->regs[43110] = 1;
+ctl($d, $hK, $mbK, 'svc_grid_charge_w', 5000); $mbK->regs[43110] = 35;
+ctl($d, $hK, $mbK, 'svc_release', true);
+ok($mbK->regs[43110] === 35 && $hK->v['svc_prev_grid_storage'] === 0, 'Fremd geaendert (35): Release schreibt nichts zurueck, Merker geloescht');
+// Entladen braucht Bit 5 nicht
+$mbL = new MockMb(); $hL = new MockHub(); $hL->v['ctl_force_mode'] = 0; $mbL->regs[43110] = 1;
+ctl($d, $hL, $mbL, 'svc_discharge_to_grid_w', 3000);
+ok($mbL->regs[43110] === 1 && $hL->v['ctl_force_mode'] === 2, 'Einspeisen aus der Batterie laesst den Speicherbetrieb unberuehrt');
+// 43110 laesst sich nicht schreiben: Zwangsladen wird NICHT geschrieben, Warnung
+$mbM = new MockMb(); $hM = new MockHub(); $hM->v['ctl_force_mode'] = 0; $mbM->regs[43110] = 1; $mbM->dropWrites = 2;
+ctl($d, $hM, $mbM, 'svc_grid_charge_w', 5000);
+ok(($mbM->regs[43135] ?? 0) !== 1 && ($hM->v['ctl_force_mode'] ?? 0) === 0 && count($hM->warn) >= 1 && !isset($hM->v['svc_grid_charge_w']), 'Bit 5 nicht uebernommen: kein Zwangsladen, Warnung, Anzeige bleibt');
+// Speicherbetrieb nicht lesbar: wie bisher schreiben, aber warnen
+$mbN = new MockMb(); $hN = new MockHub(); $hN->v['ctl_force_mode'] = 0;
+$mbN2 = new class extends MockMb { public function readHolding($s, $c) { return $s === 43110 ? null : parent::readHolding($s, $c); } };
+ctl($d, $hN, $mbN2, 'svc_grid_charge_w', 5000);
+ok($hN->v['ctl_force_mode'] === 1 && count($hN->warn) >= 1, 'Speicherbetrieb nicht lesbar: Zwangsladen wie bisher, mit Warnung');
 echo $fail === 0 ? "\nALLES OK\n" : "\n$fail FEHLER\n";
 exit($fail === 0 ? 0 : 1);
