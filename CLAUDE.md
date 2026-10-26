@@ -87,6 +87,15 @@ nativen Symcon-Gateways werden (komplett anderer Datenaustausch-Mechanismus). Da
 echte Architekturarbeit, kein Quick-Fix — noch nicht eingeplant, keine Zusage gemacht.
 Verifiziert mit EMS (18.09.2026), die den Fund gegen die Symcon-Doku geprueft haben.
 
+**Stand 26.10.2026 (AKL, Mitschnitt und App-Fotos):** Der Treiber läuft an echter Hardware (MS-A2 + HMS-2000-4WB + HMS-800W-2T, beide
+Wechselrichter AC-gekoppelt, nicht am MS-A2-Stecker). **`sys_pv2_p` liefert nur EINEN der beiden Wechselrichter** (HMS-2000-4WB, 482 W gegen 488,3 W in
+der App); die App-Summe „Solar 2" (693,7 W) addiert die Hoymiles-Cloud, der HMS-800W-2T (227,7 W) steht in keinem MQTT-Feld. `pv_total` enthält deshalb
+nur, was der MS-A2 selbst meldet; wer weitere AC-gekoppelte Wechselrichter hat, muss sie selbst verknüpfen. `sys_pv_p` (PV 1) ist 0 W, solange kein
+Wechselrichter direkt in die Steckdose des MS-A2 gesteckt ist. `sys_load_p` kann negativ werden, weil der MS-A2 an seinem Anschlusspunkt rechnet und ein
+im selben Stromkreis einspeisender Wechselrichter dort wie negative Last wirkt (aus Zahlen abgeleitet, nicht belegt). Ein MS-A2 ohne Erweiterung meldet
+kein `packs`-Feld: Pack-Variablen liegen deshalb in der Gruppe `GroupPacks`, Vorgabe aus. Die Debug-Anzeige des Symcon-MQTT-Servers kürzt `device/state` bei
+rund 590 Zeichen (Anzeigeeffekt, die Werte kommen vollständig an).
+
 ## Hoymiles MS-A2 per MQTT (22.10.2026, Vorabversion, am Gerät nicht erprobt)
 
 Erster Treiber ohne Modbus: `IHUB_HoymilesMsa2Driver` (Hersteller `hoymiles_msa2`), Verbindungsweg `mqtt`, Kernmethoden `MqttReceive`/`MqttPublish`/`MqttAge`/`MqttDeviceId`, Zusatzmodul `InverterHubMqttBridge` (Präfix `IHUBM`, GUID `{B8E699DE-22E4-4DF3-926B-8F4C118852B7}`). **Wie bei der Gateway-Brücke trägt nur die Brücke die MQTT-Schnittstellen** (`parentRequirements` `{043EA491-0325-4ADD-8FC2-A30C8EEB4D3F}`, `implemented` `{7F7632D9-FA40-4F38-8DEA-C83CD4325A32}`); das Hauptmodul bleibt ohne Pflicht-Elterninstanz (sonst Hinweis „benötigt eine übergeordnete Instanz" bei allen ~240 Direkt-Instanzen). Die Geräte-ID (`MqttDeviceID`, z. B. `MSA-280520260806`) steht an der InverterHub-Instanz; die Brücke baut ihren Empfangsfilter aus den verbundenen Instanzen.

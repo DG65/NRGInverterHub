@@ -129,5 +129,15 @@ ok($hubmj['parentRequirements'] === [] && $hubmj['implemented'] === [], 'Hauptmo
 ok(preg_match('/MQTT_BRIDGE_GUID = \'(\{[0-9A-F-]+\})\'/', $src, $g) && strtoupper($g[1]) === strtoupper($mj['id']), 'GUID der Brücke im Hauptmodul stimmt mit module.json überein');
 ok(strpos($src, "'hoymiles_msa2' => 'IHUB_HoymilesMsa2Driver'") !== false && strpos($src, "'label' => 'MQTT (Symcon-MQTT-Server") !== false, 'Hersteller und Verbindungsweg sind im Formular eingetragen');
 
+echo "Erweiterungspacks und Notstrom/Steckdose (Forum AKL, 26.10.2026)\n";
+$groups = $d->getOptionalGroups();
+$idents = function ($g) { return array_map(function ($v) { return $v[0]; }, $g['vars']); };
+ok(isset($groups['GroupPacks']) && $idents($groups['GroupPacks']) === ['pack1_soc', 'pack1_temp', 'pack2_soc', 'pack2_temp', 'pack3_soc', 'pack3_temp', 'pack4_soc', 'pack4_temp'], 'Pack-Variablen liegen in der eigenen Gruppe GroupPacks');
+ok(count(array_filter($idents($groups['GroupBat']), function ($i) { return strpos($i, 'pack') === 0; })) === 0, 'Batterie-Gruppe enthaelt keine Pack-Variablen mehr');
+ok($d->getExtraBooleanProperties() === ['GroupPacks' => false], 'GroupPacks ist standardmaessig aus (kein Dauer-"Nie" ohne Erweiterung)');
+ok(preg_match('/foreach \(\$drv->getExtraBooleanProperties\(\).*?foreach \(\$drv->getOptionalGroups\(\)/s', $src) === 1, 'Hauptmodul registriert die Extra-Vorgabe vor der Gruppen-Vorgabe (Vorgabe false bleibt erhalten)');
+$h = new MockHub();
+$d->onMqtt($h, $T . 'system/state', '{"pv_e":0,"pv2_e":2030,"dchg_e":244,"chg_e":1962,"plug_out_e":245,"plug_in_e":1982,"eps_out_e":7,"eps_in_e":0,"ems_mode":"general"}');
+ok(abs($h->v['e_plug_in_day'] - 1.982) < 1e-9 && abs($h->v['e_plug_out_day'] - 0.245) < 1e-9 && abs($h->v['e_eps_out_day'] - 0.007) < 1e-9 && $h->v['e_eps_in_day'] === 0.0, 'Steckdose/Notstrom Tagesenergie Wh -> kWh (Werte aus dem Mitschnitt vom 26.10.2026)');
 echo $fail === 0 ? "ALLES OK\n" : "$fail FEHLER\n";
 exit($fail === 0 ? 0 : 1);

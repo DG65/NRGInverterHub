@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.77.0-beta.51 (2026-10-26)
+
+- **Hoymiles MS-A2: Erweiterungspacks nur noch auf Wunsch, Notstrom- und Steckdosen-Energien neu.** (1) Die Variablen „Pack 1
+  bis 4" (SOC, Temperatur) liegen jetzt in einer eigenen Gruppe „Erweiterungspacks (nur wenn angebaut)", Vorgabe **aus**. Ein MS-A2
+  ohne Erweiterung meldet keine Packs und hatte bisher acht dauerhaft leere Variablen. Bestehende Instanzen: Beim nächsten
+  „Übernehmen" verschwinden die Pack-Variablen; wer Erweiterungspacks betreibt, setzt das Häkchen „Erweiterungspacks (nur wenn
+  angebaut)" wieder. (2) Neue Tagesenergien aus `system/state`: Steckdose Bezug (`plug_in_e`), Steckdose Abgabe (`plug_out_e`), Notstrom
+  Eingang (`eps_in_e`) und Ausgang (`eps_out_e`), je Wh → kWh. Die Notstromleistung (`sys_eps_p`) wurde schon gelesen. Anlass: Mitschnitt
+  von AKL (Forum, 26.10.2026, Firmware V01.07.02 und neuer). Die Debug-Anzeige von Symcon kürzt `device/state` auf rund 590 Zeichen; die Werte kommen
+  vollständig an (Spannung und Temperatur aus derselben Meldung waren am 23.10. im Treiber vorhanden).
+
 ## 0.77.0-beta.50 (2026-10-25)
 
 - **Solis: Netzladen (`svc_grid_charge_w`) stellt jetzt „Netzladen erlaubt" (Bit 5 im Speicherbetrieb, Register 43110) selbst sicher.**

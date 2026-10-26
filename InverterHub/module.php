@@ -5973,6 +5973,10 @@ class IHUB_HoymilesMsa2Driver implements IHUB_InverterDriverInterface
                 ['bat_volt',    'Batteriespannung',      'F', 'MSA.Volt', false, 'bat', 'device/state bat_v'],
                 ['bat_curr',    'Batteriestrom',         'F', 'MSA.Ampere', false, 'bat', 'device/state bat_i'],
                 ['bat_temp',    'Batterietemperatur',    'F', 'MSA.Celsius', false, 'bat', 'device/state bat_temp'],
+            ]],
+            // Nur bei angebauten Erweiterungspacks. Vorgabe AUS (getExtraBooleanProperties), damit Geraete ohne
+            // Erweiterung keine dauerhaft leeren Variablen bekommen (Forum AKL, 26.10.2026).
+            'GroupPacks' => ['caption' => 'Erweiterungspacks (nur wenn angebaut)', 'vars' => [
                 ['pack1_soc',   'Pack 1 SOC',            'I', '~Intensity.100', false, 'bat', 'device/state packs[1].soc'],
                 ['pack1_temp',  'Pack 1 Temperatur',     'F', 'MSA.Celsius', false, 'bat', 'device/state packs[1].temp'],
                 ['pack2_soc',   'Pack 2 SOC',            'I', '~Intensity.100', false, 'bat', 'device/state packs[2].soc'],
@@ -6000,6 +6004,10 @@ class IHUB_HoymilesMsa2Driver implements IHUB_InverterDriverInterface
                 ['e_pv2_day',       'PV2 Ertrag Heute',      'F', '~Electricity', true, 'energy', 'system/state pv2_e (Wh)'],
                 ['e_charge_day',    'Batterie Laden Heute',  'F', '~Electricity', true, 'energy', 'system/state chg_e (Wh)'],
                 ['e_discharge_day', 'Batterie Entladen Heute', 'F', '~Electricity', true, 'energy', 'system/state dchg_e (Wh)'],
+                ['e_plug_in_day',   'Steckdose Bezug Heute',        'F', '~Electricity', true, 'energy', 'system/state plug_in_e (Wh), Energie aus der Steckdose ins Gerät'],
+                ['e_plug_out_day',  'Steckdose Abgabe Heute',       'F', '~Electricity', true, 'energy', 'system/state plug_out_e (Wh), Energie vom Gerät in die Steckdose'],
+                ['e_eps_in_day',    'Notstrom Eingang Heute',       'F', '~Electricity', true, 'energy', 'system/state eps_in_e (Wh)'],
+                ['e_eps_out_day',   'Notstrom Ausgang Heute',       'F', '~Electricity', true, 'energy', 'system/state eps_out_e (Wh)'],
             ]],
             'GroupDevice' => ['caption' => 'Gerät', 'vars' => [
                 ['dev_rssi',      'WLAN-Signal (dBm)',   'F', 'MSA.Dbm', false, 'device', 'device/state rssi'],
@@ -6014,7 +6022,7 @@ class IHUB_HoymilesMsa2Driver implements IHUB_InverterDriverInterface
 
     public function getExtraBooleanProperties()
     {
-        return [];
+        return ['GroupPacks' => false];
     }
 
     public function getProfiles()
@@ -6169,7 +6177,8 @@ class IHUB_HoymilesMsa2Driver implements IHUB_InverterDriverInterface
     private function system($hub, $a)
     {
         // Tagesenergie in Wh -> kWh (die Treiber liefern kWh, der Wh-Schalter rechnet ggf. hoch).
-        $map = ['pv_e' => 'e_pv_day', 'pv2_e' => 'e_pv2_day', 'chg_e' => 'e_charge_day', 'dchg_e' => 'e_discharge_day'];
+        $map = ['pv_e' => 'e_pv_day', 'pv2_e' => 'e_pv2_day', 'chg_e' => 'e_charge_day', 'dchg_e' => 'e_discharge_day',
+                'plug_in_e' => 'e_plug_in_day', 'plug_out_e' => 'e_plug_out_day', 'eps_in_e' => 'e_eps_in_day', 'eps_out_e' => 'e_eps_out_day'];
         foreach ($map as $key => $ident) {
             $v = self::num($a, $key);
             if ($v !== null) {
