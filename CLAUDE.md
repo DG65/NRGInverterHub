@@ -110,10 +110,10 @@ jedem Push auf `beta` laufen lassen — vergleicht Module/GUIDs, Idents+Typen, P
 veröffentlichten Stand und meldet Brüche, die bestehende der ~240 Installationen zum Absturz
 bringen würden. Rückgabewert 1 = erst klären, nicht einfach pushen. Erkennt keine
 zusammengesetzten/dynamisch gebauten Idents — ersetzt keine eigene Prüfung, nur zusätzliches
-Netz. Kein separates `main` bei uns — `beta` ist der einzige Store-/Produktionskanal, daher
-immer `origin/beta` als Basis, nicht `ems-integration`.
+Netz. Seit 27.10.2026 gibt es `main` (Stable, gleich `beta`); der Zweig `ems-integration` ist abgeschafft.
+Basis des Vergleichs ist `origin/main` bzw. `origin/beta`.
 
-## Uebergangs-Huellen fuer InverterHubTile/Monitor/Energy gebaut (14.09.2026, EMS-Vorschlag, Dietmar-Freigabe)
+## Uebergangs-Huellen fuer InverterHubTile/Monitor/Energy gebaut (14.09.2026, Historie; Zweig `ems-integration` seit 27.10.2026 abgeschafft, Huellen nie auf `beta`/`main`)
 
 **Umgesetzt, siehe unten stehenden Abschnitt fuer den urspruenglichen Befund.** Auf
 `ems-integration` liegen jetzt wieder drei Modulordner `InverterHubTile`/`InverterHubMonitor`/
@@ -469,7 +469,7 @@ HA-Integration kennt Fernsteuerung (Register 43128-43136, RC-Timeout 43282 in Mi
 als „Unsourced" markiert), Zeitladen 43141-43190 und Time-of-Use V2 43707-43791 — erst nach
 Bestätigung an echter Hardware (vgl. Heartbeat-Tabelle, Zeile Solis).
 
-## `InverterHubTile`/`InverterHubMonitor`/`InverterHubEnergy` entfernt (nur `ems-integration`, 20.08.2026)
+## `InverterHubTile`/`InverterHubMonitor`/`InverterHubEnergy` entfernt (nur `ems-integration`, 20.08.2026; Historie, Zweig abgeschafft 27.10.2026, Module bleiben auf `beta`/`main`)
 
 Auf Anweisung Dietmars entfernt: Die drei Visualisierungs-Kacheln (Stromfluss, Sankey,
 Monitoring/Diagnostik) sind auf diesem Zweig gelöscht — NRGDashboard hat diese Aufgabe

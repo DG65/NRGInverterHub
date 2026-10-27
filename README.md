@@ -150,7 +150,7 @@ selben Gateway wird wiederverwendet.
 
 ### Kacheln (`InverterHubTile`, `InverterHubEnergy`, `InverterHubMonitor`) — entfernt
 
-Auf diesem Zweig (`ems-integration`) entfernt (20.08.2026): Die Aufgabe der Visualisierung
+Auf dem früheren Zweig `ems-integration` (abgeschafft 27.10.2026) war entfernt (20.08.2026); auf `beta`/`main` bleiben die Module bestehen: Die Aufgabe der Visualisierung
 (Stromfluss-Kachel, Sankey-Diagramm, Monitoring/Diagnostik) übernimmt jetzt
 [NRGDashboard](https://github.com/DG65/NRGDashboard). Mit `InverterHubMonitor` ist auch der
 Diagnostik-Vertrag `IHUBMON_GetDiagnostics` entfallen. Die volle Doku dieser drei Module bleibt
@@ -175,7 +175,7 @@ Teil des **NRG-Stack** — dem Energie-Modulverbund von DG65.
 **[Prognose](https://github.com/DG65/NRGPrognose)** liefert die Prognosen, gegen die dieses
 Projekt die Messwerte stellt. Genutzt wird davon das Modul **PV-Prognose** (Präfix `PVF`):
 
-- Der **InverterHubMonitor** (Genutzt auf `main`/`beta`, auf `ems-integration` entfernt —
+- Der **InverterHubMonitor** (Genutzt auf `main`/`beta`, früher auf `ems-integration` entfernt —
   Aufgabe jetzt bei NRGDashboard) berechnete aus den dort gepflegten Generatorparametern (kWp
   je Generator, Performance-Ratio) zusammen mit einem Einstrahlungssensor **Erwartungswerte**
   und stellte sie dem gemessenen Ertrag gegenüber. Damit lassen sich Verschmutzung und Defekte

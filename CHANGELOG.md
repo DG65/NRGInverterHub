@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.77.0 (2026-10-27)
+
+- **Erste stabile Fassung.** Inhaltlich gleich 0.77.0-beta.52; der Beta-Zusatz entfällt, der Zweig `main` wird angelegt.
+  Der Zweig `ems-integration` entfällt, `beta` und `main` stehen gleich.
+
 ## 0.77.0-beta.52 (2026-10-27)
 
 - **Gerätesuche: SMA-Geräte, die nur über SunSpec antworten, werden jetzt gefunden.** Die Suche prüfte bei SMA bisher nur das
