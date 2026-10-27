@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.77.0-beta.52 (2026-10-27)
+
+- **Gerätesuche: SMA-Geräte, die nur über SunSpec antworten, werden jetzt gefunden.** Die Suche prüfte bei SMA bisher nur das
+  SMA-eigene Statusregister (30200/30201). Ein Sunny Boy SB2.0-1VL-40 (Forum richimaint, 27.10.2026) lief als manuelle Instanz
+  einwandfrei, wurde von der Suche aber nicht erkannt. Neu: Liefert das eigene Statusregister nichts, prüft die Suche zusätzlich
+  die SunSpec-Kennung (Marker „SunS" und Herstellername im Common Block, der mit dem Wort „SMA" beginnen muss, also nicht
+  „Smartgrid" o. Ä.). Dadurch ein paar zusätzliche Leseversuche je Gerät und Unit-ID; die Erkennung der anderen Hersteller ist unverändert.
+
 ## 0.77.0-beta.51 (2026-10-26)
 
 - **Hoymiles MS-A2: Erweiterungspacks nur noch auf Wunsch, Notstrom- und Steckdosen-Energien neu.** (1) Die Variablen „Pack 1

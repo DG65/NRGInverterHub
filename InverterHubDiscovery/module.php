@@ -1112,11 +1112,17 @@ class InverterHubDiscovery extends IPSModule
             case 'sma':
                 // Holding 30200 (Reg 30201): Operation.Health, plausible Enum-Werte
                 $r = $this->readHolding($ip, $port, $unitId, 30200, 2, 1.0);
-                if ($r === null) {
-                    return false;
+                if ($r !== null) {
+                    $val = ($r[0] << 16) | $r[1];
+                    if (in_array($val, [35, 303, 307, 455], true)) {
+                        return true;
+                    }
                 }
-                $val = ($r[0] << 16) | $r[1];
-                return in_array($val, [35, 303, 307, 455], true);
+                // Rueckfall SunSpec: Der SMA-Treiber im Hub arbeitet ueber SunSpec. Geraete, die das
+                // SMA-eigene Statusregister nicht liefern, fielen bisher durch (Forum richimaint,
+                // 27.10.2026: Sunny Boy SB2.0-1VL-40, manuelle Instanz lief). Herstellername im
+                // Common Block muss mit dem Wort "SMA" BEGINNEN (kein Treffer auf fremde Namen mit "sma").
+                return $this->probeSunSpecManufacturer($ip, $port, $unitId, 'sma', true);
 
             case 'fronius':
                 // SunSpec-Marker "SunS" allein reicht nicht — SolarEdge nutzt
@@ -1258,7 +1264,7 @@ class InverterHubDiscovery extends IPSModule
     // anschließend den Herstellernamen aus dem Common Block (Model 1,
     // Feld MN direkt ab Modelldatenbeginn 40004) — unterscheidet Fronius
     // von SolarEdge, die beide denselben "SunS"-Marker verwenden.
-    private function probeSunSpecManufacturer($ip, $port, $unitId, $wantVendor)
+    private function probeSunSpecManufacturer($ip, $port, $unitId, $wantVendor, $prefixOnly = false)
     {
         $marker = $this->readHolding($ip, $port, $unitId, 40000, 2, 1.0);
         if ($marker === null || $marker[0] !== 0x5375 || $marker[1] !== 0x6e53) {
@@ -1269,6 +1275,10 @@ class InverterHubDiscovery extends IPSModule
             return false;
         }
         $text = strtolower($this->decodeAsciiText($mn));
+        if ($prefixOnly) {
+            // Name beginnt mit dem Hersteller als ganzes Wort ("SMA", "SMA Solar Technology AG"), nicht "Smartgrid".
+            return preg_match('/^' . preg_quote($wantVendor, '/') . '(\\s|-|$)/', $text) === 1;
+        }
         return (strpos($text, $wantVendor) !== false);
     }
 
