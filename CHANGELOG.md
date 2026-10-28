@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.77.1 (2026-10-28)
+
+- **SMA: Modell und Seriennummer fehlten bei eingetragener Geräte-Unit-ID.** Die Geräteinfo wird einmalig vor dem ersten Lesen geholt und
+  suchte die SunSpec-Kette nur unter der eingetragenen Unit-ID. Bei SMA liegt sie aber auf Unit-ID + 123 (z. B. 3 → 126). Der Rückfall,
+  den das Lesen der Messwerte längst hatte, gilt jetzt auch dort (Forum brdiver677, SB 5000TL-21 und 8.0-AV3-40).
+- **SMA: Batterietemperatur 214748364,8 °C bei Geräten ohne Batterie.** Diese Geräte melden „nicht verfügbar" als 0x7FFFFFFF; der Wert
+  wird jetzt (auch bei der Batteriespannung) verworfen.
+- **Kein Fehler mehr beim Übernehmen, wenn ein gleichnamiges Profil anderen Typs existiert.** Statt „Variablentyp und Profiltyp stimmen
+  nicht überein" wird das Profil nicht zugewiesen und eine Warnung ins Protokoll geschrieben.
+
 ## 0.77.0 (2026-10-27)
 
 - **Erste stabile Fassung.** Inhaltlich gleich 0.77.0-beta.52; der Beta-Zusatz entfällt, der Zweig `main` wird angelegt.

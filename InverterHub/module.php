@@ -3295,12 +3295,14 @@ class IHUB_SmaDriver implements IHUB_InverterDriverInterface
                 if ($soc !== 0xFFFFFFFF) {
                     $hub->SetVarInt('bat_soc', $soc);
                 }
+                // "nicht verfuegbar" kommt je nach Geraet als 0xFFFFFFFF, 0x80000000 oder
+                // 0x7FFFFFFF (SB 5000TL-21 / 8.0-AV3-40 ohne Batterie: 214748364,8 Grad).
                 $t = $mb->u32($bs, 4);
-                if ($t !== 0xFFFFFFFF) {
+                if ($t !== 0xFFFFFFFF && $t !== 0x80000000 && $t !== 0x7FFFFFFF) {
                     $hub->SetVarFloat('bat_temp', $t / 10.0);
                 }
                 $u = $mb->u32($bs, 6);
-                if ($u !== 0xFFFFFFFF) {
+                if ($u !== 0xFFFFFFFF && $u !== 0x80000000 && $u !== 0x7FFFFFFF) {
                     $hub->SetVarFloat('bat_volt', $u / 100.0);
                 }
             }
@@ -3442,17 +3444,28 @@ class IHUB_SmaDriver implements IHUB_InverterDriverInterface
 
     public function readDeviceInfo($mb, $hub)
     {
+        // Die SunSpec-Kette liegt bei SMA auf Geraete-Unit-ID + 123 (siehe readFast).
+        // readDeviceInfo laeuft EINMALIG VOR readFast und merkt sich den Erfolg -
+        // ohne diesen Rueckfall blieben Modell und Seriennummer bei Unit-ID 3 (wie
+        // in der SMA-Oberflaeche eingestellt) dauerhaft leer (Forum brdiver677, 28.10.2026).
+        $native = $mb->unitId;
         $common = $this->findModel($mb, 1);
-        if ($common === null) {
-            return;
+        if ($common === null && $native <= 124) {
+            $mb->unitId = $native + 123;
+            $common = $this->findModel($mb, 1);
+            if ($common === null) {
+                $mb->unitId = $native;
+            }
         }
-        [$base, $len] = $common;
-        $blk = $mb->readHolding($base, min($len, 66));
-        if ($blk === null) {
-            return;
+        if ($common !== null) {
+            [$base, $len] = $common;
+            $blk = $mb->readHolding($base, min($len, 66));
+            if ($blk !== null) {
+                $hub->SetVarStr('dev_model', $mb->readStr($blk, 16, 16));
+                $hub->SetVarStr('dev_sn',    $mb->readStr($blk, 48, 16));
+            }
         }
-        $hub->SetVarStr('dev_model', $mb->readStr($blk, 16, 16));
-        $hub->SetVarStr('dev_sn',    $mb->readStr($blk, 48, 16));
+        $mb->unitId = $native; // readFast sucht selbst wieder ab der eingetragenen Unit-ID
     }
 
     public function writeControl($mb, $hub, $ident, $value)
@@ -8229,7 +8242,15 @@ class InverterHub extends IPSModule
         // jedem „Übernehmen" neu setzen, sprängen die Variablen zurück auf
         // „Legacy". Bestehende Variablen fassen wir daher nicht mehr an.
         if ($profile !== '' && ($created || ($this->reprofileEnergy && $isEnergy))) {
-            if (@IPS_GetVariable($vid)['VariableCustomProfile'] !== $profile) {
+            // Existiert unter dem Namen schon ein Profil ANDEREN Typs (z. B. ein altes
+            // "SMA.Watt" als Ganzzahl aus einem Fremdmodul), wirft IPS beim Zuweisen
+            // "Variablentyp und Profiltyp stimmen nicht ueberein" und "Uebernehmen" meldet
+            // einen Fehler (Forum brdiver677, 28.10.2026). Dann Profil weglassen und warnen.
+            $existing = @IPS_GetVariableProfile($profile);
+            if (is_array($existing) && ($existing['ProfileType'] ?? $vtype) !== $vtype) {
+                $this->LogMessage('Profil "' . $profile . '" hat einen anderen Typ als die Variable "' . $caption
+                    . '" und wird nicht zugewiesen. Bitte das Profil unter Kernel > Variablenprofile prüfen oder löschen.', KL_WARNING);
+            } elseif (@IPS_GetVariable($vid)['VariableCustomProfile'] !== $profile) {
                 IPS_SetVariableCustomProfile($vid, $profile);
             }
         }
