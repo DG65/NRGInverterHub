@@ -24,7 +24,7 @@ function check($label, $cond)
 echo "1) IPS_SetPosition() steht nur innerhalb eines \"if (\\\$created)\"-Zweigs\n";
 check(
     'Aufruf ist an $created gebunden, nicht unbedingt bei jedem ApplyChanges()',
-    (bool)preg_match('/if\s*\(\s*\$created\s*\)\s*\{\s*(?:\/\/[^\n]*\n\s*)*IPS_SetPosition\(\$vid,\s*\$pos\);/', $body)
+    (bool)preg_match('/if\s*\(\s*\$created(?:\s*\|\|\s*\$moved)?\s*\)\s*\{\s*(?:\/\/[^\n]*\n\s*)*IPS_SetPosition\(\$vid,\s*\$pos\);/', $body)
 );
 check(
     'kein unbedingter IPS_SetPosition($vid, ...) außerhalb dieses Zweigs',
@@ -32,7 +32,7 @@ check(
 );
 
 echo "2) IPS_SetParent()/IPS_SetName() bleiben unbedingt (Kategorie-/Namenswechsel, z. B. bei ControlAuthority, soll weiter greifen)\n";
-check('IPS_SetParent($vid, ...) weiterhin bei jedem Durchlauf', (bool)preg_match('/IPS_SetParent\(\$vid,\s*\$catID\);/', $body));
+check('IPS_SetParent($vid, ...) weiterhin, wenn die Variable nicht direkt unter der Instanz liegt', (bool)preg_match('/IPS_SetParent\(\$vid,\s*\$this->InstanceID\);/', $body));
 check('IPS_SetName($vid, ...) weiterhin bei jedem Durchlauf', (bool)preg_match('/IPS_SetName\(\$vid,\s*\$caption\);/', $body));
 
 echo "\n" . ($fails === 0 ? "ALLE PRUEFUNGEN BESTANDEN\n" : "$fails PRUEFUNG(EN) FEHLGESCHLAGEN\n");

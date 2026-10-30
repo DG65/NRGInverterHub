@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.78.0 (2026-10-30)
+
+- **Keine Kategorien mehr unter der Instanz (Symcon-Store-Review).** Alle Variablen liegen jetzt direkt unter der Instanz; die Unterordner
+  (PV / MPPT, Batterie, Netz, EMS-Steuerung usw.) entfallen, weil Kategorien unter Instanzen nicht vorgesehen sind und von der
+  Visualisierung nicht unterstützt werden. Beim Übernehmen hängt das Modul bestehende Variablen einmalig herauf und löscht die leeren
+  Ordner. Variablen-IDs, Archivdaten, Verknüpfungen und WebFront-Verweise bleiben erhalten (der Elternwechsel ändert die ID nicht).
+  Die Reihenfolge entspricht weiter der bisherigen Gruppenreihenfolge. Der Umweg beim Verdrahten der Steuervariablen (kurz zur Instanz
+  hängen, binden, zurückhängen) entfällt. Prüfstand `.tools/test-flat-idents.php`: Idents sind je Treiber über alle Gruppen eindeutig.
+
 ## 0.77.1 (2026-10-28)
 
 - **SMA: Modell und Seriennummer fehlten bei eingetragener Geräte-Unit-ID.** Die Geräteinfo wird einmalig vor dem ersten Lesen geholt und

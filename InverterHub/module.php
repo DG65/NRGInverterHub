@@ -6302,12 +6302,13 @@ class InverterHub extends IPSModule
     // bitte bei jeder nutzerrelevanten Aenderungsrunde mit hochziehen - sie
     // stand seit ihrer Einfuehrung bei 0.45 unveraendert, waehrend das Modul
     // laengst bei 0.72 war.
-    private const NEWS_VERSION = '0.78';
+    private const NEWS_VERSION = '0.78.0';
     private const NATIVE_GATEWAY_GUID = '{A5F663AB-C400-4FE5-B207-4D67CC030564}';
     private const BRIDGE_GUID = '{901E0B93-83EC-4819-B111-BDEF465BB166}';
     private const MQTT_BRIDGE_GUID = '{B8E699DE-22E4-4DF3-926B-8F4C118852B7}';
     private const MQTT_SERVER_GUID = '{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}';
     private const NEWS_ITEMS = [
+        'Alle Variablen liegen jetzt direkt unter der Instanz, die Unterordner (PV, Batterie, Netz …) entfallen (Vorgabe des Symcon-Store). Bestehende Variablen werden beim Übernehmen automatisch heraufgehängt, ihre IDs, Archivdaten und Verknüpfungen bleiben erhalten.',
         'Neuer Hersteller: Hoymiles MS-A2 (Speicher, per MQTT statt Modbus, Vorabversion ohne Gerätetest). Verbindungsweg „MQTT“ mit der neuen „NRG-Stack InverterHub Brücke (MQTT)“ am MQTT-Server von Symcon; Geräte-ID eintragen.',
         'Symbox-Gateway (eingebauter RS485-Port): läuft jetzt über die neue „NRG-Stack InverterHub Brücke (ModBus-Gateway)“. Im Verbindungsweg „Symbox-Gateway“ das ModBus-Gateway wählen und „Brücke anlegen und verbinden“ klicken, danach übernehmen. Wer den Gateway-Weg mit früheren Beta-Ständen direkt an der Instanz eingerichtet hatte: Instanz und Historie bleiben, einfach Gateway wählen, den Knopf klicken und übernehmen. Direktverbindungen sind nicht betroffen, der Hinweis „benötigt eine übergeordnete Instanz“ verschwindet.',
         'Neuer Wechselrichter: FoxESS H1/H3 (Read-Only-Vorabversion, Beta).',
@@ -6634,19 +6635,13 @@ class InverterHub extends IPSModule
                 if ($v[5] === 'control') {
                     $vid = $this->FindVarByIdent($v[0]);
                     if ($vid && @IPS_GetVariable($vid)['VariableAction'] !== $this->InstanceID) {
-                        // EnableAction() findet die Variable intern nur als
-                        // DIREKTES Kind der Instanz (IPS_GetObjectIDByIdent()
-                        // ohne Rekursion) - Steuervariablen liegen aber in der
-                        // Unterkategorie "EMS-Steuerung". Deshalb kurz
-                        // zurueckhaengen, binden, wieder zurueck - die Bindung
-                        // (VariableAction) bleibt beim Reparenting erhalten.
-                        // Live verifiziert 26.07.2026: ohne diesen Schritt
-                        // bleibt VariableAction dauerhaft 0, egal wie oft
-                        // EnableActions() aufgerufen wird.
-                        $originalParent = IPS_GetObject($vid)['ParentID'];
-                        IPS_SetParent($vid, $this->InstanceID);
+                        // EnableAction() findet die Variable nur als DIREKTES Kind der
+                        // Instanz - seit 0.78.0 liegen alle Variablen dort. Variablen aus
+                        // einer Altinstallation werden vorher heraufgehaengt.
+                        if ((int)IPS_GetObject($vid)['ParentID'] !== $this->InstanceID) {
+                            IPS_SetParent($vid, $this->InstanceID);
+                        }
                         $this->EnableAction($v[0]);
-                        IPS_SetParent($vid, $originalParent);
                     }
                 }
             }
@@ -8045,6 +8040,8 @@ class InverterHub extends IPSModule
                 }
             }
         }
+        // Frueher angelegte Kategorien (cat_*) sind jetzt leer und werden entfernt.
+        $this->PruneForeignObjects($valid);
     }
 
     /**
@@ -8218,14 +8215,22 @@ class InverterHub extends IPSModule
             }
         }
 
-        $catID = $this->EnsureCategory($group);
-        IPS_SetParent($vid, $catID);
+        // Symcon-Store-Review (30.10.2026): Kategorien unter Instanzen sind nicht
+        // vorgesehen. Alle Variablen liegen direkt unter der Instanz. Bestehende
+        // Variablen werden einmalig aus den frueheren Unterkategorien heraufgehaengt
+        // (IPS_SetParent aendert die Variablen-ID nicht - Archiv, Verknuepfungen
+        // und WebFront-Verweise bleiben erhalten), die leeren Kategorien raeumt
+        // RegisterVariables() danach ab.
+        $moved = ((int)IPS_GetObject($vid)['ParentID'] !== $this->InstanceID);
+        if ($moved) {
+            IPS_SetParent($vid, $this->InstanceID);
+        }
         // Store-Review-Fund 9m (HeishaMon-Sitzung, 28.09.2026): Position nur beim
         // erstmaligen Anlegen setzen, nicht bei jedem ApplyChanges() - sonst wirft
         // ein Nutzer, der eine Variable im Objektbaum manuell umsortiert hat, beim
         // naechsten "Uebernehmen" automatisch wieder auf die feste Treiber-Reihenfolge
         // zurueckgesetzt, ohne dass er das will oder merkt.
-        if ($created) {
+        if ($created || $moved) {
             IPS_SetPosition($vid, $pos);
         }
         IPS_SetName($vid, $caption);
@@ -8318,36 +8323,6 @@ class InverterHub extends IPSModule
         if ($vid) {
             IPS_DeleteVariable($vid);
         }
-    }
-
-    private const CATEGORY_LABELS = [
-        'pv'        => 'PV / MPPT',
-        'bat'       => 'Batterie',
-        'bat1'      => 'Batterie 1',
-        'bat2'      => 'Batterie 2',
-        'batcommon' => 'Batterie (gemeinsam)',
-        'grid'      => 'Netz',
-        'meter'     => 'Smart Meter',
-        'backup'    => 'Backup / Insel',
-        'energy'    => 'Energiezähler',
-        'device'    => 'Wechselrichter / Gerät',
-        'control'   => 'EMS-Steuerung',
-        'settings'  => 'Einstellungen',
-        'errors'    => 'Fehler / Verbindung',
-    ];
-
-    private function EnsureCategory($key){
-        $catIdent = 'cat_' . $key;
-        $catID = $this->FindIdentRecursive($this->InstanceID, $catIdent);
-        if (!$catID) {
-            $catID = IPS_CreateCategory();
-            IPS_SetParent($catID, $this->InstanceID);
-            IPS_SetIdent($catID, $catIdent);
-            $pos = array_search($key, array_keys(self::CATEGORY_LABELS));
-            IPS_SetPosition($catID, $pos !== false ? $pos : 99);
-        }
-        IPS_SetName($catID, self::CATEGORY_LABELS[$key] ?? $key);
-        return $catID;
     }
 
     private function FindVarByIdent($ident){
