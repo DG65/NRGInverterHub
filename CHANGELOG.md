@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.79.0 (2026-11-04)
+
+- **Neu: RCT Power Storage DC (Stufe 1, nur Lesen, Vorabversion ohne Gerätetest).** RCT veröffentlicht keine Modbus-Register, sondern spricht ein
+  eigenes TCP-Protokoll (Port 8899). Der Treiber liest Batterie-SOC, Batterieleistung, Netz, AC-Leistung und die beiden PV-Generatoren, optional
+  Batteriespannung, -strom, -temperatur, -status, die Gesamtenergien und die Seriennummer. Protokoll (Rahmen, CRC16 mit Auffüllbyte, Maskierung von
+  „+“ und „-“) und Objekt-IDs sind nach der öffentlichen Beschreibung selbst nachgebaut; es wurde kein Code aus rctclient (GPL-3.0) oder
+  evcc-io/rct (LGPL-2.1) übernommen. Der Treiber enthält bewusst keinerlei Schreibbefehle und keine Steuer-OIDs. Die Abfrage läuft höchstens
+  alle 30 Sekunden, damit RCT-App oder Home Assistant parallel nicht verdrängt werden. Antwortet das Gerät nicht oder mit fehlerhafter
+  Prüfsumme, bleiben alte Werte stehen und die Verbindung gilt als gestört. **Die Vorzeichen von Netz (+ Einspeisung) und Batterie (+ Entladen)
+  sind nicht am Gerät geprüft** (die Quellen geben sie nur indirekt her); bitte gegen die RCT-App abgleichen. `controllable` ist `false`.
+  Prüfstand `.tools/test-rct.php` (simulierter RCT-Server, inkl. Maskierung, ungerader Länge, führendem Nullbyte, zerstückelten und
+  fremden Antworten) mit Mutationsprobe `--mutations`.
+
 ## 0.78.0 (2026-10-30)
 
 - **Keine Kategorien mehr unter der Instanz (Symcon-Store-Review).** Alle Variablen liegen jetzt direkt unter der Instanz; die Unterordner

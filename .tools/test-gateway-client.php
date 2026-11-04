@@ -86,7 +86,9 @@ if (!preg_match('/public function ForwardToGateway\(.*?\n    \}\n/s', $src, $fm)
 
 // Test 7: JEDE Methode, die Treiber am Client ($mb->...) aufrufen, muss in der
 // Gateway-Klasse existieren - sonst Fatal Error im Gateway-Modus (Mstaudi 19.09.2026).
-preg_match_all('/\$mb->(\w+)\(/', $src, $um);
+// Der RCT-Treiber hat seinen eigenen Client (IHUB_RctClient, kein Modbus) und laeuft nie ueber das Gateway.
+$scan = preg_replace('/class IHUB_RctPowerDriver\b.*?\n}\n/s', '', $src);
+preg_match_all('/\$mb->(\w+)\(/', $scan, $um);
 $missing = [];
 foreach (array_unique($um[1]) as $meth) {
     if (!method_exists('IHUB_ModbusGatewayClient', $meth)) { $missing[] = $meth; }

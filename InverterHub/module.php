@@ -6262,6 +6262,465 @@ class IHUB_HoymilesMsa2Driver implements IHUB_InverterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
+// IHUB_RctClient / IHUB_RctPowerDriver — RCT Power Storage DC (nur LESEN, Stufe 1)
+// Eigenes TCP-Protokoll der RCT Power GmbH (Port 8899), kein Modbus. Protokoll und
+// Objekt-IDs sind aus der öffentlichen Beschreibung nachgebaut (Belege: python-rctclient
+// docs/protocol_overview.rst und registry.py, evcc meter/rct.go); es wurde KEIN Code
+// aus diesen Projekten übernommen (GPL-3.0 bzw. LGPL-2.1, dieses Modul steht unter
+// PolyForm Noncommercial). Es gibt hier bewusst weder Schreibbefehle noch Schreib-OIDs.
+// ---------------------------------------------------------------------------
+
+class IHUB_RctClient
+{
+    const START = 0x2B;   // '+'
+    const ESC   = 0x2D;   // '-'
+    const CMD_READ          = 0x01;
+    const CMD_RESPONSE      = 0x05;
+    const CMD_LONG_RESPONSE = 0x06;
+
+    private $host;
+    private $port;
+    private $timeout;
+    private $sock = null;
+    private $buf  = '';
+    public $requests  = 0;
+    public $responses = 0;
+    public $crcErrors = 0;
+
+    public function __construct(string $host, int $port, float $timeout = 3.0)
+    {
+        $this->host    = $host;
+        $this->port    = $port;
+        $this->timeout = $timeout;
+    }
+
+    public function __destruct()
+    {
+        $this->close();
+    }
+
+    public function close(): void
+    {
+        if ($this->sock) {
+            @fclose($this->sock);
+        }
+        $this->sock = null;
+        $this->buf  = '';
+    }
+
+    // CRC16, CCITT-Polynom 0x1021, Startwert 0xFFFF; bei ungerader Länge wird vorher ein
+    // Nullbyte angehängt (so beschrieben in der rctclient-Doku, am dortigen Beispiel
+    // 0104959930bf -> 0d65 geprüft).
+    public static function crc16(string $data): int
+    {
+        if (strlen($data) % 2 === 1) {
+            $data .= "\x00";
+        }
+        $crc = 0xFFFF;
+        $n   = strlen($data);
+        for ($i = 0; $i < $n; $i++) {
+            $crc ^= ord($data[$i]) << 8;
+            for ($b = 0; $b < 8; $b++) {
+                $crc = ($crc & 0x8000) ? ((($crc << 1) ^ 0x1021) & 0xFFFF) : (($crc << 1) & 0xFFFF);
+            }
+        }
+        return $crc;
+    }
+
+    // Leseanfrage für ein Objekt: '+' | Befehl 0x01 | Länge 4 | OID | CRC; hinter dem Startzeichen
+    // wird jedes '+' und '-' mit einem vorangestellten '-' maskiert.
+    public static function buildReadFrame(int $oid): string
+    {
+        $body = chr(self::CMD_READ) . chr(4) . pack('N', $oid);
+        $body .= pack('n', self::crc16($body));
+        $out = chr(self::START);
+        $n   = strlen($body);
+        for ($i = 0; $i < $n; $i++) {
+            $c = ord($body[$i]);
+            if ($c === self::START || $c === self::ESC) {
+                $out .= chr(self::ESC);
+            }
+            $out .= $body[$i];
+        }
+        return $out;
+    }
+
+    // Nächstes entmaskiertes Byte ab $i. -1 = Daten reichen nicht, -2 = unmaskiertes Startzeichen
+    // mitten im Rahmen (der Rahmen ist abgebrochen, ab hier beginnt ein neuer).
+    private static function nextByte(string $buf, int &$i, int $n): int
+    {
+        if ($i >= $n) {
+            return -1;
+        }
+        $c = ord($buf[$i]);
+        if ($c === self::ESC) {
+            if ($i + 1 >= $n) {
+                return -1;
+            }
+            $i += 2;
+            return ord($buf[$i - 1]);
+        }
+        if ($c === self::START) {
+            return -2;
+        }
+        $i++;
+        return $c;
+    }
+
+    // Zerlegt den Anfang von $buf. status: 'none' (kein Startzeichen, alles verwerfbar),
+    // 'incomplete', 'crc', 'unsupported' oder 'ok'. 'consumed' = so viele Bytes dürfen weg.
+    public static function parseFrame(string $buf): array
+    {
+        $n = strlen($buf);
+        $s = 0;
+        while ($s < $n && ord($buf[$s]) !== self::START) {
+            $s++;
+        }
+        if ($s >= $n) {
+            return ['status' => 'none', 'consumed' => $n];
+        }
+        $i = $s + 1;
+        $cmd = self::nextByte($buf, $i, $n);
+        if ($cmd === -1) {
+            return ['status' => 'incomplete', 'consumed' => $s];
+        }
+        if ($cmd === -2) {
+            return ['status' => 'unsupported', 'consumed' => $i];
+        }
+        if ($cmd !== self::CMD_RESPONSE && $cmd !== self::CMD_LONG_RESPONSE) {
+            return ['status' => 'unsupported', 'consumed' => $s + 1];
+        }
+        $raw = chr($cmd);
+        $len = 0;
+        $lenBytes = ($cmd === self::CMD_LONG_RESPONSE) ? 2 : 1;
+        for ($k = 0; $k < $lenBytes; $k++) {
+            $b = self::nextByte($buf, $i, $n);
+            if ($b === -1) {
+                return ['status' => 'incomplete', 'consumed' => $s];
+            }
+            if ($b === -2) {
+                return ['status' => 'unsupported', 'consumed' => $i];
+            }
+            $raw .= chr($b);
+            $len = ($len << 8) | $b;
+        }
+        if ($len < 4 || $len > 4096) {
+            return ['status' => 'unsupported', 'consumed' => $s + 1];
+        }
+        $data = '';
+        for ($k = 0; $k < $len; $k++) {
+            $b = self::nextByte($buf, $i, $n);
+            if ($b === -1) {
+                return ['status' => 'incomplete', 'consumed' => $s];
+            }
+            if ($b === -2) {
+                return ['status' => 'unsupported', 'consumed' => $i];
+            }
+            $data .= chr($b);
+        }
+        $crcIn = 0;
+        for ($k = 0; $k < 2; $k++) {
+            $b = self::nextByte($buf, $i, $n);
+            if ($b === -1) {
+                return ['status' => 'incomplete', 'consumed' => $s];
+            }
+            if ($b === -2) {
+                return ['status' => 'unsupported', 'consumed' => $i];
+            }
+            $crcIn = ($crcIn << 8) | $b;
+        }
+        if (self::crc16($raw . $data) !== $crcIn) {
+            return ['status' => 'crc', 'consumed' => $i];
+        }
+        return [
+            'status'   => 'ok',
+            'cmd'      => $cmd,
+            'oid'      => unpack('N', substr($data, 0, 4))[1],
+            'payload'  => substr($data, 4),
+            'consumed' => $i,
+        ];
+    }
+
+    private function connect(): bool
+    {
+        if ($this->sock) {
+            return true;
+        }
+        $sock = @fsockopen($this->host, $this->port, $errno, $errstr, $this->timeout);
+        if (!$sock) {
+            return false;
+        }
+        stream_set_timeout($sock, 1);
+        $this->sock = $sock;
+        $this->buf  = '';
+        return true;
+    }
+
+    // Liest ein Objekt. Rückgabe: Nutzdaten (kann leer sein) oder null bei Zeitüberschreitung,
+    // Verbindungsfehler oder Prüfsummenfehler. Das Protokoll kennt keine Fehlerantwort, ein
+    // unverstandener Befehl bleibt einfach unbeantwortet.
+    public function read(int $oid): ?string
+    {
+        // Antwortet das Gerät auf die ersten beiden Anfragen gar nicht, ist es nicht erreichbar:
+        // den Zyklus nicht noch viermal auf das Zeitlimit warten lassen.
+        if ($this->requests >= 2 && $this->responses === 0) {
+            return null;
+        }
+        if (!$this->connect()) {
+            return null;
+        }
+        $this->requests++;
+        $frame = self::buildReadFrame($oid);
+        if (@fwrite($this->sock, $frame) !== strlen($frame)) {
+            $this->close();
+            return null;
+        }
+        $deadline = microtime(true) + $this->timeout;
+        while (microtime(true) < $deadline) {
+            $r = self::parseFrame($this->buf);
+            if ($r['status'] === 'ok') {
+                $this->buf = substr($this->buf, $r['consumed']);
+                if ($r['oid'] === $oid) {
+                    $this->responses++;
+                    return $r['payload'];
+                }
+                continue;   // Antwort auf etwas anderes (z. B. verspätet), weiterlesen
+            }
+            if ($r['status'] === 'crc') {
+                $this->crcErrors++;
+                $this->buf = substr($this->buf, $r['consumed']);
+                continue;
+            }
+            if ($r['status'] === 'unsupported') {
+                $this->buf = substr($this->buf, max(1, $r['consumed']));
+                continue;
+            }
+            if ($r['status'] === 'none') {
+                $this->buf = '';   // kein Startzeichen im Puffer: alles verwerfen und weiterlesen
+            }
+            // leer oder unvollständig: mehr Daten holen
+            $chunk = @fread($this->sock, 512);
+            if ($chunk === false || ($chunk === '' && feof($this->sock))) {
+                $this->close();
+                return null;
+            }
+            $this->buf .= $chunk;
+        }
+        // Zeitüberschreitung: die Verbindung kann einen späten Rest enthalten, also neu aufbauen.
+        $this->close();
+        return null;
+    }
+
+    public function readFloat(int $oid): ?float
+    {
+        $p = $this->read($oid);
+        if ($p === null || strlen($p) !== 4) {
+            return null;
+        }
+        $v = unpack('G', $p)[1];
+        return is_finite($v) ? (float)$v : null;
+    }
+
+    public function readInt32(int $oid): ?int
+    {
+        $p = $this->read($oid);
+        if ($p === null || strlen($p) !== 4) {
+            return null;
+        }
+        $v = unpack('N', $p)[1];
+        return ($v >= 0x80000000) ? $v - 0x100000000 : $v;
+    }
+
+    public function readString(int $oid): ?string
+    {
+        $p = $this->read($oid);
+        if ($p === null || $p === '') {
+            return null;
+        }
+        $p = explode("\x00", $p)[0];
+        $p = preg_replace('/[^\x20-\x7E]/', '', $p);
+        return ($p === '' || $p === null) ? null : $p;
+    }
+}
+
+class IHUB_RctPowerDriver implements IHUB_InverterDriverInterface
+{
+    // Objekt-IDs (Beleg: python-rctclient registry.py; Namen dort in Klammern)
+    const OID_SOC          = 0x959930BF;   // battery.soc, Anteil 0..1
+    const OID_BAT_POWER    = 0x400F015B;   // g_sync.p_acc_lp, W
+    const OID_GRID_POWER   = 0x91617C58;   // g_sync.p_ac_grid_sum_lp, W
+    const OID_AC_POWER     = 0xDB2D69AE;   // g_sync.p_ac_sum_lp, W
+    const OID_PV_A         = 0xDB11855B;   // dc_conv.dc_conv_struct[0].p_dc_lp, W
+    const OID_PV_B         = 0x0CB5D21B;   // dc_conv.dc_conv_struct[1].p_dc_lp, W
+    const OID_BAT_VOLT     = 0x65EED11B;   // battery.voltage, V
+    const OID_BAT_CURR     = 0x21961B58;   // battery.current, A
+    const OID_BAT_TEMP     = 0x902AFAFB;   // battery.temperature, °C
+    const OID_BAT_STATUS   = 0x71765BD8;   // battery.status, Int32
+    const OID_E_CHARGE     = 0x5570401B;   // battery.stored_energy, Wh
+    const OID_E_DISCH      = 0xA9033880;   // battery.used_energy, Wh
+    const OID_E_PV_A       = 0xFC724A9E;   // energy.e_dc_total[0], Wh
+    const OID_E_PV_B       = 0x68EEFD3D;   // energy.e_dc_total[1], Wh
+    const OID_SERIAL       = 0x7924ABD9;   // Seriennummer (HA-Integration rct_power, api.py)
+
+    public function getBaseVars()
+    {
+        return [
+            ['connected',   'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['bat_soc',     'Bat. SOC',          'I', '~Battery.100',    true,  'bat',    'OID 0x959930BF battery.soc (Anteil 0..1, hier in %)'],
+            ['bat_power',   'Bat. Leistung (+ Entladen / − Laden, Vorzeichen ungeprüft)', 'F', 'RCT.Watt', true, 'bat', 'OID 0x400F015B g_sync.p_acc_lp'],
+            ['meter_total', 'Netz Leistung (+ Einspeisung / − Bezug, Vorzeichen ungeprüft)', 'F', 'RCT.Watt', true, 'grid', 'OID 0x91617C58 g_sync.p_ac_grid_sum_lp (Rohwert + = Bezug, hier umgekehrt)'],
+            ['ac_power',    'AC Wirkleistung',   'F', 'RCT.Watt',        true,  'device', 'OID 0xDB2D69AE g_sync.p_ac_sum_lp'],
+            ['pv_total',    'PV Gesamtleistung', 'F', 'RCT.Watt',        true,  'pv',     'OID 0xDB11855B + 0x0CB5D21B (Generator A + B)'],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupPV' => ['caption' => 'PV-Generatoren (A, B)', 'vars' => [
+                ['mppt1_power', 'PV Generator A Leistung', 'F', 'RCT.Watt', true, 'pv', 'OID 0xDB11855B'],
+                ['mppt2_power', 'PV Generator B Leistung', 'F', 'RCT.Watt', true, 'pv', 'OID 0x0CB5D21B'],
+            ]],
+            'GroupBat' => ['caption' => 'Batterie (Spannung, Strom, Temperatur, Status)', 'vars' => [
+                ['bat_volt',   'Bat. Spannung',    'F', 'RCT.Volt',   false, 'bat', 'OID 0x65EED11B'],
+                ['bat_curr',   'Bat. Strom',       'F', 'RCT.Ampere', false, 'bat', 'OID 0x21961B58'],
+                ['bat_temp',   'Bat. Temperatur',  'F', '~Temperature', false, 'bat', 'OID 0x902AFAFB'],
+                ['bat_status', 'Bat. Status (Rohwert)', 'I', '',      false, 'bat', 'OID 0x71765BD8 battery.status'],
+            ]],
+            'GroupEnergy' => ['caption' => 'Energiezähler (Gesamt)', 'vars' => [
+                ['e_pv_total',     'PV Gesamt',            'F', '~Electricity', true, 'energy', 'OID 0xFC724A9E + 0x68EEFD3D (Wh)'],
+                ['e_charge_total', 'Bat. Laden Gesamt',    'F', '~Electricity', true, 'energy', 'OID 0x5570401B battery.stored_energy (Wh)'],
+                ['e_disch_total',  'Bat. Entladen Gesamt', 'F', '~Electricity', true, 'energy', 'OID 0xA9033880 battery.used_energy (Wh)'],
+            ]],
+            'GroupDevice' => ['caption' => 'Geräteinformation (Seriennummer)', 'vars' => [
+                ['dev_sn', 'Seriennummer', 'S', '', false, 'device', 'OID 0x7924ABD9'],
+            ]],
+        ];
+    }
+
+    public function getExtraBooleanProperties()
+    {
+        return [];
+    }
+
+    public function getProfiles()
+    {
+        return [
+            'RCT.Watt'   => [VARIABLETYPE_FLOAT, ' W', -100000.0, 100000.0, 1.0, 0],
+            'RCT.Volt'   => [VARIABLETYPE_FLOAT, ' V',        0.0,   1500.0, 0.1, 1],
+            'RCT.Ampere' => [VARIABLETYPE_FLOAT, ' A',     -500.0,    500.0, 0.1, 1],
+        ];
+    }
+
+    public function getEnumProfiles()
+    {
+        return [];
+    }
+
+    // Schreibt nur Werte, die das Gerät tatsächlich beantwortet hat. Fehlt eine Antwort,
+    // bleibt der alte Wert stehen (nicht auf 0 setzen). Antwortet gar nichts, wird die
+    // Verbindung als gestört gemeldet.
+    public function readFast($mb, $hub)
+    {
+        $soc  = $mb->readFloat(self::OID_SOC);
+        $bat  = $mb->readFloat(self::OID_BAT_POWER);
+        $grid = $mb->readFloat(self::OID_GRID_POWER);
+        $ac   = $mb->readFloat(self::OID_AC_POWER);
+        $pa   = $mb->readFloat(self::OID_PV_A);
+        $pb   = $mb->readFloat(self::OID_PV_B);
+
+        $answered = ($soc !== null) || ($bat !== null) || ($grid !== null) || ($ac !== null) || ($pa !== null) || ($pb !== null);
+        $hub->SetVarBool('connected', $answered);
+        if (!$answered) {
+            $why = ($mb->requests > 0 && $mb->crcErrors > 0)
+                ? 'nur fehlerhafte Antworten (Prüfsumme)'
+                : 'keine Antwort innerhalb des Zeitlimits';
+            throw new RuntimeException('RCT Power: ' . $why . '. Adresse und Port (meist 8899) prüfen; läuft die RCT-App oder Home Assistant gleichzeitig?');
+        }
+
+        if ($soc !== null) {
+            $hub->SetVarInt('bat_soc', (int)round($soc * 100.0));
+        }
+        if ($bat !== null) {
+            $hub->SetVarFloat('bat_power', $bat);
+        }
+        if ($grid !== null) {
+            $hub->SetVarFloat('meter_total', -$grid);
+        }
+        if ($ac !== null) {
+            $hub->SetVarFloat('ac_power', $ac);
+        }
+        if ($pa !== null || $pb !== null) {
+            $hub->SetVarFloat('pv_total', max(0.0, (float)$pa) + max(0.0, (float)$pb));
+        }
+        if ($hub->GetPropBool('GroupPV')) {
+            if ($pa !== null) {
+                $hub->SetVarFloat('mppt1_power', max(0.0, $pa));
+            }
+            if ($pb !== null) {
+                $hub->SetVarFloat('mppt2_power', max(0.0, $pb));
+            }
+        }
+        if ($hub->GetPropBool('GroupBat')) {
+            $v = $mb->readFloat(self::OID_BAT_VOLT);
+            if ($v !== null) {
+                $hub->SetVarFloat('bat_volt', $v);
+            }
+            $a = $mb->readFloat(self::OID_BAT_CURR);
+            if ($a !== null) {
+                $hub->SetVarFloat('bat_curr', $a);
+            }
+            $t = $mb->readFloat(self::OID_BAT_TEMP);
+            if ($t !== null) {
+                $hub->SetVarFloat('bat_temp', $t);
+            }
+            $s = $mb->readInt32(self::OID_BAT_STATUS);
+            if ($s !== null) {
+                $hub->SetVarInt('bat_status', $s);
+            }
+        }
+        return true;
+    }
+
+    public function readSlow($mb, $hub)
+    {
+        if (!$hub->GetPropBool('GroupEnergy')) {
+            return;
+        }
+        $c  = $mb->readFloat(self::OID_E_CHARGE);
+        $d  = $mb->readFloat(self::OID_E_DISCH);
+        $pa = $mb->readFloat(self::OID_E_PV_A);
+        $pb = $mb->readFloat(self::OID_E_PV_B);
+        if ($c !== null) {
+            $hub->SetVarFloat('e_charge_total', $c / 1000.0);
+        }
+        if ($d !== null) {
+            $hub->SetVarFloat('e_disch_total', $d / 1000.0);
+        }
+        // Teilsumme wäre falsch: nur schreiben, wenn beide Generatoren geantwortet haben.
+        if ($pa !== null && $pb !== null) {
+            $hub->SetVarFloat('e_pv_total', ($pa + $pb) / 1000.0);
+        }
+    }
+
+    public function readDeviceInfo($mb, $hub)
+    {
+        if (!$hub->GetPropBool('GroupDevice')) {
+            return;
+        }
+        $sn = $mb->readString(self::OID_SERIAL);
+        if ($sn !== null) {
+            $hub->SetVarStr('dev_sn', $sn);
+        }
+    }
+
+    // Stufe 1: nur Lesen. Dieser Treiber besitzt keine Steuervariablen.
+    public function writeControl($mb, $hub, string $ident, $value)
+    {
+    }
+}
+
+// ---------------------------------------------------------------------------
 // InverterHub — Hauptmodul, lädt den Treiber laut Manufacturer-Property
 // ---------------------------------------------------------------------------
 
@@ -6284,6 +6743,7 @@ class InverterHub extends IPSModule
         'foxess'    => 'IHUB_FoxEssDriver',
         'foxess_smart' => 'IHUB_FoxEssSmartDriver',
         'hoymiles_msa2' => 'IHUB_HoymilesMsa2Driver',
+        'rct_power' => 'IHUB_RctPowerDriver',
     ];
 
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-inverterhub-multi-wechselrichter-ein-modbus-tcp-modul-fuer-goodwe-sma-fronius-sungrow-solis-growatt-solax/144121';
@@ -6302,12 +6762,13 @@ class InverterHub extends IPSModule
     // bitte bei jeder nutzerrelevanten Aenderungsrunde mit hochziehen - sie
     // stand seit ihrer Einfuehrung bei 0.45 unveraendert, waehrend das Modul
     // laengst bei 0.72 war.
-    private const NEWS_VERSION = '0.78.0';
+    private const NEWS_VERSION = '0.79.0';
     private const NATIVE_GATEWAY_GUID = '{A5F663AB-C400-4FE5-B207-4D67CC030564}';
     private const BRIDGE_GUID = '{901E0B93-83EC-4819-B111-BDEF465BB166}';
     private const MQTT_BRIDGE_GUID = '{B8E699DE-22E4-4DF3-926B-8F4C118852B7}';
     private const MQTT_SERVER_GUID = '{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}';
     private const NEWS_ITEMS = [
+        'Neuer Hersteller: RCT Power Storage DC (eigenes Protokoll auf Port 8899, nur Lesen, Vorabversion ohne Gerätetest). Die Vorzeichen von Netz und Batterie bitte gegen die RCT-App prüfen.',
         'Alle Variablen liegen jetzt direkt unter der Instanz, die Unterordner (PV, Batterie, Netz …) entfallen (Vorgabe des Symcon-Store). Bestehende Variablen werden beim Übernehmen automatisch heraufgehängt, ihre IDs, Archivdaten und Verknüpfungen bleiben erhalten.',
         'Neuer Hersteller: Hoymiles MS-A2 (Speicher, per MQTT statt Modbus, Vorabversion ohne Gerätetest). Verbindungsweg „MQTT“ mit der neuen „NRG-Stack InverterHub Brücke (MQTT)“ am MQTT-Server von Symcon; Geräte-ID eintragen.',
         'Symbox-Gateway (eingebauter RS485-Port): läuft jetzt über die neue „NRG-Stack InverterHub Brücke (ModBus-Gateway)“. Im Verbindungsweg „Symbox-Gateway“ das ModBus-Gateway wählen und „Brücke anlegen und verbinden“ klicken, danach übernehmen. Wer den Gateway-Weg mit früheren Beta-Ständen direkt an der Instanz eingerichtet hatte: Instanz und Historie bleiben, einfach Gateway wählen, den Knopf klicken und übernehmen. Direktverbindungen sind nicht betroffen, der Hinweis „benötigt eine übergeordnete Instanz“ verschwindet.',
@@ -6587,7 +7048,12 @@ class InverterHub extends IPSModule
             return;
         }
 
-        $this->SetTimerInterval('FastTimer', $this->ReadPropertyInteger('IntervalFast') * 1000);
+        // RCT: Takt mindestens 30 s, damit die RCT-App oder Home Assistant parallel nicht verdrängt werden.
+        $fast = $this->ReadPropertyInteger('IntervalFast');
+        if ($this->ReadPropertyString('Manufacturer') === 'rct_power') {
+            $fast = max($fast, 30);
+        }
+        $this->SetTimerInterval('FastTimer', $fast * 1000);
         $this->SetTimerInterval('SlowTimer', $this->ReadPropertyInteger('IntervalSlow') * 1000);
         $this->SetTimerInterval('EnableActionsTimer', 200);
         $this->WriteAttributeBoolean('DeviceInfoRead', false);
@@ -7252,7 +7718,13 @@ class InverterHub extends IPSModule
                         ['label' => 'FoxESS H1/H3 (Read-Only-Vorabversion, Beta)', 'value' => 'foxess'],
                         ['label' => 'FoxESS H3 Smart / H3 Pro / KH (Read-Only-Vorabversion, Beta)', 'value' => 'foxess_smart'],
                         ['label' => 'Hoymiles MS-A2 (per MQTT, Vorabversion ohne Gerätetest)', 'value' => 'hoymiles_msa2'],
+                        ['label' => 'RCT Power Storage DC (eigenes Protokoll, Port 8899, nur Lesen, Vorabversion ohne Gerätetest)', 'value' => 'rct_power'],
                     ],
+                ],
+                [
+                    'type'    => 'Label',
+                    'caption' => 'ℹ️ RCT Power Storage DC: Port 8899 eintragen (502 wird dafür durch 8899 ersetzt). Nur Lesen, Abfrage höchstens alle 30 s, damit die RCT-App oder Home Assistant parallel nicht verdrängt werden. Die Vorzeichen von Netz (+ Einspeisung) und Batterie (+ Entladen) sind noch nicht am Gerät geprüft: bitte gegen die RCT-App prüfen, bei Abweichung die Schalter „Netz invertieren“ bzw. „Batterie invertieren“ nutzen.',
+                    'visible' => $this->ReadPropertyString('Manufacturer') === 'rct_power',
                 ],
                 [
                     'type'    => 'ExpansionPanel',
@@ -7749,6 +8221,12 @@ class InverterHub extends IPSModule
 
     private function GetModbusClient()
     {
+        // RCT Power: eigenes TCP-Protokoll (Port 8899), kein Modbus. Der Modbus-Standardport 502
+        // ist dort nie richtig und gilt als "nicht eingestellt".
+        if ($this->ReadPropertyString('Manufacturer') === 'rct_power') {
+            $port = $this->ReadPropertyInteger('Port');
+            return new IHUB_RctClient($this->ReadPropertyString('Host'), ($port === 502) ? 8899 : $port);
+        }
         // MQTT-Modus (Hoymiles MS-A2): kein Modbus, die Treibermethoden bekommen null.
         if ($this->ReadPropertyString('ConnectionType') === 'mqtt') {
             return null;
