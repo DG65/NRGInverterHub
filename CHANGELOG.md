@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.80.0 (2026-11-05)
+
+- **SMA: DC-Leistung je PV-Eingang A und B (neue Gruppe „PV-Eingänge A und B“).** Bisher legte der SMA-Treiber nur die Summe ab, obwohl er die beiden
+  Eingänge (Register 30773 und 30961) ohnehin liest. Jetzt stehen sie einzeln als `mppt1_power` und `mppt2_power` zur Verfügung, etwa für ein Diagramm
+  Ost gegen West (Forum thorsten1, Sunny Tripower 10.0). Meldet das Gerät „nicht verfügbar“ (nachts oder Eingang nicht belegt), steht 0 W; antwortet es
+  gar nicht, bleibt der alte Wert stehen. Die Summe `pv_total` ist unverändert. Spannung und Strom je Eingang gibt es noch nicht (Register und
+  Skalierung nicht am Gerät geprüft). Prüfstand `.tools/test-sma-mppt.php`.
+
 ## 0.79.0 (2026-11-04)
 
 - **Neu: RCT Power Storage DC (Stufe 1, nur Lesen, Vorabversion ohne Gerätetest).** RCT veröffentlicht keine Modbus-Register, sondern spricht ein

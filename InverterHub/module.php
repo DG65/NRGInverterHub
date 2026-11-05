@@ -3072,6 +3072,22 @@ class IHUB_SmaDriver implements IHUB_InverterDriverInterface
         return $val * pow(10, $this->sfVal($mb->u16($blk, $sfOff)));
     }
 
+    // DC-Leistung eines MPP-Eingangs aus dem SMA-Eigenprofil (int32, W).
+    // false = keine Antwort, null = Sentinel (0x80000000 bzw. 0xFFFFFFFF = "nicht verfuegbar"),
+    // sonst die Leistung.
+    private function readDcInputPower($mb, int $reg)
+    {
+        $blk = $mb->readInput($reg, 2);
+        if ($blk === null) {
+            return false;
+        }
+        $w = $mb->s32($blk, 0);
+        if ($w === -2147483648 || $w === -1) {
+            return null;
+        }
+        return (float)$w;
+    }
+
     public function getBaseVars()
     {
         return [
@@ -3096,6 +3112,10 @@ class IHUB_SmaDriver implements IHUB_InverterDriverInterface
             ]],
             'GroupTemp' => ['caption' => 'Temperatur', 'vars' => [
                 ['temp_cab', 'Gehäusetemperatur', 'F', '~Temperature', false, 'device', 'SunSpec TmpCab (Model 101/103)'],
+            ]],
+            'GroupMppt' => ['caption' => 'PV-Eingänge A und B (Leistung je Eingang, z. B. Ost/West)', 'vars' => [
+                ['mppt1_power', 'PV Eingang A Leistung', 'F', 'SMA.Watt', true, 'pv', 'RO 30773 (SMA-Profil, DC-Leistung MPP A, W)'],
+                ['mppt2_power', 'PV Eingang B Leistung', 'F', 'SMA.Watt', true, 'pv', 'RO 30961 (SMA-Profil, DC-Leistung MPP B, W)'],
             ]],
             'GroupMeter' => ['caption' => 'Smart Meter (Leistung)', 'vars' => [
                 ['meter_total', 'Netz Leistung (Meter)', 'F', 'SMA.Watt', true, 'meter', 'SunSpec Meter Model 201/203'],
@@ -3238,20 +3258,30 @@ class IHUB_SmaDriver implements IHUB_InverterDriverInterface
         // NaN) ODER 0xFFFFFFFF (unsigned NaN, als s32 = -1). Der STP Smart
         // Energy z. B. belegt 30773/30961 gar nicht und lieferte so -1 je
         // Register - die Kachel zeigte -2 W bei laufender Produktion.
+        // Je Eingang (A/B) zusätzlich einzeln ablegen (Forum thorsten1, 05.11.2026, Ost/West-Anlage):
+        // Antwortet das Gerät mit dem Sentinel (nachts oder Eingang nicht belegt), gilt der Eingang als
+        // 0 W; antwortet es gar nicht, bleibt der alte Wert stehen.
         $dcSum = null;
-        foreach ([30773, 30961] as $reg) {
-            $dcBlk = $mb->readInput($reg, 2);
-            if ($dcBlk === null) {
+        $mppt  = [];
+        foreach ([30773 => 'mppt1_power', 30961 => 'mppt2_power'] as $reg => $ident) {
+            $w = $this->readDcInputPower($mb, $reg);
+            if ($w === false) {
+                continue;   // keine Antwort
+            }
+            if ($w === null) {
+                $mppt[$ident] = 0.0;   // Sentinel: Register nicht belegt oder nachts
                 continue;
             }
-            $w = $mb->s32($dcBlk, 0);
-            if ($w === -2147483648 || $w === -1) {
-                continue;   // Sentinel: Register nicht belegt oder nachts
-            }
+            $mppt[$ident] = $w;
             $dcSum = ($dcSum ?? 0.0) + $w;
         }
         if ($dcSum !== null) {
             $hub->SetVarFloat('pv_total', $dcSum);
+        }
+        if ($hub->GetPropBool('GroupMppt')) {
+            foreach ($mppt as $ident => $w) {
+                $hub->SetVarFloat($ident, $w);
+            }
         }
 
         // Batterie (Hybrid-/Storage-Geraete) aus dem SMA-Eigenprofil. Alle
@@ -6762,12 +6792,13 @@ class InverterHub extends IPSModule
     // bitte bei jeder nutzerrelevanten Aenderungsrunde mit hochziehen - sie
     // stand seit ihrer Einfuehrung bei 0.45 unveraendert, waehrend das Modul
     // laengst bei 0.72 war.
-    private const NEWS_VERSION = '0.79.0';
+    private const NEWS_VERSION = '0.80.0';
     private const NATIVE_GATEWAY_GUID = '{A5F663AB-C400-4FE5-B207-4D67CC030564}';
     private const BRIDGE_GUID = '{901E0B93-83EC-4819-B111-BDEF465BB166}';
     private const MQTT_BRIDGE_GUID = '{B8E699DE-22E4-4DF3-926B-8F4C118852B7}';
     private const MQTT_SERVER_GUID = '{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}';
     private const NEWS_ITEMS = [
+        'SMA: neue Gruppe „PV-Eingänge A und B“ mit der DC-Leistung je Eingang (z. B. für Ost/West-Anlagen). Nachts und bei nicht belegtem Eingang steht 0 W.',
         'Neuer Hersteller: RCT Power Storage DC (eigenes Protokoll auf Port 8899, nur Lesen, Vorabversion ohne Gerätetest). Die Vorzeichen von Netz und Batterie bitte gegen die RCT-App prüfen.',
         'Alle Variablen liegen jetzt direkt unter der Instanz, die Unterordner (PV, Batterie, Netz …) entfallen (Vorgabe des Symcon-Store). Bestehende Variablen werden beim Übernehmen automatisch heraufgehängt, ihre IDs, Archivdaten und Verknüpfungen bleiben erhalten.',
         'Neuer Hersteller: Hoymiles MS-A2 (Speicher, per MQTT statt Modbus, Vorabversion ohne Gerätetest). Verbindungsweg „MQTT“ mit der neuen „NRG-Stack InverterHub Brücke (MQTT)“ am MQTT-Server von Symcon; Geräte-ID eintragen.',
