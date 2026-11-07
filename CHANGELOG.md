@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.82.0 (2026-11-07)
+
+- **Zweisprachig, Stufe 2 (Treiber).** Variablennamen, Gruppen-Beschriftungen im Formular, Status-Auswahllisten (Betriebsmodi, Netzstatus, Batteriestatus …), Fehlerdetails, Registerhinweise und Treiber-Fehlertexte sind englisch im Quelltext und werden über `locale.json` ins Deutsche übersetzt (rund 770 Texte). Idents bleiben unverändert.
+- **Namen nur noch beim Anlegen.** Der Variablenname wird beim Anlegen in der Sprache der Konsole gesetzt und danach nie mehr überschrieben (bisher bei jedem „Übernehmen“). Bestehende Variablen behalten ihren Namen, selbst vergebene Namen bleiben erhalten. Auswahllisten (Profile) und Registerhinweise folgen weiter der Sprache.
+- Prüfstand `.tools/test-zweisprachig.php` prüft jetzt die ganze Datei und jede Variablenbeschriftung.
+
 ## 0.81.0 (2026-11-07)
 
 - **Zweisprachig, Stufe 1 (Formular und Meldungen).** Die Quelltexte sind jetzt englisch, das Deutsche steht in `locale.json` (je Modul: InverterHub, InverterHubDiscovery, InverterHubBridge, InverterHubMqttBridge). Formular, Statuszeilen, Brücken-Meldungen, Protokolleinträge, Warnungen der Treiber und die „Neu in diesem Modul“-Liste erscheinen in der Sprache der Konsole. Meldungen sind ganze Sätze mit Platzhaltern. Die Beschriftungen der Variablen je Treiber folgen in Stufe 2.

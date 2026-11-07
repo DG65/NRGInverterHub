@@ -354,7 +354,7 @@ class IHUB_ModbusTcpClient
     {
         $sock = @fsockopen($this->host, $this->port, $errno, $errstr, 3.0);
         if ($sock === false) {
-            $this->lastError = 'keine Verbindung';
+            $this->lastError = IHUB_Text::t('no connection');
             return false;
         }
         stream_set_timeout($sock, 3);
@@ -368,14 +368,14 @@ class IHUB_ModbusTcpClient
         fclose($sock);
 
         if ($resp === false || strlen($resp) < 8) {
-            $this->lastError = 'keine Antwort';
+            $this->lastError = IHUB_Text::t('no answer');
             return false;
         }
         if (ord($resp[7]) === 0x06) {
             $this->lastError = '';
             return true;
         }
-        $this->lastError = (ord($resp[7]) & 0x80) ? 'Ausnahmecode ' . (strlen($resp) >= 9 ? ord($resp[8]) : '?') : 'unerwartete Antwort';
+        $this->lastError = (ord($resp[7]) & 0x80) ? IHUB_Text::t('exception code %s', strlen($resp) >= 9 ? ord($resp[8]) : '?') : IHUB_Text::t('unexpected answer');
         return false;
     }
 
@@ -516,8 +516,8 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
     const EMS_POWER_MAX = 34500;
 
     const WORK_MODES = [
-        0 => 'Selbstverbrauch', 1 => 'Inselbetrieb', 2 => 'Backup',
-        3 => 'Wirtschaftlich',  4 => 'Peak-Shaving',  5 => 'Erw. Selbstverbrauch',
+        0 => 'Self-consumption', 1 => 'Island mode', 2 => 'Backup',
+        3 => 'Economic',  4 => 'Peak shaving',  5 => 'Extended self-consumption',
     ];
 
     // 255 (0xFF) ist der offizielle STOPPED-Modus der GoodWe-Firmware (OpenEMS
@@ -530,190 +530,190 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
     // Eintrag mit Warnfarbe. Kein gueltiger SETZ-Wert: writeControl() erlaubt
     // weiterhin nur 0-12.
     const EMS_MODES = [
-        0 => 'Gestoppt', 1 => 'Automatik', 2 => 'Laden - Solar', 3 => 'Entladen + Solar',
-        4 => 'AC - Import', 5 => 'AC - Export', 6 => 'Energiesparen', 7 => 'Inselbetrieb',
-        8 => 'Batterie - Bereitschaft', 9 => 'Stromeinkauf', 10 => 'Stromverkauf',
-        11 => 'Batterie - Laden', 12 => 'Batterie - Entladen',
-        255 => '⚠️ Totmann: Steuerung verloren',
+        0 => 'Stopped', 1 => 'Automatic', 2 => 'Charging - solar', 3 => 'Discharging + solar',
+        4 => 'AC - import', 5 => 'AC - export', 6 => 'Energy saving', 7 => 'Island mode',
+        8 => 'Battery - standby', 9 => 'Power purchase', 10 => 'Power sale',
+        11 => 'Battery - charging', 12 => 'Battery - discharging',
+        255 => '⚠️ Dead-man: control lost',
     ];
 
-    const BAT_MODES = [0 => 'No Battery', 1 => 'Standby', 2 => 'entlädt', 3 => 'lädt'];
+    const BAT_MODES = [0 => 'No Battery', 1 => 'Standby', 2 => 'discharging', 3 => 'charging'];
 
     const GRID_MODES = [
-        0 => 'Warten', 1 => 'Einspeisung', 2 => 'Einspeisung: Limit', 3 => 'Einspeisung: Entsätt.',
-        4 => 'Einspeisung: PV-Limit', 5 => 'Einspeisung: Reaktiv', 6 => 'Einspeisung: Blindl.',
-        7 => 'Einspeisung: Absch.', 8 => 'Einspeisung: PV-Opt.', 9 => 'Einspeisung: ECO',
-        10 => 'Fehler: HW-Schutz', 11 => 'Fehler', 17 => 'Bypass', 18 => 'Inselbetrieb',
+        0 => 'Waiting', 1 => 'Feed-in', 2 => 'Feed-in: limit', 3 => 'Feed-in: desaturation',
+        4 => 'Feed-in: PV limit', 5 => 'Feed-in: reactive', 6 => 'Feed-in: reactive power',
+        7 => 'Feed-in: shutdown', 8 => 'Feed-in: PV optimization', 9 => 'Feed-in: ECO',
+        10 => 'Fault: HW protection', 11 => 'Fault', 17 => 'Bypass', 18 => 'Island mode',
     ];
 
     public function getBaseVars(){
         return [
             ['soc',           'SOC',                'I', '~Battery.100',      true,  'batcommon', 'BMS Ø'],
-            ['work_mode',     'Betriebsmodus',       'I', 'GWH.WorkMode',      true,  'device',    'RW 47000'],
-            ['grid_mode',     'Netzmodus',           'I', 'GWH.GridMode',      false, 'grid',      'DSP 35136'],
-            ['island',        'Netzgetrennt (Insel)', 'B', '~Alert',           true,  'grid',      'calc'],
-            ['pv_total',      'PV Gesamtleistung',   'F', 'GWH.Watt',          true,  'pv',        'DSP 35301'],
-            ['ac_power',      'AC Wirkleistung',     'F', 'GWH.Watt',          true,  'device',    'DSP 35139'],
-            ['bat_total_pwr', 'Bat. Gesamtleistg.',  'F', 'GWH.Watt',          true,  'batcommon', 'Σ Bat1+Bat2'],
-            ['meter_total',   'Netz Leistung',       'F', 'GWH.Watt',          true,  'grid',      'SM 36025'],
-            ['bat_charge_max_w',    'Bat. max. Ladeleistung',   'F', 'GWH.Watt', false, 'batcommon', 'BMS calc'],
-            ['bat_discharge_max_w', 'Bat. max. Entladeleistung','F', 'GWH.Watt', false, 'batcommon', 'BMS calc'],
-            ['connected',     'Verbindung',          'B', '~Alert.Reversed',   false, 'errors',    ''],
-            ['riso',          'Isolationswiderstand','F', 'GWH.KOhm',          true,  'device',    'DSP 35365'],
+            ['work_mode',     'Operating mode',       'I', 'GWH.WorkMode',      true,  'device',    'RW 47000'],
+            ['grid_mode',     'Grid mode',           'I', 'GWH.GridMode',      false, 'grid',      'DSP 35136'],
+            ['island',        'Off-grid (island)', 'B', '~Alert',           true,  'grid',      'calc'],
+            ['pv_total',      'PV total power',   'F', 'GWH.Watt',          true,  'pv',        'DSP 35301'],
+            ['ac_power',      'AC active power',     'F', 'GWH.Watt',          true,  'device',    'DSP 35139'],
+            ['bat_total_pwr', 'Bat. total power',  'F', 'GWH.Watt',          true,  'batcommon', 'Σ Bat1+Bat2'],
+            ['meter_total',   'Grid power',       'F', 'GWH.Watt',          true,  'grid',      'SM 36025'],
+            ['bat_charge_max_w',    'Bat. max. charge power',   'F', 'GWH.Watt', false, 'batcommon', 'BMS calc'],
+            ['bat_discharge_max_w', 'Bat. max. discharge power','F', 'GWH.Watt', false, 'batcommon', 'BMS calc'],
+            ['connected',     'Connection',          'B', '~Alert.Reversed',   false, 'errors',    ''],
+            ['riso',          'Insulation resistance','F', 'GWH.KOhm',          true,  'device',    'DSP 35365'],
             // Live gefunden (28.07.2026, EMS-Sitzung): deutsche 70%-Regel-
             // Abregelung. Laut GoodWe-Doku nur 70 oder 100 sinnvoll ("Only
             // can set 70, only for German"). Bisher rein lesend, keine
             // Steuerung - Abregelung wird ueber SEMS+/den Netzbetreiber
             // gesetzt, nicht ueber InverterHub.
-            ['derate_pct',    '70%-Regel Abregelung','I', 'GWH.Percent',       true,  'grid',      'RW 45263'],
+            ['derate_pct',    '70% rule curtailment','I', 'GWH.Percent',       true,  'grid',      'RW 45263'],
         ];
     }
 
     public function getOptionalGroups(){
         return [
-            'EnableTracker1' => ['caption' => 'MPPT-Tracker 1 (PV1+PV2)', 'vars' => [
-                ['pv1_voltage', 'PV1 Spannung (Tracker1 A)', 'F', 'GWH.Volt',   false, 'pv', 'DSP 35103'],
-                ['pv1_current', 'PV1 Strom (Tracker1 A)',    'F', 'GWH.Ampere', false, 'pv', 'DSP 35104'],
-                ['pv2_voltage', 'PV2 Spannung (Tracker1 B)', 'F', 'GWH.Volt',   false, 'pv', 'DSP 35107'],
-                ['pv2_current', 'PV2 Strom (Tracker1 B)',    'F', 'GWH.Ampere', false, 'pv', 'DSP 35108'],
-                ['mppt1_power',   'MPPT1 Leistung', 'F', 'GWH.Watt',   true,  'pv', 'DSP 35337'],
-                ['mppt1_current', 'MPPT1 Strom',    'F', 'GWH.Ampere', false, 'pv', 'DSP 35345'],
+            'EnableTracker1' => ['caption' => 'MPPT tracker 1 (PV1+PV2)', 'vars' => [
+                ['pv1_voltage', 'PV1 voltage (tracker 1 A)', 'F', 'GWH.Volt',   false, 'pv', 'DSP 35103'],
+                ['pv1_current', 'PV1 current (tracker 1 A)',    'F', 'GWH.Ampere', false, 'pv', 'DSP 35104'],
+                ['pv2_voltage', 'PV2 voltage (tracker 1 B)', 'F', 'GWH.Volt',   false, 'pv', 'DSP 35107'],
+                ['pv2_current', 'PV2 current (tracker 1 B)',    'F', 'GWH.Ampere', false, 'pv', 'DSP 35108'],
+                ['mppt1_power',   'MPPT1 power', 'F', 'GWH.Watt',   true,  'pv', 'DSP 35337'],
+                ['mppt1_current', 'MPPT1 current',    'F', 'GWH.Ampere', false, 'pv', 'DSP 35345'],
             ]],
-            'EnableTracker2' => ['caption' => 'MPPT-Tracker 2 (PV3+PV4)', 'vars' => [
-                ['pv3_voltage', 'PV3 Spannung (Tracker2 A)', 'F', 'GWH.Volt',   false, 'pv', 'DSP 35111'],
-                ['pv3_current', 'PV3 Strom (Tracker2 A)',    'F', 'GWH.Ampere', false, 'pv', 'DSP 35112'],
-                ['pv4_voltage', 'PV4 Spannung (Tracker2 B)', 'F', 'GWH.Volt',   false, 'pv', 'DSP 35115'],
-                ['pv4_current', 'PV4 Strom (Tracker2 B)',    'F', 'GWH.Ampere', false, 'pv', 'DSP 35116'],
-                ['mppt2_power',   'MPPT2 Leistung', 'F', 'GWH.Watt',   true,  'pv', 'DSP 35338'],
-                ['mppt2_current', 'MPPT2 Strom',    'F', 'GWH.Ampere', false, 'pv', 'DSP 35346'],
+            'EnableTracker2' => ['caption' => 'MPPT tracker 2 (PV3+PV4)', 'vars' => [
+                ['pv3_voltage', 'PV3 voltage (tracker 2 A)', 'F', 'GWH.Volt',   false, 'pv', 'DSP 35111'],
+                ['pv3_current', 'PV3 current (tracker 2 A)',    'F', 'GWH.Ampere', false, 'pv', 'DSP 35112'],
+                ['pv4_voltage', 'PV4 voltage (tracker 2 B)', 'F', 'GWH.Volt',   false, 'pv', 'DSP 35115'],
+                ['pv4_current', 'PV4 current (tracker 2 B)',    'F', 'GWH.Ampere', false, 'pv', 'DSP 35116'],
+                ['mppt2_power',   'MPPT2 power', 'F', 'GWH.Watt',   true,  'pv', 'DSP 35338'],
+                ['mppt2_current', 'MPPT2 current',    'F', 'GWH.Ampere', false, 'pv', 'DSP 35346'],
             ]],
-            'EnableTracker3' => ['caption' => 'MPPT-Tracker 3 (PV5+PV6)', 'vars' => [
-                ['pv5_voltage', 'PV5 Spannung (Tracker3 A)', 'F', 'GWH.Volt',   false, 'pv', 'DSP 35304'],
-                ['pv5_current', 'PV5 Strom (Tracker3 A)',    'F', 'GWH.Ampere', false, 'pv', 'DSP 35305'],
-                ['pv6_voltage', 'PV6 Spannung (Tracker3 B)', 'F', 'GWH.Volt',   false, 'pv', 'DSP 35306'],
-                ['pv6_current', 'PV6 Strom (Tracker3 B)',    'F', 'GWH.Ampere', false, 'pv', 'DSP 35307'],
-                ['mppt3_power',   'MPPT3 Leistung', 'F', 'GWH.Watt',   true,  'pv', 'DSP 35339'],
-                ['mppt3_current', 'MPPT3 Strom',    'F', 'GWH.Ampere', false, 'pv', 'DSP 35347'],
+            'EnableTracker3' => ['caption' => 'MPPT tracker 3 (PV5+PV6)', 'vars' => [
+                ['pv5_voltage', 'PV5 voltage (tracker 3 A)', 'F', 'GWH.Volt',   false, 'pv', 'DSP 35304'],
+                ['pv5_current', 'PV5 current (tracker 3 A)',    'F', 'GWH.Ampere', false, 'pv', 'DSP 35305'],
+                ['pv6_voltage', 'PV6 voltage (tracker 3 B)', 'F', 'GWH.Volt',   false, 'pv', 'DSP 35306'],
+                ['pv6_current', 'PV6 current (tracker 3 B)',    'F', 'GWH.Ampere', false, 'pv', 'DSP 35307'],
+                ['mppt3_power',   'MPPT3 power', 'F', 'GWH.Watt',   true,  'pv', 'DSP 35339'],
+                ['mppt3_current', 'MPPT3 current',    'F', 'GWH.Ampere', false, 'pv', 'DSP 35347'],
             ]],
-            'GroupGrid' => ['caption' => 'Netz L1/L2/L3 (Spannung, Strom, Frequenz, Leistung)', 'vars' => [
-                ['grid_l1_volt', 'Netz L1 Spannung', 'F', 'GWH.Volt',   false, 'grid', 'DSP 35121'],
-                ['grid_l1_curr', 'Netz L1 Strom',    'F', 'GWH.Ampere', false, 'grid', 'DSP 35122'],
-                ['grid_l1_freq', 'Netz L1 Frequenz', 'F', 'GWH.Hertz',  false, 'grid', 'DSP 35123'],
-                ['grid_l1_pwr',  'Netz L1 Leistung', 'F', 'GWH.Watt',   true,  'grid', 'DSP 35124'],
-                ['grid_l2_volt', 'Netz L2 Spannung', 'F', 'GWH.Volt',   false, 'grid', 'DSP 35126'],
-                ['grid_l2_curr', 'Netz L2 Strom',    'F', 'GWH.Ampere', false, 'grid', 'DSP 35127'],
-                ['grid_l2_freq', 'Netz L2 Frequenz', 'F', 'GWH.Hertz',  false, 'grid', 'DSP 35128'],
-                ['grid_l2_pwr',  'Netz L2 Leistung', 'F', 'GWH.Watt',   true,  'grid', 'DSP 35129'],
-                ['grid_l3_volt', 'Netz L3 Spannung', 'F', 'GWH.Volt',   false, 'grid', 'DSP 35131'],
-                ['grid_l3_curr', 'Netz L3 Strom',    'F', 'GWH.Ampere', false, 'grid', 'DSP 35132'],
-                ['grid_l3_freq', 'Netz L3 Frequenz', 'F', 'GWH.Hertz',  false, 'grid', 'DSP 35133'],
-                ['grid_l3_pwr',  'Netz L3 Leistung', 'F', 'GWH.Watt',   true,  'grid', 'DSP 35134'],
-                ['inv_total',    'Inverter Gesamt',   'F', 'GWH.Watt',   true,  'grid', 'DSP 35137'],
-                ['grid_freq',    'Netzfrequenz',      'F', 'GWH.Hertz',  false, 'grid', 'SM 36014'],
+            'GroupGrid' => ['caption' => 'Grid L1/L2/L3 (voltage, current, frequency, power)', 'vars' => [
+                ['grid_l1_volt', 'Grid L1 voltage', 'F', 'GWH.Volt',   false, 'grid', 'DSP 35121'],
+                ['grid_l1_curr', 'Grid L1 current',    'F', 'GWH.Ampere', false, 'grid', 'DSP 35122'],
+                ['grid_l1_freq', 'Grid L1 frequency', 'F', 'GWH.Hertz',  false, 'grid', 'DSP 35123'],
+                ['grid_l1_pwr',  'Grid L1 power', 'F', 'GWH.Watt',   true,  'grid', 'DSP 35124'],
+                ['grid_l2_volt', 'Grid L2 voltage', 'F', 'GWH.Volt',   false, 'grid', 'DSP 35126'],
+                ['grid_l2_curr', 'Grid L2 current',    'F', 'GWH.Ampere', false, 'grid', 'DSP 35127'],
+                ['grid_l2_freq', 'Grid L2 frequency', 'F', 'GWH.Hertz',  false, 'grid', 'DSP 35128'],
+                ['grid_l2_pwr',  'Grid L2 power', 'F', 'GWH.Watt',   true,  'grid', 'DSP 35129'],
+                ['grid_l3_volt', 'Grid L3 voltage', 'F', 'GWH.Volt',   false, 'grid', 'DSP 35131'],
+                ['grid_l3_curr', 'Grid L3 current',    'F', 'GWH.Ampere', false, 'grid', 'DSP 35132'],
+                ['grid_l3_freq', 'Grid L3 frequency', 'F', 'GWH.Hertz',  false, 'grid', 'DSP 35133'],
+                ['grid_l3_pwr',  'Grid L3 power', 'F', 'GWH.Watt',   true,  'grid', 'DSP 35134'],
+                ['inv_total',    'Inverter total',   'F', 'GWH.Watt',   true,  'grid', 'DSP 35137'],
+                ['grid_freq',    'Grid frequency',      'F', 'GWH.Hertz',  false, 'grid', 'SM 36014'],
             ]],
-            'GroupBat1' => ['caption' => 'Batterie 1 (Spannung, Strom, Leistung, Modus, SOC)', 'vars' => [
-                ['bat1_volt', 'Bat.1 Spannung', 'F', 'GWH.Volt',   false, 'bat1', 'DSP 35180'],
-                ['bat1_curr', 'Bat.1 Strom',    'F', 'GWH.Ampere', true,  'bat1', 'DSP 35181'],
-                ['bat1_pwr',  'Bat.1 Leistung', 'F', 'GWH.Watt',   true,  'bat1', 'DSP 35182'],
-                ['bat1_mode', 'Bat.1 Modus',    'I', 'GWH.BatMode', true,  'bat1', 'DSP 35184'],
+            'GroupBat1' => ['caption' => 'Battery 1 (voltage, current, power, mode, SOC)', 'vars' => [
+                ['bat1_volt', 'Bat.1 voltage', 'F', 'GWH.Volt',   false, 'bat1', 'DSP 35180'],
+                ['bat1_curr', 'Bat.1 current',    'F', 'GWH.Ampere', true,  'bat1', 'DSP 35181'],
+                ['bat1_pwr',  'Bat.1 power', 'F', 'GWH.Watt',   true,  'bat1', 'DSP 35182'],
+                ['bat1_mode', 'Bat.1 mode',    'I', 'GWH.BatMode', true,  'bat1', 'DSP 35184'],
                 ['bat1_soc',  'Bat.1 SOC',      'I', '~Battery.100', true, 'bat1', 'BMS 47908'],
                 ['bat1_soh',  'Bat.1 SOH',      'I', '~Intensity.100', true, 'bat1', 'BMS 47909'],
-                ['bat1_temp', 'Bat.1 Temperatur', 'F', '~Temperature', true, 'bat1', 'BMS 47910'],
-                ['bat1_bms_volt', 'Bat.1 Spannung (BMS)', 'F', 'GWH.Volt',   false, 'bat1', 'BMS 47906'],
-                ['bat1_bms_curr', 'Bat.1 Strom (BMS)',    'F', 'GWH.Ampere', true,  'bat1', 'BMS 47907'],
-                ['bat1_chg_max_a','Bat.1 max. Ladestrom',   'F', 'GWH.Ampere', false, 'bat1', 'BMS 47903'],
-                ['bat1_dis_max_a','Bat.1 max. Entladestrom', 'F', 'GWH.Ampere', false, 'bat1', 'BMS 47905'],
-                ['bat1_bms_warn', 'Bat.1 BMS Warnung',       'I', '', true,  'bat1', 'BMS 47911'],
-                ['bat1_bms_alarm','Bat.1 BMS Alarm',         'I', '', true,  'bat1', 'BMS 47913'],
+                ['bat1_temp', 'Bat.1 temperature', 'F', '~Temperature', true, 'bat1', 'BMS 47910'],
+                ['bat1_bms_volt', 'Bat.1 voltage (BMS)', 'F', 'GWH.Volt',   false, 'bat1', 'BMS 47906'],
+                ['bat1_bms_curr', 'Bat.1 current (BMS)',    'F', 'GWH.Ampere', true,  'bat1', 'BMS 47907'],
+                ['bat1_chg_max_a','Bat.1 max. charge current',   'F', 'GWH.Ampere', false, 'bat1', 'BMS 47903'],
+                ['bat1_dis_max_a','Bat.1 max. discharge current', 'F', 'GWH.Ampere', false, 'bat1', 'BMS 47905'],
+                ['bat1_bms_warn', 'Bat.1 BMS warning',       'I', '', true,  'bat1', 'BMS 47911'],
+                ['bat1_bms_alarm','Bat.1 BMS alarm',         'I', '', true,  'bat1', 'BMS 47913'],
                 // BMS-Zelldiagnostik (37003er-Block). Zellspannungsspreizung
                 // (vmax−vmin) ist ein Frühindikator für Batteriealterung.
-                ['bat1_pack_temp','Bat.1 Paket-Temperatur',  'F', '~Temperature',  false, 'bat1', 'BMS 37003 (÷10)'],
-                ['bat1_cell_vmax','Bat.1 Zellspg. max',      'I', 'GWH.MilliVolt', false, 'bat1', 'BMS 37022'],
-                ['bat1_cell_vmin','Bat.1 Zellspg. min',      'I', 'GWH.MilliVolt', false, 'bat1', 'BMS 37023'],
-                ['bat1_cell_tmax','Bat.1 Zelltemp. max',     'F', '~Temperature',  false, 'bat1', 'BMS 37020 (÷10)'],
-                ['bat1_cell_tmin','Bat.1 Zelltemp. min',     'F', '~Temperature',  false, 'bat1', 'BMS 37021 (÷10)'],
-                ['bat1_idx_vmax', 'Bat.1 Zelle Nr. Spg. max','I', 'GWH.CellIdx',   false, 'bat1', 'BMS 37018'],
-                ['bat1_idx_vmin', 'Bat.1 Zelle Nr. Spg. min','I', 'GWH.CellIdx',   false, 'bat1', 'BMS 37019'],
-                ['bat1_idx_tmax', 'Bat.1 Zelle Nr. Temp. max','I', 'GWH.CellIdx',  false, 'bat1', 'BMS 37016'],
-                ['bat1_idx_tmin', 'Bat.1 Zelle Nr. Temp. min','I', 'GWH.CellIdx',  false, 'bat1', 'BMS 37017'],
+                ['bat1_pack_temp','Bat.1 pack temperature',  'F', '~Temperature',  false, 'bat1', 'BMS 37003 (÷10)'],
+                ['bat1_cell_vmax','Bat.1 cell voltage max',      'I', 'GWH.MilliVolt', false, 'bat1', 'BMS 37022'],
+                ['bat1_cell_vmin','Bat.1 cell voltage min',      'I', 'GWH.MilliVolt', false, 'bat1', 'BMS 37023'],
+                ['bat1_cell_tmax','Bat.1 cell temp. max',     'F', '~Temperature',  false, 'bat1', 'BMS 37020 (÷10)'],
+                ['bat1_cell_tmin','Bat.1 cell temp. min',     'F', '~Temperature',  false, 'bat1', 'BMS 37021 (÷10)'],
+                ['bat1_idx_vmax', 'Bat.1 cell no. voltage max','I', 'GWH.CellIdx',   false, 'bat1', 'BMS 37018'],
+                ['bat1_idx_vmin', 'Bat.1 cell no. voltage min','I', 'GWH.CellIdx',   false, 'bat1', 'BMS 37019'],
+                ['bat1_idx_tmax', 'Bat.1 cell no. temp. max','I', 'GWH.CellIdx',  false, 'bat1', 'BMS 37016'],
+                ['bat1_idx_tmin', 'Bat.1 cell no. temp. min','I', 'GWH.CellIdx',  false, 'bat1', 'BMS 37017'],
             ]],
-            'GroupBat2' => ['caption' => 'Batterie 2 (Spannung, Strom, Leistung, Modus)', 'vars' => [
-                ['bat2_volt', 'Bat.2 Spannung', 'F', 'GWH.Volt',   false, 'bat2', 'DSP 35262'],
-                ['bat2_curr', 'Bat.2 Strom',    'F', 'GWH.Ampere', true,  'bat2', 'DSP 35263'],
-                ['bat2_pwr',  'Bat.2 Leistung', 'F', 'GWH.Watt',   true,  'bat2', 'DSP 35264'],
-                ['bat2_mode', 'Bat.2 Modus',    'I', 'GWH.BatMode', true,  'bat2', 'DSP 35266'],
+            'GroupBat2' => ['caption' => 'Battery 2 (voltage, current, power, mode)', 'vars' => [
+                ['bat2_volt', 'Bat.2 voltage', 'F', 'GWH.Volt',   false, 'bat2', 'DSP 35262'],
+                ['bat2_curr', 'Bat.2 current',    'F', 'GWH.Ampere', true,  'bat2', 'DSP 35263'],
+                ['bat2_pwr',  'Bat.2 power', 'F', 'GWH.Watt',   true,  'bat2', 'DSP 35264'],
+                ['bat2_mode', 'Bat.2 mode',    'I', 'GWH.BatMode', true,  'bat2', 'DSP 35266'],
                 ['bat2_soc',  'Bat.2 SOC',      'I', '~Battery.100', true, 'bat2', 'BMS 47926'],
                 ['bat2_soh',  'Bat.2 SOH',      'I', '~Intensity.100', true, 'bat2', 'BMS 47927'],
-                ['bat2_temp', 'Bat.2 Temperatur', 'F', '~Temperature', true, 'bat2', 'BMS 47928'],
-                ['bat2_bms_volt', 'Bat.2 Spannung (BMS)', 'F', 'GWH.Volt',   false, 'bat2', 'BMS 47924'],
-                ['bat2_bms_curr', 'Bat.2 Strom (BMS)',    'F', 'GWH.Ampere', true,  'bat2', 'BMS 47925'],
+                ['bat2_temp', 'Bat.2 temperature', 'F', '~Temperature', true, 'bat2', 'BMS 47928'],
+                ['bat2_bms_volt', 'Bat.2 voltage (BMS)', 'F', 'GWH.Volt',   false, 'bat2', 'BMS 47924'],
+                ['bat2_bms_curr', 'Bat.2 current (BMS)',    'F', 'GWH.Ampere', true,  'bat2', 'BMS 47925'],
                 // BMS-Zelldiagnostik Batterie 2 (39001er-Block), analog Bat.1.
-                ['bat2_pack_temp','Bat.2 Paket-Temperatur',  'F', '~Temperature',  false, 'bat2', 'BMS 39001 (÷10)'],
-                ['bat2_cell_vmax','Bat.2 Zellspg. max',      'I', 'GWH.MilliVolt', false, 'bat2', 'BMS 39020'],
-                ['bat2_cell_vmin','Bat.2 Zellspg. min',      'I', 'GWH.MilliVolt', false, 'bat2', 'BMS 39021'],
-                ['bat2_cell_tmax','Bat.2 Zelltemp. max',     'F', '~Temperature',  false, 'bat2', 'BMS 39018 (÷10)'],
-                ['bat2_cell_tmin','Bat.2 Zelltemp. min',     'F', '~Temperature',  false, 'bat2', 'BMS 39019 (÷10)'],
-                ['bat2_idx_vmax', 'Bat.2 Zelle Nr. Spg. max','I', 'GWH.CellIdx',   false, 'bat2', 'BMS 39016'],
-                ['bat2_idx_vmin', 'Bat.2 Zelle Nr. Spg. min','I', 'GWH.CellIdx',   false, 'bat2', 'BMS 39017'],
-                ['bat2_idx_tmax', 'Bat.2 Zelle Nr. Temp. max','I', 'GWH.CellIdx',  false, 'bat2', 'BMS 39014'],
-                ['bat2_idx_tmin', 'Bat.2 Zelle Nr. Temp. min','I', 'GWH.CellIdx',  false, 'bat2', 'BMS 39015'],
+                ['bat2_pack_temp','Bat.2 pack temperature',  'F', '~Temperature',  false, 'bat2', 'BMS 39001 (÷10)'],
+                ['bat2_cell_vmax','Bat.2 cell voltage max',      'I', 'GWH.MilliVolt', false, 'bat2', 'BMS 39020'],
+                ['bat2_cell_vmin','Bat.2 cell voltage min',      'I', 'GWH.MilliVolt', false, 'bat2', 'BMS 39021'],
+                ['bat2_cell_tmax','Bat.2 cell temp. max',     'F', '~Temperature',  false, 'bat2', 'BMS 39018 (÷10)'],
+                ['bat2_cell_tmin','Bat.2 cell temp. min',     'F', '~Temperature',  false, 'bat2', 'BMS 39019 (÷10)'],
+                ['bat2_idx_vmax', 'Bat.2 cell no. voltage max','I', 'GWH.CellIdx',   false, 'bat2', 'BMS 39016'],
+                ['bat2_idx_vmin', 'Bat.2 cell no. voltage min','I', 'GWH.CellIdx',   false, 'bat2', 'BMS 39017'],
+                ['bat2_idx_tmax', 'Bat.2 cell no. temp. max','I', 'GWH.CellIdx',  false, 'bat2', 'BMS 39014'],
+                ['bat2_idx_tmin', 'Bat.2 cell no. temp. min','I', 'GWH.CellIdx',  false, 'bat2', 'BMS 39015'],
             ]],
-            'GroupEnergy' => ['caption' => 'Energiezähler (kWh Heute/Gesamt: PV, Netz, Last, Batterie)', 'vars' => [
-                ['e_pv_day',       'PV Heute',           'F', '~Electricity', true, 'energy', 'DSP 35193'],
-                ['e_pv_total',     'PV Gesamt',           'F', '~Electricity', true, 'energy', 'DSP 35191'],
-                ['e_sell_day',     'Einspeisung Heute',   'F', '~Electricity', true, 'energy', 'DSP 35199'],
-                ['e_buy_day',      'Bezug Heute',         'F', '~Electricity', true, 'energy', 'DSP 35202'],
-                ['e_load_day',     'Last Heute',          'F', '~Electricity', true, 'energy', 'DSP 35205'],
-                ['e_load_total',   'Last Gesamt',         'F', '~Electricity', true, 'energy', 'DSP 35203'],
-                ['e_charge_day',   'Bat. Laden Heute',    'F', '~Electricity', true, 'energy', 'DSP 35208'],
-                ['e_charge_total', 'Bat. Laden Gesamt',   'F', '~Electricity', true, 'energy', 'DSP 35206'],
-                ['e_disch_day',    'Bat. Entl. Heute',    'F', '~Electricity', true, 'energy', 'DSP 35211'],
-                ['e_disch_total',  'Bat. Entl. Gesamt',   'F', '~Electricity', true, 'energy', 'DSP 35209'],
-                ['work_hours',     'Betriebsstunden',     'F', '', false, 'energy', 'DSP 35197'],
+            'GroupEnergy' => ['caption' => 'Energy meters (kWh today/total: PV, grid, load, battery)', 'vars' => [
+                ['e_pv_day',       'PV today',           'F', '~Electricity', true, 'energy', 'DSP 35193'],
+                ['e_pv_total',     'PV total',           'F', '~Electricity', true, 'energy', 'DSP 35191'],
+                ['e_sell_day',     'Feed-in today',   'F', '~Electricity', true, 'energy', 'DSP 35199'],
+                ['e_buy_day',      'Import today',         'F', '~Electricity', true, 'energy', 'DSP 35202'],
+                ['e_load_day',     'Load today',          'F', '~Electricity', true, 'energy', 'DSP 35205'],
+                ['e_load_total',   'Load total',         'F', '~Electricity', true, 'energy', 'DSP 35203'],
+                ['e_charge_day',   'Bat. charge today',    'F', '~Electricity', true, 'energy', 'DSP 35208'],
+                ['e_charge_total', 'Bat. charge total',   'F', '~Electricity', true, 'energy', 'DSP 35206'],
+                ['e_disch_day',    'Bat. discharge today',    'F', '~Electricity', true, 'energy', 'DSP 35211'],
+                ['e_disch_total',  'Bat. discharge total',   'F', '~Electricity', true, 'energy', 'DSP 35209'],
+                ['work_hours',     'Operating hours',     'F', '', false, 'energy', 'DSP 35197'],
             ]],
-            'GroupMeter' => ['caption' => 'Smart Meter (Leistung, Spannung, Strom je Phase)', 'vars' => [
-                ['mt_l1_volt', 'Netz L1 Spannung', 'F', 'GWH.Volt',   false, 'meter', 'SM 36052'],
-                ['mt_l2_volt', 'Netz L2 Spannung', 'F', 'GWH.Volt',   false, 'meter', 'SM 36053'],
-                ['mt_l3_volt', 'Netz L3 Spannung', 'F', 'GWH.Volt',   false, 'meter', 'SM 36054'],
-                ['mt_l1_curr', 'Netz L1 Strom',    'F', 'GWH.Ampere', false, 'meter', 'SM 36055'],
-                ['mt_l2_curr', 'Netz L2 Strom',    'F', 'GWH.Ampere', false, 'meter', 'SM 36056'],
-                ['mt_l3_curr', 'Netz L3 Strom',    'F', 'GWH.Ampere', false, 'meter', 'SM 36057'],
-                ['mt_l1_pwr',  'Netz L1 Leistung', 'F', 'GWH.Watt',   true,  'meter', 'SM 36019'],
-                ['mt_l2_pwr',  'Netz L2 Leistung', 'F', 'GWH.Watt',   true,  'meter', 'SM 36021'],
-                ['mt_l3_pwr',  'Netz L3 Leistung', 'F', 'GWH.Watt',   true,  'meter', 'SM 36023'],
+            'GroupMeter' => ['caption' => 'Smart meter (power, voltage, current per phase)', 'vars' => [
+                ['mt_l1_volt', 'Grid L1 voltage', 'F', 'GWH.Volt',   false, 'meter', 'SM 36052'],
+                ['mt_l2_volt', 'Grid L2 voltage', 'F', 'GWH.Volt',   false, 'meter', 'SM 36053'],
+                ['mt_l3_volt', 'Grid L3 voltage', 'F', 'GWH.Volt',   false, 'meter', 'SM 36054'],
+                ['mt_l1_curr', 'Grid L1 current',    'F', 'GWH.Ampere', false, 'meter', 'SM 36055'],
+                ['mt_l2_curr', 'Grid L2 current',    'F', 'GWH.Ampere', false, 'meter', 'SM 36056'],
+                ['mt_l3_curr', 'Grid L3 current',    'F', 'GWH.Ampere', false, 'meter', 'SM 36057'],
+                ['mt_l1_pwr',  'Grid L1 power', 'F', 'GWH.Watt',   true,  'meter', 'SM 36019'],
+                ['mt_l2_pwr',  'Grid L2 power', 'F', 'GWH.Watt',   true,  'meter', 'SM 36021'],
+                ['mt_l3_pwr',  'Grid L3 power', 'F', 'GWH.Watt',   true,  'meter', 'SM 36023'],
             ]],
-            'GroupTemp' => ['caption' => 'Temperaturen (Luft, Modul, Kühlkörper)', 'vars' => [
-                ['temp_air',      'Lufttemperatur',  'F', '~Temperature', false, 'device', 'DSP 35174'],
-                ['temp_module',   'Modultemperatur', 'F', '~Temperature', true,  'device', 'DSP 35175'],
-                ['temp_heatsink', 'Kuehlkoerper',    'F', '~Temperature', true,  'device', 'DSP 35176'],
+            'GroupTemp' => ['caption' => 'Temperatures (air, module, heat sink)', 'vars' => [
+                ['temp_air',      'Air temperature',  'F', '~Temperature', false, 'device', 'DSP 35174'],
+                ['temp_module',   'Module temperature', 'F', '~Temperature', true,  'device', 'DSP 35175'],
+                ['temp_heatsink', 'Heat sink',    'F', '~Temperature', true,  'device', 'DSP 35176'],
             ]],
-            'GroupBackup' => ['caption' => 'Backup / Inselbetrieb (Leistung, Spannung je Phase)', 'vars' => [
-                ['backup_total', 'Backup Leistung',  'F', 'GWH.Watt', true,  'backup', 'DSP 35169'],
-                ['backup_active','Backup aktiv',     'B', '~Switch',   false, 'backup', 'RW 45252'],
-                ['backup_l1_volt','Backup Spannung L1', 'F', 'GWH.Volt',   false, 'backup', 'DSP 35145'],
-                ['backup_l1_curr','Backup Strom L1',    'F', 'GWH.Ampere', false, 'backup', 'DSP 35146'],
-                ['backup_l1_freq','Backup Frequenz L1', 'F', 'GWH.Hertz',  false, 'backup', 'DSP 35147'],
-                ['backup_l1_pwr', 'Backup Leistung L1',  'F', 'GWH.Watt',  true,  'backup', 'DSP 35149'],
-                ['backup_l2_volt','Backup Spannung L2', 'F', 'GWH.Volt',   false, 'backup', 'DSP 35151'],
-                ['backup_l2_curr','Backup Strom L2',    'F', 'GWH.Ampere', false, 'backup', 'DSP 35152'],
-                ['backup_l2_freq','Backup Frequenz L2', 'F', 'GWH.Hertz',  false, 'backup', 'DSP 35153'],
-                ['backup_l2_pwr', 'Backup Leistung L2',  'F', 'GWH.Watt',  true,  'backup', 'DSP 35155'],
-                ['backup_l3_volt','Backup Spannung L3', 'F', 'GWH.Volt',   false, 'backup', 'DSP 35157'],
-                ['backup_l3_curr','Backup Strom L3',    'F', 'GWH.Ampere', false, 'backup', 'DSP 35158'],
-                ['backup_l3_freq','Backup Frequenz L3', 'F', 'GWH.Hertz',  false, 'backup', 'DSP 35159'],
-                ['backup_l3_pwr', 'Backup Leistung L3',  'F', 'GWH.Watt',  true,  'backup', 'DSP 35161'],
+            'GroupBackup' => ['caption' => 'Backup / island mode (power, voltage per phase)', 'vars' => [
+                ['backup_total', 'Backup power',  'F', 'GWH.Watt', true,  'backup', 'DSP 35169'],
+                ['backup_active','Backup active',     'B', '~Switch',   false, 'backup', 'RW 45252'],
+                ['backup_l1_volt','Backup voltage L1', 'F', 'GWH.Volt',   false, 'backup', 'DSP 35145'],
+                ['backup_l1_curr','Backup current L1',    'F', 'GWH.Ampere', false, 'backup', 'DSP 35146'],
+                ['backup_l1_freq','Backup frequency L1', 'F', 'GWH.Hertz',  false, 'backup', 'DSP 35147'],
+                ['backup_l1_pwr', 'Backup power L1',  'F', 'GWH.Watt',  true,  'backup', 'DSP 35149'],
+                ['backup_l2_volt','Backup voltage L2', 'F', 'GWH.Volt',   false, 'backup', 'DSP 35151'],
+                ['backup_l2_curr','Backup current L2',    'F', 'GWH.Ampere', false, 'backup', 'DSP 35152'],
+                ['backup_l2_freq','Backup frequency L2', 'F', 'GWH.Hertz',  false, 'backup', 'DSP 35153'],
+                ['backup_l2_pwr', 'Backup power L2',  'F', 'GWH.Watt',  true,  'backup', 'DSP 35155'],
+                ['backup_l3_volt','Backup voltage L3', 'F', 'GWH.Volt',   false, 'backup', 'DSP 35157'],
+                ['backup_l3_curr','Backup current L3',    'F', 'GWH.Ampere', false, 'backup', 'DSP 35158'],
+                ['backup_l3_freq','Backup frequency L3', 'F', 'GWH.Hertz',  false, 'backup', 'DSP 35159'],
+                ['backup_l3_pwr', 'Backup power L3',  'F', 'GWH.Watt',  true,  'backup', 'DSP 35161'],
             ]],
-            'GroupErrors' => ['caption' => 'Fehler- und Warncodes', 'vars' => [
-                ['warn_code',  'Warncode',      'I', '', true, 'errors', 'DSP 32000'],
-                ['err_msg',    'Fehlercode',    'I', '', true, 'errors', 'DSP 32002'],
-                ['err_detail', 'Fehler Detail', 'S', '', true, 'errors', ''],
+            'GroupErrors' => ['caption' => 'Error and warning codes', 'vars' => [
+                ['warn_code',  'Warning code',      'I', '', true, 'errors', 'DSP 32000'],
+                ['err_msg',    'Error code',    'I', '', true, 'errors', 'DSP 32002'],
+                ['err_detail', 'Error detail', 'S', '', true, 'errors', ''],
                 // Live gefunden (28.07.2026, EMS-Sitzung): 'warn_code'/'err_msg'
                 // oben sind WECHSELRICHTER-seitige Codes und erfassen BMS-
                 // Schutzereignisse (z.B. Ausgangsport-Ueberspannung bei fast
                 // vollem SOC) NICHT - die stehen nur im SEMS+-Portal. Eigener,
                 // separater Registerblock fuer die Batterie-BMS.
-                ['bms1_err_code',  'BMS1 Fehlercode',  'I', '', true, 'errors', 'DSP 37006/37012'],
-                ['bms1_warn_code', 'BMS1 Warncode',    'I', '', true, 'errors', 'DSP 37010/37013'],
+                ['bms1_err_code',  'BMS1 error code',  'I', '', true, 'errors', 'DSP 37006/37012'],
+                ['bms1_warn_code', 'BMS1 warning code',    'I', '', true, 'errors', 'DSP 37010/37013'],
                 // Live gefunden (28.07.2026): bms1_err_code/warn_code oben
                 // blieben WAEHREND eines aktiven SEMS+-Alarms (Batteriestring-
                 // Ueberspannung) durchgehend 0 - die falsche Fundstelle. Die
@@ -722,20 +722,20 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 // Bit 15 BatteryOvercharge, Bit 17 BMSOvercharge. Roh als
                 // Ganzzahl abgelegt (kein Bit-Decode in der UI) - Bits bei
                 // Bedarf gegen die Tabelle in CLAUDE.md pruefen.
-                ['diag_status_l', 'Diagnose-Status (Bitfeld)', 'I', '', true, 'errors', 'DSP 35220 (U32), Table 8-14'],
+                ['diag_status_l', 'Diagnostic status (bit field)', 'I', '', true, 'errors', 'DSP 35220 (U32), Table 8-14'],
             ]],
-            'GroupDevice' => ['caption' => 'Geräteinformation (Seriennummer, Modell, Firmware)', 'vars' => [
-                ['dev_sn',      'Seriennummer', 'S', '', false, 'device', 'DSP 35003'],
-                ['dev_model',   'Modell',       'S', '', false, 'device', 'DSP 35011'],
-                ['dev_rated_w', 'Nennleistung', 'I', '', false, 'device', 'DSP 35001'],
+            'GroupDevice' => ['caption' => 'Device information (serial number, model, firmware)', 'vars' => [
+                ['dev_sn',      'Serial number', 'S', '', false, 'device', 'DSP 35003'],
+                ['dev_model',   'Model',       'S', '', false, 'device', 'DSP 35011'],
+                ['dev_rated_w', 'Rated power', 'I', '', false, 'device', 'DSP 35001'],
                 ['dev_fw_arm',  'Firmware ARM', 'I', '', false, 'device', 'DSP 35019'],
                 ['dev_fw_dsp',  'Firmware DSP', 'I', '', false, 'device', 'DSP 35016'],
             ]],
-            'GroupControl' => ['caption' => 'EMS-Steuerung (Betriebsmodus, Einspeisegrenze, SOC-Limits)', 'vars' => [
-                ['ctl_work_mode',     'Steuermodus',          'I', 'GWH.WorkMode', false, 'control', 'RW 47000'],
-                ['ctl_ems_enable',    'EMS-Steuerung aktiv',  'B', '~Switch',      false, 'control', 'RW 47505'],
-                ['ctl_ems_mode',      'EMS Leistungsmodus',   'I', 'GWH.EMSMode',  false, 'control', 'RW 47511'],
-                ['ctl_ems_power',     'EMS Leistung (W)',     'I', 'GWH.WattEMS',  false, 'control', 'RW 47512'],
+            'GroupControl' => ['caption' => 'EMS control (operating mode, feed-in limit, SOC limits)', 'vars' => [
+                ['ctl_work_mode',     'Control mode',          'I', 'GWH.WorkMode', false, 'control', 'RW 47000'],
+                ['ctl_ems_enable',    'EMS control active',  'B', '~Switch',      false, 'control', 'RW 47505'],
+                ['ctl_ems_mode',      'EMS power mode',   'I', 'GWH.EMSMode',  false, 'control', 'RW 47511'],
+                ['ctl_ems_power',     'EMS power (W)',     'I', 'GWH.WattEMS',  false, 'control', 'RW 47512'],
                 // ACHTUNG, Semantik von 47509 ist umgekehrt zur frueheren
                 // Beschriftung: Das Register heisst bei GoodWe „Feed_Power_Enable"
                 // und schaltet nicht die EINSPEISUNG, sondern deren BEGRENZUNG.
@@ -748,9 +748,9 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 // Belegt an einer realen Anlage: Schalter „Aus", Grenze 0 W,
                 // und trotzdem 42,7 kWh Einspeisung am selben Tag.
                 // Idents bleiben unveraendert (Idents sind API).
-                ['ctl_export_enable', 'Einspeisebegrenzung aktiv', 'B', '~Switch',      false, 'control', 'RW 47509 (Feed_Power_Enable: EIN = Begrenzung aus 47510 gilt)'],
-                ['ctl_export_limit',  'Einspeisegrenze (W)',       'I', 'GWH.WattEMS',  false, 'control', 'RW 47510 (wirkt nur bei aktiver Begrenzung)'],
-                ['ctl_soc_min',       'SOC Min. Entladung',   'I', 'GWH.Percent',  false, 'control', 'RW 45356'],
+                ['ctl_export_enable', 'Feed-in limit active', 'B', '~Switch',      false, 'control', 'RW 47509 (Feed_Power_Enable: EIN = Begrenzung aus 47510 gilt)'],
+                ['ctl_export_limit',  'Feed-in limit (W)',       'I', 'GWH.WattEMS',  false, 'control', 'RW 47510 (only effective while the limit is active)'],
+                ['ctl_soc_min',       'SOC min. discharge',   'I', 'GWH.Percent',  false, 'control', 'RW 45356'],
                 // Live getestet und WIDERLEGT (28.07.2026, EMS-Sitzung): Register
                 // 45559 "Max Charge SOC" nimmt den geschriebenen Wert an (roh
                 // gegengelesen, 97 wurde uebernommen), verhindert das Laden
@@ -761,16 +761,16 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 // Wirkung auf das tatsaechliche Ladeverhalten. NICHT als
                 // funktionierenden Kontrollmechanismus behandeln oder Nutzern
                 // als Loesung gegen Ueberladung nahe 100% SOC empfehlen.
-                ['ctl_soc_max',       'SOC Max. Ladung (bestätigt wirkungslos)', 'I', 'GWH.Percent', false, 'control', 'RW 45559'],
+                ['ctl_soc_max',       'SOC max. charge (confirmed ineffective)', 'I', 'GWH.Percent', false, 'control', 'RW 45559'],
                 // Schnellladung (GoodWe Third-Party-EMS-Protokoll V1.1.1, Tabelle 9, Nr. 29-31). Gemessen
                 // 23.10.2026 an Dietmars Anlage (SOC 71 %, Ziel 80 %): laedt aus dem Netz mit ca. 300 W je
                 // Prozent Netzleistung (10 % = 3,0 kW, 30 % = 9,0 kW), auch bei Modus 8; aus -> Ruhelast
                 // binnen 15 s. Kein Flash-Register.
-                ['ctl_fastcharge_enable', 'Schnellladung aktiv',          'B', '~Switch',      false, 'control', 'RW 47545 (gemessen)'],
-                ['ctl_fastcharge_soc',    'Schnellladung bis SOC (%)',    'I', 'GWH.Percent',  false, 'control', 'RW 47546 (gemessen)'],
-                ['ctl_fastcharge_pct',    'Schnellladung Netzleistung (%)', 'I', 'GWH.Percent', false, 'control', 'RW 47603 (gemessen, ca. 300 W je %)'],
-                ['ctl_internet',      'Cloud-Verbindung',     'B', '~Switch',      false, 'control', 'RW 47017'],
-                ['ctl_restart',       'WR Neustart',          'B', '~Switch',      false, 'control', 'WO 45220'],
+                ['ctl_fastcharge_enable', 'Fast charging active',          'B', '~Switch',      false, 'control', 'RW 47545 (gemessen)'],
+                ['ctl_fastcharge_soc',    'Fast charging up to SOC (%)',    'I', 'GWH.Percent',  false, 'control', 'RW 47546 (gemessen)'],
+                ['ctl_fastcharge_pct',    'Fast charging grid power (%)', 'I', 'GWH.Percent', false, 'control', 'RW 47603 (gemessen, ca. 300 W je %)'],
+                ['ctl_internet',      'Cloud connection',     'B', '~Switch',      false, 'control', 'RW 47017'],
+                ['ctl_restart',       'Inverter restart',          'B', '~Switch',      false, 'control', 'WO 45220'],
                 // Generische Netzdienlichkeits-Operationen (Verbund-Vertrag mit
                 // EMS, IHUB_GetFunctions 1.2 -> 1.3, "gridServiceCapabilities" -
                 // 12.09.2026). Schreiben dieselben Register wie die ctl_*-Idents
@@ -784,10 +784,10 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 // A/B-Test (29.08.2026) nur bei enable=true ohne Heartbeat
                 // auf - mit enable=false haelt der gesetzte Modus dauerhaft,
                 // ohne dass EMS selbst einen Totmann-Heartbeat bauen muesste.
-                ['svc_charge_inhibit',      'Netzdienlich: Laden sperren',            'B', '~Switch',     false, 'control', 'schreibt 47511=3 (Entladen+Solar), 47512=0, 47505=false'],
-                ['svc_grid_charge_w',       'Netzdienlich: Netzladen (W)',             'I', 'GWH.WattEMS', false, 'control', 'schreibt 47511=9 (Stromeinkauf, NAP-geregelt), 47512=W, 47505=false; 0 = Freigabe'],
-                ['svc_discharge_to_grid_w', 'Netzdienlich: Einspeisen aus Batterie (W)', 'I', 'GWH.WattEMS', false, 'control', 'schreibt 47511=3 (Entladen+Solar, Xmax = W), 47512=W, 47505=false; 0 = Freigabe'],
-                ['svc_release',             'Netzdienlich: Freigeben (Automatik)',     'B', '~Switch',     false, 'control', 'schreibt 47511=1 (Automatik), 47512=0, 47505=false'],
+                ['svc_charge_inhibit',      'Grid-supportive: block charging',            'B', '~Switch',     false, 'control', 'writes 47511=3 (discharging+solar), 47512=0, 47505=false'],
+                ['svc_grid_charge_w',       'Grid-supportive: grid charging (W)',             'I', 'GWH.WattEMS', false, 'control', 'writes 47511=9 (power purchase, NAP-controlled), 47512=W, 47505=false; 0 = release'],
+                ['svc_discharge_to_grid_w', 'Grid-supportive: feed in from battery (W)', 'I', 'GWH.WattEMS', false, 'control', 'writes 47511=3 (discharging+solar, Xmax = W), 47512=W, 47505=false; 0 = release'],
+                ['svc_release',             'Grid-supportive: release (automatic)',     'B', '~Switch',     false, 'control', 'writes 47511=1 (automatic), 47512=0, 47505=false'],
             ]],
         ];
     }
@@ -1162,13 +1162,13 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 $hub->SetVarInt('err_msg',   $mb->u16($err, 2));
                 $utility = $mb->u16($err, 0);
                 $detail  = [];
-                if ($utility & 0x01) { $detail[] = 'Netz-Ueberspannung'; }
-                if ($utility & 0x02) { $detail[] = 'Netz-Unterspannung'; }
-                if ($utility & 0x04) { $detail[] = 'Netz-Ueberfrequenz'; }
-                if ($utility & 0x08) { $detail[] = 'Netz-Unterfrequenz'; }
-                if ($utility & 0x10) { $detail[] = 'Netz-Ueberstrom'; }
+                if ($utility & 0x01) { $detail[] = IHUB_Text::t('Grid overvoltage'); }
+                if ($utility & 0x02) { $detail[] = IHUB_Text::t('Grid undervoltage'); }
+                if ($utility & 0x04) { $detail[] = IHUB_Text::t('Grid overfrequency'); }
+                if ($utility & 0x08) { $detail[] = IHUB_Text::t('Grid underfrequency'); }
+                if ($utility & 0x10) { $detail[] = IHUB_Text::t('Grid overcurrent'); }
                 $sys = $mb->u16($err, 2);
-                if ($sys & 0x01) { $detail[] = 'Systemfehler 1'; }
+                if ($sys & 0x01) { $detail[] = IHUB_Text::t('System error 1'); }
                 $hub->SetVarStr('err_detail', empty($detail) ? 'OK' : implode(', ', $detail));
             }
             // Separater BMS-Fehler-/Warncode-Block (37006/37010/37012/37013) -
@@ -1485,92 +1485,92 @@ class IHUB_SungrowDriver implements IHUB_InverterDriverInterface
     const REG_START_STOP = 13000; // Holding: 0xCF=Start, 0xCE=Stop
 
     const RUN_STATES = [
-        0 => 'Aus', 1 => 'Läuft', 2 => 'Fehler', 3 => 'Standby',
+        0 => 'Off', 1 => 'Running', 2 => 'Fault', 3 => 'Standby',
     ];
 
     public function getBaseVars()
     {
         return [
-            ['connected',   'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
-            ['riso',        'Isolationswiderstand','F', 'SGW.KOhm',       true,  'pv',     'RO 5071 (kΩ)'],
-            ['running_state','Betriebsstatus',   'I', 'SGW.RunState',     true,  'device', 'RO 13000'],
-            ['power_flow_status', 'Leistungsfluss-Status', 'I', '',       true,  'device', 'RO 13001'],
-            ['pv_total',    'PV Gesamtleistung', 'F', 'SGW.Watt',         true,  'pv',     'RO 5017-5018'],
-            ['ac_power',    'AC Wirkleistung',   'F', 'SGW.Watt',         true,  'device', 'RO 13034-13035'],
-            ['meter_total', 'Netz Leistung',     'F', 'SGW.Watt',         true,  'grid',   'RO 5601-5602'],
-            ['bat_power',   'Bat. Leistung',     'F', 'SGW.Watt',         true,  'bat',    'RO 5214-5215'],
+            ['connected',   'Connection',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['riso',        'Insulation resistance','F', 'SGW.KOhm',       true,  'pv',     'RO 5071 (kΩ)'],
+            ['running_state','Operating status',   'I', 'SGW.RunState',     true,  'device', 'RO 13000'],
+            ['power_flow_status', 'Power flow status', 'I', '',       true,  'device', 'RO 13001'],
+            ['pv_total',    'PV total power', 'F', 'SGW.Watt',         true,  'pv',     'RO 5017-5018'],
+            ['ac_power',    'AC active power',   'F', 'SGW.Watt',         true,  'device', 'RO 13034-13035'],
+            ['meter_total', 'Grid power',     'F', 'SGW.Watt',         true,  'grid',   'RO 5601-5602'],
+            ['bat_power',   'Bat. power',     'F', 'SGW.Watt',         true,  'bat',    'RO 5214-5215'],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupPV' => ['caption' => 'PV-Details (MPPT-Spannung/Strom; String-Modelle SG-CX bis MPPT 12)', 'vars' => [
-                ['mppt1_volt', 'MPPT1 Spannung', 'F', 'SGW.Volt',   false, 'pv', 'RO 5011'],
-                ['mppt1_curr', 'MPPT1 Strom',    'F', 'SGW.Ampere', false, 'pv', 'RO 5012'],
-                ['mppt2_volt', 'MPPT2 Spannung', 'F', 'SGW.Volt',   false, 'pv', 'RO 5013'],
-                ['mppt2_curr', 'MPPT2 Strom',    'F', 'SGW.Ampere', false, 'pv', 'RO 5014'],
-                ['mppt3_volt', 'MPPT3 Spannung', 'F', 'SGW.Volt',   false, 'pv', 'RO 5015'],
-                ['mppt3_curr', 'MPPT3 Strom',    'F', 'SGW.Ampere', false, 'pv', 'RO 5016'],
-                ['mppt4_volt', 'MPPT4 Spannung', 'F', 'SGW.Volt',   false, 'pv', 'RO 5115'],
-                ['mppt4_curr', 'MPPT4 Strom',    'F', 'SGW.Ampere', false, 'pv', 'RO 5116'],
-                ['mppt5_volt', 'MPPT5 Spannung', 'F', 'SGW.Volt',   false, 'pv', 'RO 5117'],
-                ['mppt5_curr', 'MPPT5 Strom',    'F', 'SGW.Ampere', false, 'pv', 'RO 5118'],
-                ['mppt6_volt', 'MPPT6 Spannung', 'F', 'SGW.Volt',   false, 'pv', 'RO 5119'],
-                ['mppt6_curr', 'MPPT6 Strom',    'F', 'SGW.Ampere', false, 'pv', 'RO 5120'],
-                ['mppt7_volt', 'MPPT7 Spannung', 'F', 'SGW.Volt',   false, 'pv', 'RO 5121'],
-                ['mppt7_curr', 'MPPT7 Strom',    'F', 'SGW.Ampere', false, 'pv', 'RO 5122'],
-                ['mppt8_volt', 'MPPT8 Spannung', 'F', 'SGW.Volt',   false, 'pv', 'RO 5123'],
-                ['mppt8_curr', 'MPPT8 Strom',    'F', 'SGW.Ampere', false, 'pv', 'RO 5124'],
-                ['mppt9_volt', 'MPPT9 Spannung', 'F', 'SGW.Volt',   false, 'pv', 'RO 5130'],
-                ['mppt9_curr', 'MPPT9 Strom',    'F', 'SGW.Ampere', false, 'pv', 'RO 5131'],
-                ['mppt10_volt','MPPT10 Spannung','F', 'SGW.Volt',   false, 'pv', 'RO 5132'],
-                ['mppt10_curr','MPPT10 Strom',   'F', 'SGW.Ampere', false, 'pv', 'RO 5133'],
-                ['mppt11_volt','MPPT11 Spannung','F', 'SGW.Volt',   false, 'pv', 'RO 5134'],
-                ['mppt11_curr','MPPT11 Strom',   'F', 'SGW.Ampere', false, 'pv', 'RO 5135'],
-                ['mppt12_volt','MPPT12 Spannung','F', 'SGW.Volt',   false, 'pv', 'RO 5136'],
-                ['mppt12_curr','MPPT12 Strom',   'F', 'SGW.Ampere', false, 'pv', 'RO 5137'],
+            'GroupPV' => ['caption' => 'PV details (MPPT voltage/current; string models SG-CX up to MPPT 12)', 'vars' => [
+                ['mppt1_volt', 'MPPT1 voltage', 'F', 'SGW.Volt',   false, 'pv', 'RO 5011'],
+                ['mppt1_curr', 'MPPT1 current',    'F', 'SGW.Ampere', false, 'pv', 'RO 5012'],
+                ['mppt2_volt', 'MPPT2 voltage', 'F', 'SGW.Volt',   false, 'pv', 'RO 5013'],
+                ['mppt2_curr', 'MPPT2 current',    'F', 'SGW.Ampere', false, 'pv', 'RO 5014'],
+                ['mppt3_volt', 'MPPT3 voltage', 'F', 'SGW.Volt',   false, 'pv', 'RO 5015'],
+                ['mppt3_curr', 'MPPT3 current',    'F', 'SGW.Ampere', false, 'pv', 'RO 5016'],
+                ['mppt4_volt', 'MPPT4 voltage', 'F', 'SGW.Volt',   false, 'pv', 'RO 5115'],
+                ['mppt4_curr', 'MPPT4 current',    'F', 'SGW.Ampere', false, 'pv', 'RO 5116'],
+                ['mppt5_volt', 'MPPT5 voltage', 'F', 'SGW.Volt',   false, 'pv', 'RO 5117'],
+                ['mppt5_curr', 'MPPT5 current',    'F', 'SGW.Ampere', false, 'pv', 'RO 5118'],
+                ['mppt6_volt', 'MPPT6 voltage', 'F', 'SGW.Volt',   false, 'pv', 'RO 5119'],
+                ['mppt6_curr', 'MPPT6 current',    'F', 'SGW.Ampere', false, 'pv', 'RO 5120'],
+                ['mppt7_volt', 'MPPT7 voltage', 'F', 'SGW.Volt',   false, 'pv', 'RO 5121'],
+                ['mppt7_curr', 'MPPT7 current',    'F', 'SGW.Ampere', false, 'pv', 'RO 5122'],
+                ['mppt8_volt', 'MPPT8 voltage', 'F', 'SGW.Volt',   false, 'pv', 'RO 5123'],
+                ['mppt8_curr', 'MPPT8 current',    'F', 'SGW.Ampere', false, 'pv', 'RO 5124'],
+                ['mppt9_volt', 'MPPT9 voltage', 'F', 'SGW.Volt',   false, 'pv', 'RO 5130'],
+                ['mppt9_curr', 'MPPT9 current',    'F', 'SGW.Ampere', false, 'pv', 'RO 5131'],
+                ['mppt10_volt','MPPT10 voltage','F', 'SGW.Volt',   false, 'pv', 'RO 5132'],
+                ['mppt10_curr','MPPT10 current',   'F', 'SGW.Ampere', false, 'pv', 'RO 5133'],
+                ['mppt11_volt','MPPT11 voltage','F', 'SGW.Volt',   false, 'pv', 'RO 5134'],
+                ['mppt11_curr','MPPT11 current',   'F', 'SGW.Ampere', false, 'pv', 'RO 5135'],
+                ['mppt12_volt','MPPT12 voltage','F', 'SGW.Volt',   false, 'pv', 'RO 5136'],
+                ['mppt12_curr','MPPT12 current',   'F', 'SGW.Ampere', false, 'pv', 'RO 5137'],
             ]],
-            'GroupGrid' => ['caption' => 'Netz (Spannung, Strom, Blindleistung, Power Factor, Frequenz)', 'vars' => [
-                ['grid_v1',      'Netz Spannung 1', 'F', 'SGW.Volt',   false, 'grid', 'RO 5019'],
-                ['grid_v2',      'Netz Spannung 2', 'F', 'SGW.Volt',   false, 'grid', 'RO 5020'],
-                ['grid_v3',      'Netz Spannung 3', 'F', 'SGW.Volt',   false, 'grid', 'RO 5021'],
-                ['grid_c1',      'Netz Strom 1',    'F', 'SGW.Ampere', false, 'grid', 'RO 5022 (String)'],
-                ['grid_c2',      'Netz Strom 2',    'F', 'SGW.Ampere', false, 'grid', 'RO 5023 (String)'],
-                ['grid_c3',      'Netz Strom 3',    'F', 'SGW.Ampere', false, 'grid', 'RO 5024 (String)'],
-                ['grid_reactive','Blindleistung',    'F', 'SGW.WattReactive', false, 'grid', 'RO 5033-5034'],
-                ['power_factor', 'Power Factor',     'F', 'SGW.PowerFactor',  false, 'grid', 'RO 5035'],
-                ['grid_freq',    'Netzfrequenz',     'F', 'SGW.Hertz',        false, 'grid', 'RO 5242'],
+            'GroupGrid' => ['caption' => 'Grid (voltage, current, reactive power, power factor, frequency)', 'vars' => [
+                ['grid_v1',      'Grid voltage 1', 'F', 'SGW.Volt',   false, 'grid', 'RO 5019'],
+                ['grid_v2',      'Grid voltage 2', 'F', 'SGW.Volt',   false, 'grid', 'RO 5020'],
+                ['grid_v3',      'Grid voltage 3', 'F', 'SGW.Volt',   false, 'grid', 'RO 5021'],
+                ['grid_c1',      'Grid current 1',    'F', 'SGW.Ampere', false, 'grid', 'RO 5022 (String)'],
+                ['grid_c2',      'Grid current 2',    'F', 'SGW.Ampere', false, 'grid', 'RO 5023 (String)'],
+                ['grid_c3',      'Grid current 3',    'F', 'SGW.Ampere', false, 'grid', 'RO 5024 (String)'],
+                ['grid_reactive','Reactive power',    'F', 'SGW.WattReactive', false, 'grid', 'RO 5033-5034'],
+                ['power_factor', 'Power factor',     'F', 'SGW.PowerFactor',  false, 'grid', 'RO 5035'],
+                ['grid_freq',    'Grid frequency',     'F', 'SGW.Hertz',        false, 'grid', 'RO 5242'],
             ]],
-            'GroupBat' => ['caption' => 'Batterie (Spannung, Strom, SOC, SOH, Temperatur)', 'vars' => [
-                ['bat_volt', 'Bat. Spannung',    'F', 'SGW.Volt',     false, 'bat', 'RO 13020'],
-                ['bat_curr', 'Bat. Strom',       'F', 'SGW.Ampere',   false, 'bat', 'RO 13021'],
+            'GroupBat' => ['caption' => 'Battery (voltage, current, SOC, SOH, temperature)', 'vars' => [
+                ['bat_volt', 'Bat. voltage',    'F', 'SGW.Volt',     false, 'bat', 'RO 13020'],
+                ['bat_curr', 'Bat. current',       'F', 'SGW.Ampere',   false, 'bat', 'RO 13021'],
                 ['bat_soc',  'Bat. SOC',         'I', '~Battery.100', true,  'bat', 'RO 13023'],
                 ['bat_soh',  'Bat. SOH',         'I', '~Intensity.100', true, 'bat', 'RO 13024'],
-                ['bat_temp', 'Bat. Temperatur',  'F', '~Temperature', true,  'bat', 'RO 13025'],
+                ['bat_temp', 'Bat. temperature',  'F', '~Temperature', true,  'bat', 'RO 13025'],
             ]],
-            'GroupMeter' => ['caption' => 'Smart Meter (Leistung je Phase)', 'vars' => [
-                ['mt_l1_pwr', 'Meter L1 Leistung', 'F', 'SGW.Watt', true, 'meter', 'RO 5603'],
-                ['mt_l2_pwr', 'Meter L2 Leistung', 'F', 'SGW.Watt', true, 'meter', 'RO 5605'],
-                ['mt_l3_pwr', 'Meter L3 Leistung', 'F', 'SGW.Watt', true, 'meter', 'RO 5607'],
+            'GroupMeter' => ['caption' => 'Smart meter (power per phase)', 'vars' => [
+                ['mt_l1_pwr', 'Meter L1 power', 'F', 'SGW.Watt', true, 'meter', 'RO 5603'],
+                ['mt_l2_pwr', 'Meter L2 power', 'F', 'SGW.Watt', true, 'meter', 'RO 5605'],
+                ['mt_l3_pwr', 'Meter L3 power', 'F', 'SGW.Watt', true, 'meter', 'RO 5607'],
             ]],
-            'GroupEnergy' => ['caption' => 'Energiezähler (PV, Last, Export)', 'vars' => [
-                ['e_pv_day',   'PV Heute',   'F', '~Electricity', true, 'energy', 'RO 13002'],
-                ['e_pv_total', 'PV Gesamt',  'F', '~Electricity', true, 'energy', 'RO 13003-13004'],
-                ['load_power', 'Lastleistung', 'F', 'SGW.Watt',   true, 'energy', 'RO 13008-13009'],
-                ['export_power','Einspeiseleistung', 'F', 'SGW.Watt', true, 'energy', 'RO 13010-13011'],
+            'GroupEnergy' => ['caption' => 'Energy meters (PV, load, export)', 'vars' => [
+                ['e_pv_day',   'PV today',   'F', '~Electricity', true, 'energy', 'RO 13002'],
+                ['e_pv_total', 'PV total',  'F', '~Electricity', true, 'energy', 'RO 13003-13004'],
+                ['load_power', 'Load power', 'F', 'SGW.Watt',   true, 'energy', 'RO 13008-13009'],
+                ['export_power','Feed-in power', 'F', 'SGW.Watt', true, 'energy', 'RO 13010-13011'],
             ]],
-            'GroupBackup' => ['caption' => 'Backup / Notstrom (Spannung, Strom, Leistung je Phase)', 'vars' => [
-                ['backup_total', 'Backup Gesamtleistung', 'F', 'SGW.Watt', true, 'backup', 'RO 5726-5727'],
-                ['backup_freq',  'Backup Frequenz',       'F', 'SGW.Hertz', false, 'backup', 'RO 5734'],
+            'GroupBackup' => ['caption' => 'Backup / emergency power (voltage, current, power per phase)', 'vars' => [
+                ['backup_total', 'Backup total power', 'F', 'SGW.Watt', true, 'backup', 'RO 5726-5727'],
+                ['backup_freq',  'Backup frequency',       'F', 'SGW.Hertz', false, 'backup', 'RO 5734'],
             ]],
-            'GroupDevice' => ['caption' => 'Geräteinformation (Typ, Nennleistung, Seriennummer)', 'vars' => [
-                ['dev_type',    'Gerätetyp-Code', 'I', '', false, 'device', 'RO 5000'],
-                ['dev_rated_w', 'Nennleistung',    'I', '', false, 'device', 'RO 5001'],
-                ['dev_sn',      'Seriennummer',    'S', '', false, 'device', 'RO 4990-4999'],
+            'GroupDevice' => ['caption' => 'Device information (type, rated power, serial number)', 'vars' => [
+                ['dev_type',    'Device type code', 'I', '', false, 'device', 'RO 5000'],
+                ['dev_rated_w', 'Rated power',    'I', '', false, 'device', 'RO 5001'],
+                ['dev_sn',      'Serial number',    'S', '', false, 'device', 'RO 4990-4999'],
             ]],
-            'GroupControl' => ['caption' => 'Steuerung (Start/Stop)', 'vars' => [
-                ['ctl_run', 'Wechselrichter Ein/Aus', 'B', '~Switch', false, 'control', 'RW 13000'],
+            'GroupControl' => ['caption' => 'Control (start/stop)', 'vars' => [
+                ['ctl_run', 'Inverter on/off', 'B', '~Switch', false, 'control', 'RW 13000'],
             ]],
         ];
     }
@@ -1852,148 +1852,148 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['connected',   'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
-            ['pv_total',    'PV Gesamtleistung', 'F', 'SLS.Watt', true,  'pv',       'RO 33057-33058'],
-            ['ac_power',    'AC Wirkleistung',   'F', 'SLS.Watt', true,  'device',   'RO 33079-33080'],
-            ['meter_total', 'Netz Leistung (+ Einspeisung / − Bezug)', 'F', 'SLS.Watt', true, 'grid', 'RO 33151-33152'],
-            ['bat_power',   'Bat. Gesamtleistg. (+ Entladen / − Laden)', 'F', 'SLS.Watt', true, 'batcommon', 'RO 33149-33150 + Richtung RO 33135 (+ Akku 2)'],
-            ['bat_soc',     'SOC (Ø)',           'I', '~Battery.100', true, 'batcommon', 'RO 33139 (Ø bei zwei Akkus)'],
-            ['bat_charge_max_w',    'Bat. max. Ladeleistung',    'F', 'SLS.Watt', false, 'batcommon', 'BMS calc'],
-            ['bat_discharge_max_w', 'Bat. max. Entladeleistung', 'F', 'SLS.Watt', false, 'batcommon', 'BMS calc'],
-            ['grid_mode',   'Netzmodus',         'I', 'SLS.GridMode', false, 'grid', 'calc'],
+            ['connected',   'Connection',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['pv_total',    'PV total power', 'F', 'SLS.Watt', true,  'pv',       'RO 33057-33058'],
+            ['ac_power',    'AC active power',   'F', 'SLS.Watt', true,  'device',   'RO 33079-33080'],
+            ['meter_total', 'Grid power (+ feed-in / − import)', 'F', 'SLS.Watt', true, 'grid', 'RO 33151-33152'],
+            ['bat_power',   'Bat. total power (+ discharging / − charging)', 'F', 'SLS.Watt', true, 'batcommon', 'RO 33149-33150 + Richtung RO 33135 (+ Akku 2)'],
+            ['bat_soc',     'SOC (avg.)',           'I', '~Battery.100', true, 'batcommon', 'RO 33139 (average with two batteries)'],
+            ['bat_charge_max_w',    'Bat. max. charge power',    'F', 'SLS.Watt', false, 'batcommon', 'BMS calc'],
+            ['bat_discharge_max_w', 'Bat. max. discharge power', 'F', 'SLS.Watt', false, 'batcommon', 'BMS calc'],
+            ['grid_mode',   'Grid mode',         'I', 'SLS.GridMode', false, 'grid', 'calc'],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupPV' => ['caption' => 'PV-Details (bis zu 4 Strings)', 'vars' => [
-                ['pv1_volt', 'PV1 Spannung', 'F', 'SLS.Volt',   false, 'pv', 'RO 33049'],
-                ['pv1_curr', 'PV1 Strom',    'F', 'SLS.Ampere', false, 'pv', 'RO 33050'],
-                ['pv2_volt', 'PV2 Spannung', 'F', 'SLS.Volt',   false, 'pv', 'RO 33051'],
-                ['pv2_curr', 'PV2 Strom',    'F', 'SLS.Ampere', false, 'pv', 'RO 33052'],
-                ['pv3_volt', 'PV3 Spannung', 'F', 'SLS.Volt',   false, 'pv', 'RO 33053'],
-                ['pv3_curr', 'PV3 Strom',    'F', 'SLS.Ampere', false, 'pv', 'RO 33054'],
-                ['pv4_volt', 'PV4 Spannung', 'F', 'SLS.Volt',   false, 'pv', 'RO 33055'],
-                ['pv4_curr', 'PV4 Strom',    'F', 'SLS.Ampere', false, 'pv', 'RO 33056'],
-                ['mppt1_power', 'MPPT1 Leistung', 'F', 'SLS.Watt', true, 'pv', 'Spannung × Strom (berechnet)'],
-                ['mppt2_power', 'MPPT2 Leistung', 'F', 'SLS.Watt', true, 'pv', 'Spannung × Strom (berechnet)'],
-                ['mppt3_power', 'MPPT3 Leistung', 'F', 'SLS.Watt', true, 'pv', 'Spannung × Strom (berechnet)'],
-                ['mppt4_power', 'MPPT4 Leistung', 'F', 'SLS.Watt', true, 'pv', 'Spannung × Strom (berechnet)'],
+            'GroupPV' => ['caption' => 'PV details (up to 4 strings)', 'vars' => [
+                ['pv1_volt', 'PV1 voltage', 'F', 'SLS.Volt',   false, 'pv', 'RO 33049'],
+                ['pv1_curr', 'PV1 current',    'F', 'SLS.Ampere', false, 'pv', 'RO 33050'],
+                ['pv2_volt', 'PV2 voltage', 'F', 'SLS.Volt',   false, 'pv', 'RO 33051'],
+                ['pv2_curr', 'PV2 current',    'F', 'SLS.Ampere', false, 'pv', 'RO 33052'],
+                ['pv3_volt', 'PV3 voltage', 'F', 'SLS.Volt',   false, 'pv', 'RO 33053'],
+                ['pv3_curr', 'PV3 current',    'F', 'SLS.Ampere', false, 'pv', 'RO 33054'],
+                ['pv4_volt', 'PV4 voltage', 'F', 'SLS.Volt',   false, 'pv', 'RO 33055'],
+                ['pv4_curr', 'PV4 current',    'F', 'SLS.Ampere', false, 'pv', 'RO 33056'],
+                ['mppt1_power', 'MPPT1 power', 'F', 'SLS.Watt', true, 'pv', 'voltage × current (calculated)'],
+                ['mppt2_power', 'MPPT2 power', 'F', 'SLS.Watt', true, 'pv', 'voltage × current (calculated)'],
+                ['mppt3_power', 'MPPT3 power', 'F', 'SLS.Watt', true, 'pv', 'voltage × current (calculated)'],
+                ['mppt4_power', 'MPPT4 power', 'F', 'SLS.Watt', true, 'pv', 'voltage × current (calculated)'],
             ]],
-            'GroupGrid' => ['caption' => 'Netz (Spannung, Strom, Blind-/Scheinleistung je Phase)', 'vars' => [
-                ['grid_l1_volt', 'Netz L1 Spannung', 'F', 'SLS.Volt',   false, 'grid', 'RO 33073'],
-                ['grid_l2_volt', 'Netz L2 Spannung', 'F', 'SLS.Volt',   false, 'grid', 'RO 33074'],
-                ['grid_l3_volt', 'Netz L3 Spannung', 'F', 'SLS.Volt',   false, 'grid', 'RO 33075'],
-                ['grid_l1_curr', 'Netz L1 Strom',    'F', 'SLS.Ampere', false, 'grid', 'RO 33076'],
-                ['grid_l2_curr', 'Netz L2 Strom',    'F', 'SLS.Ampere', false, 'grid', 'RO 33077'],
-                ['grid_l3_curr', 'Netz L3 Strom',    'F', 'SLS.Ampere', false, 'grid', 'RO 33078'],
-                ['grid_freq',    'Netzfrequenz',      'F', 'SLS.Hertz', false, 'grid', 'RO 33094'],
+            'GroupGrid' => ['caption' => 'Grid (voltage, current, reactive/apparent power per phase)', 'vars' => [
+                ['grid_l1_volt', 'Grid L1 voltage', 'F', 'SLS.Volt',   false, 'grid', 'RO 33073'],
+                ['grid_l2_volt', 'Grid L2 voltage', 'F', 'SLS.Volt',   false, 'grid', 'RO 33074'],
+                ['grid_l3_volt', 'Grid L3 voltage', 'F', 'SLS.Volt',   false, 'grid', 'RO 33075'],
+                ['grid_l1_curr', 'Grid L1 current',    'F', 'SLS.Ampere', false, 'grid', 'RO 33076'],
+                ['grid_l2_curr', 'Grid L2 current',    'F', 'SLS.Ampere', false, 'grid', 'RO 33077'],
+                ['grid_l3_curr', 'Grid L3 current',    'F', 'SLS.Ampere', false, 'grid', 'RO 33078'],
+                ['grid_freq',    'Grid frequency',      'F', 'SLS.Hertz', false, 'grid', 'RO 33094'],
             ]],
-            'GroupBat' => ['caption' => 'Batterie 1 (Spannung, Strom, SOC, Leistung, Modus, BMS) und Lasten', 'vars' => [
-                ['bat_volt', 'Bat.1 Spannung', 'F', 'SLS.Volt',   false, 'bat1', 'RO 33133'],
-                ['bat_curr', 'Bat.1 Strom (+ Entladen / − Laden)', 'F', 'SLS.Ampere', false, 'bat1', 'RO 33134 + Richtung RO 33135'],
+            'GroupBat' => ['caption' => 'Battery 1 (voltage, current, SOC, power, mode, BMS) and loads', 'vars' => [
+                ['bat_volt', 'Bat.1 voltage', 'F', 'SLS.Volt',   false, 'bat1', 'RO 33133'],
+                ['bat_curr', 'Bat.1 current (+ discharging / − charging)', 'F', 'SLS.Ampere', false, 'bat1', 'RO 33134 + Richtung RO 33135'],
                 ['bat_soh',  'Bat.1 SOH',      'I', '~Intensity.100', true, 'bat1', 'RO 33140'],
                 ['bat1_soc',  'Bat.1 SOC',     'I', '~Battery.100', true, 'bat1', 'RO 33139'],
-                ['bat1_pwr',  'Bat.1 Leistung (+ Entladen / − Laden)', 'F', 'SLS.Watt', true, 'bat1', 'RO 33149-33150 + Richtung RO 33135'],
-                ['bat1_mode', 'Bat.1 Modus',   'I', 'SLS.BatMode', true, 'bat1', 'calc'],
-                ['bat1_temp', 'Bat.1 Temperatur', 'F', '~Temperature', false, 'bat1', 'RO 33043 (÷10)'],
-                ['bat1_bms_volt', 'Bat.1 Spannung (BMS)', 'F', 'SLS.Volt', false, 'bat1', 'RO 33141 (÷100)'],
-                ['bat1_bms_curr', 'Bat.1 Strom (BMS)', 'F', 'SLS.Ampere', false, 'bat1', 'RO 33142 (÷10)'],
-                ['bat1_chg_max_a', 'Bat.1 max. Ladestrom',   'F', 'SLS.Ampere', false, 'bat1', 'RO 33143 (÷10)'],
-                ['bat1_dis_max_a', 'Bat.1 max. Entladestrom', 'F', 'SLS.Ampere', false, 'bat1', 'RO 33144 (÷10)'],
-                ['household_load', 'Last am Netzanschluss', 'F', 'SLS.Watt', true, 'grid', 'RO 33147'],
-                ['backup_load',    'Last am Notstromausgang (Backup)', 'F', 'SLS.Watt', true, 'backup', 'RO 33148'],
-                ['house_load_total', 'Last gesamt (Netz + Backup)', 'F', 'SLS.Watt', true, 'grid', 'calc 33147 + 33148'],
+                ['bat1_pwr',  'Bat.1 power (+ discharging / − charging)', 'F', 'SLS.Watt', true, 'bat1', 'RO 33149-33150 + Richtung RO 33135'],
+                ['bat1_mode', 'Bat.1 mode',   'I', 'SLS.BatMode', true, 'bat1', 'calc'],
+                ['bat1_temp', 'Bat.1 temperature', 'F', '~Temperature', false, 'bat1', 'RO 33043 (÷10)'],
+                ['bat1_bms_volt', 'Bat.1 voltage (BMS)', 'F', 'SLS.Volt', false, 'bat1', 'RO 33141 (÷100)'],
+                ['bat1_bms_curr', 'Bat.1 current (BMS)', 'F', 'SLS.Ampere', false, 'bat1', 'RO 33142 (÷10)'],
+                ['bat1_chg_max_a', 'Bat.1 max. charge current',   'F', 'SLS.Ampere', false, 'bat1', 'RO 33143 (÷10)'],
+                ['bat1_dis_max_a', 'Bat.1 max. discharge current', 'F', 'SLS.Ampere', false, 'bat1', 'RO 33144 (÷10)'],
+                ['household_load', 'Load at grid connection', 'F', 'SLS.Watt', true, 'grid', 'RO 33147'],
+                ['backup_load',    'Load at backup output', 'F', 'SLS.Watt', true, 'backup', 'RO 33148'],
+                ['house_load_total', 'Total load (grid + backup)', 'F', 'SLS.Watt', true, 'grid', 'calc 33147 + 33148'],
             ]],
-            'GroupBat2' => ['caption' => 'Batterie 2 (nur bei zwei unabhängigen Akkus, Vorabversion)', 'vars' => [
-                ['bat2_volt', 'Bat.2 Spannung', 'F', 'SLS.Volt',   false, 'bat2', 'RO 34289 (÷10)'],
-                ['bat2_curr', 'Bat.2 Strom (+ Entladen / − Laden)', 'F', 'SLS.Ampere', false, 'bat2', 'RO 34290 + Richtung RO 34291'],
-                ['bat2_pwr',  'Bat.2 Leistung (+ Entladen / − Laden, berechnet)', 'F', 'SLS.Watt', true, 'bat2', 'Spannung × Strom'],
-                ['bat2_mode', 'Bat.2 Modus',   'I', 'SLS.BatMode', true, 'bat2', 'calc'],
+            'GroupBat2' => ['caption' => 'Battery 2 (only with two independent batteries, preview)', 'vars' => [
+                ['bat2_volt', 'Bat.2 voltage', 'F', 'SLS.Volt',   false, 'bat2', 'RO 34289 (÷10)'],
+                ['bat2_curr', 'Bat.2 current (+ discharging / − charging)', 'F', 'SLS.Ampere', false, 'bat2', 'RO 34290 + Richtung RO 34291'],
+                ['bat2_pwr',  'Bat.2 power (+ discharging / − charging, calculated)', 'F', 'SLS.Watt', true, 'bat2', 'voltage × current'],
+                ['bat2_mode', 'Bat.2 mode',   'I', 'SLS.BatMode', true, 'bat2', 'calc'],
                 ['bat2_soc',  'Bat.2 SOC',     'I', '~Battery.100', true, 'bat2', 'RO 34278'],
                 ['bat2_soh',  'Bat.2 SOH',     'I', '~Intensity.100', true, 'bat2', 'RO 34279'],
-                ['bat2_temp', 'Bat.2 Temperatur', 'F', '~Temperature', false, 'bat2', 'RO 34277 (÷10)'],
-                ['bat2_bms_volt', 'Bat.2 Spannung (BMS)', 'F', 'SLS.Volt', false, 'bat2', 'RO 34275 (÷100)'],
-                ['bat2_bms_curr', 'Bat.2 Strom (BMS)', 'F', 'SLS.Ampere', false, 'bat2', 'RO 34276 (÷10)'],
-                ['bat2_chg_max_a', 'Bat.2 max. Ladestrom',   'F', 'SLS.Ampere', false, 'bat2', 'RO 34281 (÷10)'],
-                ['bat2_dis_max_a', 'Bat.2 max. Entladestrom', 'F', 'SLS.Ampere', false, 'bat2', 'RO 34282 (÷10)'],
+                ['bat2_temp', 'Bat.2 temperature', 'F', '~Temperature', false, 'bat2', 'RO 34277 (÷10)'],
+                ['bat2_bms_volt', 'Bat.2 voltage (BMS)', 'F', 'SLS.Volt', false, 'bat2', 'RO 34275 (÷100)'],
+                ['bat2_bms_curr', 'Bat.2 current (BMS)', 'F', 'SLS.Ampere', false, 'bat2', 'RO 34276 (÷10)'],
+                ['bat2_chg_max_a', 'Bat.2 max. charge current',   'F', 'SLS.Ampere', false, 'bat2', 'RO 34281 (÷10)'],
+                ['bat2_dis_max_a', 'Bat.2 max. discharge current', 'F', 'SLS.Ampere', false, 'bat2', 'RO 34282 (÷10)'],
             ]],
-            'GroupControl' => ['caption' => 'Steuerung (Zwangsladen/-entladen, Speicherbetrieb, Vorabversion)', 'vars' => [
-                ['ctl_force_mode',   'Zwangsladen/-entladen', 'I', 'SLS.ForceMode',   false, 'control', 'RW 43135'],
-                ['ctl_force_w',      'Zwangsleistung (W)',    'I', 'SLS.WattInt',     false, 'control', 'RW 43136 (Laden) / 43129 (Entladen), x10 W'],
-                ['ctl_storage_mode', 'Speicherbetrieb',       'I', 'SLS.StorageMode', false, 'control', 'RW 43110 (nur Auswahl)'],
-                ['svc_grid_charge_w', 'Netzdienlich: Netzladen (W)', 'I', 'SLS.WattInt', false, 'control', 'Zwangsladen 43136/43135 = 1; 0 = Freigabe; Aufrufer schreibt alle <= 60 s neu (Zeitlimit ca. 182 s)'],
-                ['svc_discharge_to_grid_w', 'Netzdienlich: Entladen auf Vorgabe (W)', 'I', 'SLS.WattInt', false, 'control', 'Zwangsentladen 43129/43135 = 2; 0 = Freigabe; speist ein, wenn Vorgabe > Hausbedarf'],
-                ['svc_release', 'Netzdienlich: Freigeben (Automatik)', 'B', '~Switch', false, 'control', 'Zwangsmodus 43135 = 0 und "Akku halten" zurueck'],
-                ['svc_discharge_inhibit', 'Netzdienlich: Entladen sperren (Akku halten)', 'B', '~Switch', false, 'control', 'schreibt 43110 = 17 (Reserve ohne Netzladen), merkt den bisherigen Wert; aus = zurueck'],
-                ['svc_prev_storage', 'Gemerkter Speicherbetrieb (vor "Akku halten")', 'I', '', false, 'control', 'nur Anzeige'],
-                ['svc_prev_grid_storage', 'Gemerkter Speicherbetrieb (vor Netzladen)', 'I', '', false, 'control', 'nur Anzeige; svc_grid_charge_w schreibt 43110 mit Bit 5 (Netzladen erlaubt), svc_release stellt zurueck'],
-                ['ctl_max_charge_a', 'Max. Ladestrom (A)',    'F', 'SLS.AmpereSet',   false, 'control', 'RW 43012 (÷10), fest gespeichert'],
-                ['ctl_max_disch_a',  'Max. Entladestrom (A)', 'F', 'SLS.AmpereSet',   false, 'control', 'RW 43013 (÷10), fest gespeichert'],
+            'GroupControl' => ['caption' => 'Control (forced charging/discharging, storage mode, preview)', 'vars' => [
+                ['ctl_force_mode',   'Forced charge/discharge', 'I', 'SLS.ForceMode',   false, 'control', 'RW 43135'],
+                ['ctl_force_w',      'Forced power (W)',    'I', 'SLS.WattInt',     false, 'control', 'RW 43136 (charging) / 43129 (discharging), x10 W'],
+                ['ctl_storage_mode', 'Storage mode',       'I', 'SLS.StorageMode', false, 'control', 'RW 43110 (selection only)'],
+                ['svc_grid_charge_w', 'Grid-supportive: grid charging (W)', 'I', 'SLS.WattInt', false, 'control', 'Forced charging 43136/43135 = 1; 0 = release; caller rewrites every <= 60 s (time limit approx. 182 s)'],
+                ['svc_discharge_to_grid_w', 'Grid-supportive: discharge to setpoint (W)', 'I', 'SLS.WattInt', false, 'control', 'Zwangsentladen 43129/43135 = 2; 0 = Freigabe; speist ein, wenn Vorgabe > Hausbedarf'],
+                ['svc_release', 'Grid-supportive: release (automatic)', 'B', '~Switch', false, 'control', 'Forced mode 43135 = 0 and "hold battery" back'],
+                ['svc_discharge_inhibit', 'Grid-supportive: block discharging (hold battery)', 'B', '~Switch', false, 'control', 'writes 43110 = 17 (reserve without grid charging), remembers the previous value; off = back'],
+                ['svc_prev_storage', 'Remembered storage mode (before "hold battery")', 'I', '', false, 'control', 'display only'],
+                ['svc_prev_grid_storage', 'Remembered storage mode (before grid charging)', 'I', '', false, 'control', 'display only; svc_grid_charge_w writes 43110 with bit 5 (grid charging allowed), svc_release restores'],
+                ['ctl_max_charge_a', 'Max. charge current (A)',    'F', 'SLS.AmpereSet',   false, 'control', 'RW 43012 (÷10), fest gespeichert'],
+                ['ctl_max_disch_a',  'Max. discharge current (A)', 'F', 'SLS.AmpereSet',   false, 'control', 'RW 43013 (÷10), fest gespeichert'],
             ]],
-            'GroupSettings' => ['caption' => 'Einstellungen des Wechselrichters (nur lesen, Vorabversion)', 'vars' => [
-                ['cfg_storage_mode',     'Speicherbetrieb (Einstellung)',        'I', 'SLS.StorageMode', false, 'settings', 'HR 43110'],
-                ['cfg_force_mode',       'Zwangsladen/-entladen (Einstellung)',  'I', 'SLS.ForceMode',   false, 'settings', 'HR 43135'],
-                ['cfg_force_charge_w',   'Zwangs-Ladeleistung',                  'F', 'SLS.Watt',        false, 'settings', 'HR 43136 (x10 W)'],
-                ['cfg_force_disch_w',    'Zwangs-Entladeleistung',               'F', 'SLS.Watt',        false, 'settings', 'HR 43129 (x10 W)'],
-                ['cfg_charge_limit_w',   'Begrenzung Ladeleistung',              'F', 'SLS.Watt',        false, 'settings', 'HR 43130 (x10 W)'],
-                ['cfg_disch_limit_w',    'Begrenzung Entladeleistung',           'F', 'SLS.Watt',        false, 'settings', 'HR 43131 (x10 W)'],
-                ['cfg_grid_adjust',      'Netzabgleich (0 aus, 1 System, 2 WR)', 'I', '',                false, 'settings', 'HR 43132'],
-                ['cfg_soc_max',          'SOC Ladegrenze (Overcharge)',          'I', '~Intensity.100',  false, 'settings', 'HR 43010'],
-                ['cfg_soc_min',          'SOC Entladegrenze (Overdischarge)',    'I', '~Intensity.100',  false, 'settings', 'HR 43011'],
-                ['cfg_soc_forcecharge',  'SOC Zwangsladung',                     'I', '~Intensity.100',  false, 'settings', 'HR 43018'],
-                ['cfg_soc_backup',       'SOC Backup-Reserve',                   'I', '~Intensity.100',  false, 'settings', 'HR 43024'],
-                ['cfg_max_charge_a',     'Max. Ladestrom',                       'F', 'SLS.Ampere',      false, 'settings', 'HR 43012 (÷10)'],
-                ['cfg_max_disch_a',      'Max. Entladestrom',                    'F', 'SLS.Ampere',      false, 'settings', 'HR 43013 (÷10)'],
-                ['cfg_rc_timeout_min',   'Fernsteuer-Zeitlimit (Minuten)',       'I', '',                false, 'settings', 'HR 43282'],
+            'GroupSettings' => ['caption' => 'Inverter settings (read only, preview)', 'vars' => [
+                ['cfg_storage_mode',     'Storage mode (setting)',        'I', 'SLS.StorageMode', false, 'settings', 'HR 43110'],
+                ['cfg_force_mode',       'Forced charge/discharge (setting)',  'I', 'SLS.ForceMode',   false, 'settings', 'HR 43135'],
+                ['cfg_force_charge_w',   'Forced charge power',                  'F', 'SLS.Watt',        false, 'settings', 'HR 43136 (x10 W)'],
+                ['cfg_force_disch_w',    'Forced discharge power',               'F', 'SLS.Watt',        false, 'settings', 'HR 43129 (x10 W)'],
+                ['cfg_charge_limit_w',   'Charge power limit',              'F', 'SLS.Watt',        false, 'settings', 'HR 43130 (x10 W)'],
+                ['cfg_disch_limit_w',    'Discharge power limit',           'F', 'SLS.Watt',        false, 'settings', 'HR 43131 (x10 W)'],
+                ['cfg_grid_adjust',      'Grid balancing (0 off, 1 system, 2 inverter)', 'I', '',                false, 'settings', 'HR 43132'],
+                ['cfg_soc_max',          'SOC charge limit (overcharge)',          'I', '~Intensity.100',  false, 'settings', 'HR 43010'],
+                ['cfg_soc_min',          'SOC discharge limit (overdischarge)',    'I', '~Intensity.100',  false, 'settings', 'HR 43011'],
+                ['cfg_soc_forcecharge',  'SOC forced charge',                     'I', '~Intensity.100',  false, 'settings', 'HR 43018'],
+                ['cfg_soc_backup',       'SOC backup reserve',                   'I', '~Intensity.100',  false, 'settings', 'HR 43024'],
+                ['cfg_max_charge_a',     'Max. charge current',                       'F', 'SLS.Ampere',      false, 'settings', 'HR 43012 (÷10)'],
+                ['cfg_max_disch_a',      'Max. discharge current',                    'F', 'SLS.Ampere',      false, 'settings', 'HR 43013 (÷10)'],
+                ['cfg_rc_timeout_min',   'Remote control timeout (minutes)',       'I', '',                false, 'settings', 'HR 43282'],
             ]],
-            'GroupMeter' => ['caption' => 'Smart Meter (Spannung, Strom je Phase)', 'vars' => [
-                ['mt_l1_volt', 'Meter L1 Spannung', 'F', 'SLS.Volt',   false, 'meter', 'RO 33251'],
-                ['mt_l2_volt', 'Meter L2 Spannung', 'F', 'SLS.Volt',   false, 'meter', 'RO 33253'],
-                ['mt_l3_volt', 'Meter L3 Spannung', 'F', 'SLS.Volt',   false, 'meter', 'RO 33255'],
-                ['mt_l1_curr', 'Meter L1 Strom', 'F', 'SLS.Ampere', false, 'meter', 'RO 33252 (÷100)'],
-                ['mt_l2_curr', 'Meter L2 Strom', 'F', 'SLS.Ampere', false, 'meter', 'RO 33254 (÷100)'],
-                ['mt_l3_curr', 'Meter L3 Strom', 'F', 'SLS.Ampere', false, 'meter', 'RO 33256 (÷100)'],
-                ['mt_l1_pwr', 'Meter L1 Leistung (+ Einspeisung / − Bezug)', 'F', 'SLS.Watt', true, 'meter', 'RO 33257-33258'],
-                ['mt_l2_pwr', 'Meter L2 Leistung (+ Einspeisung / − Bezug)', 'F', 'SLS.Watt', true, 'meter', 'RO 33259-33260'],
-                ['mt_l3_pwr', 'Meter L3 Leistung (+ Einspeisung / − Bezug)', 'F', 'SLS.Watt', true, 'meter', 'RO 33261-33262'],
-                ['mt_total_pwr', 'Meter Gesamtleistung (+ Einspeisung / − Bezug)', 'F', 'SLS.Watt', true, 'meter', 'RO 33263-33264'],
+            'GroupMeter' => ['caption' => 'Smart meter (voltage, current per phase)', 'vars' => [
+                ['mt_l1_volt', 'Meter L1 voltage', 'F', 'SLS.Volt',   false, 'meter', 'RO 33251'],
+                ['mt_l2_volt', 'Meter L2 voltage', 'F', 'SLS.Volt',   false, 'meter', 'RO 33253'],
+                ['mt_l3_volt', 'Meter L3 voltage', 'F', 'SLS.Volt',   false, 'meter', 'RO 33255'],
+                ['mt_l1_curr', 'Meter L1 current', 'F', 'SLS.Ampere', false, 'meter', 'RO 33252 (÷100)'],
+                ['mt_l2_curr', 'Meter L2 current', 'F', 'SLS.Ampere', false, 'meter', 'RO 33254 (÷100)'],
+                ['mt_l3_curr', 'Meter L3 current', 'F', 'SLS.Ampere', false, 'meter', 'RO 33256 (÷100)'],
+                ['mt_l1_pwr', 'Meter L1 power (+ feed-in / − import)', 'F', 'SLS.Watt', true, 'meter', 'RO 33257-33258'],
+                ['mt_l2_pwr', 'Meter L2 power (+ feed-in / − import)', 'F', 'SLS.Watt', true, 'meter', 'RO 33259-33260'],
+                ['mt_l3_pwr', 'Meter L3 power (+ feed-in / − import)', 'F', 'SLS.Watt', true, 'meter', 'RO 33261-33262'],
+                ['mt_total_pwr', 'Meter total power (+ feed-in / − import)', 'F', 'SLS.Watt', true, 'meter', 'RO 33263-33264'],
             ]],
-            'GroupBackup' => ['caption' => 'Backup / Insel (Spannung, Strom je Phase)', 'vars' => [
-                ['backup_l1_volt', 'Backup Spannung L1', 'F', 'SLS.Volt',   false, 'backup', 'RO 33137'],
-                ['backup_l1_curr', 'Backup Strom L1',    'F', 'SLS.Ampere', false, 'backup', 'RO 33138'],
-                ['backup_l2_volt', 'Backup Spannung L2', 'F', 'SLS.Volt',   false, 'backup', 'RO 33153'],
-                ['backup_l2_curr', 'Backup Strom L2',    'F', 'SLS.Ampere', false, 'backup', 'RO 33154'],
-                ['backup_l3_volt', 'Backup Spannung L3', 'F', 'SLS.Volt',   false, 'backup', 'RO 33155'],
-                ['backup_l3_curr', 'Backup Strom L3',    'F', 'SLS.Ampere', false, 'backup', 'RO 33156'],
+            'GroupBackup' => ['caption' => 'Backup / island (voltage, current per phase)', 'vars' => [
+                ['backup_l1_volt', 'Backup voltage L1', 'F', 'SLS.Volt',   false, 'backup', 'RO 33137'],
+                ['backup_l1_curr', 'Backup current L1',    'F', 'SLS.Ampere', false, 'backup', 'RO 33138'],
+                ['backup_l2_volt', 'Backup voltage L2', 'F', 'SLS.Volt',   false, 'backup', 'RO 33153'],
+                ['backup_l2_curr', 'Backup current L2',    'F', 'SLS.Ampere', false, 'backup', 'RO 33154'],
+                ['backup_l3_volt', 'Backup voltage L3', 'F', 'SLS.Volt',   false, 'backup', 'RO 33155'],
+                ['backup_l3_curr', 'Backup current L3',    'F', 'SLS.Ampere', false, 'backup', 'RO 33156'],
             ]],
-            'GroupStatus' => ['caption' => 'Status und Fehler (Betriebsstatus, BMS, Fehlercodes)', 'vars' => [
-                ['op_status',   'Betriebsstatus',        'I', 'SLS.OpStatus',  true,  'device', 'RO 33287'],
-                ['bms_status',  'BMS-Status',            'I', 'SLS.BmsStatus', true,  'errors', 'RO 33111'],
-                ['fault_code',  'Fehlercode',            'I', '',              true,  'errors', 'RO 33116-33120, 33124-33125 (erster)'],
-                ['fault_text',  'Fehler Detail',         'S', '',              false, 'errors', 'RO 33116-33120, 33124-33125 (alle)'],
+            'GroupStatus' => ['caption' => 'Status and errors (operating status, BMS, error codes)', 'vars' => [
+                ['op_status',   'Operating status',        'I', 'SLS.OpStatus',  true,  'device', 'RO 33287'],
+                ['bms_status',  'BMS status',            'I', 'SLS.BmsStatus', true,  'errors', 'RO 33111'],
+                ['fault_code',  'Error code',            'I', '',              true,  'errors', 'RO 33116-33120, 33124-33125 (erster)'],
+                ['fault_text',  'Error detail',         'S', '',              false, 'errors', 'RO 33116-33120, 33124-33125 (alle)'],
             ]],
-            'GroupTemp' => ['caption' => 'Temperatur', 'vars' => [
-                ['temp_inv', 'Wechselrichter-Temperatur', 'F', '~Temperature', false, 'device', 'RO 33093'],
+            'GroupTemp' => ['caption' => 'Temperature', 'vars' => [
+                ['temp_inv', 'Inverter temperature', 'F', '~Temperature', false, 'device', 'RO 33093'],
             ]],
-            'GroupEnergy' => ['caption' => 'Energiezähler (PV, Batterie, Netz, Verbrauch)', 'vars' => [
-                ['e_pv_day',       'PV Heute',            'F', '~Electricity', true, 'energy', 'RO 33035'],
-                ['e_pv_total',     'PV Gesamt',           'F', '~Electricity', true, 'energy', 'RO 33029-33030 (U32, kWh)'],
-                ['e_charge_day',   'Bat. Laden Heute',    'F', '~Electricity', true, 'energy', 'RO 33163'],
-                ['e_charge_total', 'Bat. Laden Gesamt',   'F', '~Electricity', true, 'energy', 'RO 33161-33162 (U32, kWh)'],
-                ['e_disch_day',    'Bat. Entl. Heute',    'F', '~Electricity', true, 'energy', 'RO 33167'],
-                ['e_disch_total',  'Bat. Entl. Gesamt',   'F', '~Electricity', true, 'energy', 'RO 33165-33166 (U32, kWh)'],
-                ['e_buy_day',      'Bezug Heute',         'F', '~Electricity', true, 'energy', 'RO 33171'],
-                ['e_buy_total',    'Bezug Gesamt',        'F', '~Electricity', true, 'energy', 'RO 33169-33170 (U32, kWh)'],
-                ['e_sell_day',     'Einspeisung Heute',   'F', '~Electricity', true, 'energy', 'RO 33175'],
-                ['e_sell_total',   'Einspeisung Gesamt',  'F', '~Electricity', true, 'energy', 'RO 33173-33174 (U32, kWh)'],
-                ['e_load_day',     'Last Heute (Netz + Backup)', 'F', '~Electricity', true, 'energy', 'RO 33179'],
-                ['e_load_total',   'Last Gesamt (Netz + Backup)', 'F', '~Electricity', true, 'energy', 'RO 33177-33178 (U32, kWh)'],
+            'GroupEnergy' => ['caption' => 'Energy meters (PV, battery, grid, consumption)', 'vars' => [
+                ['e_pv_day',       'PV today',            'F', '~Electricity', true, 'energy', 'RO 33035'],
+                ['e_pv_total',     'PV total',           'F', '~Electricity', true, 'energy', 'RO 33029-33030 (U32, kWh)'],
+                ['e_charge_day',   'Bat. charge today',    'F', '~Electricity', true, 'energy', 'RO 33163'],
+                ['e_charge_total', 'Bat. charge total',   'F', '~Electricity', true, 'energy', 'RO 33161-33162 (U32, kWh)'],
+                ['e_disch_day',    'Bat. discharge today',    'F', '~Electricity', true, 'energy', 'RO 33167'],
+                ['e_disch_total',  'Bat. discharge total',   'F', '~Electricity', true, 'energy', 'RO 33165-33166 (U32, kWh)'],
+                ['e_buy_day',      'Import today',         'F', '~Electricity', true, 'energy', 'RO 33171'],
+                ['e_buy_total',    'Import total',        'F', '~Electricity', true, 'energy', 'RO 33169-33170 (U32, kWh)'],
+                ['e_sell_day',     'Feed-in today',   'F', '~Electricity', true, 'energy', 'RO 33175'],
+                ['e_sell_total',   'Feed-in total',  'F', '~Electricity', true, 'energy', 'RO 33173-33174 (U32, kWh)'],
+                ['e_load_day',     'Load today (grid + backup)', 'F', '~Electricity', true, 'energy', 'RO 33179'],
+                ['e_load_total',   'Load total (grid + backup)', 'F', '~Electricity', true, 'energy', 'RO 33177-33178 (U32, kWh)'],
             ]],
-            'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
-                ['dev_model', 'Modell-Nr.', 'I', '', false, 'device', 'RO 33000'],
-                ['dev_sn',    'Seriennummer', 'S', '', false, 'device', 'RO 33004-33019'],
+            'GroupDevice' => ['caption' => 'Device information', 'vars' => [
+                ['dev_model', 'Model no.', 'I', '', false, 'device', 'RO 33000'],
+                ['dev_sn',    'Serial number', 'S', '', false, 'device', 'RO 33004-33019'],
                 ['dev_fw_dsp', 'Firmware DSP', 'I', '', false, 'device', 'RO 33001'],
                 ['dev_fw_hmi', 'Firmware HMI', 'I', '', false, 'device', 'RO 33002'],
             ]],
@@ -2019,10 +2019,10 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
 
     // Speicherbetrieb laut Register 43110 (Bitfeld, Werte aus dem wills106-Plugin und der Solis-Doku).
     const STORAGE_MODES = [
-        1 => 'Eigenverbrauch, kein Netzladen', 3 => 'Zeitladen, kein Netzladen', 17 => 'Backup/Reserve, kein Netzladen',
-        33 => 'Eigenverbrauch, ohne Zeitladen', 35 => 'Eigenverbrauch', 37 => 'Inselbetrieb', 41 => 'Batterie wecken',
-        43 => 'Batterie wecken + Zeitladen', 49 => 'Backup/Reserve, ohne Zeitladen', 51 => 'Backup/Reserve',
-        64 => 'Einspeisevorrang, kein Netzladen', 96 => 'Einspeisevorrang, ohne Zeitladen', 98 => 'Einspeisevorrang',
+        1 => 'Self-consumption, no grid charging', 3 => 'Time charging, no grid charging', 17 => 'Backup/reserve, no grid charging',
+        33 => 'Self-consumption, without time charging', 35 => 'Own consumption', 37 => 'Island mode', 41 => 'Wake battery',
+        43 => 'Wake battery + time charging', 49 => 'Backup/reserve, without time charging', 51 => 'Backup/reserve',
+        64 => 'Feed-in priority, no grid charging', 96 => 'Feed-in priority, without time charging', 98 => 'Feed-in priority',
     ];
 
     public function getEnumProfiles()
@@ -2033,12 +2033,12 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
         }
         return [
             'SLS.StorageMode' => $modes,
-            'SLS.ForceMode'   => [0 => ['Aus', 0x7A8A99], 1 => ['Laden', 0x3BA55D], 2 => ['Entladen', 0xE08A2B]],
-            'SLS.BatMode'     => [0 => ['Standby', 0x7A8A99], 1 => ['Laden', 0x3BA55D], 2 => ['Entladen', 0xE08A2B]],
-            'SLS.GridMode'    => [0 => ['Ausgeglichen', 0x7A8A99], 1 => ['Einspeisung', 0x3BA55D], 2 => ['Bezug', 0xE08A2B]],
-            'SLS.OpStatus'    => [0 => ['Stopp', 0x7A8A99], 1 => ['Leerlauf', 0x7A8A99], 2 => ['Sanftanlauf', 0xE08A2B], 3 => ['Netzbetrieb', 0x3BA55D],
-                                  4 => ['Inselbetrieb', 0xE08A2B], 5 => ['Übergang Insel → Netz', 0xE08A2B], 6 => ['Backup-Bypass', 0xE08A2B], 7 => ['Generatorbetrieb', 0xE08A2B]],
-            'SLS.BmsStatus'   => [0 => ['Normal', 0x3BA55D], 1 => ['Kommunikation gestört', 0xC0392B], 2 => ['Warnung', 0xE08A2B]],
+            'SLS.ForceMode'   => [0 => ['Off', 0x7A8A99], 1 => ['Charge', 0x3BA55D], 2 => ['Discharge', 0xE08A2B]],
+            'SLS.BatMode'     => [0 => ['Standby', 0x7A8A99], 1 => ['Charge', 0x3BA55D], 2 => ['Discharge', 0xE08A2B]],
+            'SLS.GridMode'    => [0 => ['Balanced', 0x7A8A99], 1 => ['Feed-in', 0x3BA55D], 2 => ['Import', 0xE08A2B]],
+            'SLS.OpStatus'    => [0 => ['Stop', 0x7A8A99], 1 => ['Idle', 0x7A8A99], 2 => ['Soft start', 0xE08A2B], 3 => ['Grid operation', 0x3BA55D],
+                                  4 => ['Island mode', 0xE08A2B], 5 => ['Transition island → grid', 0xE08A2B], 6 => ['Backup bypass', 0xE08A2B], 7 => ['Generator operation', 0xE08A2B]],
+            'SLS.BmsStatus'   => [0 => ['Normal', 0x3BA55D], 1 => ['Communication disturbed', 0xC0392B], 2 => ['Warning', 0xE08A2B]],
         ];
     }
 
@@ -2391,7 +2391,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
         $err = '';
         for ($try = 0; $try < 2; $try++) {
             if (!$mb->writeSingle($reg, $value)) {
-                $err = isset($mb->lastError) && $mb->lastError !== '' ? $mb->lastError : 'Schreiben fehlgeschlagen';
+                $err = isset($mb->lastError) && $mb->lastError !== '' ? $mb->lastError : IHUB_Text::t('write failed');
                 continue;
             }
             usleep(400000);
@@ -2400,7 +2400,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 $err = '';
                 return true;
             }
-            $err = ($r === null) ? 'Zuruecklesen ohne Antwort' : 'Geraet bestaetigt, hat aber ' . $mb->u16($r, 0) . ' statt ' . $value . ' gespeichert';
+            $err = ($r === null) ? IHUB_Text::t('read-back without answer') : IHUB_Text::t('device acknowledged, but stored %s instead of %s', $mb->u16($r, 0), $value);
         }
         return false;
     }
@@ -2634,57 +2634,57 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
 
 class IHUB_GrowattDriver implements IHUB_InverterDriverInterface
 {
-    const STATUS = [0 => 'Warte', 1 => 'Normal', 3 => 'Fehler'];
+    const STATUS = [0 => 'Wait', 1 => 'Normal', 3 => 'Fault'];
 
     public function getBaseVars()
     {
         return [
-            ['connected',  'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
-            ['status',     'Betriebsstatus',    'I', 'GRW.Status',       true,  'device', 'Input 0'],
-            ['pv_total',   'PV Gesamtleistung', 'F', 'GRW.Watt',         true,  'pv',     'Input 1-2'],
-            ['ac_power',   'AC Wirkleistung',   'F', 'GRW.Watt',         true,  'device', 'Input 35-36'],
-            ['grid_freq',  'Netzfrequenz',      'F', 'GRW.Hertz',        false, 'grid',   'Input 37'],
+            ['connected',  'Connection',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['status',     'Operating status',    'I', 'GRW.Status',       true,  'device', 'Input 0'],
+            ['pv_total',   'PV total power', 'F', 'GRW.Watt',         true,  'pv',     'Input 1-2'],
+            ['ac_power',   'AC active power',   'F', 'GRW.Watt',         true,  'device', 'Input 35-36'],
+            ['grid_freq',  'Grid frequency',      'F', 'GRW.Hertz',        false, 'grid',   'Input 37'],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupRiso' => ['caption' => 'Isolationswiderstand (modellabhängig — nur bei manchen Modellen belegt)', 'vars' => [
-                ['riso', 'Isolationswiderstand', 'F', 'GRW.KOhm', true, 'pv', 'Input 200 (kΩ, modellabhängig)'],
+            'GroupRiso' => ['caption' => 'Insulation resistance (model-dependent — only populated on some models)', 'vars' => [
+                ['riso', 'Insulation resistance', 'F', 'GRW.KOhm', true, 'pv', 'Input 200 (kΩ, model-dependent)'],
             ]],
-            'GroupPV' => ['caption' => 'PV-Details (String 1-3, Spannung/Strom/Leistung)', 'vars' => [
-                ['pv1_volt', 'PV1 Spannung', 'F', 'GRW.Volt',   false, 'pv', 'Input 3'],
-                ['pv1_curr', 'PV1 Strom',    'F', 'GRW.Ampere', false, 'pv', 'Input 4'],
-                ['pv1_power','PV1 Leistung', 'F', 'GRW.Watt',   true,  'pv', 'Input 5-6'],
-                ['pv2_volt', 'PV2 Spannung', 'F', 'GRW.Volt',   false, 'pv', 'Input 7'],
-                ['pv2_curr', 'PV2 Strom',    'F', 'GRW.Ampere', false, 'pv', 'Input 8'],
-                ['pv2_power','PV2 Leistung', 'F', 'GRW.Watt',   true,  'pv', 'Input 9-10'],
-                ['pv3_volt', 'PV3 Spannung', 'F', 'GRW.Volt',   false, 'pv', 'Input 11'],
-                ['pv3_curr', 'PV3 Strom',    'F', 'GRW.Ampere', false, 'pv', 'Input 12'],
-                ['pv3_power','PV3 Leistung', 'F', 'GRW.Watt',   true,  'pv', 'Input 13-14'],
+            'GroupPV' => ['caption' => 'PV details (string 1-3, voltage/current/power)', 'vars' => [
+                ['pv1_volt', 'PV1 voltage', 'F', 'GRW.Volt',   false, 'pv', 'Input 3'],
+                ['pv1_curr', 'PV1 current',    'F', 'GRW.Ampere', false, 'pv', 'Input 4'],
+                ['pv1_power','PV1 power', 'F', 'GRW.Watt',   true,  'pv', 'Input 5-6'],
+                ['pv2_volt', 'PV2 voltage', 'F', 'GRW.Volt',   false, 'pv', 'Input 7'],
+                ['pv2_curr', 'PV2 current',    'F', 'GRW.Ampere', false, 'pv', 'Input 8'],
+                ['pv2_power','PV2 power', 'F', 'GRW.Watt',   true,  'pv', 'Input 9-10'],
+                ['pv3_volt', 'PV3 voltage', 'F', 'GRW.Volt',   false, 'pv', 'Input 11'],
+                ['pv3_curr', 'PV3 current',    'F', 'GRW.Ampere', false, 'pv', 'Input 12'],
+                ['pv3_power','PV3 power', 'F', 'GRW.Watt',   true,  'pv', 'Input 13-14'],
             ]],
-            'GroupGrid' => ['caption' => 'Netz (Spannung, Strom, Leistung je Phase)', 'vars' => [
-                ['vac1', 'Netz L1 Spannung', 'F', 'GRW.Volt',   false, 'grid', 'Input 38'],
-                ['iac1', 'Netz L1 Strom',    'F', 'GRW.Ampere', false, 'grid', 'Input 39'],
-                ['pac1', 'Netz L1 Leistung', 'F', 'GRW.Watt',   true,  'grid', 'Input 40-41'],
-                ['vac2', 'Netz L2 Spannung', 'F', 'GRW.Volt',   false, 'grid', 'Input 42'],
-                ['iac2', 'Netz L2 Strom',    'F', 'GRW.Ampere', false, 'grid', 'Input 43'],
-                ['pac2', 'Netz L2 Leistung', 'F', 'GRW.Watt',   true,  'grid', 'Input 44-45'],
-                ['vac3', 'Netz L3 Spannung', 'F', 'GRW.Volt',   false, 'grid', 'Input 46'],
-                ['iac3', 'Netz L3 Strom',    'F', 'GRW.Ampere', false, 'grid', 'Input 47'],
-                ['pac3', 'Netz L3 Leistung', 'F', 'GRW.Watt',   true,  'grid', 'Input 48-49'],
+            'GroupGrid' => ['caption' => 'Grid (voltage, current, power per phase)', 'vars' => [
+                ['vac1', 'Grid L1 voltage', 'F', 'GRW.Volt',   false, 'grid', 'Input 38'],
+                ['iac1', 'Grid L1 current',    'F', 'GRW.Ampere', false, 'grid', 'Input 39'],
+                ['pac1', 'Grid L1 power', 'F', 'GRW.Watt',   true,  'grid', 'Input 40-41'],
+                ['vac2', 'Grid L2 voltage', 'F', 'GRW.Volt',   false, 'grid', 'Input 42'],
+                ['iac2', 'Grid L2 current',    'F', 'GRW.Ampere', false, 'grid', 'Input 43'],
+                ['pac2', 'Grid L2 power', 'F', 'GRW.Watt',   true,  'grid', 'Input 44-45'],
+                ['vac3', 'Grid L3 voltage', 'F', 'GRW.Volt',   false, 'grid', 'Input 46'],
+                ['iac3', 'Grid L3 current',    'F', 'GRW.Ampere', false, 'grid', 'Input 47'],
+                ['pac3', 'Grid L3 power', 'F', 'GRW.Watt',   true,  'grid', 'Input 48-49'],
             ]],
-            'GroupEnergy' => ['caption' => 'Energiezähler (Tag/Gesamt)', 'vars' => [
-                ['e_day',   'Ertrag Heute',  'F', '~Electricity', true, 'energy', 'Input 53-54'],
-                ['e_total', 'Ertrag Gesamt', 'F', '~Electricity', true, 'energy', 'Input 55-56'],
+            'GroupEnergy' => ['caption' => 'Energy meters (day/total)', 'vars' => [
+                ['e_day',   'Yield today',  'F', '~Electricity', true, 'energy', 'Input 53-54'],
+                ['e_total', 'Yield total', 'F', '~Electricity', true, 'energy', 'Input 55-56'],
             ]],
-            'GroupTemp' => ['caption' => 'Temperatur', 'vars' => [
-                ['temp1', 'Wechselrichter-Temperatur', 'F', '~Temperature', false, 'device', 'Input 93'],
+            'GroupTemp' => ['caption' => 'Temperature', 'vars' => [
+                ['temp1', 'Inverter temperature', 'F', '~Temperature', false, 'device', 'Input 93'],
             ]],
-            'GroupErrors' => ['caption' => 'Fehlercodes', 'vars' => [
-                ['fault_main', 'Fehler-Hauptcode', 'I', '', true, 'errors', 'Input 105'],
-                ['fault_sub',  'Fehler-Subcode',   'I', '', true, 'errors', 'Input 107'],
+            'GroupErrors' => ['caption' => 'Error codes', 'vars' => [
+                ['fault_main', 'Main error code', 'I', '', true, 'errors', 'Input 105'],
+                ['fault_sub',  'Error subcode',   'I', '', true, 'errors', 'Input 107'],
             ]],
         ];
     }
@@ -2807,11 +2807,11 @@ class IHUB_SolaxDriver implements IHUB_InverterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['connected',   'Verbindung',         'B', '~Alert.Reversed', false, 'errors', ''],
-            ['grid_status', 'Netzstatus',         'I', 'SLX.GridStatus',  false, 'grid',   'RO 0x001A'],
-            ['pv_total',    'PV Gesamtleistung',  'F', 'SLX.Watt',        true,  'pv',     'RO 0x0032-0x0033'],
-            ['ongrid_total','On-Grid Gesamtleistung', 'F', 'SLX.Watt',    true,  'device', 'RO 0x0034-0x0035'],
-            ['bat_power',   'Bat. Leistung',      'F', 'SLX.Watt',        true,  'bat',    'RO 0x0038-0x0039'],
+            ['connected',   'Connection',         'B', '~Alert.Reversed', false, 'errors', ''],
+            ['grid_status', 'Grid status',         'I', 'SLX.GridStatus',  false, 'grid',   'RO 0x001A'],
+            ['pv_total',    'PV total power',  'F', 'SLX.Watt',        true,  'pv',     'RO 0x0032-0x0033'],
+            ['ongrid_total','On-grid total power', 'F', 'SLX.Watt',    true,  'device', 'RO 0x0034-0x0035'],
+            ['bat_power',   'Bat. power',      'F', 'SLX.Watt',        true,  'bat',    'RO 0x0038-0x0039'],
             ['bat_soc',     'Bat. SOC',           'I', '~Battery.100',    true,  'bat',    'RO 0x003C'],
         ];
     }
@@ -2819,58 +2819,58 @@ class IHUB_SolaxDriver implements IHUB_InverterDriverInterface
     public function getOptionalGroups()
     {
         return [
-            'GroupPV' => ['caption' => 'PV-Details (bis zu 6 Strings)', 'vars' => [
-                ['pv1_volt', 'PV1 Spannung', 'F', 'SLX.Volt',   false, 'pv', 'RO 0x0003'],
-                ['pv1_curr', 'PV1 Strom',    'F', 'SLX.Ampere', false, 'pv', 'RO 0x0005'],
-                ['pv1_power','PV1 Leistung', 'F', 'SLX.Watt',   true,  'pv', 'RO 0x000A'],
-                ['pv2_volt', 'PV2 Spannung', 'F', 'SLX.Volt',   false, 'pv', 'RO 0x0004'],
-                ['pv2_curr', 'PV2 Strom',    'F', 'SLX.Ampere', false, 'pv', 'RO 0x0006'],
-                ['pv2_power','PV2 Leistung', 'F', 'SLX.Watt',   true,  'pv', 'RO 0x000B'],
-                ['pv3_volt', 'PV3 Spannung', 'F', 'SLX.Volt',   false, 'pv', 'RO 0x0122'],
-                ['pv3_curr', 'PV3 Strom',    'F', 'SLX.Ampere', false, 'pv', 'RO 0x0123'],
-                ['pv3_power','PV3 Leistung', 'F', 'SLX.Watt',   true,  'pv', 'RO 0x0124'],
-                ['pv4_volt', 'PV4 Spannung', 'F', 'SLX.Volt',   false, 'pv', 'RO 0x0028'],
-                ['pv5_volt', 'PV5 Spannung', 'F', 'SLX.Volt',   false, 'pv', 'RO 0x0029'],
-                ['pv6_volt', 'PV6 Spannung', 'F', 'SLX.Volt',   false, 'pv', 'RO 0x002A'],
-                ['pv4_curr', 'PV4 Strom',    'F', 'SLX.Ampere', false, 'pv', 'RO 0x002B'],
-                ['pv5_curr', 'PV5 Strom',    'F', 'SLX.Ampere', false, 'pv', 'RO 0x002C'],
-                ['pv6_curr', 'PV6 Strom',    'F', 'SLX.Ampere', false, 'pv', 'RO 0x002D'],
-                ['pv4_power','PV4 Leistung', 'F', 'SLX.Watt',   true,  'pv', 'RO 0x002E'],
-                ['pv5_power','PV5 Leistung', 'F', 'SLX.Watt',   true,  'pv', 'RO 0x002F'],
-                ['pv6_power','PV6 Leistung', 'F', 'SLX.Watt',   true,  'pv', 'RO 0x0030'],
+            'GroupPV' => ['caption' => 'PV details (up to 6 strings)', 'vars' => [
+                ['pv1_volt', 'PV1 voltage', 'F', 'SLX.Volt',   false, 'pv', 'RO 0x0003'],
+                ['pv1_curr', 'PV1 current',    'F', 'SLX.Ampere', false, 'pv', 'RO 0x0005'],
+                ['pv1_power','PV1 power', 'F', 'SLX.Watt',   true,  'pv', 'RO 0x000A'],
+                ['pv2_volt', 'PV2 voltage', 'F', 'SLX.Volt',   false, 'pv', 'RO 0x0004'],
+                ['pv2_curr', 'PV2 current',    'F', 'SLX.Ampere', false, 'pv', 'RO 0x0006'],
+                ['pv2_power','PV2 power', 'F', 'SLX.Watt',   true,  'pv', 'RO 0x000B'],
+                ['pv3_volt', 'PV3 voltage', 'F', 'SLX.Volt',   false, 'pv', 'RO 0x0122'],
+                ['pv3_curr', 'PV3 current',    'F', 'SLX.Ampere', false, 'pv', 'RO 0x0123'],
+                ['pv3_power','PV3 power', 'F', 'SLX.Watt',   true,  'pv', 'RO 0x0124'],
+                ['pv4_volt', 'PV4 voltage', 'F', 'SLX.Volt',   false, 'pv', 'RO 0x0028'],
+                ['pv5_volt', 'PV5 voltage', 'F', 'SLX.Volt',   false, 'pv', 'RO 0x0029'],
+                ['pv6_volt', 'PV6 voltage', 'F', 'SLX.Volt',   false, 'pv', 'RO 0x002A'],
+                ['pv4_curr', 'PV4 current',    'F', 'SLX.Ampere', false, 'pv', 'RO 0x002B'],
+                ['pv5_curr', 'PV5 current',    'F', 'SLX.Ampere', false, 'pv', 'RO 0x002C'],
+                ['pv6_curr', 'PV6 current',    'F', 'SLX.Ampere', false, 'pv', 'RO 0x002D'],
+                ['pv4_power','PV4 power', 'F', 'SLX.Watt',   true,  'pv', 'RO 0x002E'],
+                ['pv5_power','PV5 power', 'F', 'SLX.Watt',   true,  'pv', 'RO 0x002F'],
+                ['pv6_power','PV6 power', 'F', 'SLX.Watt',   true,  'pv', 'RO 0x0030'],
             ]],
-            'GroupGridX1' => ['caption' => 'Netz einphasig (X1-Modelle)', 'vars' => [
-                ['grid_volt', 'Netz Spannung',  'F', 'SLX.Volt',   false, 'grid', 'RO 0x0000'],
-                ['grid_curr', 'Netz Strom',     'F', 'SLX.Ampere', false, 'grid', 'RO 0x0001'],
-                ['grid_pwr',  'Netz Leistung',  'F', 'SLX.Watt',   true,  'grid', 'RO 0x0002'],
-                ['grid_freq', 'Netzfrequenz',   'F', 'SLX.Hertz',  false, 'grid', 'RO 0x0007'],
+            'GroupGridX1' => ['caption' => 'Grid single-phase (X1 models)', 'vars' => [
+                ['grid_volt', 'Grid voltage',  'F', 'SLX.Volt',   false, 'grid', 'RO 0x0000'],
+                ['grid_curr', 'Grid current',     'F', 'SLX.Ampere', false, 'grid', 'RO 0x0001'],
+                ['grid_pwr',  'Grid power',  'F', 'SLX.Watt',   true,  'grid', 'RO 0x0002'],
+                ['grid_freq', 'Grid frequency',   'F', 'SLX.Hertz',  false, 'grid', 'RO 0x0007'],
             ]],
-            'GroupGridX3' => ['caption' => 'Netz dreiphasig (X3-Modelle)', 'vars' => [
-                ['grid_r_volt', 'Netz R Spannung', 'F', 'SLX.Volt',   false, 'grid', 'RO 0x006A'],
-                ['grid_r_curr', 'Netz R Strom',    'F', 'SLX.Ampere', false, 'grid', 'RO 0x006B'],
-                ['grid_r_pwr',  'Netz R Leistung', 'F', 'SLX.Watt',   true,  'grid', 'RO 0x006C'],
-                ['grid_s_volt', 'Netz S Spannung', 'F', 'SLX.Volt',   false, 'grid', 'RO 0x006E'],
-                ['grid_s_curr', 'Netz S Strom',    'F', 'SLX.Ampere', false, 'grid', 'RO 0x006F'],
-                ['grid_s_pwr',  'Netz S Leistung', 'F', 'SLX.Watt',   true,  'grid', 'RO 0x0070'],
-                ['grid_t_volt', 'Netz T Spannung', 'F', 'SLX.Volt',   false, 'grid', 'RO 0x0072'],
-                ['grid_t_curr', 'Netz T Strom',    'F', 'SLX.Ampere', false, 'grid', 'RO 0x0073'],
-                ['grid_t_pwr',  'Netz T Leistung', 'F', 'SLX.Watt',   true,  'grid', 'RO 0x0074'],
+            'GroupGridX3' => ['caption' => 'Grid three-phase (X3 models)', 'vars' => [
+                ['grid_r_volt', 'Grid R voltage', 'F', 'SLX.Volt',   false, 'grid', 'RO 0x006A'],
+                ['grid_r_curr', 'Grid R current',    'F', 'SLX.Ampere', false, 'grid', 'RO 0x006B'],
+                ['grid_r_pwr',  'Grid R power', 'F', 'SLX.Watt',   true,  'grid', 'RO 0x006C'],
+                ['grid_s_volt', 'Grid S voltage', 'F', 'SLX.Volt',   false, 'grid', 'RO 0x006E'],
+                ['grid_s_curr', 'Grid S current',    'F', 'SLX.Ampere', false, 'grid', 'RO 0x006F'],
+                ['grid_s_pwr',  'Grid S power', 'F', 'SLX.Watt',   true,  'grid', 'RO 0x0070'],
+                ['grid_t_volt', 'Grid T voltage', 'F', 'SLX.Volt',   false, 'grid', 'RO 0x0072'],
+                ['grid_t_curr', 'Grid T current',    'F', 'SLX.Ampere', false, 'grid', 'RO 0x0073'],
+                ['grid_t_pwr',  'Grid T power', 'F', 'SLX.Watt',   true,  'grid', 'RO 0x0074'],
             ]],
-            'GroupBat' => ['caption' => 'Batterie-Systemwerte (Gesamt)', 'vars' => [
-                ['bat_capacity', 'Bat. installierte Kapazität', 'F', '~Electricity', false, 'bat', 'RO 0x003A-0x003B'],
+            'GroupBat' => ['caption' => 'Battery system values (total)', 'vars' => [
+                ['bat_capacity', 'Bat. installed capacity', 'F', '~Electricity', false, 'bat', 'RO 0x003A-0x003B'],
                 ['bat_soh',      'Bat. SOH', 'I', '~Intensity.100', true, 'bat', 'RO 0x003D'],
             ]],
-            'GroupMeter' => ['caption' => 'Meter/CT (Einspeiseleistung)', 'vars' => [
-                ['feedin_total', 'Einspeiseleistung Gesamt', 'F', 'SLX.Watt', true, 'meter', 'RO 0x0046-0x0047'],
-                ['feedin_r',     'Einspeiseleistung R',      'F', 'SLX.Watt', true, 'meter', 'RO 0x0082-0x0083'],
-                ['feedin_s',     'Einspeiseleistung S',      'F', 'SLX.Watt', true, 'meter', 'RO 0x0084-0x0085'],
+            'GroupMeter' => ['caption' => 'Meter/CT (feed-in power)', 'vars' => [
+                ['feedin_total', 'Feed-in power total', 'F', 'SLX.Watt', true, 'meter', 'RO 0x0046-0x0047'],
+                ['feedin_r',     'Feed-in power R',      'F', 'SLX.Watt', true, 'meter', 'RO 0x0082-0x0083'],
+                ['feedin_s',     'Feed-in power S',      'F', 'SLX.Watt', true, 'meter', 'RO 0x0084-0x0085'],
             ]],
-            'GroupOffgrid' => ['caption' => 'Off-Grid / EPS (Notstrom)', 'vars' => [
-                ['offgrid_total', 'Off-Grid Gesamtleistung', 'F', 'SLX.Watt', true, 'backup', 'RO 0x0036-0x0037'],
+            'GroupOffgrid' => ['caption' => 'Off-grid / EPS (emergency power)', 'vars' => [
+                ['offgrid_total', 'Off-grid total power', 'F', 'SLX.Watt', true, 'backup', 'RO 0x0036-0x0037'],
             ]],
-            'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
-                ['dev_type', 'Wechselrichter-Typ', 'I', '', false, 'device', 'RO 0x0015'],
-                ['dev_sn',   'Modul-Seriennummer', 'S', '', false, 'device', 'RO 0x00AA-0x00AE'],
+            'GroupDevice' => ['caption' => 'Device information', 'vars' => [
+                ['dev_type', 'Inverter type', 'I', '', false, 'device', 'RO 0x0015'],
+                ['dev_sn',   'Module serial number', 'S', '', false, 'device', 'RO 0x00AA-0x00AE'],
             ]],
         ];
     }
@@ -2894,8 +2894,8 @@ class IHUB_SolaxDriver implements IHUB_InverterDriverInterface
     {
         return [
             'SLX.GridStatus' => [
-                0 => ['On-Grid', 0x27D07F],
-                1 => ['Off-Grid', 0xE74C3C],
+                0 => ['On-grid', 0x27D07F],
+                1 => ['Off-grid', 0xE74C3C],
             ],
         ];
     }
@@ -3021,8 +3021,8 @@ class IHUB_SolaxDriver implements IHUB_InverterDriverInterface
 class IHUB_SmaDriver implements IHUB_InverterDriverInterface
 {
     const STATUS = [
-        1 => 'Aus', 2 => 'Auto-Shutdown', 3 => 'Startet', 4 => 'Normal (MPPT)',
-        5 => 'Leistungsreduktion', 6 => 'Schaltet ab', 7 => 'Fehler', 8 => 'Standby',
+        1 => 'Off', 2 => 'Auto shutdown', 3 => 'Starting', 4 => 'Normal (MPPT)',
+        5 => 'Power reduction', 6 => 'Shutting down', 7 => 'Fault', 8 => 'Standby',
     ];
 
     private function findModel($mb, $wantedModelId)
@@ -3091,44 +3091,44 @@ class IHUB_SmaDriver implements IHUB_InverterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['connected', 'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
-            ['status',    'Betriebsstatus',    'I', 'SMA.Status',      true,  'device', 'SunSpec St'],
-            ['ac_power',  'AC Wirkleistung',   'F', 'SMA.Watt',        true,  'device', 'SunSpec W (Model 101/103)'],
-            ['pv_total',  'PV Gesamtleistung', 'F', 'SMA.Watt',        true,  'pv',     'RO 30773+30961 (SMA-Profil, DC MPP A+B), Fallback SunSpec DCW'],
-            ['riso',      'Isolationswiderstand','F', 'SMA.KOhm',      true,  'pv',     'RO 30225 (SMA-Profil, Ohm ÷1000)'],
+            ['connected', 'Connection',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['status',    'Operating status',    'I', 'SMA.Status',      true,  'device', 'SunSpec St'],
+            ['ac_power',  'AC active power',   'F', 'SMA.Watt',        true,  'device', 'SunSpec W (Model 101/103)'],
+            ['pv_total',  'PV total power', 'F', 'SMA.Watt',        true,  'pv',     'RO 30773+30961 (SMA-Profil, DC MPP A+B), Fallback SunSpec DCW'],
+            ['riso',      'Insulation resistance','F', 'SMA.KOhm',      true,  'pv',     'RO 30225 (SMA-Profil, Ohm ÷1000)'],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupGrid' => ['caption' => 'Netz (Spannung, Strom, Frequenz)', 'vars' => [
-                ['grid_volt', 'Netz Spannung',  'F', 'SMA.Volt',   false, 'grid', 'SunSpec PhVphA (Model 101/103)'],
-                ['grid_curr', 'Netz Strom',     'F', 'SMA.Ampere', false, 'grid', 'SunSpec A (Model 101/103)'],
-                ['grid_freq', 'Netzfrequenz',   'F', 'SMA.Hertz',  false, 'grid', 'SunSpec Hz (Model 101/103)'],
+            'GroupGrid' => ['caption' => 'Grid (voltage, current, frequency)', 'vars' => [
+                ['grid_volt', 'Grid voltage',  'F', 'SMA.Volt',   false, 'grid', 'SunSpec PhVphA (Model 101/103)'],
+                ['grid_curr', 'Grid current',     'F', 'SMA.Ampere', false, 'grid', 'SunSpec A (Model 101/103)'],
+                ['grid_freq', 'Grid frequency',   'F', 'SMA.Hertz',  false, 'grid', 'SunSpec Hz (Model 101/103)'],
             ]],
-            'GroupEnergy' => ['caption' => 'Energiezähler (Gesamtertrag)', 'vars' => [
-                ['e_total', 'Ertrag Gesamt', 'F', '~Electricity', true, 'energy', 'SunSpec WH (Model 101/103)'],
+            'GroupEnergy' => ['caption' => 'Energy meters (total yield)', 'vars' => [
+                ['e_total', 'Yield total', 'F', '~Electricity', true, 'energy', 'SunSpec WH (Model 101/103)'],
             ]],
-            'GroupTemp' => ['caption' => 'Temperatur', 'vars' => [
-                ['temp_cab', 'Gehäusetemperatur', 'F', '~Temperature', false, 'device', 'SunSpec TmpCab (Model 101/103)'],
+            'GroupTemp' => ['caption' => 'Temperature', 'vars' => [
+                ['temp_cab', 'Case temperature', 'F', '~Temperature', false, 'device', 'SunSpec TmpCab (Model 101/103)'],
             ]],
-            'GroupMppt' => ['caption' => 'PV-Eingänge A und B (Leistung je Eingang, z. B. Ost/West)', 'vars' => [
-                ['mppt1_power', 'PV Eingang A Leistung', 'F', 'SMA.Watt', true, 'pv', 'RO 30773 (SMA-Profil, DC-Leistung MPP A, W)'],
-                ['mppt2_power', 'PV Eingang B Leistung', 'F', 'SMA.Watt', true, 'pv', 'RO 30961 (SMA-Profil, DC-Leistung MPP B, W)'],
+            'GroupMppt' => ['caption' => 'PV inputs A and B (power per input, e.g. east/west)', 'vars' => [
+                ['mppt1_power', 'PV input A power', 'F', 'SMA.Watt', true, 'pv', 'RO 30773 (SMA profile, DC power MPP A, W)'],
+                ['mppt2_power', 'PV input B power', 'F', 'SMA.Watt', true, 'pv', 'RO 30961 (SMA profile, DC power MPP B, W)'],
             ]],
-            'GroupMeter' => ['caption' => 'Smart Meter (Leistung)', 'vars' => [
-                ['meter_total', 'Netz Leistung (Meter)', 'F', 'SMA.Watt', true, 'meter', 'SunSpec Meter Model 201/203'],
+            'GroupMeter' => ['caption' => 'Smart meter (power)', 'vars' => [
+                ['meter_total', 'Grid power (meter)', 'F', 'SMA.Watt', true, 'meter', 'SunSpec Meter Model 201/203'],
             ]],
-            'GroupBat' => ['caption' => 'Batterie (Hybrid-/Storage-Geräte)', 'vars' => [
-                ['bat_soc',  'Batterie SOC',        'I', '~Battery.100',  true,  'bat', 'RO 30845 (SMA-Profil, %)'],
-                ['bat_pwr',  'Batterie Leistung',   'F', 'SMA.Watt',      true,  'bat', 'RO 31393-31395 (Laden minus Entladen, + = laedt)'],
-                ['bat_volt', 'Batterie Spannung',   'F', 'SMA.Volt',      false, 'bat', 'RO 30851 (SMA-Profil, V ÷100)'],
-                ['bat_temp', 'Batterie Temperatur', 'F', '~Temperature',  false, 'bat', 'RO 30849 (SMA-Profil, °C ÷10)'],
+            'GroupBat' => ['caption' => 'Battery (hybrid/storage devices)', 'vars' => [
+                ['bat_soc',  'Battery SOC',        'I', '~Battery.100',  true,  'bat', 'RO 30845 (SMA-Profil, %)'],
+                ['bat_pwr',  'Battery power',   'F', 'SMA.Watt',      true,  'bat', 'RO 31393-31395 (charging minus discharging, + = charging)'],
+                ['bat_volt', 'Battery voltage',   'F', 'SMA.Volt',      false, 'bat', 'RO 30851 (SMA-Profil, V ÷100)'],
+                ['bat_temp', 'Battery temperature', 'F', '~Temperature',  false, 'bat', 'RO 30849 (SMA-Profil, °C ÷10)'],
             ]],
-            'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
-                ['dev_model', 'Modell', 'S', '', false, 'device', 'SunSpec Common Block'],
-                ['dev_sn',    'Seriennummer', 'S', '', false, 'device', 'SunSpec Common Block'],
+            'GroupDevice' => ['caption' => 'Device information', 'vars' => [
+                ['dev_model', 'Model', 'S', '', false, 'device', 'SunSpec Common Block'],
+                ['dev_sn',    'Serial number', 'S', '', false, 'device', 'SunSpec Common Block'],
             ]],
         ];
     }
@@ -3516,8 +3516,8 @@ class IHUB_SmaDriver implements IHUB_InverterDriverInterface
 class IHUB_FroniusDriver implements IHUB_InverterDriverInterface
 {
     const STATUS = [
-        1 => 'Aus', 2 => 'Auto-Shutdown', 3 => 'Startet', 4 => 'Normal (MPPT)',
-        5 => 'Leistungsreduktion', 6 => 'Schaltet ab', 7 => 'Fehler', 8 => 'Standby',
+        1 => 'Off', 2 => 'Auto shutdown', 3 => 'Starting', 4 => 'Normal (MPPT)',
+        5 => 'Power reduction', 6 => 'Shutting down', 7 => 'Fault', 8 => 'Standby',
     ];
 
     // Sucht ab Basisregister 40000 (SunSpec "SunS"-Marker + Common Block) nach
@@ -3546,59 +3546,59 @@ class IHUB_FroniusDriver implements IHUB_InverterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['connected', 'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
-            ['status',    'Betriebsstatus',    'I', 'FRO.Status',      true,  'device', 'SunSpec St'],
-            ['pv_total',  'PV Gesamtleistung', 'F', 'FRO.Watt',        true,  'pv',     'SunSpec DCW (Model 160)'],
-            ['ac_power',  'AC Wirkleistung',   'F', 'FRO.Watt',        true,  'device', 'SunSpec W (Model 101/103)'],
+            ['connected', 'Connection',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['status',    'Operating status',    'I', 'FRO.Status',      true,  'device', 'SunSpec St'],
+            ['pv_total',  'PV total power', 'F', 'FRO.Watt',        true,  'pv',     'SunSpec DCW (Model 160)'],
+            ['ac_power',  'AC active power',   'F', 'FRO.Watt',        true,  'device', 'SunSpec W (Model 101/103)'],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupPV' => ['caption' => 'PV-Details (MPPT laut Multiple MPPT Extension Model 160)', 'vars' => [
-                ['mppt1_volt',  'MPPT1 Spannung', 'F', 'FRO.Volt',   false, 'pv', 'SunSpec Model 160 DCV'],
-                ['mppt1_curr',  'MPPT1 Strom',    'F', 'FRO.Ampere', false, 'pv', 'SunSpec Model 160 DCA'],
-                ['mppt1_power','MPPT1 Leistung',  'F', 'FRO.Watt',   true,  'pv', 'SunSpec Model 160 DCW'],
-                ['mppt2_volt',  'MPPT2 Spannung', 'F', 'FRO.Volt',   false, 'pv', 'SunSpec Model 160 DCV'],
-                ['mppt2_curr',  'MPPT2 Strom',    'F', 'FRO.Ampere', false, 'pv', 'SunSpec Model 160 DCA'],
-                ['mppt2_power','MPPT2 Leistung',  'F', 'FRO.Watt',   true,  'pv', 'SunSpec Model 160 DCW'],
+            'GroupPV' => ['caption' => 'PV details (MPPT according to Multiple MPPT Extension Model 160)', 'vars' => [
+                ['mppt1_volt',  'MPPT1 voltage', 'F', 'FRO.Volt',   false, 'pv', 'SunSpec Model 160 DCV'],
+                ['mppt1_curr',  'MPPT1 current',    'F', 'FRO.Ampere', false, 'pv', 'SunSpec Model 160 DCA'],
+                ['mppt1_power','MPPT1 power',  'F', 'FRO.Watt',   true,  'pv', 'SunSpec Model 160 DCW'],
+                ['mppt2_volt',  'MPPT2 voltage', 'F', 'FRO.Volt',   false, 'pv', 'SunSpec Model 160 DCV'],
+                ['mppt2_curr',  'MPPT2 current',    'F', 'FRO.Ampere', false, 'pv', 'SunSpec Model 160 DCA'],
+                ['mppt2_power','MPPT2 power',  'F', 'FRO.Watt',   true,  'pv', 'SunSpec Model 160 DCW'],
             ]],
-            'GroupGrid' => ['caption' => 'Netz (Spannung, Strom, Frequenz)', 'vars' => [
-                ['grid_volt', 'Netz Spannung',  'F', 'FRO.Volt',   false, 'grid', 'SunSpec PhVphA (Model 101/103)'],
-                ['grid_curr', 'Netz Strom',     'F', 'FRO.Ampere', false, 'grid', 'SunSpec A (Model 101/103)'],
-                ['grid_freq', 'Netzfrequenz',   'F', 'FRO.Hertz',  false, 'grid', 'SunSpec Hz (Model 101/103)'],
+            'GroupGrid' => ['caption' => 'Grid (voltage, current, frequency)', 'vars' => [
+                ['grid_volt', 'Grid voltage',  'F', 'FRO.Volt',   false, 'grid', 'SunSpec PhVphA (Model 101/103)'],
+                ['grid_curr', 'Grid current',     'F', 'FRO.Ampere', false, 'grid', 'SunSpec A (Model 101/103)'],
+                ['grid_freq', 'Grid frequency',   'F', 'FRO.Hertz',  false, 'grid', 'SunSpec Hz (Model 101/103)'],
             ]],
-            'GroupEnergy' => ['caption' => 'Energiezähler (Gesamtertrag)', 'vars' => [
-                ['e_total', 'Ertrag Gesamt', 'F', '~Electricity', true, 'energy', 'SunSpec WH (Model 101/103)'],
+            'GroupEnergy' => ['caption' => 'Energy meters (total yield)', 'vars' => [
+                ['e_total', 'Yield total', 'F', '~Electricity', true, 'energy', 'SunSpec WH (Model 101/103)'],
             ]],
-            'GroupMeter' => ['caption' => 'Smart Meter (Leistung)', 'vars' => [
-                ['meter_total', 'Netz Leistung (Meter)', 'F', 'FRO.Watt', true, 'meter', 'SunSpec Meter Model 20x/21x (Unit-ID 200)'],
+            'GroupMeter' => ['caption' => 'Smart meter (power)', 'vars' => [
+                ['meter_total', 'Grid power (meter)', 'F', 'FRO.Watt', true, 'meter', 'SunSpec Meter Model 20x/21x (Unit-ID 200)'],
             ]],
-            'GroupMeterEnergy' => ['caption' => 'Smart Meter Energie (Bezug / Einspeisung gesamt)', 'vars' => [
-                ['meter_imp', 'Bezug Gesamt (aus dem Netz)',   'F', '~Electricity', true, 'meter', 'SunSpec Meter TotWhImp (EnergyReal_WAC_Sum_Consumed)'],
-                ['meter_exp', 'Einspeisung Gesamt (ins Netz)', 'F', '~Electricity', true, 'meter', 'SunSpec Meter TotWhExp (EnergyReal_WAC_Sum_Produced)'],
+            'GroupMeterEnergy' => ['caption' => 'Smart meter energy (import / feed-in total)', 'vars' => [
+                ['meter_imp', 'Import total (from the grid)',   'F', '~Electricity', true, 'meter', 'SunSpec Meter TotWhImp (EnergyReal_WAC_Sum_Consumed)'],
+                ['meter_exp', 'Feed-in total (to the grid)', 'F', '~Electricity', true, 'meter', 'SunSpec Meter TotWhExp (EnergyReal_WAC_Sum_Produced)'],
             ]],
-            'GroupMeterPhases' => ['caption' => 'Smart Meter je Phase (Spannung/Strom/Leistung)', 'vars' => [
-                ['meter_l1_volt', 'Meter L1 Spannung', 'F', 'FRO.Volt',   false, 'meter', 'SunSpec Meter PhVphA'],
-                ['meter_l1_curr', 'Meter L1 Strom',    'F', 'FRO.Ampere', false, 'meter', 'SunSpec Meter AphA'],
-                ['meter_l1_pwr',  'Meter L1 Leistung', 'F', 'FRO.Watt',   true,  'meter', 'SunSpec Meter WphA'],
-                ['meter_l2_volt', 'Meter L2 Spannung', 'F', 'FRO.Volt',   false, 'meter', 'SunSpec Meter PhVphB'],
-                ['meter_l2_curr', 'Meter L2 Strom',    'F', 'FRO.Ampere', false, 'meter', 'SunSpec Meter AphB'],
-                ['meter_l2_pwr',  'Meter L2 Leistung', 'F', 'FRO.Watt',   true,  'meter', 'SunSpec Meter WphB'],
-                ['meter_l3_volt', 'Meter L3 Spannung', 'F', 'FRO.Volt',   false, 'meter', 'SunSpec Meter PhVphC'],
-                ['meter_l3_curr', 'Meter L3 Strom',    'F', 'FRO.Ampere', false, 'meter', 'SunSpec Meter AphC'],
-                ['meter_l3_pwr',  'Meter L3 Leistung', 'F', 'FRO.Watt',   true,  'meter', 'SunSpec Meter WphC'],
+            'GroupMeterPhases' => ['caption' => 'Smart meter per phase (voltage/current/power)', 'vars' => [
+                ['meter_l1_volt', 'Meter L1 voltage', 'F', 'FRO.Volt',   false, 'meter', 'SunSpec Meter PhVphA'],
+                ['meter_l1_curr', 'Meter L1 current',    'F', 'FRO.Ampere', false, 'meter', 'SunSpec Meter AphA'],
+                ['meter_l1_pwr',  'Meter L1 power', 'F', 'FRO.Watt',   true,  'meter', 'SunSpec Meter WphA'],
+                ['meter_l2_volt', 'Meter L2 voltage', 'F', 'FRO.Volt',   false, 'meter', 'SunSpec Meter PhVphB'],
+                ['meter_l2_curr', 'Meter L2 current',    'F', 'FRO.Ampere', false, 'meter', 'SunSpec Meter AphB'],
+                ['meter_l2_pwr',  'Meter L2 power', 'F', 'FRO.Watt',   true,  'meter', 'SunSpec Meter WphB'],
+                ['meter_l3_volt', 'Meter L3 voltage', 'F', 'FRO.Volt',   false, 'meter', 'SunSpec Meter PhVphC'],
+                ['meter_l3_curr', 'Meter L3 current',    'F', 'FRO.Ampere', false, 'meter', 'SunSpec Meter AphC'],
+                ['meter_l3_pwr',  'Meter L3 power', 'F', 'FRO.Watt',   true,  'meter', 'SunSpec Meter WphC'],
             ]],
-            'GroupBat' => ['caption' => 'Batterie (GEN24-Hybrid: SOC, Leistung, Spannung)', 'vars' => [
+            'GroupBat' => ['caption' => 'Battery (GEN24 hybrid: SOC, power, voltage)', 'vars' => [
                 ['bat_soc',   'Bat. SOC', 'F', 'FRO.Soc', true, 'bat', 'SunSpec Model 124 ChaState'],
-                ['bat_power', 'Bat. Leistung (Entladen + / Laden -)', 'F', 'FRO.Watt', true, 'bat', 'SunSpec Model 160 Module 3+4'],
-                ['bat_volt',  'Bat. Spannung', 'F', 'FRO.Volt', false, 'bat', 'SunSpec Model 160 Speicher-Modul DCV'],
+                ['bat_power', 'Bat. power (discharging + / charging -)', 'F', 'FRO.Watt', true, 'bat', 'SunSpec Model 160 Module 3+4'],
+                ['bat_volt',  'Bat. voltage', 'F', 'FRO.Volt', false, 'bat', 'SunSpec Model 160 Speicher-Modul DCV'],
             ]],
-            'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
-                ['dev_model', 'Modell', 'S', '', false, 'device', 'SunSpec Common Block'],
-                ['dev_sn',    'Seriennummer', 'S', '', false, 'device', 'SunSpec Common Block'],
-                ['riso',      'Isolationswiderstand', 'F', 'FRO.KOhm', true, 'device', 'SunSpec Ris (Model 122)'],
+            'GroupDevice' => ['caption' => 'Device information', 'vars' => [
+                ['dev_model', 'Model', 'S', '', false, 'device', 'SunSpec Common Block'],
+                ['dev_sn',    'Serial number', 'S', '', false, 'device', 'SunSpec Common Block'],
+                ['riso',      'Insulation resistance', 'F', 'FRO.KOhm', true, 'device', 'SunSpec Ris (Model 122)'],
             ]],
         ];
     }
@@ -4089,8 +4089,8 @@ class IHUB_FroniusDriver implements IHUB_InverterDriverInterface
 class IHUB_SolarEdgeDriver implements IHUB_InverterDriverInterface
 {
     const STATUS = [
-        1 => 'Aus', 2 => 'Auto-Shutdown', 3 => 'Startet', 4 => 'Normal (MPPT)',
-        5 => 'Leistungsreduktion', 6 => 'Schaltet ab', 7 => 'Fehler', 8 => 'Standby',
+        1 => 'Off', 2 => 'Auto shutdown', 3 => 'Starting', 4 => 'Normal (MPPT)',
+        5 => 'Power reduction', 6 => 'Shutting down', 7 => 'Fault', 8 => 'Standby',
     ];
 
     private function findModel($mb, $wantedModelId)
@@ -4117,49 +4117,49 @@ class IHUB_SolarEdgeDriver implements IHUB_InverterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['connected', 'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
-            ['status',    'Betriebsstatus',    'I', 'SLE.Status',      true,  'device', 'SunSpec St'],
-            ['ac_power',  'AC Wirkleistung',   'F', 'SLE.Watt',        true,  'device', 'SunSpec W (Model 101/103)'],
-            ['pv_total',  'PV Gesamtleistung', 'F', 'SLE.Watt',        true,  'pv',     'SunSpec DCW (Model 101/103)'],
+            ['connected', 'Connection',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['status',    'Operating status',    'I', 'SLE.Status',      true,  'device', 'SunSpec St'],
+            ['ac_power',  'AC active power',   'F', 'SLE.Watt',        true,  'device', 'SunSpec W (Model 101/103)'],
+            ['pv_total',  'PV total power', 'F', 'SLE.Watt',        true,  'pv',     'SunSpec DCW (Model 101/103)'],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupGrid' => ['caption' => 'Netz (Spannung, Strom, Frequenz)', 'vars' => [
-                ['grid_volt', 'Netz Spannung',  'F', 'SLE.Volt',   false, 'grid', 'SunSpec PhVphA (Model 101/103)'],
-                ['grid_curr', 'Netz Strom',     'F', 'SLE.Ampere', false, 'grid', 'SunSpec A (Model 101/103)'],
-                ['grid_freq', 'Netzfrequenz',   'F', 'SLE.Hertz',  false, 'grid', 'SunSpec Hz (Model 101/103)'],
+            'GroupGrid' => ['caption' => 'Grid (voltage, current, frequency)', 'vars' => [
+                ['grid_volt', 'Grid voltage',  'F', 'SLE.Volt',   false, 'grid', 'SunSpec PhVphA (Model 101/103)'],
+                ['grid_curr', 'Grid current',     'F', 'SLE.Ampere', false, 'grid', 'SunSpec A (Model 101/103)'],
+                ['grid_freq', 'Grid frequency',   'F', 'SLE.Hertz',  false, 'grid', 'SunSpec Hz (Model 101/103)'],
             ]],
-            'GroupEnergy' => ['caption' => 'Energiezähler (Gesamtertrag)', 'vars' => [
-                ['e_total', 'Ertrag Gesamt', 'F', '~Electricity', true, 'energy', 'SunSpec WH (Model 101/103)'],
+            'GroupEnergy' => ['caption' => 'Energy meters (total yield)', 'vars' => [
+                ['e_total', 'Yield total', 'F', '~Electricity', true, 'energy', 'SunSpec WH (Model 101/103)'],
             ]],
-            'GroupTemp' => ['caption' => 'Temperatur', 'vars' => [
-                ['temp_cab', 'Kühlkörpertemperatur', 'F', '~Temperature', false, 'device', 'SunSpec TmpSnk (Model 101/103)'],
+            'GroupTemp' => ['caption' => 'Temperature', 'vars' => [
+                ['temp_cab', 'Heat sink temperature', 'F', '~Temperature', false, 'device', 'SunSpec TmpSnk (Model 101/103)'],
             ]],
-            'GroupMeter' => ['caption' => 'Smart Meter (Leistung)', 'vars' => [
-                ['meter_total', 'Netz Leistung (Meter)', 'F', 'SLE.Watt', true, 'meter', 'SunSpec Meter Model 201/203'],
+            'GroupMeter' => ['caption' => 'Smart meter (power)', 'vars' => [
+                ['meter_total', 'Grid power (meter)', 'F', 'SLE.Watt', true, 'meter', 'SunSpec Meter Model 201/203'],
             ]],
-            'GroupMeterEnergy' => ['caption' => 'Zähler-Energie (Bezug / Einspeisung)', 'vars' => [
-                ['meter_imp', 'Bezug Gesamt',       'F', '~Electricity', true, 'meter', 'SunSpec Meter TotWhImp (Offset 44)'],
-                ['meter_exp', 'Einspeisung Gesamt', 'F', '~Electricity', true, 'meter', 'SunSpec Meter TotWhExp (Offset 36)'],
+            'GroupMeterEnergy' => ['caption' => 'Meter energy (import / feed-in)', 'vars' => [
+                ['meter_imp', 'Import total',       'F', '~Electricity', true, 'meter', 'SunSpec Meter TotWhImp (Offset 44)'],
+                ['meter_exp', 'Feed-in total', 'F', '~Electricity', true, 'meter', 'SunSpec Meter TotWhExp (Offset 36)'],
             ]],
-            'GroupBattery' => ['caption' => 'Batterie (StorEdge)', 'vars' => [
+            'GroupBattery' => ['caption' => 'Battery (StorEdge)', 'vars' => [
                 ['bat_soc',    'Bat. SOC',        'I', '~Battery.100', true,  'bat', 'SE 0xE184 (Float32, LE)'],
-                ['bat_power',  'Bat. Leistung',   'F', 'SLE.Watt',     true,  'bat', 'SE 0xE174 (Float32, LE)'],
-                ['bat_volt',   'Bat. Spannung',   'F', 'SLE.Volt',     false, 'bat', 'SE 0xE170 (Float32, LE)'],
-                ['bat_curr',   'Bat. Strom',      'F', 'SLE.Ampere',   false, 'bat', 'SE 0xE172 (Float32, LE)'],
-                ['bat_temp',   'Bat. Temperatur', 'F', '~Temperature', false, 'bat', 'SE 0xE16C (Float32, LE)'],
+                ['bat_power',  'Bat. power',   'F', 'SLE.Watt',     true,  'bat', 'SE 0xE174 (Float32, LE)'],
+                ['bat_volt',   'Bat. voltage',   'F', 'SLE.Volt',     false, 'bat', 'SE 0xE170 (Float32, LE)'],
+                ['bat_curr',   'Bat. current',      'F', 'SLE.Ampere',   false, 'bat', 'SE 0xE172 (Float32, LE)'],
+                ['bat_temp',   'Bat. temperature', 'F', '~Temperature', false, 'bat', 'SE 0xE16C (Float32, LE)'],
                 ['bat_soh',    'Bat. SOH',        'I', '~Battery.100', true,  'bat', 'SE 0xF582 (Float32, LE)'],
-                ['bat_status', 'Bat. Zustand',    'I', 'SLE.BatState', true,  'bat', 'SE 0xE186'],
+                ['bat_status', 'Bat. state',    'I', 'SLE.BatState', true,  'bat', 'SE 0xE186'],
             ]],
-            'GroupPvReal' => ['caption' => 'PV-Erzeugung berechnet (StorEdge; benötigt Batteriegruppe)', 'vars' => [
-                ['pv_real', 'PV-Erzeugung (berechnet)', 'F', 'SLE.Watt', true, 'pv', 'PV-Gesamt + Batterieleistung, ≥ 0'],
+            'GroupPvReal' => ['caption' => 'PV generation calculated (StorEdge; requires battery group)', 'vars' => [
+                ['pv_real', 'PV generation (calculated)', 'F', 'SLE.Watt', true, 'pv', 'PV total + battery power, ≥ 0'],
             ]],
-            'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
-                ['dev_model', 'Modell', 'S', '', false, 'device', 'SunSpec Common Block'],
-                ['dev_sn',    'Seriennummer', 'S', '', false, 'device', 'SunSpec Common Block'],
+            'GroupDevice' => ['caption' => 'Device information', 'vars' => [
+                ['dev_model', 'Model', 'S', '', false, 'device', 'SunSpec Common Block'],
+                ['dev_sn',    'Serial number', 'S', '', false, 'device', 'SunSpec Common Block'],
             ]],
         ];
     }
@@ -4187,10 +4187,10 @@ class IHUB_SolarEdgeDriver implements IHUB_InverterDriverInterface
         }
         // SolarEdge StorEdge Speicherstatus (Reg 0xE186).
         $batState = [
-            1 => ['Aus',        0x7A8A99],
-            3 => ['Laden',      0x3BA55D],
-            4 => ['Entladen',   0xE08A2B],
-            6 => ['Ruhemodus',  0x7A8A99],
+            1 => ['Off',        0x7A8A99],
+            3 => ['Charge',      0x3BA55D],
+            4 => ['Discharge',   0xE08A2B],
+            6 => ['Sleep mode',  0x7A8A99],
         ];
         return ['SLE.Status' => $status, 'SLE.BatState' => $batState];
     }
@@ -4380,62 +4380,62 @@ class IHUB_DeyeDriver implements IHUB_InverterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['connected', 'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
-            ['status',    'Betriebsstatus',    'I', '',                true,  'device', 'RO 500'],
-            ['pv_total',  'PV Gesamtleistung', 'F', 'DYE.Watt',        true,  'pv',     'Σ RO 672+673'],
-            ['bat_power', 'Bat. Leistung',     'F', 'DYE.Watt',        true,  'bat',    'RO 590'],
+            ['connected', 'Connection',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['status',    'Operating status',    'I', '',                true,  'device', 'RO 500'],
+            ['pv_total',  'PV total power', 'F', 'DYE.Watt',        true,  'pv',     'Σ RO 672+673'],
+            ['bat_power', 'Bat. power',     'F', 'DYE.Watt',        true,  'bat',    'RO 590'],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupPV' => ['caption' => 'PV-Details (String 1+2)', 'vars' => [
-                ['pv1_power', 'PV1 Leistung', 'F', 'DYE.Watt',   true,  'pv', 'RO 672'],
-                ['pv1_volt',  'PV1 Spannung', 'F', 'DYE.Volt',   false, 'pv', 'RO 676'],
-                ['pv1_curr',  'PV1 Strom',    'F', 'DYE.Ampere', false, 'pv', 'RO 677'],
-                ['pv2_power', 'PV2 Leistung', 'F', 'DYE.Watt',   true,  'pv', 'RO 673'],
-                ['pv2_volt',  'PV2 Spannung', 'F', 'DYE.Volt',   false, 'pv', 'RO 678'],
-                ['pv2_curr',  'PV2 Strom',    'F', 'DYE.Ampere', false, 'pv', 'RO 679'],
+            'GroupPV' => ['caption' => 'PV details (string 1+2)', 'vars' => [
+                ['pv1_power', 'PV1 power', 'F', 'DYE.Watt',   true,  'pv', 'RO 672'],
+                ['pv1_volt',  'PV1 voltage', 'F', 'DYE.Volt',   false, 'pv', 'RO 676'],
+                ['pv1_curr',  'PV1 current',    'F', 'DYE.Ampere', false, 'pv', 'RO 677'],
+                ['pv2_power', 'PV2 power', 'F', 'DYE.Watt',   true,  'pv', 'RO 673'],
+                ['pv2_volt',  'PV2 voltage', 'F', 'DYE.Volt',   false, 'pv', 'RO 678'],
+                ['pv2_curr',  'PV2 current',    'F', 'DYE.Ampere', false, 'pv', 'RO 679'],
             ]],
-            'GroupGrid' => ['caption' => 'Netz (Spannung, Strom je Phase, Frequenz)', 'vars' => [
-                ['grid_l1_volt', 'Netz L1 Spannung', 'F', 'DYE.Volt',   false, 'grid', 'RO 598'],
-                ['grid_l2_volt', 'Netz L2 Spannung', 'F', 'DYE.Volt',   false, 'grid', 'RO 599'],
-                ['grid_l3_volt', 'Netz L3 Spannung', 'F', 'DYE.Volt',   false, 'grid', 'RO 600'],
-                ['grid_l1_curr', 'Netz L1 Strom',    'F', 'DYE.Ampere', false, 'grid', 'RO 616'],
-                ['grid_l2_curr', 'Netz L2 Strom',    'F', 'DYE.Ampere', false, 'grid', 'RO 617'],
-                ['grid_l3_curr', 'Netz L3 Strom',    'F', 'DYE.Ampere', false, 'grid', 'RO 618'],
-                ['grid_total',   'Netzbezug Gesamt',  'F', 'DYE.Watt',   true,  'grid', 'RO 619'],
-                ['grid_freq',    'Netzfrequenz',      'F', 'DYE.Hertz',  false, 'grid', 'RO 638'],
+            'GroupGrid' => ['caption' => 'Grid (voltage, current per phase, frequency)', 'vars' => [
+                ['grid_l1_volt', 'Grid L1 voltage', 'F', 'DYE.Volt',   false, 'grid', 'RO 598'],
+                ['grid_l2_volt', 'Grid L2 voltage', 'F', 'DYE.Volt',   false, 'grid', 'RO 599'],
+                ['grid_l3_volt', 'Grid L3 voltage', 'F', 'DYE.Volt',   false, 'grid', 'RO 600'],
+                ['grid_l1_curr', 'Grid L1 current',    'F', 'DYE.Ampere', false, 'grid', 'RO 616'],
+                ['grid_l2_curr', 'Grid L2 current',    'F', 'DYE.Ampere', false, 'grid', 'RO 617'],
+                ['grid_l3_curr', 'Grid L3 current',    'F', 'DYE.Ampere', false, 'grid', 'RO 618'],
+                ['grid_total',   'Grid import total',  'F', 'DYE.Watt',   true,  'grid', 'RO 619'],
+                ['grid_freq',    'Grid frequency',      'F', 'DYE.Hertz',  false, 'grid', 'RO 638'],
             ]],
-            'GroupBat' => ['caption' => 'Batterie (Spannung, Strom, SOC, Temperatur)', 'vars' => [
-                ['bat_volt', 'Bat. Spannung',   'F', 'DYE.Volt',     false, 'bat', 'RO 587'],
+            'GroupBat' => ['caption' => 'Battery (voltage, current, SOC, temperature)', 'vars' => [
+                ['bat_volt', 'Bat. voltage',   'F', 'DYE.Volt',     false, 'bat', 'RO 587'],
                 ['bat_soc',  'Bat. SOC',        'I', '~Battery.100', true,  'bat', 'RO 588'],
-                ['bat_curr', 'Bat. Strom',      'F', 'DYE.Ampere',   false, 'bat', 'RO 591'],
-                ['bat_temp', 'Bat. Temperatur', 'F', '~Temperature', true,  'bat', 'RO 586'],
+                ['bat_curr', 'Bat. current',      'F', 'DYE.Ampere',   false, 'bat', 'RO 591'],
+                ['bat_temp', 'Bat. temperature', 'F', '~Temperature', true,  'bat', 'RO 586'],
             ]],
-            'GroupLoad' => ['caption' => 'Hausverbrauch (Last)', 'vars' => [
-                ['load_l1',    'Last L1',      'F', 'DYE.Watt', true, 'device', 'RO 650'],
-                ['load_l2',    'Last L2',      'F', 'DYE.Watt', true, 'device', 'RO 651'],
-                ['load_l3',    'Last L3',      'F', 'DYE.Watt', true, 'device', 'RO 652'],
-                ['load_total', 'Last Gesamt',  'F', 'DYE.Watt', true, 'device', 'RO 653'],
+            'GroupLoad' => ['caption' => 'House consumption (load)', 'vars' => [
+                ['load_l1',    'Load L1',      'F', 'DYE.Watt', true, 'device', 'RO 650'],
+                ['load_l2',    'Load L2',      'F', 'DYE.Watt', true, 'device', 'RO 651'],
+                ['load_l3',    'Load L3',      'F', 'DYE.Watt', true, 'device', 'RO 652'],
+                ['load_total', 'Load total',  'F', 'DYE.Watt', true, 'device', 'RO 653'],
             ]],
-            'GroupEnergy' => ['caption' => 'Energiezähler (Tag/Gesamt)', 'vars' => [
-                ['e_charge_day',    'Bat. Laden Heute',    'F', '~Electricity', true, 'energy', 'RO 514'],
-                ['e_disch_day',     'Bat. Entladen Heute', 'F', '~Electricity', true, 'energy', 'RO 515'],
-                ['e_charge_total',  'Bat. Laden Gesamt',   'F', '~Electricity', true, 'energy', 'RO 516'],
-                ['e_disch_total',   'Bat. Entladen Gesamt','F', '~Electricity', true, 'energy', 'RO 518'],
-                ['e_buy_day',       'Netzbezug Heute',     'F', '~Electricity', true, 'energy', 'RO 520'],
-                ['e_sell_day',      'Einspeisung Heute',   'F', '~Electricity', true, 'energy', 'RO 521'],
-                ['e_buy_total',     'Netzbezug Gesamt',    'F', '~Electricity', true, 'energy', 'RO 522'],
-                ['e_sell_total',    'Einspeisung Gesamt',  'F', '~Electricity', true, 'energy', 'RO 524'],
-                ['e_load_day',      'Hausverbrauch Heute', 'F', '~Electricity', true, 'energy', 'RO 526'],
-                ['e_load_total',    'Hausverbrauch Gesamt','F', '~Electricity', true, 'energy', 'RO 527'],
-                ['e_pv_day',        'PV Heute',            'F', '~Electricity', true, 'energy', 'RO 529'],
-                ['e_pv_total',      'PV Gesamt',           'F', '~Electricity', true, 'energy', 'RO 534'],
+            'GroupEnergy' => ['caption' => 'Energy meters (day/total)', 'vars' => [
+                ['e_charge_day',    'Bat. charge today',    'F', '~Electricity', true, 'energy', 'RO 514'],
+                ['e_disch_day',     'Bat. discharge today', 'F', '~Electricity', true, 'energy', 'RO 515'],
+                ['e_charge_total',  'Bat. charge total',   'F', '~Electricity', true, 'energy', 'RO 516'],
+                ['e_disch_total',   'Bat. discharge total','F', '~Electricity', true, 'energy', 'RO 518'],
+                ['e_buy_day',       'Grid import today',     'F', '~Electricity', true, 'energy', 'RO 520'],
+                ['e_sell_day',      'Feed-in today',   'F', '~Electricity', true, 'energy', 'RO 521'],
+                ['e_buy_total',     'Grid import total',    'F', '~Electricity', true, 'energy', 'RO 522'],
+                ['e_sell_total',    'Feed-in total',  'F', '~Electricity', true, 'energy', 'RO 524'],
+                ['e_load_day',      'House consumption today', 'F', '~Electricity', true, 'energy', 'RO 526'],
+                ['e_load_total',    'House consumption total','F', '~Electricity', true, 'energy', 'RO 527'],
+                ['e_pv_day',        'PV today',            'F', '~Electricity', true, 'energy', 'RO 529'],
+                ['e_pv_total',      'PV total',           'F', '~Electricity', true, 'energy', 'RO 534'],
             ]],
-            'GroupControl' => ['caption' => 'Steuerung', 'vars' => [
-                ['ctl_onoff', 'Wechselrichter Ein/Aus', 'B', '~Switch', false, 'control', 'RW 80'],
+            'GroupControl' => ['caption' => 'Control', 'vars' => [
+                ['ctl_onoff', 'Inverter on/off', 'B', '~Switch', false, 'control', 'RW 80'],
             ]],
         ];
     }
@@ -4581,42 +4581,42 @@ class IHUB_SolplanetDriver implements IHUB_InverterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['connected', 'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
-            ['pv_total',  'PV Gesamtleistung', 'F', 'SPL.Watt',        true,  'pv',     'RO 1600'],
-            ['ac_power',  'AC Wirkleistung',   'F', 'SPL.Watt',        true,  'device', 'RO 1370'],
-            ['bat_power', 'Bat. Leistung',     'F', 'SPL.Watt',        true,  'bat',    'RO 1618'],
+            ['connected', 'Connection',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['pv_total',  'PV total power', 'F', 'SPL.Watt',        true,  'pv',     'RO 1600'],
+            ['ac_power',  'AC active power',   'F', 'SPL.Watt',        true,  'device', 'RO 1370'],
+            ['bat_power', 'Bat. power',     'F', 'SPL.Watt',        true,  'bat',    'RO 1618'],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupPV' => ['caption' => 'PV-Details (String 1-3)', 'vars' => [
-                ['pv1_volt', 'PV1 Spannung', 'F', 'SPL.Volt',   false, 'pv', 'RO 1318'],
-                ['pv1_curr', 'PV1 Strom',    'F', 'SPL.Ampere', false, 'pv', 'RO 1319'],
-                ['pv2_volt', 'PV2 Spannung', 'F', 'SPL.Volt',   false, 'pv', 'RO 1320'],
-                ['pv2_curr', 'PV2 Strom',    'F', 'SPL.Ampere', false, 'pv', 'RO 1321'],
-                ['pv3_volt', 'PV3 Spannung', 'F', 'SPL.Volt',   false, 'pv', 'RO 1322'],
-                ['pv3_curr', 'PV3 Strom',    'F', 'SPL.Ampere', false, 'pv', 'RO 1323'],
+            'GroupPV' => ['caption' => 'PV details (string 1-3)', 'vars' => [
+                ['pv1_volt', 'PV1 voltage', 'F', 'SPL.Volt',   false, 'pv', 'RO 1318'],
+                ['pv1_curr', 'PV1 current',    'F', 'SPL.Ampere', false, 'pv', 'RO 1319'],
+                ['pv2_volt', 'PV2 voltage', 'F', 'SPL.Volt',   false, 'pv', 'RO 1320'],
+                ['pv2_curr', 'PV2 current',    'F', 'SPL.Ampere', false, 'pv', 'RO 1321'],
+                ['pv3_volt', 'PV3 voltage', 'F', 'SPL.Volt',   false, 'pv', 'RO 1322'],
+                ['pv3_curr', 'PV3 current',    'F', 'SPL.Ampere', false, 'pv', 'RO 1323'],
             ]],
-            'GroupBat' => ['caption' => 'Batterie (Spannung, Strom, SOC, SOH, Temperatur)', 'vars' => [
-                ['bat_volt', 'Bat. Spannung',   'F', 'SPL.Volt',       false, 'bat', 'RO 1616'],
-                ['bat_curr', 'Bat. Strom',      'F', 'SPL.Ampere',     false, 'bat', 'RO 1617'],
+            'GroupBat' => ['caption' => 'Battery (voltage, current, SOC, SOH, temperature)', 'vars' => [
+                ['bat_volt', 'Bat. voltage',   'F', 'SPL.Volt',       false, 'bat', 'RO 1616'],
+                ['bat_curr', 'Bat. current',      'F', 'SPL.Ampere',     false, 'bat', 'RO 1617'],
                 ['bat_soc',  'Bat. SOC',        'I', '~Battery.100',   true,  'bat', 'RO 1621'],
                 ['bat_soh',  'Bat. SOH',        'I', '~Intensity.100', true,  'bat', 'RO 1622'],
-                ['bat_temp', 'Bat. Temperatur', 'F', '~Temperature',   true,  'bat', 'RO 1620'],
+                ['bat_temp', 'Bat. temperature', 'F', '~Temperature',   true,  'bat', 'RO 1620'],
             ]],
-            'GroupTemp' => ['caption' => 'Temperatur', 'vars' => [
-                ['temp_internal', 'Innentemperatur', 'F', '~Temperature', false, 'device', 'RO 1310'],
-                ['temp_env',      'Umgebungstemperatur', 'F', '~Temperature', false, 'device', 'RO 1680'],
+            'GroupTemp' => ['caption' => 'Temperature', 'vars' => [
+                ['temp_internal', 'Indoor temperature', 'F', '~Temperature', false, 'device', 'RO 1310'],
+                ['temp_env',      'Ambient temperature', 'F', '~Temperature', false, 'device', 'RO 1680'],
             ]],
-            'GroupEnergy' => ['caption' => 'Energiezähler (Tag/Gesamt)', 'vars' => [
-                ['e_pv_day',      'PV Heute',            'F', '~Electricity', true, 'energy', 'RO 1602'],
-                ['e_pv_total',    'PV Gesamt',           'F', '~Electricity', true, 'energy', 'RO 1604'],
-                ['e_inv_day',     'Wechselrichter Heute','F', '~Electricity', true, 'energy', 'RO 1302'],
-                ['e_inv_total',   'Wechselrichter Gesamt','F', '~Electricity', true, 'energy', 'RO 1304'],
-                ['e_charge_day',  'Bat. Laden Heute',    'F', '~Electricity', true, 'energy', 'RO 1625'],
-                ['e_disch_day',   'Bat. Entladen Heute', 'F', '~Electricity', true, 'energy', 'RO 1627'],
+            'GroupEnergy' => ['caption' => 'Energy meters (day/total)', 'vars' => [
+                ['e_pv_day',      'PV today',            'F', '~Electricity', true, 'energy', 'RO 1602'],
+                ['e_pv_total',    'PV total',           'F', '~Electricity', true, 'energy', 'RO 1604'],
+                ['e_inv_day',     'Inverter today','F', '~Electricity', true, 'energy', 'RO 1302'],
+                ['e_inv_total',   'Inverter total','F', '~Electricity', true, 'energy', 'RO 1304'],
+                ['e_charge_day',  'Bat. charge today',    'F', '~Electricity', true, 'energy', 'RO 1625'],
+                ['e_disch_day',   'Bat. discharge today', 'F', '~Electricity', true, 'energy', 'RO 1627'],
             ]],
         ];
     }
@@ -4745,67 +4745,67 @@ class IHUB_KostalDriver implements IHUB_InverterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['connected', 'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
-            ['pv_total',  'PV Gesamtleistung (DC)', 'F', 'KST.Watt',   true,  'pv',     'RO 100 (Float32)'],
-            ['ac_power',  'AC Wirkleistung Gesamt',  'F', 'KST.Watt',  true,  'device', 'RO 172 (Float32)'],
-            ['riso',      'Isolationswiderstand', 'F', 'KST.KOhm',    true,  'pv',     'RO 120 (Float32, Ohm ÷1000)'],
+            ['connected', 'Connection',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['pv_total',  'PV total power (DC)', 'F', 'KST.Watt',   true,  'pv',     'RO 100 (Float32)'],
+            ['ac_power',  'AC active power total',  'F', 'KST.Watt',  true,  'device', 'RO 172 (Float32)'],
+            ['riso',      'Insulation resistance', 'F', 'KST.KOhm',    true,  'pv',     'RO 120 (Float32, Ohm ÷1000)'],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupPV' => ['caption' => 'PV-Details (DC-Eingang 1-3)', 'vars' => [
-                ['pv1_curr',  'PV1 Strom',    'F', 'KST.Ampere', false, 'pv', 'RO 258 (Float32)'],
-                ['pv1_power', 'PV1 Leistung', 'F', 'KST.Watt',   true,  'pv', 'RO 260 (Float32)'],
-                ['pv1_volt',  'PV1 Spannung', 'F', 'KST.Volt',   false, 'pv', 'RO 266 (Float32)'],
-                ['pv2_curr',  'PV2 Strom',    'F', 'KST.Ampere', false, 'pv', 'RO 268 (Float32)'],
-                ['pv2_power', 'PV2 Leistung', 'F', 'KST.Watt',   true,  'pv', 'RO 270 (Float32)'],
-                ['pv2_volt',  'PV2 Spannung', 'F', 'KST.Volt',   false, 'pv', 'RO 276 (Float32)'],
-                ['pv3_curr',  'PV3 Strom',    'F', 'KST.Ampere', false, 'pv', 'RO 278 (Float32)'],
-                ['pv3_power', 'PV3 Leistung', 'F', 'KST.Watt',   true,  'pv', 'RO 280 (Float32)'],
-                ['pv3_volt',  'PV3 Spannung', 'F', 'KST.Volt',   false, 'pv', 'RO 286 (Float32)'],
+            'GroupPV' => ['caption' => 'PV details (DC input 1-3)', 'vars' => [
+                ['pv1_curr',  'PV1 current',    'F', 'KST.Ampere', false, 'pv', 'RO 258 (Float32)'],
+                ['pv1_power', 'PV1 power', 'F', 'KST.Watt',   true,  'pv', 'RO 260 (Float32)'],
+                ['pv1_volt',  'PV1 voltage', 'F', 'KST.Volt',   false, 'pv', 'RO 266 (Float32)'],
+                ['pv2_curr',  'PV2 current',    'F', 'KST.Ampere', false, 'pv', 'RO 268 (Float32)'],
+                ['pv2_power', 'PV2 power', 'F', 'KST.Watt',   true,  'pv', 'RO 270 (Float32)'],
+                ['pv2_volt',  'PV2 voltage', 'F', 'KST.Volt',   false, 'pv', 'RO 276 (Float32)'],
+                ['pv3_curr',  'PV3 current',    'F', 'KST.Ampere', false, 'pv', 'RO 278 (Float32)'],
+                ['pv3_power', 'PV3 power', 'F', 'KST.Watt',   true,  'pv', 'RO 280 (Float32)'],
+                ['pv3_volt',  'PV3 voltage', 'F', 'KST.Volt',   false, 'pv', 'RO 286 (Float32)'],
             ]],
-            'GroupGrid' => ['caption' => 'Netz (Spannung, Strom, Leistung je Phase, Frequenz)', 'vars' => [
-                ['grid_freq',    'Netzfrequenz',      'F', 'KST.Hertz',  false, 'grid', 'RO 152 (Float32)'],
-                ['grid_l1_curr', 'Netz L1 Strom',     'F', 'KST.Ampere', false, 'grid', 'RO 154 (Float32)'],
-                ['grid_l1_pwr',  'Netz L1 Leistung',  'F', 'KST.Watt',   true,  'grid', 'RO 156 (Float32)'],
-                ['grid_l1_volt', 'Netz L1 Spannung',  'F', 'KST.Volt',   false, 'grid', 'RO 158 (Float32)'],
-                ['grid_l2_curr', 'Netz L2 Strom',     'F', 'KST.Ampere', false, 'grid', 'RO 160 (Float32)'],
-                ['grid_l2_pwr',  'Netz L2 Leistung',  'F', 'KST.Watt',   true,  'grid', 'RO 162 (Float32)'],
-                ['grid_l2_volt', 'Netz L2 Spannung',  'F', 'KST.Volt',   false, 'grid', 'RO 164 (Float32)'],
-                ['grid_l3_curr', 'Netz L3 Strom',     'F', 'KST.Ampere', false, 'grid', 'RO 166 (Float32)'],
-                ['grid_l3_pwr',  'Netz L3 Leistung',  'F', 'KST.Watt',   true,  'grid', 'RO 168 (Float32)'],
-                ['grid_l3_volt', 'Netz L3 Spannung',  'F', 'KST.Volt',   false, 'grid', 'RO 170 (Float32)'],
+            'GroupGrid' => ['caption' => 'Grid (voltage, current, power per phase, frequency)', 'vars' => [
+                ['grid_freq',    'Grid frequency',      'F', 'KST.Hertz',  false, 'grid', 'RO 152 (Float32)'],
+                ['grid_l1_curr', 'Grid L1 current',     'F', 'KST.Ampere', false, 'grid', 'RO 154 (Float32)'],
+                ['grid_l1_pwr',  'Grid L1 power',  'F', 'KST.Watt',   true,  'grid', 'RO 156 (Float32)'],
+                ['grid_l1_volt', 'Grid L1 voltage',  'F', 'KST.Volt',   false, 'grid', 'RO 158 (Float32)'],
+                ['grid_l2_curr', 'Grid L2 current',     'F', 'KST.Ampere', false, 'grid', 'RO 160 (Float32)'],
+                ['grid_l2_pwr',  'Grid L2 power',  'F', 'KST.Watt',   true,  'grid', 'RO 162 (Float32)'],
+                ['grid_l2_volt', 'Grid L2 voltage',  'F', 'KST.Volt',   false, 'grid', 'RO 164 (Float32)'],
+                ['grid_l3_curr', 'Grid L3 current',     'F', 'KST.Ampere', false, 'grid', 'RO 166 (Float32)'],
+                ['grid_l3_pwr',  'Grid L3 power',  'F', 'KST.Watt',   true,  'grid', 'RO 168 (Float32)'],
+                ['grid_l3_volt', 'Grid L3 voltage',  'F', 'KST.Volt',   false, 'grid', 'RO 170 (Float32)'],
             ]],
-            'GroupBat' => ['caption' => 'Batterie (Leistung, Spannung, Strom, SOC, Temperatur, Zustand)', 'vars' => [
+            'GroupBat' => ['caption' => 'Battery (power, voltage, current, SOC, temperature, state)', 'vars' => [
                 ['bat_soc',    'Bat. SOC',        'I', '~Battery.100', true,  'bat', 'RO 210 (Float32)'],
-                ['bat_power',  'Bat. Leistung (Entladen + / Laden -)', 'F', 'KST.Watt', true, 'bat', 'RO 582 (SInt16)'],
-                ['bat_status', 'Bat. Zustand',    'I', 'KST.BatState', true,  'bat', 'abgeleitet aus RO 582'],
-                ['bat_temp', 'Bat. Temperatur', 'F', '~Temperature', true,  'bat', 'RO 214 (Float32)'],
-                ['bat_volt', 'Bat. Spannung',   'F', 'KST.Volt',     false, 'bat', 'RO 216 (Float32)'],
-                ['bat_curr', 'Bat. Strom (Laden -/Entladen +)', 'F', 'KST.Ampere', false, 'bat', 'RO 200 (Float32)'],
+                ['bat_power',  'Bat. power (discharging + / charging -)', 'F', 'KST.Watt', true, 'bat', 'RO 582 (SInt16)'],
+                ['bat_status', 'Bat. state',    'I', 'KST.BatState', true,  'bat', 'abgeleitet aus RO 582'],
+                ['bat_temp', 'Bat. temperature', 'F', '~Temperature', true,  'bat', 'RO 214 (Float32)'],
+                ['bat_volt', 'Bat. voltage',   'F', 'KST.Volt',     false, 'bat', 'RO 216 (Float32)'],
+                ['bat_curr', 'Bat. current (charging -/discharging +)', 'F', 'KST.Ampere', false, 'bat', 'RO 200 (Float32)'],
             ]],
-            'GroupMeter' => ['caption' => 'Smart Meter (Leistung je Phase)', 'vars' => [
-                ['meter_l1_pwr',  'Meter L1 Leistung', 'F', 'KST.Watt', true, 'meter', 'RO 224 (Float32)'],
-                ['meter_l2_pwr',  'Meter L2 Leistung', 'F', 'KST.Watt', true, 'meter', 'RO 234 (Float32)'],
-                ['meter_l3_pwr',  'Meter L3 Leistung', 'F', 'KST.Watt', true, 'meter', 'RO 244 (Float32)'],
-                ['meter_total',   'Meter Gesamtleistung', 'F', 'KST.Watt', true, 'meter', 'RO 252 (Float32)'],
+            'GroupMeter' => ['caption' => 'Smart meter (power per phase)', 'vars' => [
+                ['meter_l1_pwr',  'Meter L1 power', 'F', 'KST.Watt', true, 'meter', 'RO 224 (Float32)'],
+                ['meter_l2_pwr',  'Meter L2 power', 'F', 'KST.Watt', true, 'meter', 'RO 234 (Float32)'],
+                ['meter_l3_pwr',  'Meter L3 power', 'F', 'KST.Watt', true, 'meter', 'RO 244 (Float32)'],
+                ['meter_total',   'Meter total power', 'F', 'KST.Watt', true, 'meter', 'RO 252 (Float32)'],
             ]],
-            'GroupHome' => ['caption' => 'Hausverbrauch (aufgeteilt nach Quelle)', 'vars' => [
-                ['home_total',    'Hausverbrauch Gesamt',       'F', '~Electricity', true, 'device', 'RO 118 (Float32, Wh)'],
-                ['home_from_pv',  'Hausverbrauch aus PV',       'F', 'KST.Watt', true, 'device', 'RO 116 (Float32)'],
-                ['home_from_bat', 'Hausverbrauch aus Batterie', 'F', 'KST.Watt', true, 'device', 'RO 106 (Float32)'],
-                ['home_from_grid','Hausverbrauch aus Netz',     'F', 'KST.Watt', true, 'device', 'RO 108 (Float32)'],
+            'GroupHome' => ['caption' => 'House consumption (split by source)', 'vars' => [
+                ['home_total',    'House consumption total',       'F', '~Electricity', true, 'device', 'RO 118 (Float32, Wh)'],
+                ['home_from_pv',  'House consumption from PV',       'F', 'KST.Watt', true, 'device', 'RO 116 (Float32)'],
+                ['home_from_bat', 'House consumption from battery', 'F', 'KST.Watt', true, 'device', 'RO 106 (Float32)'],
+                ['home_from_grid','House consumption from grid',     'F', 'KST.Watt', true, 'device', 'RO 108 (Float32)'],
             ]],
-            'GroupEnergy' => ['caption' => 'Energiezähler (Tag/Monat/Jahr/Gesamt)', 'vars' => [
-                ['e_total',   'Ertrag Gesamt', 'F', '~Electricity', true, 'energy', 'RO 320 (Float32, Wh)'],
-                ['e_day',     'Ertrag Heute',  'F', '~Electricity', true, 'energy', 'RO 322 (Float32, Wh)'],
-                ['e_year',    'Ertrag Jahr',   'F', '~Electricity', true, 'energy', 'RO 324 (Float32, Wh)'],
-                ['e_month',   'Ertrag Monat',  'F', '~Electricity', true, 'energy', 'RO 326 (Float32, Wh)'],
+            'GroupEnergy' => ['caption' => 'Energy meters (day/month/year/total)', 'vars' => [
+                ['e_total',   'Yield total', 'F', '~Electricity', true, 'energy', 'RO 320 (Float32, Wh)'],
+                ['e_day',     'Yield today',  'F', '~Electricity', true, 'energy', 'RO 322 (Float32, Wh)'],
+                ['e_year',    'Yield year',   'F', '~Electricity', true, 'energy', 'RO 324 (Float32, Wh)'],
+                ['e_month',   'Yield month',  'F', '~Electricity', true, 'energy', 'RO 326 (Float32, Wh)'],
             ]],
-            'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
-                ['dev_name', 'Produktname', 'S', '', false, 'device', 'RO 768 (String)'],
+            'GroupDevice' => ['caption' => 'Device information', 'vars' => [
+                ['dev_name', 'Product name', 'S', '', false, 'device', 'RO 768 (String)'],
             ]],
         ];
     }
@@ -4830,9 +4830,9 @@ class IHUB_KostalDriver implements IHUB_InverterDriverInterface
     {
         return [
             'KST.BatState' => [
-                0 => ['Ruhe',     0x7A8A99],
-                1 => ['Laden',    0x3BA55D],
-                2 => ['Entladen', 0xE08A2B],
+                0 => ['Sleep',     0x7A8A99],
+                1 => ['Charge',    0x3BA55D],
+                2 => ['Discharge', 0xE08A2B],
             ],
         ];
     }
@@ -4995,60 +4995,60 @@ class IHUB_KostalDriver implements IHUB_InverterDriverInterface
 class IHUB_HuaweiDriver implements IHUB_InverterDriverInterface
 {
     const STATUS = [
-        0x0000 => 'Standby: Initialisierung', 0x0001 => 'Standby: Isolationswiderstand',
-        0x0002 => 'Standby: Einstrahlung',    0x0003 => 'Standby: Netzerkennung',
-        0x0100 => 'Startet',                  0x0200 => 'Netzbetrieb',
-        0x0201 => 'Netzbetrieb: leistungsbegrenzt', 0x0202 => 'Netzbetrieb: Eigenderating',
-        0x0300 => 'Abschaltung: Fehler',      0x0301 => 'Abschaltung: Befehl',
-        0x0304 => 'Abschaltung: leistungsbegrenzt', 0x0306 => 'Abschaltung: DC-Schalter offen',
-        0x0308 => 'Abschaltung: Eingang unterversorgt', 0xA000 => 'Standby: keine Einstrahlung',
+        0x0000 => 'Standby: initialization', 0x0001 => 'Standby: insulation resistance',
+        0x0002 => 'Standby: irradiation',    0x0003 => 'Standby: grid detection',
+        0x0100 => 'Starting',                  0x0200 => 'Grid operation',
+        0x0201 => 'Grid operation: power limited', 0x0202 => 'Grid operation: self-derating',
+        0x0300 => 'Shutdown: fault',      0x0301 => 'Shutdown: command',
+        0x0304 => 'Shutdown: power limited', 0x0306 => 'Shutdown: DC switch open',
+        0x0308 => 'Shutdown: input underpowered', 0xA000 => 'Standby: no irradiation',
     ];
     const BAT_STATUS = [
-        0 => 'Offline', 1 => 'Standby', 2 => 'Läuft', 3 => 'Fehler', 4 => 'Ruhemodus',
+        0 => 'Offline', 1 => 'Standby', 2 => 'Running', 3 => 'Fault', 4 => 'Sleep mode',
     ];
 
     public function getBaseVars()
     {
         return [
-            ['connected', 'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
-            ['status',    'Betriebsstatus',    'I', 'HUA.Status',      true,  'device', 'RO 32089'],
-            ['pv_total',  'PV Gesamtleistung (DC-Eingang)', 'F', 'HUA.Watt', true, 'pv',   'RO 32064 (I32)'],
-            ['ac_power',  'AC Wirkleistung',   'F', 'HUA.Watt',        true,  'device', 'RO 32080 (I32)'],
-            ['riso',      'Isolationswiderstand', 'F', 'HUA.MOhm',     true,  'pv',     'RO 32088 (÷1000, MΩ)'],
+            ['connected', 'Connection',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['status',    'Operating status',    'I', 'HUA.Status',      true,  'device', 'RO 32089'],
+            ['pv_total',  'PV total power (DC input)', 'F', 'HUA.Watt', true, 'pv',   'RO 32064 (I32)'],
+            ['ac_power',  'AC active power',   'F', 'HUA.Watt',        true,  'device', 'RO 32080 (I32)'],
+            ['riso',      'Insulation resistance', 'F', 'HUA.MOhm',     true,  'pv',     'RO 32088 (÷1000, MΩ)'],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupGrid' => ['caption' => 'Netz (Spannung, Strom, Frequenz)', 'vars' => [
-                ['grid_volt', 'Netz Spannung',  'F', 'HUA.Volt',   false, 'grid', 'RO 32069 (÷10)'],
-                ['grid_curr', 'Netz Strom',     'F', 'HUA.Ampere', false, 'grid', 'RO 32072 (I32, ÷1000)'],
-                ['grid_freq', 'Netzfrequenz',   'F', 'HUA.Hertz',  false, 'grid', 'RO 32085 (÷100)'],
+            'GroupGrid' => ['caption' => 'Grid (voltage, current, frequency)', 'vars' => [
+                ['grid_volt', 'Grid voltage',  'F', 'HUA.Volt',   false, 'grid', 'RO 32069 (÷10)'],
+                ['grid_curr', 'Grid current',     'F', 'HUA.Ampere', false, 'grid', 'RO 32072 (I32, ÷1000)'],
+                ['grid_freq', 'Grid frequency',   'F', 'HUA.Hertz',  false, 'grid', 'RO 32085 (÷100)'],
             ]],
-            'GroupTemp' => ['caption' => 'Temperatur', 'vars' => [
-                ['temp_cab', 'Innentemperatur', 'F', '~Temperature', false, 'device', 'RO 32087 (÷10)'],
+            'GroupTemp' => ['caption' => 'Temperature', 'vars' => [
+                ['temp_cab', 'Indoor temperature', 'F', '~Temperature', false, 'device', 'RO 32087 (÷10)'],
             ]],
-            'GroupEnergy' => ['caption' => 'Energiezähler (Ertrag Gesamt/Heute)', 'vars' => [
-                ['e_total', 'Ertrag Gesamt', 'F', '~Electricity', true, 'energy', 'RO 32106 (U32, ÷100)'],
-                ['e_day',   'Ertrag Heute',  'F', '~Electricity', true, 'energy', 'RO 32114 (U32, ÷100)'],
+            'GroupEnergy' => ['caption' => 'Energy meters (yield total/today)', 'vars' => [
+                ['e_total', 'Yield total', 'F', '~Electricity', true, 'energy', 'RO 32106 (U32, ÷100)'],
+                ['e_day',   'Yield today',  'F', '~Electricity', true, 'energy', 'RO 32114 (U32, ÷100)'],
             ]],
-            'GroupMeter' => ['caption' => 'Smart Meter (DTSU666)', 'vars' => [
-                ['meter_total', 'Netz Leistung (Meter, + Einspeisung / − Bezug)', 'F', 'HUA.Watt', true, 'meter', 'RO 37113 (I32)'],
-                ['meter_volt',  'Meter Spannung L1', 'F', 'HUA.Volt',   false, 'meter', 'RO 37101 (I32, ÷10)'],
-                ['meter_curr',  'Meter Strom L1',    'F', 'HUA.Ampere', false, 'meter', 'RO 37107 (I32, ÷100)'],
-                ['meter_freq',  'Meter Frequenz',    'F', 'HUA.Hertz',  false, 'meter', 'RO 37118 (I16, ÷100)'],
+            'GroupMeter' => ['caption' => 'Smart meter (DTSU666)', 'vars' => [
+                ['meter_total', 'Grid power (meter, + feed-in / − import)', 'F', 'HUA.Watt', true, 'meter', 'RO 37113 (I32)'],
+                ['meter_volt',  'Meter voltage L1', 'F', 'HUA.Volt',   false, 'meter', 'RO 37101 (I32, ÷10)'],
+                ['meter_curr',  'Meter current L1',    'F', 'HUA.Ampere', false, 'meter', 'RO 37107 (I32, ÷100)'],
+                ['meter_freq',  'Meter frequency',    'F', 'HUA.Hertz',  false, 'meter', 'RO 37118 (I16, ÷100)'],
             ]],
-            'GroupBattery' => ['caption' => 'Batterie (LUNA2000)', 'vars' => [
+            'GroupBattery' => ['caption' => 'Battery (LUNA2000)', 'vars' => [
                 ['bat_soc',    'Bat. SOC',        'I', '~Battery.100', true,  'bat', 'RO 37004 (÷10)'],
-                ['bat_power',  'Bat. Leistung (+ Entladen / − Laden)', 'F', 'HUA.Watt', true, 'bat', 'RO 37001 (I32)'],
-                ['bat_volt',   'Bat. Spannung',   'F', 'HUA.Volt',    false, 'bat', 'RO 37003 (÷10)'],
-                ['bat_curr',   'Bat. Strom',      'F', 'HUA.Ampere',  false, 'bat', 'RO 37021 (I16, ÷10)'],
-                ['bat_temp',   'Bat. Temperatur', 'F', '~Temperature', false, 'bat', 'RO 37022 (I16, ÷10)'],
-                ['bat_status', 'Bat. Zustand',    'I', 'HUA.BatStatus', true, 'bat', 'RO 37000'],
+                ['bat_power',  'Bat. power (+ discharging / − charging)', 'F', 'HUA.Watt', true, 'bat', 'RO 37001 (I32)'],
+                ['bat_volt',   'Bat. voltage',   'F', 'HUA.Volt',    false, 'bat', 'RO 37003 (÷10)'],
+                ['bat_curr',   'Bat. current',      'F', 'HUA.Ampere',  false, 'bat', 'RO 37021 (I16, ÷10)'],
+                ['bat_temp',   'Bat. temperature', 'F', '~Temperature', false, 'bat', 'RO 37022 (I16, ÷10)'],
+                ['bat_status', 'Bat. state',    'I', 'HUA.BatStatus', true, 'bat', 'RO 37000'],
             ]],
-            'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
-                ['dev_model', 'Modell', 'S', '', false, 'device', 'RO 30000 (String)'],
+            'GroupDevice' => ['caption' => 'Device information', 'vars' => [
+                ['dev_model', 'Model', 'S', '', false, 'device', 'RO 30000 (String)'],
             ]],
         ];
     }
@@ -5192,70 +5192,70 @@ class IHUB_HuaweiDriver implements IHUB_InverterDriverInterface
 class IHUB_FoxEssDriver implements IHUB_InverterDriverInterface
 {
     const STATUS = [
-        0 => 'Warten', 1 => 'Prüfung', 2 => 'Netzbetrieb', 3 => 'Inselbetrieb',
-        4 => 'Behebbarer Fehler', 5 => 'Nicht behebbarer Fehler',
+        0 => 'Waiting', 1 => 'Check', 2 => 'Grid operation', 3 => 'Island mode',
+        4 => 'Recoverable fault', 5 => 'Non-recoverable fault',
     ];
-    const BAT_STATUS = [0 => 'Leerlauf', 1 => 'Normal', 2 => 'Offline'];
+    const BAT_STATUS = [0 => 'Idle', 1 => 'Normal', 2 => 'Offline'];
 
     public function getBaseVars()
     {
         return [
-            ['connected', 'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
-            ['status',    'Betriebsstatus',    'I', 'FOX.Status',      true,  'device', 'RO 11056'],
-            ['pv_total',  'PV Gesamtleistung', 'F', 'FOX.Watt',        true,  'pv',     'Σ RO 11002+11005'],
-            ['ac_power',  'AC Wirkleistung',   'F', 'FOX.Watt',        true,  'device', 'RO 11011 (Inv Power_P)'],
-            ['bat_power', 'Bat. Leistung',     'F', 'FOX.Watt',        true,  'bat',    'RO 11008 (+ = Entladen)'],
+            ['connected', 'Connection',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['status',    'Operating status',    'I', 'FOX.Status',      true,  'device', 'RO 11056'],
+            ['pv_total',  'PV total power', 'F', 'FOX.Watt',        true,  'pv',     'Σ RO 11002+11005'],
+            ['ac_power',  'AC active power',   'F', 'FOX.Watt',        true,  'device', 'RO 11011 (Inv Power_P)'],
+            ['bat_power', 'Bat. power',     'F', 'FOX.Watt',        true,  'bat',    'RO 11008 (+ = Entladen)'],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupPV' => ['caption' => 'PV-Details (String 1+2)', 'vars' => [
-                ['pv1_volt', 'PV1 Spannung', 'F', 'FOX.Volt',   false, 'pv', 'RO 11000'],
-                ['pv1_curr', 'PV1 Strom',    'F', 'FOX.Ampere', false, 'pv', 'RO 11001'],
-                ['pv2_volt', 'PV2 Spannung', 'F', 'FOX.Volt',   false, 'pv', 'RO 11003'],
-                ['pv2_curr', 'PV2 Strom',    'F', 'FOX.Ampere', false, 'pv', 'RO 11004'],
+            'GroupPV' => ['caption' => 'PV details (string 1+2)', 'vars' => [
+                ['pv1_volt', 'PV1 voltage', 'F', 'FOX.Volt',   false, 'pv', 'RO 11000'],
+                ['pv1_curr', 'PV1 current',    'F', 'FOX.Ampere', false, 'pv', 'RO 11001'],
+                ['pv2_volt', 'PV2 voltage', 'F', 'FOX.Volt',   false, 'pv', 'RO 11003'],
+                ['pv2_curr', 'PV2 current',    'F', 'FOX.Ampere', false, 'pv', 'RO 11004'],
             ]],
-            'GroupGrid' => ['caption' => 'Netz (Spannung, Frequenz)', 'vars' => [
-                ['grid_volt', 'Netz Spannung', 'F', 'FOX.Volt',  false, 'grid', 'RO 11009'],
-                ['grid_freq', 'Netzfrequenz',  'F', 'FOX.Hertz', false, 'grid', 'RO 11014'],
+            'GroupGrid' => ['caption' => 'Grid (voltage, frequency)', 'vars' => [
+                ['grid_volt', 'Grid voltage', 'F', 'FOX.Volt',  false, 'grid', 'RO 11009'],
+                ['grid_freq', 'Grid frequency',  'F', 'FOX.Hertz', false, 'grid', 'RO 11014'],
             ]],
-            'GroupBat' => ['caption' => 'Batterie (Spannung, Strom, SOC, Temperatur)', 'vars' => [
-                ['bat_volt',    'Bat. Spannung',    'F', 'FOX.Volt',     false, 'bat', 'RO 11034 (BMS)'],
-                ['bat_curr',    'Bat. Strom',       'F', 'FOX.Ampere',   false, 'bat', 'RO 11035 (BMS)'],
+            'GroupBat' => ['caption' => 'Battery (voltage, current, SOC, temperature)', 'vars' => [
+                ['bat_volt',    'Bat. voltage',    'F', 'FOX.Volt',     false, 'bat', 'RO 11034 (BMS)'],
+                ['bat_curr',    'Bat. current',       'F', 'FOX.Ampere',   false, 'bat', 'RO 11035 (BMS)'],
                 ['bat_soc',     'Bat. SOC',         'I', '~Battery.100', true,  'bat', 'RO 11036'],
-                ['bat_temp',    'Bat. Temperatur',  'F', '~Temperature', true,  'bat', 'RO 11038'],
-                ['bat_status',  'Bat. Status',      'I', 'FOX.BatStat',  false, 'bat', 'RO 11057'],
+                ['bat_temp',    'Bat. temperature',  'F', '~Temperature', true,  'bat', 'RO 11038'],
+                ['bat_status',  'Bat. status',      'I', 'FOX.BatStat',  false, 'bat', 'RO 11057'],
             ]],
-            'GroupEps' => ['caption' => 'Ersatzstrom (EPS/Inselbetrieb)', 'vars' => [
-                ['eps_volt', 'EPS Spannung',  'F', 'FOX.Volt',  false, 'backup', 'RO 11015'],
-                ['eps_pwr',  'EPS Leistung',  'F', 'FOX.Watt',  true,  'backup', 'RO 11017'],
-                ['eps_freq', 'EPS Frequenz',  'F', 'FOX.Hertz', false, 'backup', 'RO 11020'],
+            'GroupEps' => ['caption' => 'Emergency power (EPS/island mode)', 'vars' => [
+                ['eps_volt', 'EPS voltage',  'F', 'FOX.Volt',  false, 'backup', 'RO 11015'],
+                ['eps_pwr',  'EPS power',  'F', 'FOX.Watt',  true,  'backup', 'RO 11017'],
+                ['eps_freq', 'EPS frequency',  'F', 'FOX.Hertz', false, 'backup', 'RO 11020'],
             ]],
-            'GroupMeter' => ['caption' => 'Smart Meter (Leistung)', 'vars' => [
-                ['meter1_pwr', 'Meter 1 Leistung', 'F', 'FOX.Watt', true, 'meter', 'RO 11021'],
-                ['meter2_pwr', 'Meter 2 Leistung', 'F', 'FOX.Watt', true, 'meter', 'RO 11022'],
+            'GroupMeter' => ['caption' => 'Smart meter (power)', 'vars' => [
+                ['meter1_pwr', 'Meter 1 power', 'F', 'FOX.Watt', true, 'meter', 'RO 11021'],
+                ['meter2_pwr', 'Meter 2 power', 'F', 'FOX.Watt', true, 'meter', 'RO 11022'],
             ]],
-            'GroupTemp' => ['caption' => 'Temperatur', 'vars' => [
-                ['temp_inv', 'Wechselrichter-Temperatur', 'F', '~Temperature', false, 'device', 'RO 11024'],
-                ['temp_env', 'Umgebungstemperatur',        'F', '~Temperature', false, 'device', 'RO 11025'],
+            'GroupTemp' => ['caption' => 'Temperature', 'vars' => [
+                ['temp_inv', 'Inverter temperature', 'F', '~Temperature', false, 'device', 'RO 11024'],
+                ['temp_env', 'Ambient temperature',        'F', '~Temperature', false, 'device', 'RO 11025'],
             ]],
-            'GroupEnergy' => ['caption' => 'Energiezähler (Tag/Gesamt)', 'vars' => [
-                ['e_pv_day',       'PV Heute',              'F', '~Electricity', true, 'energy', 'RO 11071 (÷10)'],
-                ['e_pv_total',     'PV Gesamt',             'F', '~Electricity', true, 'energy', 'RO 11069+11070 (U32, ÷10)'],
-                ['e_charge_day',   'Bat. Laden Heute',      'F', '~Electricity', true, 'energy', 'RO 11074 (÷10)'],
-                ['e_charge_total', 'Bat. Laden Gesamt',     'F', '~Electricity', true, 'energy', 'RO 11072+11073 (U32, ÷10)'],
-                ['e_disch_day',    'Bat. Entladen Heute',   'F', '~Electricity', true, 'energy', 'RO 11077 (÷10)'],
-                ['e_disch_total',  'Bat. Entladen Gesamt',  'F', '~Electricity', true, 'energy', 'RO 11075+11076 (U32, ÷10)'],
-                ['e_sell_day',     'Einspeisung Heute',     'F', '~Electricity', true, 'energy', 'RO 11080 (÷10)'],
-                ['e_sell_total',   'Einspeisung Gesamt',    'F', '~Electricity', true, 'energy', 'RO 11078+11079 (U32, ÷10)'],
-                ['e_load_day',     'Hausverbrauch Heute',   'F', '~Electricity', true, 'energy', 'RO 11092 (÷10)'],
-                ['e_load_total',   'Hausverbrauch Gesamt',  'F', '~Electricity', true, 'energy', 'RO 11090+11091 (U32, ÷10)'],
+            'GroupEnergy' => ['caption' => 'Energy meters (day/total)', 'vars' => [
+                ['e_pv_day',       'PV today',              'F', '~Electricity', true, 'energy', 'RO 11071 (÷10)'],
+                ['e_pv_total',     'PV total',             'F', '~Electricity', true, 'energy', 'RO 11069+11070 (U32, ÷10)'],
+                ['e_charge_day',   'Bat. charge today',      'F', '~Electricity', true, 'energy', 'RO 11074 (÷10)'],
+                ['e_charge_total', 'Bat. charge total',     'F', '~Electricity', true, 'energy', 'RO 11072+11073 (U32, ÷10)'],
+                ['e_disch_day',    'Bat. discharge today',   'F', '~Electricity', true, 'energy', 'RO 11077 (÷10)'],
+                ['e_disch_total',  'Bat. discharge total',  'F', '~Electricity', true, 'energy', 'RO 11075+11076 (U32, ÷10)'],
+                ['e_sell_day',     'Feed-in today',     'F', '~Electricity', true, 'energy', 'RO 11080 (÷10)'],
+                ['e_sell_total',   'Feed-in total',    'F', '~Electricity', true, 'energy', 'RO 11078+11079 (U32, ÷10)'],
+                ['e_load_day',     'House consumption today',   'F', '~Electricity', true, 'energy', 'RO 11092 (÷10)'],
+                ['e_load_total',   'House consumption total',  'F', '~Electricity', true, 'energy', 'RO 11090+11091 (U32, ÷10)'],
             ]],
-            'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
-                ['dev_model', 'Modell',       'S', '', false, 'device', 'RO 10000-10007 (STR)'],
-                ['dev_sn',    'Seriennummer', 'S', '', false, 'device', 'RO 10008-10015 (STR)'],
+            'GroupDevice' => ['caption' => 'Device information', 'vars' => [
+                ['dev_model', 'Model',       'S', '', false, 'device', 'RO 10000-10007 (STR)'],
+                ['dev_sn',    'Serial number', 'S', '', false, 'device', 'RO 10008-10015 (STR)'],
             ]],
         ];
     }
@@ -5416,63 +5416,63 @@ class IHUB_FoxEssDriver implements IHUB_InverterDriverInterface
 class IHUB_FoxEssSmartDriver implements IHUB_InverterDriverInterface
 {
     const STATUS = [
-        0 => 'Unbekannt', 1 => 'Standby', 2 => 'Netzbetrieb', 3 => 'Inselbetrieb', 4 => 'Fehler',
+        0 => 'Unknown', 1 => 'Standby', 2 => 'Grid operation', 3 => 'Island mode', 4 => 'Fault',
     ];
 
     public function getBaseVars()
     {
         return [
-            ['connected', 'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
-            ['status',    'Betriebsstatus',    'I', 'FOXS.Status',     true,  'device', 'HR 39063 + 39065 (Bits)'],
-            ['pv_total',  'PV Gesamtleistung', 'F', 'FOXS.Watt',       true,  'pv',     'Σ HR 39279/81/83/85 (I32)'],
-            ['ac_power',  'AC Wirkleistung',   'F', 'FOXS.Watt',       true,  'device', 'HR 39134 (I32)'],
-            ['bat_power', 'Bat. Leistung (+ Entladen / − Laden)', 'F', 'FOXS.Watt', true, 'bat', 'HR 39237 (I32)'],
+            ['connected', 'Connection',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['status',    'Operating status',    'I', 'FOXS.Status',     true,  'device', 'HR 39063 + 39065 (Bits)'],
+            ['pv_total',  'PV total power', 'F', 'FOXS.Watt',       true,  'pv',     'Σ HR 39279/81/83/85 (I32)'],
+            ['ac_power',  'AC active power',   'F', 'FOXS.Watt',       true,  'device', 'HR 39134 (I32)'],
+            ['bat_power', 'Bat. power (+ discharging / − charging)', 'F', 'FOXS.Watt', true, 'bat', 'HR 39237 (I32)'],
             ['bat_soc',   'Bat. SOC',          'I', '~Battery.100',    true,  'bat',    'HR 37612'],
-            ['meter_total', 'Netz Leistung (+ Einspeisung / − Bezug)', 'F', 'FOXS.Watt', true, 'grid', 'HR 38814 (I32, ÷10)'],
+            ['meter_total', 'Grid power (+ feed-in / − import)', 'F', 'FOXS.Watt', true, 'grid', 'HR 38814 (I32, ÷10)'],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupPV' => ['caption' => 'PV-Details (String 1-4)', 'vars' => [
-                ['pv1_volt', 'PV1 Spannung', 'F', 'FOXS.Volt',   false, 'pv', 'HR 39070 (÷10)'],
-                ['pv1_curr', 'PV1 Strom',    'F', 'FOXS.Ampere', false, 'pv', 'HR 39071 (÷10)'],
-                ['pv2_volt', 'PV2 Spannung', 'F', 'FOXS.Volt',   false, 'pv', 'HR 39072 (÷10)'],
-                ['pv2_curr', 'PV2 Strom',    'F', 'FOXS.Ampere', false, 'pv', 'HR 39073 (÷10)'],
-                ['pv3_volt', 'PV3 Spannung', 'F', 'FOXS.Volt',   false, 'pv', 'HR 39074 (÷10)'],
-                ['pv3_curr', 'PV3 Strom',    'F', 'FOXS.Ampere', false, 'pv', 'HR 39075 (÷10)'],
-                ['pv4_volt', 'PV4 Spannung', 'F', 'FOXS.Volt',   false, 'pv', 'HR 39076 (÷10)'],
-                ['pv4_curr', 'PV4 Strom',    'F', 'FOXS.Ampere', false, 'pv', 'HR 39077 (÷10)'],
+            'GroupPV' => ['caption' => 'PV details (string 1-4)', 'vars' => [
+                ['pv1_volt', 'PV1 voltage', 'F', 'FOXS.Volt',   false, 'pv', 'HR 39070 (÷10)'],
+                ['pv1_curr', 'PV1 current',    'F', 'FOXS.Ampere', false, 'pv', 'HR 39071 (÷10)'],
+                ['pv2_volt', 'PV2 voltage', 'F', 'FOXS.Volt',   false, 'pv', 'HR 39072 (÷10)'],
+                ['pv2_curr', 'PV2 current',    'F', 'FOXS.Ampere', false, 'pv', 'HR 39073 (÷10)'],
+                ['pv3_volt', 'PV3 voltage', 'F', 'FOXS.Volt',   false, 'pv', 'HR 39074 (÷10)'],
+                ['pv3_curr', 'PV3 current',    'F', 'FOXS.Ampere', false, 'pv', 'HR 39075 (÷10)'],
+                ['pv4_volt', 'PV4 voltage', 'F', 'FOXS.Volt',   false, 'pv', 'HR 39076 (÷10)'],
+                ['pv4_curr', 'PV4 current',    'F', 'FOXS.Ampere', false, 'pv', 'HR 39077 (÷10)'],
             ]],
-            'GroupGrid' => ['caption' => 'Netz (Spannung, Frequenz)', 'vars' => [
-                ['grid_volt_r', 'Netz Spannung L1', 'F', 'FOXS.Volt', false, 'grid', 'HR 39123 (÷10)'],
-                ['grid_volt_s', 'Netz Spannung L2', 'F', 'FOXS.Volt', false, 'grid', 'HR 39124 (÷10)'],
-                ['grid_volt_t', 'Netz Spannung L3', 'F', 'FOXS.Volt', false, 'grid', 'HR 39125 (÷10)'],
-                ['grid_freq',   'Netzfrequenz',     'F', 'FOXS.Hertz', false, 'grid', 'HR 39139 (÷100)'],
+            'GroupGrid' => ['caption' => 'Grid (voltage, frequency)', 'vars' => [
+                ['grid_volt_r', 'Grid voltage L1', 'F', 'FOXS.Volt', false, 'grid', 'HR 39123 (÷10)'],
+                ['grid_volt_s', 'Grid voltage L2', 'F', 'FOXS.Volt', false, 'grid', 'HR 39124 (÷10)'],
+                ['grid_volt_t', 'Grid voltage L3', 'F', 'FOXS.Volt', false, 'grid', 'HR 39125 (÷10)'],
+                ['grid_freq',   'Grid frequency',     'F', 'FOXS.Hertz', false, 'grid', 'HR 39139 (÷100)'],
             ]],
-            'GroupBat' => ['caption' => 'Batterie (Spannung, Strom, Temperatur, Gesundheit)', 'vars' => [
-                ['bat_volt',   'Bat. Spannung',    'F', 'FOXS.Volt',   false, 'bat', 'HR 37609 (÷10, BMS)'],
-                ['bat_curr',   'Bat. Strom',       'F', 'FOXS.Ampere', false, 'bat', 'HR 37610 (I16, ÷10, BMS)'],
-                ['bat_temp',   'Bat. Temperatur',  'F', '~Temperature', false, 'bat', 'HR 37611 (I16, ÷10, BMS)'],
-                ['bat_soh',    'Bat. Gesundheit (SOH)', 'I', '~Battery.100', false, 'bat', 'HR 37624'],
+            'GroupBat' => ['caption' => 'Battery (voltage, current, temperature, health)', 'vars' => [
+                ['bat_volt',   'Bat. voltage',    'F', 'FOXS.Volt',   false, 'bat', 'HR 37609 (÷10, BMS)'],
+                ['bat_curr',   'Bat. current',       'F', 'FOXS.Ampere', false, 'bat', 'HR 37610 (I16, ÷10, BMS)'],
+                ['bat_temp',   'Bat. temperature',  'F', '~Temperature', false, 'bat', 'HR 37611 (I16, ÷10, BMS)'],
+                ['bat_soh',    'Bat. health (SOH)', 'I', '~Battery.100', false, 'bat', 'HR 37624'],
             ]],
-            'GroupTemp' => ['caption' => 'Temperatur', 'vars' => [
-                ['temp_inv', 'Wechselrichter-Temperatur', 'F', '~Temperature', false, 'device', 'HR 39141 (I16, ÷10)'],
+            'GroupTemp' => ['caption' => 'Temperature', 'vars' => [
+                ['temp_inv', 'Inverter temperature', 'F', '~Temperature', false, 'device', 'HR 39141 (I16, ÷10)'],
             ]],
-            'GroupEnergy' => ['caption' => 'Energiezähler (Tag/Gesamt)', 'vars' => [
-                ['e_pv_total',     'PV Gesamt',             'F', '~Electricity', true, 'energy', 'HR 39601+39602 (U32, ÷100)'],
-                ['e_pv_day',       'PV Heute',              'F', '~Electricity', true, 'energy', 'HR 39603+39604 (U32, ÷100)'],
-                ['e_charge_total', 'Bat. Laden Gesamt',     'F', '~Electricity', true, 'energy', 'HR 39605+39606 (U32, ÷100)'],
-                ['e_charge_day',   'Bat. Laden Heute',      'F', '~Electricity', true, 'energy', 'HR 39607+39608 (U32, ÷100)'],
-                ['e_disch_total',  'Bat. Entladen Gesamt',  'F', '~Electricity', true, 'energy', 'HR 39609+39610 (U32, ÷100)'],
-                ['e_disch_day',    'Bat. Entladen Heute',   'F', '~Electricity', true, 'energy', 'HR 39611+39612 (U32, ÷100)'],
-                ['e_sell_total',   'Einspeisung Gesamt',    'F', '~Electricity', true, 'energy', 'HR 39613+39614 (U32, ÷100)'],
-                ['e_sell_day',     'Einspeisung Heute',     'F', '~Electricity', true, 'energy', 'HR 39615+39616 (U32, ÷100)'],
-                ['e_buy_total',    'Netzbezug Gesamt',      'F', '~Electricity', true, 'energy', 'HR 39617+39618 (U32, ÷100)'],
-                ['e_buy_day',      'Netzbezug Heute',       'F', '~Electricity', true, 'energy', 'HR 39619+39620 (U32, ÷100)'],
-                ['e_load_total',   'Hausverbrauch Gesamt',  'F', '~Electricity', true, 'energy', 'HR 39629+39630 (U32, ÷100)'],
-                ['e_load_day',     'Hausverbrauch Heute',   'F', '~Electricity', true, 'energy', 'HR 39631+39632 (U32, ÷100)'],
+            'GroupEnergy' => ['caption' => 'Energy meters (day/total)', 'vars' => [
+                ['e_pv_total',     'PV total',             'F', '~Electricity', true, 'energy', 'HR 39601+39602 (U32, ÷100)'],
+                ['e_pv_day',       'PV today',              'F', '~Electricity', true, 'energy', 'HR 39603+39604 (U32, ÷100)'],
+                ['e_charge_total', 'Bat. charge total',     'F', '~Electricity', true, 'energy', 'HR 39605+39606 (U32, ÷100)'],
+                ['e_charge_day',   'Bat. charge today',      'F', '~Electricity', true, 'energy', 'HR 39607+39608 (U32, ÷100)'],
+                ['e_disch_total',  'Bat. discharge total',  'F', '~Electricity', true, 'energy', 'HR 39609+39610 (U32, ÷100)'],
+                ['e_disch_day',    'Bat. discharge today',   'F', '~Electricity', true, 'energy', 'HR 39611+39612 (U32, ÷100)'],
+                ['e_sell_total',   'Feed-in total',    'F', '~Electricity', true, 'energy', 'HR 39613+39614 (U32, ÷100)'],
+                ['e_sell_day',     'Feed-in today',     'F', '~Electricity', true, 'energy', 'HR 39615+39616 (U32, ÷100)'],
+                ['e_buy_total',    'Grid import total',      'F', '~Electricity', true, 'energy', 'HR 39617+39618 (U32, ÷100)'],
+                ['e_buy_day',      'Grid import today',       'F', '~Electricity', true, 'energy', 'HR 39619+39620 (U32, ÷100)'],
+                ['e_load_total',   'House consumption total',  'F', '~Electricity', true, 'energy', 'HR 39629+39630 (U32, ÷100)'],
+                ['e_load_day',     'House consumption today',   'F', '~Electricity', true, 'energy', 'HR 39631+39632 (U32, ÷100)'],
             ]],
         ];
     }
@@ -5670,75 +5670,75 @@ class IHUB_VictronDriver implements IHUB_InverterDriverInterface
     const UNIT_SYSTEM = 100;
 
     const BAT_STATE = [
-        0 => 'Ruhe', 1 => 'Laden', 2 => 'Entladen',
+        0 => 'Sleep', 1 => 'Charge', 2 => 'Discharge',
     ];
     const GRID_SOURCE = [
-        0 => 'Nicht verfügbar', 1 => 'Netz', 2 => 'Generator',
-        3 => 'Landstrom', 240 => 'Nicht verbunden',
+        0 => 'Not available', 1 => 'Grid', 2 => 'Generator',
+        3 => 'Shore power', 240 => 'Not connected',
     ];
 
     public function getBaseVars()
     {
         return [
-            ['connected', 'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
-            ['pv_total',  'PV Gesamtleistung', 'F', 'VIC.Watt',        true,  'pv',     'DC-PV 850 + AC-PV 808..816'],
-            ['ac_power',  'AC Verbrauch (Haus)', 'F', 'VIC.Watt',      true,  'device', 'Σ AC Consumption 817..819'],
+            ['connected', 'Connection',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['pv_total',  'PV total power', 'F', 'VIC.Watt',        true,  'pv',     'DC-PV 850 + AC-PV 808..816'],
+            ['ac_power',  'AC consumption (house)', 'F', 'VIC.Watt',      true,  'device', 'Σ AC Consumption 817..819'],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupGrid' => ['caption' => 'Netz (Leistung, Quelle)', 'vars' => [
-                ['meter_total', 'Netz Leistung (+ Einspeisung / − Bezug)', 'F', 'VIC.Watt', true, 'grid', 'Σ Grid 820..822 (int16)'],
-                ['grid_source', 'Aktive Netz-Quelle', 'I', 'VIC.GridSrc', true, 'grid', 'Reg 826'],
+            'GroupGrid' => ['caption' => 'Grid (power, source)', 'vars' => [
+                ['meter_total', 'Grid power (+ feed-in / − import)', 'F', 'VIC.Watt', true, 'grid', 'Σ Grid 820..822 (int16)'],
+                ['grid_source', 'Active grid source', 'I', 'VIC.GridSrc', true, 'grid', 'Reg 826'],
             ]],
-            'GroupBattery' => ['caption' => 'Batterie', 'vars' => [
+            'GroupBattery' => ['caption' => 'Battery', 'vars' => [
                 ['bat_soc',   'Bat. SOC',        'I', '~Battery.100', true,  'bat', 'Reg 843'],
-                ['bat_power', 'Bat. Leistung (+ Entladen / − Laden)', 'F', 'VIC.Watt', true, 'bat', 'Reg 842 (int16)'],
-                ['bat_volt',  'Bat. Spannung',   'F', 'VIC.Volt',    false, 'bat', 'Reg 840 (÷10)'],
-                ['bat_curr',  'Bat. Strom',      'F', 'VIC.Ampere',  false, 'bat', 'Reg 841 (int16, ÷10)'],
-                ['bat_state', 'Bat. Zustand',    'I', 'VIC.BatState', true,  'bat', 'Reg 844'],
+                ['bat_power', 'Bat. power (+ discharging / − charging)', 'F', 'VIC.Watt', true, 'bat', 'Reg 842 (int16)'],
+                ['bat_volt',  'Bat. voltage',   'F', 'VIC.Volt',    false, 'bat', 'Reg 840 (÷10)'],
+                ['bat_curr',  'Bat. current',      'F', 'VIC.Ampere',  false, 'bat', 'Reg 841 (int16, ÷10)'],
+                ['bat_state', 'Bat. state',    'I', 'VIC.BatState', true,  'bat', 'Reg 844'],
             ]],
-            'GroupPvDetail' => ['caption' => 'PV-Details (DC / AC-gekoppelt)', 'vars' => [
-                ['pv_dc',  'PV DC-gekoppelt (MPPT)',  'F', 'VIC.Watt', true, 'pv', 'Reg 850'],
-                ['pv_ac',  'PV AC-gekoppelt (Σ)',     'F', 'VIC.Watt', true, 'pv', 'Σ 808..816'],
+            'GroupPvDetail' => ['caption' => 'PV details (DC / AC-coupled)', 'vars' => [
+                ['pv_dc',  'PV DC-coupled (MPPT)',  'F', 'VIC.Watt', true, 'pv', 'Reg 850'],
+                ['pv_ac',  'PV AC-coupled (Σ)',     'F', 'VIC.Watt', true, 'pv', 'Σ 808..816'],
             ]],
             // Zählerstände. WICHTIG: Der Systemdienst (Unit 100) führt KEINE
             // Energiezähler, nur Momentanleistungen. Netzbezug/-einspeisung
             // liegen auf dem eigenen Dienst com.victronenergy.grid mit eigener
             // Unit-ID (unten einzutragen); der Solarertrag kommt von den
             // Solarladereglern und nutzt deren MPPT-Unit-IDs mit.
-            'GroupEnergy' => ['caption' => 'Energiezähler (Netzbezug/-einspeisung, Solarertrag) — Unit-ID des Netzzählers unten eintragen', 'vars' => [
-                ['meter_imp',  'Netzbezug gesamt',   'F', '~Electricity', true, 'energy', 'Σ Reg 2622/2624/2626 (u32, ÷100)'],
-                ['meter_exp',  'Einspeisung gesamt', 'F', '~Electricity', true, 'energy', 'Σ Reg 2628/2630/2632 (u32, ÷100)'],
-                ['e_pv_total', 'Solarertrag gesamt', 'F', '~Electricity', true, 'energy', 'Σ Laderegler Reg 790 (÷10)'],
-                ['e_pv_day',   'Solarertrag heute',  'F', '~Electricity', true, 'energy', 'Σ Laderegler Reg 784 (÷10)'],
+            'GroupEnergy' => ['caption' => 'Energy meters (grid import/export, solar yield) — enter the unit ID of the grid meter below', 'vars' => [
+                ['meter_imp',  'Grid import total',   'F', '~Electricity', true, 'energy', 'Σ Reg 2622/2624/2626 (u32, ÷100)'],
+                ['meter_exp',  'Feed-in total', 'F', '~Electricity', true, 'energy', 'Σ Reg 2628/2630/2632 (u32, ÷100)'],
+                ['e_pv_total', 'Solar yield total', 'F', '~Electricity', true, 'energy', 'Σ Laderegler Reg 790 (÷10)'],
+                ['e_pv_day',   'Solar yield today',  'F', '~Electricity', true, 'energy', 'Σ Laderegler Reg 784 (÷10)'],
                 // Einzelwerte je Solarladeregler. Auf Anregung von Beta-Tester
                 // loerdy: Sie sind für sich interessant und machen zugleich einen
                 // Zählerüberlauf sichtbar, statt ihn in der Summe zu verstecken.
-                ['mppt1_e_day',   'MPPT 1 Ertrag heute',  'F', '~Electricity', true, 'energy', 'Laderegler 1, Reg 784 (÷10)'],
-                ['mppt1_e_total', 'MPPT 1 Ertrag gesamt', 'F', '~Electricity', true, 'energy', 'Laderegler 1, Reg 790 (÷10)'],
-                ['mppt2_e_day',   'MPPT 2 Ertrag heute',  'F', '~Electricity', true, 'energy', 'Laderegler 2, Reg 784 (÷10)'],
-                ['mppt2_e_total', 'MPPT 2 Ertrag gesamt', 'F', '~Electricity', true, 'energy', 'Laderegler 2, Reg 790 (÷10)'],
-                ['mppt3_e_day',   'MPPT 3 Ertrag heute',  'F', '~Electricity', true, 'energy', 'Laderegler 3, Reg 784 (÷10)'],
-                ['mppt3_e_total', 'MPPT 3 Ertrag gesamt', 'F', '~Electricity', true, 'energy', 'Laderegler 3, Reg 790 (÷10)'],
-                ['mppt4_e_day',   'MPPT 4 Ertrag heute',  'F', '~Electricity', true, 'energy', 'Laderegler 4, Reg 784 (÷10)'],
-                ['mppt4_e_total', 'MPPT 4 Ertrag gesamt', 'F', '~Electricity', true, 'energy', 'Laderegler 4, Reg 790 (÷10)'],
+                ['mppt1_e_day',   'MPPT 1 yield today',  'F', '~Electricity', true, 'energy', 'Laderegler 1, Reg 784 (÷10)'],
+                ['mppt1_e_total', 'MPPT 1 yield total', 'F', '~Electricity', true, 'energy', 'Laderegler 1, Reg 790 (÷10)'],
+                ['mppt2_e_day',   'MPPT 2 yield today',  'F', '~Electricity', true, 'energy', 'Laderegler 2, Reg 784 (÷10)'],
+                ['mppt2_e_total', 'MPPT 2 yield total', 'F', '~Electricity', true, 'energy', 'Laderegler 2, Reg 790 (÷10)'],
+                ['mppt3_e_day',   'MPPT 3 yield today',  'F', '~Electricity', true, 'energy', 'Laderegler 3, Reg 784 (÷10)'],
+                ['mppt3_e_total', 'MPPT 3 yield total', 'F', '~Electricity', true, 'energy', 'Laderegler 3, Reg 790 (÷10)'],
+                ['mppt4_e_day',   'MPPT 4 yield today',  'F', '~Electricity', true, 'energy', 'Laderegler 4, Reg 784 (÷10)'],
+                ['mppt4_e_total', 'MPPT 4 yield total', 'F', '~Electricity', true, 'energy', 'Laderegler 4, Reg 790 (÷10)'],
             ]],
-            'GroupMppt' => ['caption' => 'PV je Solarladeregler / MPPT (Unit-IDs unten eintragen)', 'vars' => [
-                ['mppt1_power', 'MPPT 1 Leistung', 'F', 'VIC.Watt', true,  'pv', 'Solarladeregler Reg 789 (÷10)'],
-                ['mppt1_volt',  'MPPT 1 Spannung', 'F', 'VIC.Volt', false, 'pv', 'Reg 776 (÷100)'],
-                ['mppt1_state', 'MPPT 1 Zustand',  'I', 'VIC.ChgState', true, 'pv', 'Reg 775'],
-                ['mppt2_power', 'MPPT 2 Leistung', 'F', 'VIC.Watt', true,  'pv', 'Solarladeregler Reg 789 (÷10)'],
-                ['mppt2_volt',  'MPPT 2 Spannung', 'F', 'VIC.Volt', false, 'pv', 'Reg 776 (÷100)'],
-                ['mppt2_state', 'MPPT 2 Zustand',  'I', 'VIC.ChgState', true, 'pv', 'Reg 775'],
-                ['mppt3_power', 'MPPT 3 Leistung', 'F', 'VIC.Watt', true,  'pv', 'Solarladeregler Reg 789 (÷10)'],
-                ['mppt3_volt',  'MPPT 3 Spannung', 'F', 'VIC.Volt', false, 'pv', 'Reg 776 (÷100)'],
-                ['mppt3_state', 'MPPT 3 Zustand',  'I', 'VIC.ChgState', true, 'pv', 'Reg 775'],
-                ['mppt4_power', 'MPPT 4 Leistung', 'F', 'VIC.Watt', true,  'pv', 'Solarladeregler Reg 789 (÷10)'],
-                ['mppt4_volt',  'MPPT 4 Spannung', 'F', 'VIC.Volt', false, 'pv', 'Reg 776 (÷100)'],
-                ['mppt4_state', 'MPPT 4 Zustand',  'I', 'VIC.ChgState', true, 'pv', 'Reg 775'],
+            'GroupMppt' => ['caption' => 'PV per solar charge controller / MPPT (enter unit IDs below)', 'vars' => [
+                ['mppt1_power', 'MPPT 1 power', 'F', 'VIC.Watt', true,  'pv', 'Solarladeregler Reg 789 (÷10)'],
+                ['mppt1_volt',  'MPPT 1 voltage', 'F', 'VIC.Volt', false, 'pv', 'Reg 776 (÷100)'],
+                ['mppt1_state', 'MPPT 1 state',  'I', 'VIC.ChgState', true, 'pv', 'Reg 775'],
+                ['mppt2_power', 'MPPT 2 power', 'F', 'VIC.Watt', true,  'pv', 'Solarladeregler Reg 789 (÷10)'],
+                ['mppt2_volt',  'MPPT 2 voltage', 'F', 'VIC.Volt', false, 'pv', 'Reg 776 (÷100)'],
+                ['mppt2_state', 'MPPT 2 state',  'I', 'VIC.ChgState', true, 'pv', 'Reg 775'],
+                ['mppt3_power', 'MPPT 3 power', 'F', 'VIC.Watt', true,  'pv', 'Solarladeregler Reg 789 (÷10)'],
+                ['mppt3_volt',  'MPPT 3 voltage', 'F', 'VIC.Volt', false, 'pv', 'Reg 776 (÷100)'],
+                ['mppt3_state', 'MPPT 3 state',  'I', 'VIC.ChgState', true, 'pv', 'Reg 775'],
+                ['mppt4_power', 'MPPT 4 power', 'F', 'VIC.Watt', true,  'pv', 'Solarladeregler Reg 789 (÷10)'],
+                ['mppt4_volt',  'MPPT 4 voltage', 'F', 'VIC.Volt', false, 'pv', 'Reg 776 (÷100)'],
+                ['mppt4_state', 'MPPT 4 state',  'I', 'VIC.ChgState', true, 'pv', 'Reg 775'],
             ]],
         ];
     }
@@ -5768,9 +5768,9 @@ class IHUB_VictronDriver implements IHUB_InverterDriverInterface
             $src[$k] = [$label, 0x7A8A99];
         }
         $chg = [
-            0 => ['Aus', 0x7A8A99], 2 => ['Fehler', 0xC0392B], 3 => ['Bulk', 0x3BA55D],
+            0 => ['Off', 0x7A8A99], 2 => ['Fault', 0xC0392B], 3 => ['Bulk', 0x3BA55D],
             4 => ['Absorption', 0x3BA55D], 5 => ['Float', 0x3BA55D], 6 => ['Storage', 0x7A8A99],
-            7 => ['Ausgleich', 0xE08A2B], 11 => ['Hub-1', 0x7A8A99], 252 => ['Hub-1', 0x7A8A99],
+            7 => ['Equalization', 0xE08A2B], 11 => ['Hub-1', 0x7A8A99], 252 => ['Hub-1', 0x7A8A99],
         ];
         return ['VIC.BatState' => $bat, 'VIC.GridSrc' => $src, 'VIC.ChgState' => $chg];
     }
@@ -5993,72 +5993,72 @@ class IHUB_HoymilesMsa2Driver implements IHUB_InverterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['connected',   'Verbindung',                       'B', '~Alert.Reversed', false, 'errors',    'MQTT'],
-            ['pv_total',    'PV Gesamtleistung',                'F', 'MSA.Watt', true,  'pv',        'quick/state sys_pv_p + sys_pv2_p'],
-            ['bat_power',   'Bat. Leistung (+ Entladen / − Laden)', 'F', 'MSA.Watt', true,  'batcommon', 'quick/state sys_bat_p (Rückfall bat_p)'],
-            ['bat_soc',     'SOC (eigene Packs)',               'I', '~Intensity.100', true, 'batcommon', 'quick/state soc'],
-            ['meter_total', 'Netz Leistung (+ Einspeisung / − Bezug)', 'F', 'MSA.Watt', true, 'grid',    'quick/state -sys_grid_p (nur mit Zähler)'],
+            ['connected',   'Connection',                       'B', '~Alert.Reversed', false, 'errors',    'MQTT'],
+            ['pv_total',    'PV total power',                'F', 'MSA.Watt', true,  'pv',        'quick/state sys_pv_p + sys_pv2_p'],
+            ['bat_power',   'Bat. power (+ discharging / − charging)', 'F', 'MSA.Watt', true,  'batcommon', 'quick/state sys_bat_p (fallback bat_p)'],
+            ['bat_soc',     'SOC (own packs)',               'I', '~Intensity.100', true, 'batcommon', 'quick/state soc'],
+            ['meter_total', 'Grid power (+ feed-in / − import)', 'F', 'MSA.Watt', true, 'grid',    'quick/state -sys_grid_p (only with meter)'],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupPV' => ['caption' => 'PV (Einzelwerte)', 'vars' => [
-                ['pv1_power', 'PV1 Leistung', 'F', 'MSA.Watt', true, 'pv', 'quick/state sys_pv_p'],
-                ['pv2_power', 'PV2 Leistung (angehängter Wechselrichter)', 'F', 'MSA.Watt', true, 'pv', 'quick/state sys_pv2_p'],
-                ['pv_device', 'PV Leistung (nur dieses Gerät)', 'F', 'MSA.Watt', false, 'pv', 'quick/state pv_p'],
+            'GroupPV' => ['caption' => 'PV (individual values)', 'vars' => [
+                ['pv1_power', 'PV1 power', 'F', 'MSA.Watt', true, 'pv', 'quick/state sys_pv_p'],
+                ['pv2_power', 'PV2 power (attached inverter)', 'F', 'MSA.Watt', true, 'pv', 'quick/state sys_pv2_p'],
+                ['pv_device', 'PV power (this device only)', 'F', 'MSA.Watt', false, 'pv', 'quick/state pv_p'],
             ]],
-            'GroupBat' => ['caption' => 'Batterie', 'vars' => [
-                ['bat_mode',    'Batteriestatus',        'I', 'MSA.BatStatus', false, 'bat', 'quick/state bat_sts'],
-                ['bat_soc_sys', 'SOC (gesamtes System, kapazitätsgewichtet)', 'I', '~Intensity.100', false, 'bat', 'quick/state sys_soc'],
-                ['bat_heat',    'Batterieheizung',       'B', '~Switch', false, 'bat', 'quick/state heat'],
-                ['bat_volt',    'Batteriespannung',      'F', 'MSA.Volt', false, 'bat', 'device/state bat_v'],
-                ['bat_curr',    'Batteriestrom',         'F', 'MSA.Ampere', false, 'bat', 'device/state bat_i'],
-                ['bat_temp',    'Batterietemperatur',    'F', 'MSA.Celsius', false, 'bat', 'device/state bat_temp'],
+            'GroupBat' => ['caption' => 'Battery', 'vars' => [
+                ['bat_mode',    'Battery status',        'I', 'MSA.BatStatus', false, 'bat', 'quick/state bat_sts'],
+                ['bat_soc_sys', 'SOC (whole system, capacity-weighted)', 'I', '~Intensity.100', false, 'bat', 'quick/state sys_soc'],
+                ['bat_heat',    'Battery heating',       'B', '~Switch', false, 'bat', 'quick/state heat'],
+                ['bat_volt',    'Battery voltage',      'F', 'MSA.Volt', false, 'bat', 'device/state bat_v'],
+                ['bat_curr',    'Battery current',         'F', 'MSA.Ampere', false, 'bat', 'device/state bat_i'],
+                ['bat_temp',    'Battery temperature',    'F', 'MSA.Celsius', false, 'bat', 'device/state bat_temp'],
             ]],
             // Nur bei angebauten Erweiterungspacks. Vorgabe AUS (getExtraBooleanProperties), damit Geraete ohne
             // Erweiterung keine dauerhaft leeren Variablen bekommen (Forum AKL, 26.10.2026).
-            'GroupPacks' => ['caption' => 'Erweiterungspacks (nur wenn angebaut)', 'vars' => [
+            'GroupPacks' => ['caption' => 'Expansion packs (only if installed)', 'vars' => [
                 ['pack1_soc',   'Pack 1 SOC',            'I', '~Intensity.100', false, 'bat', 'device/state packs[1].soc'],
-                ['pack1_temp',  'Pack 1 Temperatur',     'F', 'MSA.Celsius', false, 'bat', 'device/state packs[1].temp'],
+                ['pack1_temp',  'Pack 1 temperature',     'F', 'MSA.Celsius', false, 'bat', 'device/state packs[1].temp'],
                 ['pack2_soc',   'Pack 2 SOC',            'I', '~Intensity.100', false, 'bat', 'device/state packs[2].soc'],
-                ['pack2_temp',  'Pack 2 Temperatur',     'F', 'MSA.Celsius', false, 'bat', 'device/state packs[2].temp'],
+                ['pack2_temp',  'Pack 2 temperature',     'F', 'MSA.Celsius', false, 'bat', 'device/state packs[2].temp'],
                 ['pack3_soc',   'Pack 3 SOC',            'I', '~Intensity.100', false, 'bat', 'device/state packs[3].soc'],
-                ['pack3_temp',  'Pack 3 Temperatur',     'F', 'MSA.Celsius', false, 'bat', 'device/state packs[3].temp'],
+                ['pack3_temp',  'Pack 3 temperature',     'F', 'MSA.Celsius', false, 'bat', 'device/state packs[3].temp'],
                 ['pack4_soc',   'Pack 4 SOC',            'I', '~Intensity.100', false, 'bat', 'device/state packs[4].soc'],
-                ['pack4_temp',  'Pack 4 Temperatur',     'F', 'MSA.Celsius', false, 'bat', 'device/state packs[4].temp'],
+                ['pack4_temp',  'Pack 4 temperature',     'F', 'MSA.Celsius', false, 'bat', 'device/state packs[4].temp'],
             ]],
-            'GroupSystem' => ['caption' => 'System (Last, Netzport, Steckdose)', 'vars' => [
-                ['load_power',  'Last (Systemwert)',     'F', 'MSA.Watt', false, 'meter', 'quick/state sys_load_p (beim Laden negativ, enthält die Ladeleistung)'],
-                ['plug_power',  'Steckdose Leistung',    'F', 'MSA.Watt', false, 'meter', 'quick/state sys_plug_p'],
-                ['sp_power',    'Smart-Plug Leistung',   'F', 'MSA.Watt', false, 'meter', 'quick/state sys_sp_p'],
-                ['eps_power',   'EPS Leistung',          'F', 'MSA.Watt', false, 'meter', 'quick/state sys_eps_p'],
-                ['grid_on_power',  'Netzport Gerät (negativ = Bezug)', 'F', 'MSA.Watt', false, 'meter', 'quick/state grid_on_p (Vorzeichen umgekehrt zu sys_grid_p)'],
-                ['grid_off_power', 'Inselport Gerät',    'F', 'MSA.Watt', false, 'meter', 'quick/state grid_off_p'],
+            'GroupSystem' => ['caption' => 'System (load, grid port, socket)', 'vars' => [
+                ['load_power',  'Load (system value)',     'F', 'MSA.Watt', false, 'meter', 'quick/state sys_load_p (negative while charging, includes the charging power)'],
+                ['plug_power',  'Socket power',    'F', 'MSA.Watt', false, 'meter', 'quick/state sys_plug_p'],
+                ['sp_power',    'Smart plug power',   'F', 'MSA.Watt', false, 'meter', 'quick/state sys_sp_p'],
+                ['eps_power',   'EPS power',          'F', 'MSA.Watt', false, 'meter', 'quick/state sys_eps_p'],
+                ['grid_on_power',  'Grid port device (negative = import)', 'F', 'MSA.Watt', false, 'meter', 'quick/state grid_on_p (Vorzeichen umgekehrt zu sys_grid_p)'],
+                ['grid_off_power', 'Island port device',    'F', 'MSA.Watt', false, 'meter', 'quick/state grid_off_p'],
             ]],
-            'GroupGrid' => ['caption' => 'Netz und Wechselrichter (alle 5 Minuten)', 'vars' => [
-                ['grid_volt', 'Netzspannung',   'F', 'MSA.Volt', false, 'grid', 'device/state grid[grid_on].v'],
-                ['grid_freq', 'Netzfrequenz',   'F', 'MSA.Hertz', false, 'grid', 'device/state grid[grid_on].f'],
-                ['inv_power', 'Wechselrichter Leistung (5 min)', 'F', 'MSA.Watt', false, 'grid', 'device/state grid[inv].p'],
+            'GroupGrid' => ['caption' => 'Grid and inverter (every 5 minutes)', 'vars' => [
+                ['grid_volt', 'Grid voltage',   'F', 'MSA.Volt', false, 'grid', 'device/state grid[grid_on].v'],
+                ['grid_freq', 'Grid frequency',   'F', 'MSA.Hertz', false, 'grid', 'device/state grid[grid_on].f'],
+                ['inv_power', 'Inverter power (5 min)', 'F', 'MSA.Watt', false, 'grid', 'device/state grid[inv].p'],
             ]],
-            'GroupEnergy' => ['caption' => 'Energie heute (alle 5 Minuten)', 'vars' => [
-                ['e_pv_day',        'PV1 Ertrag Heute',      'F', '~Electricity', true, 'energy', 'system/state pv_e (Wh)'],
-                ['e_pv2_day',       'PV2 Ertrag Heute',      'F', '~Electricity', true, 'energy', 'system/state pv2_e (Wh)'],
-                ['e_charge_day',    'Batterie Laden Heute',  'F', '~Electricity', true, 'energy', 'system/state chg_e (Wh)'],
-                ['e_discharge_day', 'Batterie Entladen Heute', 'F', '~Electricity', true, 'energy', 'system/state dchg_e (Wh)'],
-                ['e_plug_in_day',   'Steckdose Bezug Heute',        'F', '~Electricity', true, 'energy', 'system/state plug_in_e (Wh), Energie aus der Steckdose ins Gerät'],
-                ['e_plug_out_day',  'Steckdose Abgabe Heute',       'F', '~Electricity', true, 'energy', 'system/state plug_out_e (Wh), Energie vom Gerät in die Steckdose'],
-                ['e_eps_in_day',    'Notstrom Eingang Heute',       'F', '~Electricity', true, 'energy', 'system/state eps_in_e (Wh)'],
-                ['e_eps_out_day',   'Notstrom Ausgang Heute',       'F', '~Electricity', true, 'energy', 'system/state eps_out_e (Wh)'],
+            'GroupEnergy' => ['caption' => 'Energy today (every 5 minutes)', 'vars' => [
+                ['e_pv_day',        'PV1 yield today',      'F', '~Electricity', true, 'energy', 'system/state pv_e (Wh)'],
+                ['e_pv2_day',       'PV2 yield today',      'F', '~Electricity', true, 'energy', 'system/state pv2_e (Wh)'],
+                ['e_charge_day',    'Battery charge today',  'F', '~Electricity', true, 'energy', 'system/state chg_e (Wh)'],
+                ['e_discharge_day', 'Battery discharge today', 'F', '~Electricity', true, 'energy', 'system/state dchg_e (Wh)'],
+                ['e_plug_in_day',   'Socket import today',        'F', '~Electricity', true, 'energy', 'system/state plug_in_e (Wh), energy from the socket into the device'],
+                ['e_plug_out_day',  'Socket output today',       'F', '~Electricity', true, 'energy', 'system/state plug_out_e (Wh), energy from the device into the socket'],
+                ['e_eps_in_day',    'Emergency power input today',       'F', '~Electricity', true, 'energy', 'system/state eps_in_e (Wh)'],
+                ['e_eps_out_day',   'Emergency power output today',       'F', '~Electricity', true, 'energy', 'system/state eps_out_e (Wh)'],
             ]],
-            'GroupDevice' => ['caption' => 'Gerät', 'vars' => [
-                ['dev_rssi',      'WLAN-Signal (dBm)',   'F', 'MSA.Dbm', false, 'device', 'device/state rssi'],
-                ['dev_ems_mode',  'EMS-Modus (Gerät meldet)', 'S', '', false, 'device', 'system/state ems_mode'],
+            'GroupDevice' => ['caption' => 'Device', 'vars' => [
+                ['dev_rssi',      'WiFi signal (dBm)',   'F', 'MSA.Dbm', false, 'device', 'device/state rssi'],
+                ['dev_ems_mode',  'EMS mode (device reports)', 'S', '', false, 'device', 'system/state ems_mode'],
             ]],
-            'GroupControlMsa' => ['caption' => 'Steuerung (Vorabversion, am Gerät nicht erprobt)', 'vars' => [
-                ['ctl_ems_mode',   'EMS-Modus',          'I', 'MSA.EmsMode', false, 'control', 'Befehl select/<id>/ems_mode/command'],
-                ['ctl_power_ctrl', 'Leistungsvorgabe MQTT-Steuerung (W, Vorzeichen unbestätigt)', 'I', 'MSA.WattInt', false, 'control', 'Befehl number/<id>/power_ctrl/set, nur im EMS-Modus mqtt_ctrl'],
+            'GroupControlMsa' => ['caption' => 'Control (preview, not tested on the device)', 'vars' => [
+                ['ctl_ems_mode',   'EMS mode',          'I', 'MSA.EmsMode', false, 'control', 'Befehl select/<id>/ems_mode/command'],
+                ['ctl_power_ctrl', 'Power setpoint MQTT control (W, sign unconfirmed)', 'I', 'MSA.WattInt', false, 'control', 'Command number/<id>/power_ctrl/set, only in EMS mode mqtt_ctrl'],
             ]],
         ];
     }
@@ -6084,8 +6084,8 @@ class IHUB_HoymilesMsa2Driver implements IHUB_InverterDriverInterface
     public function getEnumProfiles()
     {
         return [
-            'MSA.BatStatus' => [0 => ['Bereitschaft', -1], 1 => ['Laden', 0x2E9E5B], 2 => ['Entladen', 0xE8A33D], 3 => ['Gesperrt', 0xC0392B]],
-            'MSA.EmsMode'   => [0 => ['Eigenverbrauch (general)', -1], 1 => ['MQTT-Leistungssteuerung (mqtt_ctrl)', 0x3D7BE8], 2 => ['Zeitplan (tou_plan)', 0x8E44AD]],
+            'MSA.BatStatus' => [0 => ['Ready', -1], 1 => ['Charge', 0x2E9E5B], 2 => ['Discharge', 0xE8A33D], 3 => ['Locked', 0xC0392B]],
+            'MSA.EmsMode'   => [0 => ['Self-consumption (general)', -1], 1 => ['MQTT power control (mqtt_ctrl)', 0x3D7BE8], 2 => ['Schedule (tou_plan)', 0x8E44AD]],
         ];
     }
 
@@ -6595,35 +6595,35 @@ class IHUB_RctPowerDriver implements IHUB_InverterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['connected',   'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['connected',   'Connection',        'B', '~Alert.Reversed', false, 'errors', ''],
             ['bat_soc',     'Bat. SOC',          'I', '~Battery.100',    true,  'bat',    'OID 0x959930BF battery.soc (Anteil 0..1, hier in %)'],
-            ['bat_power',   'Bat. Leistung (+ Entladen / − Laden)', 'F', 'RCT.Watt', true, 'bat', 'OID 0x400F015B g_sync.p_acc_lp'],
-            ['meter_total', 'Netz Leistung (+ Einspeisung / − Bezug)', 'F', 'RCT.Watt', true, 'grid', 'OID 0x91617C58 g_sync.p_ac_grid_sum_lp (Rohwert + = Bezug, hier umgekehrt)'],
-            ['ac_power',    'AC Wirkleistung',   'F', 'RCT.Watt',        true,  'device', 'OID 0xDB2D69AE g_sync.p_ac_sum_lp'],
-            ['pv_total',    'PV Gesamtleistung', 'F', 'RCT.Watt',        true,  'pv',     'OID 0xDB11855B + 0x0CB5D21B (Generator A + B)'],
+            ['bat_power',   'Bat. power (+ discharging / − charging)', 'F', 'RCT.Watt', true, 'bat', 'OID 0x400F015B g_sync.p_acc_lp'],
+            ['meter_total', 'Grid power (+ feed-in / − import)', 'F', 'RCT.Watt', true, 'grid', 'OID 0x91617C58 g_sync.p_ac_grid_sum_lp (Rohwert + = Bezug, hier umgekehrt)'],
+            ['ac_power',    'AC active power',   'F', 'RCT.Watt',        true,  'device', 'OID 0xDB2D69AE g_sync.p_ac_sum_lp'],
+            ['pv_total',    'PV total power', 'F', 'RCT.Watt',        true,  'pv',     'OID 0xDB11855B + 0x0CB5D21B (Generator A + B)'],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupPV' => ['caption' => 'PV-Generatoren (A, B)', 'vars' => [
-                ['mppt1_power', 'PV Generator A Leistung', 'F', 'RCT.Watt', true, 'pv', 'OID 0xDB11855B'],
-                ['mppt2_power', 'PV Generator B Leistung', 'F', 'RCT.Watt', true, 'pv', 'OID 0x0CB5D21B'],
+            'GroupPV' => ['caption' => 'PV generators (A, B)', 'vars' => [
+                ['mppt1_power', 'PV generator A power', 'F', 'RCT.Watt', true, 'pv', 'OID 0xDB11855B'],
+                ['mppt2_power', 'PV generator B power', 'F', 'RCT.Watt', true, 'pv', 'OID 0x0CB5D21B'],
             ]],
-            'GroupBat' => ['caption' => 'Batterie (Spannung, Strom, Temperatur, Status)', 'vars' => [
-                ['bat_volt',   'Bat. Spannung',    'F', 'RCT.Volt',   false, 'bat', 'OID 0x65EED11B'],
-                ['bat_curr',   'Bat. Strom',       'F', 'RCT.Ampere', false, 'bat', 'OID 0x21961B58'],
-                ['bat_temp',   'Bat. Temperatur',  'F', '~Temperature', false, 'bat', 'OID 0x902AFAFB'],
-                ['bat_status', 'Bat. Status (Rohwert)', 'I', '',      false, 'bat', 'OID 0x71765BD8 battery.status'],
+            'GroupBat' => ['caption' => 'Battery (voltage, current, temperature, status)', 'vars' => [
+                ['bat_volt',   'Bat. voltage',    'F', 'RCT.Volt',   false, 'bat', 'OID 0x65EED11B'],
+                ['bat_curr',   'Bat. current',       'F', 'RCT.Ampere', false, 'bat', 'OID 0x21961B58'],
+                ['bat_temp',   'Bat. temperature',  'F', '~Temperature', false, 'bat', 'OID 0x902AFAFB'],
+                ['bat_status', 'Bat. status (raw value)', 'I', '',      false, 'bat', 'OID 0x71765BD8 battery.status'],
             ]],
-            'GroupEnergy' => ['caption' => 'Energiezähler (Gesamt)', 'vars' => [
-                ['e_pv_total',     'PV Gesamt',            'F', '~Electricity', true, 'energy', 'OID 0xFC724A9E + 0x68EEFD3D (Wh)'],
-                ['e_charge_total', 'Bat. Laden Gesamt',    'F', '~Electricity', true, 'energy', 'OID 0x5570401B battery.stored_energy (Wh)'],
-                ['e_disch_total',  'Bat. Entladen Gesamt', 'F', '~Electricity', true, 'energy', 'OID 0xA9033880 battery.used_energy (Wh)'],
+            'GroupEnergy' => ['caption' => 'Energy meters (total)', 'vars' => [
+                ['e_pv_total',     'PV total',            'F', '~Electricity', true, 'energy', 'OID 0xFC724A9E + 0x68EEFD3D (Wh)'],
+                ['e_charge_total', 'Bat. charge total',    'F', '~Electricity', true, 'energy', 'OID 0x5570401B battery.stored_energy (Wh)'],
+                ['e_disch_total',  'Bat. discharge total', 'F', '~Electricity', true, 'energy', 'OID 0xA9033880 battery.used_energy (Wh)'],
             ]],
-            'GroupDevice' => ['caption' => 'Geräteinformation (Seriennummer)', 'vars' => [
-                ['dev_sn', 'Seriennummer', 'S', '', false, 'device', 'OID 0x7924ABD9'],
+            'GroupDevice' => ['caption' => 'Device information (serial number)', 'vars' => [
+                ['dev_sn', 'Serial number', 'S', '', false, 'device', 'OID 0x7924ABD9'],
             ]],
         ];
     }
@@ -8728,21 +8728,24 @@ class InverterHub extends IPSModule
             }
         }
         $created = !$vid;
+        // Der Name ist nur eine Vorbelegung (Nutzer-Eigenschaft): beim Anlegen in der Sprache der Konsole gesetzt, danach nie
+        // mehr ueberschrieben. Uebersetzt wird nur dann (Translate() liest locale.json bei jedem Aufruf).
+        $name = $created ? IHUB_Text::t($caption) : $caption;
 
         if ($created) {
             if ($group === 'control') {
                 switch ($type) {
                     case 'F':
-                        $vid = $this->RegisterVariableFloat($ident, $caption, '', $pos);
+                        $vid = $this->RegisterVariableFloat($ident, $name, '', $pos);
                         break;
                     case 'I':
-                        $vid = $this->RegisterVariableInteger($ident, $caption, '', $pos);
+                        $vid = $this->RegisterVariableInteger($ident, $name, '', $pos);
                         break;
                     case 'B':
-                        $vid = $this->RegisterVariableBoolean($ident, $caption, '', $pos);
+                        $vid = $this->RegisterVariableBoolean($ident, $name, '', $pos);
                         break;
                     case 'S':
-                        $vid = $this->RegisterVariableString($ident, $caption, '', $pos);
+                        $vid = $this->RegisterVariableString($ident, $name, '', $pos);
                         break;
                 }
             } else {
@@ -8769,7 +8772,9 @@ class InverterHub extends IPSModule
         if ($created || $moved) {
             IPS_SetPosition($vid, $pos);
         }
-        IPS_SetName($vid, $caption);
+        if ($created) {
+            IPS_SetName($vid, $name);
+        }
 
         // Energie in Wh: Statt des kWh-Standardprofils ~Electricity das Wh-
         // Profil setzen. Die Skalierung des Werts (×1000) übernimmt SetVarFloat.
@@ -8789,13 +8794,14 @@ class InverterHub extends IPSModule
             // einen Fehler (Forum brdiver677, 28.10.2026). Dann Profil weglassen und warnen.
             $existing = @IPS_GetVariableProfile($profile);
             if (is_array($existing) && ($existing['ProfileType'] ?? $vtype) !== $vtype) {
-                $this->LogMessage(IHUB_Text::t('Profile "%s" has a different type than the variable "%s" and is not assigned. Please check or delete the profile under Kernel > Variable profiles.', $profile, $caption), KL_WARNING);
+                $this->LogMessage(IHUB_Text::t('Profile "%s" has a different type than the variable "%s" and is not assigned. Please check or delete the profile under Kernel > Variable profiles.', $profile, IHUB_Text::t($caption)), KL_WARNING);
             } elseif (@IPS_GetVariable($vid)['VariableCustomProfile'] !== $profile) {
                 IPS_SetVariableCustomProfile($vid, $profile);
             }
         }
         if ($reg !== '') {
-            IPS_SetInfo($vid, $reg);
+            // Nur Texte uebersetzen, reine Registerangaben ("DSP 35103") nicht - spart Translate()-Aufrufe.
+            IPS_SetInfo($vid, preg_match('/[a-z]{4,}/', $reg) ? IHUB_Text::t($reg) : $reg);
         }
         // Auto-Archivierung nur bei NEU angelegter Variable und nur, wenn der
         // Nutzer sie nicht abgeschaltet hat (Migrations-Vorbedingung, s. o.).
@@ -9238,7 +9244,7 @@ class InverterHub extends IPSModule
             }
             foreach ($assocs as $value => $def) {
                 [$label, $color] = $def;
-                IPS_SetVariableProfileAssociation($name, $value, $label, '', $color);
+                IPS_SetVariableProfileAssociation($name, $value, IHUB_Text::t($label), '', $color);
             }
         }
     }

@@ -2,7 +2,7 @@
 // Zweisprachigkeit Stufe 1 (SUITE.md Punkt 9, Store-Checkliste 25-27): Quelltexte englisch, Deutsch in locale.json.
 // Geprueft je Modul: jeder Text im Code steht in locale.json, Platzhalter stimmen, keine deutschen Reste im Code,
 // kein IPS_DeleteVariable, keine Geschwister-Abfrage in ApplyChanges.
-// Treiber-Variablenbeschriftungen (Zeilen vor der Klasse InverterHub) folgen in Stufe 2 und sind hier ausgenommen.
+// Ganze Datei inkl. Treiber (Stufe 2): Variablennamen, Gruppen, Statuslabels, Registerhinweise.
 $root = dirname(__DIR__);
 $fail = 0;
 function ok($c, $m) { global $fail; echo ($c ? 'OK   ' : 'FAIL ') . $m . "\n"; if (!$c) { $fail++; } }
@@ -21,9 +21,11 @@ foreach (['InverterHub', 'InverterHubDiscovery', 'InverterHubBridge', 'InverterH
     $src = file_get_contents("$root/$mod/module.php");
     $de = json_decode(file_get_contents("$root/$mod/locale.json"), true)['translations']['de'];
     $from = 0;
+    $nakedFrom = 0;
     if ($mod === 'InverterHub') {
-        preg_match('/^class InverterHub extends IPSModule/m', $src, $m, PREG_OFFSET_CAPTURE);
-        $from = substr_count(substr($src, 0, $m[0][1]), "\n") + 1;
+        // Tabellen und Variablenzeilen der Treiber (vor der Hauptklasse) werden erst beim Anlegen/Anzeigen uebersetzt.
+        preg_match('/^class InverterHub extends IPSModule/m', $src, $cm0, PREG_OFFSET_CAPTURE);
+        $nakedFrom = substr_count(substr($src, 0, $cm0[0][1]), "\n") + 1;
     }
     $L = array_filter(lits($src), function ($x) use ($from) { return $x[0] >= $from; });
     // 1) Texte aus t()/T()/Translate()-Aufrufen und Formular-Beschriftungen
@@ -60,7 +62,7 @@ foreach (['InverterHub', 'InverterHubDiscovery', 'InverterHubBridge', 'InverterH
         if (!is_array($t) || $t[0] !== T_CONSTANT_ENCAPSED_STRING || $inNews) { continue; }
         $q = $t[1][0]; $v = substr($t[1], 1, -1);
         $v = $q === "'" ? str_replace(["\\'", '\\\\'], ["'", '\\'], $v) : stripcslashes($v);
-        if (!isset($de[$v]) || $t[2] < $from || strpos($v, ' ') === false) { continue; }
+        if (!isset($de[$v]) || $t[2] < $nakedFrom || strpos($v, ' ') === false) { continue; }
         $p1 = $toks[$i - 1] ?? null; $p2 = $toks[$i - 2] ?? null; $p3 = $toks[$i - 3] ?? null;
         $inCall = $p1 === '(' && is_array($p2) && in_array($p2[1], ['t', 'T', 'Translate'], true);
         $isForm = is_array($p1) && $p1[0] === T_DOUBLE_ARROW && is_array($p2) && in_array(trim($p2[1], "'\""), ['caption', 'label', 'suffix', 'title'], true);
@@ -79,6 +81,16 @@ foreach (['InverterHub', 'InverterHubDiscovery', 'InverterHubBridge', 'InverterH
         elseif ($cl >= $from && preg_match('/[A-Za-z]{3,}/', $cv) && !isset($de[$cv]) && !in_array($cv, $names, true) && preg_match('/\\s/', $cv)) { $nocap[] = "$cl: $cv"; }
     }
     ok($nocap === [], "$mod: jede Formular-Beschriftung hat eine deutsche Übersetzung" . ($nocap ? ': ' . implode(' | ', array_slice(array_unique($nocap), 0, 10)) : ''));
+    if ($mod === 'InverterHub') {
+        // Variablenzeilen: [ident, Beschriftung, Typ, ...] - jede Beschriftung braucht eine Uebersetzung (ausser kurzen Namen)
+        preg_match_all("/\\[\\s*'[a-z0-9_]+'\\s*,\\s*'((?:[^'\\\\]|\\\\.)*)'\\s*,\\s*'[FIBS]'/", $src, $rm);
+        $norow = [];
+        foreach (array_unique($rm[1]) as $rv) {
+            $rv = str_replace("\\'", "'", $rv);
+            if (!isset($de[$rv]) && preg_match('/[a-z]{4,}/', $rv)) { $norow[] = $rv; }
+        }
+        ok($norow === [], 'InverterHub: jede Variablenbeschriftung der Treiber hat eine Übersetzung (' . count(array_unique($rm[1])) . ')' . ($norow ? ': ' . implode(' | ', array_slice($norow, 0, 8)) : ''));
+    }
     // 2) Platzhalter
     $bad = [];
     foreach ($de as $en => $g) {

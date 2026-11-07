@@ -31,9 +31,9 @@ check(
     substr_count($body, 'IPS_SetPosition($vid') === 1
 );
 
-echo "2) IPS_SetParent()/IPS_SetName() bleiben unbedingt (Kategorie-/Namenswechsel, z. B. bei ControlAuthority, soll weiter greifen)\n";
+echo "2) IPS_SetName() nur beim Anlegen (Name ist Nutzer-Eigenschaft, Stufe 2 / Store), IPS_SetParent() bleibt\n";
 check('IPS_SetParent($vid, ...) weiterhin, wenn die Variable nicht direkt unter der Instanz liegt', (bool)preg_match('/IPS_SetParent\(\$vid,\s*\$this->InstanceID\);/', $body));
-check('IPS_SetName($vid, ...) weiterhin bei jedem Durchlauf', (bool)preg_match('/IPS_SetName\(\$vid,\s*\$caption\);/', $body));
+check('IPS_SetName($vid, ...) nur beim Anlegen, in der Sprache der Konsole', (bool)preg_match('/if \(\$created\) \{\s*IPS_SetName\(\$vid,\s*\$name\);\s*\}/', $body));
 
 echo "\n" . ($fails === 0 ? "ALLE PRUEFUNGEN BESTANDEN\n" : "$fails PRUEFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);
