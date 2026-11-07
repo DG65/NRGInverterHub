@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.83.0 (2026-11-07)
+
+- **Store-Punkt 28: Profil nur beim Anlegen, über `RegisterVariable*`.** Das Profil (Standarddarstellung) wird beim Anlegen einer Variablen als Parameter von `RegisterVariable*` mitgegeben, nicht mehr nachträglich per `IPS_SetVariableCustomProfile`. Neue Messvariablen werden ebenfalls über `RegisterVariable*` angelegt (bisher roh über `IPS_CreateVariable`); bestehende Variablen behalten ihre ID. Ausnahme bleibt der Schalter „Energie in Wh statt kWh“: Er setzt das Profil bestehender Energie-Variablen um, weil der Nutzer das im Formular ausdrücklich wählt.
+- **Store-Punkt 29: Archiv des Nutzers nie von selbst anfassen.** Die Archiv-Verdichtung läuft nicht mehr bei jedem „Übernehmen“, sondern nur noch auf den neuen Knopf „Verdichtung jetzt anwenden“ (Vorgabe jetzt Aus). Bestehende Variablen werden im Archiv nicht mehr angefasst: weder Verdichtung noch Aggregationstyp (die einmalige Korrektur vom 24.07.2026 entfällt). Bereits gesetzte Verdichtungsregeln der laufenden Installationen bleiben im Archiv bestehen; das Modul pflegt sie nur nicht mehr nach, etwa wenn sich das Abfrageintervall ändert. „Archivierung jetzt einrichten“ und das angehakte Auto-Archivieren beim Anlegen bleiben (setzen Archivierung und Aggregationstyp, keine Verdichtung mehr).
+- Prüfstand `.tools/test-store-28-29.php`.
+
 ## 0.82.0 (2026-11-07)
 
 - **Zweisprachig, Stufe 2 (Treiber).** Variablennamen, Gruppen-Beschriftungen im Formular, Status-Auswahllisten (Betriebsmodi, Netzstatus, Batteriestatus …), Fehlerdetails, Registerhinweise und Treiber-Fehlertexte sind englisch im Quelltext und werden über `locale.json` ins Deutsche übersetzt (rund 770 Texte). Idents bleiben unverändert.

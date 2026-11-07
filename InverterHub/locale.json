@@ -50,8 +50,6 @@
       "Register for \"%s\" reports \"not in use\" (float32 extreme value) - value is not accepted.": "Register für \"%s\" meldet „nicht belegt“ (Float32-Extremwert) - Wert wird nicht übernommen.",
       "Implausible meter reading for \"%s\" discarded (0 instead of previously %s kWh) - probably a single Modbus outlier.": "Implausibler Zählerstand für \"%s\" verworfen (0 statt zuvor %s kWh) — vermutlich einzelner Modbus-Ausreißer.",
       "Implausible value for \"%s\" discarded (%s instead of 0-100 %%) - probably a single Modbus outlier.": "Implausibler Wert für \"%s\" verworfen (%s statt 0-100 %%) — vermutlich einzelner Modbus-Ausreißer.",
-      "Automatic compaction active": "Automatische Verdichtung aktiv",
-      "⚠️ Switching off also deletes compaction rules set manually in the console.": "⚠️ Ausschalten löscht auch von Hand in der Konsole gesetzte Verdichtungsregeln.",
       "Immediately to the highest compaction level (1x/minute)": "Sofort auf höchste Verdichtungsstufe (1×/Minute)",
       "After": "Nach",
       "months to": "Monaten auf",
@@ -843,7 +841,12 @@
       "quick/state sys_load_p (negative while charging, includes the charging power)": "quick/state sys_load_p (beim Laden negativ, enthält die Ladeleistung)",
       "system/state plug_in_e (Wh), energy from the socket into the device": "system/state plug_in_e (Wh), Energie aus der Steckdose ins Gerät",
       "system/state plug_out_e (Wh), energy from the device into the socket": "system/state plug_out_e (Wh), Energie vom Gerät in die Steckdose",
-      "Command number/<id>/power_ctrl/set, only in EMS mode mqtt_ctrl": "Befehl number/<id>/power_ctrl/set, nur im EMS-Modus mqtt_ctrl"
+      "Command number/<id>/power_ctrl/set, only in EMS mode mqtt_ctrl": "Befehl number/<id>/power_ctrl/set, nur im EMS-Modus mqtt_ctrl",
+      "🗜️ Apply compaction now": "🗜️ Verdichtung jetzt anwenden",
+      "Compaction active (applied only with \"Apply compaction now\")": "Verdichtung aktiv (wird nur mit „Verdichtung jetzt anwenden“ angewendet)",
+      "⚠️ Compaction is never applied automatically. \"Apply compaction now\" writes the rules to the archive of the variables already archived and replaces rules set manually in the console.": "⚠️ Die Verdichtung wird nie automatisch angewendet. „Verdichtung jetzt anwenden“ schreibt die Regeln ins Archiv der bereits archivierten Variablen und ersetzt dabei von Hand in der Konsole gesetzte Regeln.",
+      "ℹ️ Tick \"Compaction active\" for power and/or energy, save with \"Apply\", then click again.": "ℹ️ „Verdichtung aktiv“ für Leistung und/oder Energie anhaken, mit „Übernehmen“ speichern und dann erneut klicken.",
+      "✅ Compaction written for %d variable(s), %d already matched.": "✅ Verdichtung für %d Variable(n) geschrieben, %d stimmten schon."
     },
     "en": {}
   }

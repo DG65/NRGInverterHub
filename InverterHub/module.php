@@ -6920,7 +6920,7 @@ class InverterHub extends IPSModule
         // haben. Vorbelegung bewusst generisch (keine eigene Anlage als Norm):
         // direkt 1x/Min, nach 1 Monat 1x/5 Min, nach 12 Monaten 1x/Std.
         foreach (['Power', 'Energy'] as $kind) {
-            $this->RegisterPropertyBoolean('AutoCompaction' . $kind, true);
+            $this->RegisterPropertyBoolean('AutoCompaction' . $kind, false);
             $this->RegisterPropertyBoolean('CompactDirect' . $kind, true);
             $this->RegisterPropertyInteger('CompactStage2Months' . $kind, 1);
             $this->RegisterPropertyInteger('CompactStage2Type' . $kind, 1);
@@ -7314,6 +7314,10 @@ class InverterHub extends IPSModule
             $this->UpdateFormField('BridgeStatus', 'caption', $this->BridgeStatusLine((int)$Value));
             return;
         }
+        if ($Ident === 'CompactionNow') {
+            $this->UpdateFormField('CompactNowResult', 'caption', $this->ApplyCompactionNow());
+            return;
+        }
         if ($Ident === 'ArchiveNow') {
             $this->UpdateFormField('ArchiveNowResult', 'caption', $this->ArchiveAllNow());
             $this->UpdateFormField('AutoArchive', 'value', true);
@@ -7642,7 +7646,11 @@ class InverterHub extends IPSModule
             'items' => array_merge(
                 [['type' => 'Label', 'caption' => 'Compacts finely resolved archive values into coarser aggregates after a while, instead of keeping them in full resolution indefinitely. Only effective if "Archive measured values automatically" is active above.']],
                 $this->CompactionFields('Power', '⚡ Power'),
-                $this->CompactionFields('Energy', '🔋 Energy')
+                $this->CompactionFields('Energy', '🔋 Energy'),
+                [
+                    ['type' => 'Button', 'name' => 'CompactNowButton', 'caption' => '🗜️ Apply compaction now', 'onClick' => 'IPS_RequestAction($id, "CompactionNow", true);'],
+                    ['type' => 'Label', 'name' => 'CompactNowResult', 'caption' => ''],
+                ]
             ),
         ];
 
@@ -8732,25 +8740,40 @@ class InverterHub extends IPSModule
         // mehr ueberschrieben. Uebersetzt wird nur dann (Translate() liest locale.json bei jedem Aufruf).
         $name = $created ? IHUB_Text::t($caption) : $caption;
 
+        // Energie in Wh: Statt des kWh-Standardprofils ~Electricity das Wh-Profil. Die Skalierung
+        // des Werts (x1000) uebernimmt SetVarFloat.
+        $isEnergy = ($profile === '~Electricity');
+        if ($isEnergy && $this->ReadPropertyBoolean('EnergyUnitWh')) {
+            $profile = 'IHB.Wh';
+        }
+        // Existiert unter dem Namen schon ein Profil ANDEREN Typs (z. B. ein altes "SMA.Watt" als
+        // Ganzzahl aus einem Fremdmodul), wirft IPS "Variablentyp und Profiltyp stimmen nicht
+        // ueberein" (Forum brdiver677, 28.10.2026). Dann Profil weglassen und warnen.
+        $useProfile = $profile;
+        if ($useProfile !== '' && ($created || ($this->reprofileEnergy && $isEnergy))) {
+            $existing = @IPS_GetVariableProfile($useProfile);
+            if (is_array($existing) && ($existing['ProfileType'] ?? $vtype) !== $vtype) {
+                $this->LogMessage(IHUB_Text::t('Profile "%s" has a different type than the variable "%s" and is not assigned. Please check or delete the profile under Kernel > Variable profiles.', $useProfile, IHUB_Text::t($caption)), KL_WARNING);
+                $useProfile = '';
+            }
+        }
+
         if ($created) {
-            if ($group === 'control') {
-                switch ($type) {
-                    case 'F':
-                        $vid = $this->RegisterVariableFloat($ident, $name, '', $pos);
-                        break;
-                    case 'I':
-                        $vid = $this->RegisterVariableInteger($ident, $name, '', $pos);
-                        break;
-                    case 'B':
-                        $vid = $this->RegisterVariableBoolean($ident, $name, '', $pos);
-                        break;
-                    case 'S':
-                        $vid = $this->RegisterVariableString($ident, $name, '', $pos);
-                        break;
-                }
-            } else {
-                $vid = IPS_CreateVariable($vtype);
-                IPS_SetIdent($vid, $ident);
+            // Store-Punkt 28: Das Profil (Standarddarstellung) kommt beim Anlegen ueber RegisterVariable*,
+            // nie ueber IPS_SetVariableCustomProfile. Alle neuen Variablen werden registriert.
+            switch ($type) {
+                case 'F':
+                    $vid = $this->RegisterVariableFloat($ident, $name, $useProfile, $pos);
+                    break;
+                case 'I':
+                    $vid = $this->RegisterVariableInteger($ident, $name, $useProfile, $pos);
+                    break;
+                case 'B':
+                    $vid = $this->RegisterVariableBoolean($ident, $name, $useProfile, $pos);
+                    break;
+                case 'S':
+                    $vid = $this->RegisterVariableString($ident, $name, $useProfile, $pos);
+                    break;
             }
         }
 
@@ -8776,28 +8799,11 @@ class InverterHub extends IPSModule
             IPS_SetName($vid, $name);
         }
 
-        // Energie in Wh: Statt des kWh-Standardprofils ~Electricity das Wh-
-        // Profil setzen. Die Skalierung des Werts (×1000) übernimmt SetVarFloat.
-        $isEnergy = ($profile === '~Electricity');
-        if ($isEnergy && $this->ReadPropertyBoolean('EnergyUnitWh')) {
-            $profile = 'IHB.Wh';
-        }
-        // Profil NUR bei Neuanlage setzen (bzw. bei einer echten Wh-Umstellung
-        // für Energie-Variablen). Ab IPS 7 leert eine vom Nutzer gewählte
-        // Presentation („Wertanzeige") das CustomProfile; würden wir es bei
-        // jedem „Übernehmen" neu setzen, sprängen die Variablen zurück auf
-        // „Legacy". Bestehende Variablen fassen wir daher nicht mehr an.
-        if ($profile !== '' && ($created || ($this->reprofileEnergy && $isEnergy))) {
-            // Existiert unter dem Namen schon ein Profil ANDEREN Typs (z. B. ein altes
-            // "SMA.Watt" als Ganzzahl aus einem Fremdmodul), wirft IPS beim Zuweisen
-            // "Variablentyp und Profiltyp stimmen nicht ueberein" und "Uebernehmen" meldet
-            // einen Fehler (Forum brdiver677, 28.10.2026). Dann Profil weglassen und warnen.
-            $existing = @IPS_GetVariableProfile($profile);
-            if (is_array($existing) && ($existing['ProfileType'] ?? $vtype) !== $vtype) {
-                $this->LogMessage(IHUB_Text::t('Profile "%s" has a different type than the variable "%s" and is not assigned. Please check or delete the profile under Kernel > Variable profiles.', $profile, IHUB_Text::t($caption)), KL_WARNING);
-            } elseif (@IPS_GetVariable($vid)['VariableCustomProfile'] !== $profile) {
-                IPS_SetVariableCustomProfile($vid, $profile);
-            }
+        // Profil nur bei einer echten Wh-Umstellung (Schalter im Formular, ausdrueckliche Handlung des Nutzers)
+        // bei bestehenden Energie-Variablen neu setzen. Sonst nie: Eine vom Nutzer gewaehlte Darstellung bleibt.
+        if (!$created && $useProfile !== '' && $this->reprofileEnergy && $isEnergy
+            && @IPS_GetVariable($vid)['VariableCustomProfile'] !== $useProfile) {
+            IPS_SetVariableCustomProfile($vid, $useProfile);
         }
         if ($reg !== '') {
             // Nur Texte uebersetzen, reine Registerangaben ("DSP 35103") nicht - spart Translate()-Aufrufe.
@@ -8809,53 +8815,10 @@ class InverterHub extends IPSModule
         // Archivierung von Hand ausgeschaltet hat, soll das behalten.
         if ($archive && $created && $this->ReadPropertyBoolean('AutoArchive')) {
             $this->SetArchive($vid, $isEnergy);
-        } elseif ($archive && !$created) {
-            // Verdichtung auch fuer BESTEHENDE Variablen nachziehen (Stefan/
-            // somm-Fund 17.09.2026): ohne diesen Zweig wuerden nur brandneu
-            // angelegte Variablen eine Verdichtungsstaffelung bekommen - alle
-            // ~240 bereits laufenden Installationen blieben unbegrenzt in
-            // voller Aufloesung. Fasst NUR die Verdichtung an (nicht
-            // LoggingStatus/AggregationType), und nur wenn Archivierung fuer
-            // diese Variable bereits aktiv ist - eine von Hand deaktivierte
-            // Archivierung wird dadurch nicht wieder eingeschaltet.
-            $archiveIDs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
-            if (count($archiveIDs) > 0 && @AC_GetLoggingStatus($archiveIDs[0], $vid)) {
-                $kind = $isEnergy ? 'Energy' : 'Power';
-                $interval = $isEnergy ? $this->ReadPropertyInteger('IntervalSlow') : $this->ReadPropertyInteger('IntervalFast');
-                // Nur schreiben, wenn die Regeln im Archiv vom Plan abweichen: Jedes
-                // AC_SetCompaction kann Symcon die Variable als "braucht Reaggregation"
-                // markieren lassen (Dashboard-Frage 22.10.2026, Stefan/somm) - bei jedem
-                // ApplyChanges/Modul-Update ohne Aenderung unnoetig.
-                $plan = $this->CompactionPlan($interval, $kind);
-                if (!$this->CompactionMatches($archiveIDs[0], $vid, $plan)) {
-                    foreach ($plan as [$months, $type]) {
-                        // Typ -1 loescht eine Regel; existiert keine, warnt Symcon
-                        // ("Verdichtungseintrag nicht gefunden") - harmlos, nur dafuer @.
-                        if ($type === -1) {
-                            @AC_SetCompaction($archiveIDs[0], $vid, $months, $type);
-                        } else {
-                            AC_SetCompaction($archiveIDs[0], $vid, $months, $type);
-                        }
-                    }
-                }
-            }
         }
-        if ($archive && $isEnergy && !$created) {
-            // Bestandskorrektur (real gemeldeter Fehler, 24.07.2026): Vor
-            // Build 182 wurden Energie-Variablen mit Aggregationstyp
-            // "Standard" statt "Zaehler" archiviert. Fuer bereits vorhandene
-            // Variablen HISTORIENERHALTEND nachkorrigieren - AC_SetAggregationType
-            // aendert nur die Archiv-Metadaten (wie kuenftig aggregiert wird),
-            // NICHT die gespeicherten Werte. Kein Loeschen/Neuanlegen noetig.
-            // Laeuft bei jedem ApplyChanges automatisch mit (u. a. direkt nach
-            // einem Modul-Update) - ohne Zutun des Nutzers, ohne Datenverlust.
-            $archiveIDs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
-            if (count($archiveIDs) > 0
-                && @AC_GetLoggingStatus($archiveIDs[0], $vid)
-                && @AC_GetAggregationType($archiveIDs[0], $vid) !== 1) {
-                AC_SetAggregationType($archiveIDs[0], $vid, 1);
-            }
-        }
+        // Store-Punkt 29: Bestehende Variablen werden im Archiv nie angefasst (weder Verdichtung noch
+        // Aggregationstyp). Verdichtung nur auf Knopfdruck (ApplyCompactionNow), Logging nur auf Knopfdruck
+        // oder ueber das ausdruecklich angehakte Auto-Archivieren beim Anlegen.
     }
 
     private function UnregVarIfExists($ident)
@@ -8924,8 +8887,8 @@ class InverterHub extends IPSModule
     {
         return [
             ['type' => 'Label', 'caption' => $label],
-            ['type' => 'CheckBox', 'name' => 'AutoCompaction' . $kind, 'caption' => 'Automatic compaction active'],
-            ['type' => 'Label', 'caption' => '⚠️ Switching off also deletes compaction rules set manually in the console.'],
+            ['type' => 'CheckBox', 'name' => 'AutoCompaction' . $kind, 'caption' => 'Compaction active (applied only with "Apply compaction now")'],
+            ['type' => 'Label', 'caption' => '⚠️ Compaction is never applied automatically. "Apply compaction now" writes the rules to the archive of the variables already archived and replaces rules set manually in the console.'],
             ['type' => 'CheckBox', 'name' => 'CompactDirect' . $kind, 'caption' => 'Immediately to the highest compaction level (1x/minute)'],
             ['type' => 'RowLayout', 'items' => [
                 ['type' => 'Label', 'caption' => 'After'],
@@ -8949,6 +8912,66 @@ class InverterHub extends IPSModule
         ['caption' => '1x per month', 'value' => 5],
         ['caption' => '1x per year', 'value' => 6],
     ];
+
+    // Variablen des gewaehlten Treibers (Basis + angehakte Gruppen, MPPT gefiltert).
+    private function ActiveDriverVars(): array
+    {
+        $driver = $this->GetDriver();
+        $vars = $driver->getBaseVars();
+        foreach ($driver->getOptionalGroups() as $propName => $group) {
+            if ($this->ReadPropertyBoolean($propName)) {
+                foreach ($this->MpptFiltered($group['vars']) as $v) {
+                    $vars[] = $v;
+                }
+            }
+        }
+        return $vars;
+    }
+
+    // Vom Nutzer ausgeloest (Schaltflaeche, Store-Punkt 29): schreibt die Verdichtungsregeln ins Archiv der
+    // bereits archivierten Variablen, getrennt fuer Leistung und Energie und nur fuer die angehakten Arten.
+    // Nie automatisch beim Uebernehmen. Gibt einen Ergebnistext fuer das Formular zurueck.
+    private function ApplyCompactionNow(): string
+    {
+        $archiveIDs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
+        if (count($archiveIDs) === 0) {
+            return IHUB_Text::t('⚠️ No archive instance found - nothing was set up.');
+        }
+        if (!$this->ReadPropertyBoolean('AutoCompactionPower') && !$this->ReadPropertyBoolean('AutoCompactionEnergy')) {
+            return IHUB_Text::t('ℹ️ Tick "Compaction active" for power and/or energy, save with "Apply", then click again.');
+        }
+        $changed = 0;
+        $same = 0;
+        foreach ($this->ActiveDriverVars() as $v) {
+            if (empty($v[4])) {
+                continue;
+            }
+            $vid = $this->FindVarByIdent($v[0]);
+            if (!$vid || !@AC_GetLoggingStatus($archiveIDs[0], $vid)) {
+                continue;
+            }
+            $isEnergy = ($v[3] === '~Electricity');
+            $kind = $isEnergy ? 'Energy' : 'Power';
+            if (!$this->ReadPropertyBoolean('AutoCompaction' . $kind)) {
+                continue;
+            }
+            $interval = $isEnergy ? $this->ReadPropertyInteger('IntervalSlow') : $this->ReadPropertyInteger('IntervalFast');
+            $plan = $this->CompactionPlan($interval, $kind);
+            if ($this->CompactionMatches($archiveIDs[0], $vid, $plan)) {
+                $same++;
+                continue;
+            }
+            foreach ($plan as [$months, $type]) {
+                if ($type === -1) {
+                    @AC_SetCompaction($archiveIDs[0], $vid, $months, $type);
+                } else {
+                    AC_SetCompaction($archiveIDs[0], $vid, $months, $type);
+                }
+            }
+            $changed++;
+        }
+        return IHUB_Text::t('✅ Compaction written for %d variable(s), %d already matched.', $changed, $same);
+    }
 
     // Vom Nutzer ausgeloest (Schaltflaeche): schaltet das Archiv fuer alle Variablen ein, die der
     // Treiber als archivierungswuerdig kennzeichnet und die noch NICHT geloggt werden. Bereits
@@ -9029,19 +9052,10 @@ class InverterHub extends IPSModule
         if (count($archiveIDs) > 0) {
             AC_SetLoggingStatus($archiveIDs[0], $vid, true);
             AC_SetAggregationType($archiveIDs[0], $vid, $isEnergy ? 1 : 0);
-            $kind = $isEnergy ? 'Energy' : 'Power';
-            $interval = $isEnergy ? $this->ReadPropertyInteger('IntervalSlow') : $this->ReadPropertyInteger('IntervalFast');
-            foreach ($this->CompactionPlan($interval, $kind) as [$months, $type]) {
-                if ($type === -1) {
-                    @AC_SetCompaction($archiveIDs[0], $vid, $months, $type);
-                } else {
-                    AC_SetCompaction($archiveIDs[0], $vid, $months, $type);
-                }
-            }
         }
     }
 
-    // Automatische Archiv-Verdichtung aus dem Update-Intervall abgeleitet
+    // Archiv-Verdichtung aus dem Update-Intervall abgeleitet, nur auf Knopfdruck angewendet (ApplyCompactionNow)
     // (Referenz MeterHub, siehe dortige CLAUDE.md fuer die volle Herleitung).
     // Jede Stufe nur, wenn ihre Ziel-Aufloesung GROEBER ist als das Roh-
     // Intervall (sonst Leerlauf). Liefert IMMER drei [Monatsversatz, Typ]-
