@@ -6597,8 +6597,8 @@ class IHUB_RctPowerDriver implements IHUB_InverterDriverInterface
         return [
             ['connected',   'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
             ['bat_soc',     'Bat. SOC',          'I', '~Battery.100',    true,  'bat',    'OID 0x959930BF battery.soc (Anteil 0..1, hier in %)'],
-            ['bat_power',   'Bat. Leistung (+ Entladen / − Laden, Vorzeichen ungeprüft)', 'F', 'RCT.Watt', true, 'bat', 'OID 0x400F015B g_sync.p_acc_lp'],
-            ['meter_total', 'Netz Leistung (+ Einspeisung / − Bezug, Vorzeichen ungeprüft)', 'F', 'RCT.Watt', true, 'grid', 'OID 0x91617C58 g_sync.p_ac_grid_sum_lp (Rohwert + = Bezug, hier umgekehrt)'],
+            ['bat_power',   'Bat. Leistung (+ Entladen / − Laden)', 'F', 'RCT.Watt', true, 'bat', 'OID 0x400F015B g_sync.p_acc_lp'],
+            ['meter_total', 'Netz Leistung (+ Einspeisung / − Bezug)', 'F', 'RCT.Watt', true, 'grid', 'OID 0x91617C58 g_sync.p_ac_grid_sum_lp (Rohwert + = Bezug, hier umgekehrt)'],
             ['ac_power',    'AC Wirkleistung',   'F', 'RCT.Watt',        true,  'device', 'OID 0xDB2D69AE g_sync.p_ac_sum_lp'],
             ['pv_total',    'PV Gesamtleistung', 'F', 'RCT.Watt',        true,  'pv',     'OID 0xDB11855B + 0x0CB5D21B (Generator A + B)'],
         ];
@@ -6799,7 +6799,7 @@ class InverterHub extends IPSModule
     private const MQTT_SERVER_GUID = '{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}';
     private const NEWS_ITEMS = [
         'SMA: neue Gruppe „PV-Eingänge A und B“ mit der DC-Leistung je Eingang (z. B. für Ost/West-Anlagen). Nachts und bei nicht belegtem Eingang steht 0 W.',
-        'Neuer Hersteller: RCT Power Storage DC (eigenes Protokoll auf Port 8899, nur Lesen, Vorabversion ohne Gerätetest). Die Vorzeichen von Netz und Batterie bitte gegen die RCT-App prüfen.',
+        'Neuer Hersteller: RCT Power Storage DC (eigenes Protokoll auf Port 8899, nur Lesen, Vorabversion). Werte und Vorzeichen von Netz und Batterie sind an einem RCT Power Storage DC 10.0 (Firmware 2.3.5689) gegen die RCT-App bestätigt.',
         'Alle Variablen liegen jetzt direkt unter der Instanz, die Unterordner (PV, Batterie, Netz …) entfallen (Vorgabe des Symcon-Store). Bestehende Variablen werden beim Übernehmen automatisch heraufgehängt, ihre IDs, Archivdaten und Verknüpfungen bleiben erhalten.',
         'Neuer Hersteller: Hoymiles MS-A2 (Speicher, per MQTT statt Modbus, Vorabversion ohne Gerätetest). Verbindungsweg „MQTT“ mit der neuen „NRG-Stack InverterHub Brücke (MQTT)“ am MQTT-Server von Symcon; Geräte-ID eintragen.',
         'Symbox-Gateway (eingebauter RS485-Port): läuft jetzt über die neue „NRG-Stack InverterHub Brücke (ModBus-Gateway)“. Im Verbindungsweg „Symbox-Gateway“ das ModBus-Gateway wählen und „Brücke anlegen und verbinden“ klicken, danach übernehmen. Wer den Gateway-Weg mit früheren Beta-Ständen direkt an der Instanz eingerichtet hatte: Instanz und Historie bleiben, einfach Gateway wählen, den Knopf klicken und übernehmen. Direktverbindungen sind nicht betroffen, der Hinweis „benötigt eine übergeordnete Instanz“ verschwindet.',
@@ -7754,7 +7754,7 @@ class InverterHub extends IPSModule
                 ],
                 [
                     'type'    => 'Label',
-                    'caption' => 'ℹ️ RCT Power Storage DC: Port 8899 eintragen (502 wird dafür durch 8899 ersetzt). Nur Lesen, Abfrage höchstens alle 30 s, damit die RCT-App oder Home Assistant parallel nicht verdrängt werden. Die Vorzeichen von Netz (+ Einspeisung) und Batterie (+ Entladen) sind noch nicht am Gerät geprüft: bitte gegen die RCT-App prüfen, bei Abweichung die Schalter „Netz invertieren“ bzw. „Batterie invertieren“ nutzen.',
+                    'caption' => 'ℹ️ RCT Power Storage DC: Port 8899 eintragen (502 wird dafür durch 8899 ersetzt). Nur Lesen, Abfrage höchstens alle 30 s, damit die RCT-App oder Home Assistant parallel nicht verdrängt werden. Die Vorzeichen von Netz (+ Einspeisung) und Batterie (+ Entladen) sind an einem RCT Power Storage DC 10.0 (Firmware 2.3.5689) gegen die RCT-App bestätigt. Zeigt dein Gerät das Gegenteil, nutze die Schalter „Netz invertieren“ bzw. „Batterie invertieren“ und melde es im Forum.',
                     'visible' => $this->ReadPropertyString('Manufacturer') === 'rct_power',
                 ],
                 [

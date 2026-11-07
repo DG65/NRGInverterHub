@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.80.1 (2026-11-07)
+
+- **RCT Power Storage DC: Werte und Vorzeichen bestätigt.** daniel81w1 (Forum) hat an einem RCT Power Storage DC 10.0 (Firmware 2.3.5689) bestätigt, dass SOC, PV,
+  Netz- und Batterieleistung samt Vorzeichen mit der RCT-App übereinstimmen (Netz + = Einspeisung, Batterie + = Entladen) und dass App und Home Assistant
+  parallel zum Modul laufen. Die Hinweise „Vorzeichen ungeprüft“ in den Variablennamen, im Formular, im „Neu“-Eintrag und in der README entfallen. Weiterhin
+  nur Lesen; Steuern ist nicht enthalten.
+
 ## 0.80.0 (2026-11-05)
 
 - **SMA: DC-Leistung je PV-Eingang A und B (neue Gruppe „PV-Eingänge A und B“).** Bisher legte der SMA-Treiber nur die Summe ab, obwohl er die beiden
