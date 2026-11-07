@@ -1,12 +1,14 @@
 # InverterHub
 
+[English version: README.en.md](README.en.md)
+
 ![Symcon](https://img.shields.io/badge/Symcon-PHP--Modul-blue)
-![Modul Version](https://img.shields.io/badge/Version-0.74.0--beta.1-informational)
-![Symcon Version](https://img.shields.io/badge/IP--Symcon-%E2%89%A5%209.0-orange)
+![Modul Version](https://img.shields.io/badge/Version-0.82.0-informational)
+![Symcon Version](https://img.shields.io/badge/Symcon-%E2%89%A5%209.0-orange)
 ![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-lightgrey)
 [![PayPal](https://img.shields.io/badge/PayPal-Spenden-blue?logo=paypal)](https://paypal.me/DietmarGureth)
 
-IP-Symcon-Modul, das Wechselrichter verschiedener Hersteller direkt per **Modbus TCP** ausliest
+Symcon-Modul, das Wechselrichter verschiedener Hersteller direkt per **Modbus TCP** ausliest
 und steuert — ein generisches Treiber-Framework statt eines Moduls pro Hersteller.
 
 **Status: Beta.** Die Register-Zuordnungen basieren auf den öffentlich verfügbaren
@@ -16,10 +18,14 @@ Beta-Tester an realen Anlagen erprobt) sowie gegen unabhängige Quellen gegengep
 Referenzimplementierung [OpenEMS](https://github.com/OpenEMS/openems) für Register-/
 Feldoffsets (GoodWe, Fronius, SMA), die Register-Definitionen der `huawei-solar-lib` sowie
 von echten Nutzern im
-[IP-Symcon-Forum](https://community.symcon.de/c/symcon/vorlagen-modbus/86) geteilte
+[Symcon-Forum](https://community.symcon.de/c/symcon/vorlagen-modbus/86) geteilte
 Modbus-Vorlagen (GoodWe, SolaX, SolarEdge, Deye, Solplanet, Kostal, Victron, Huawei). Rückmeldungen zu
 falschen/fehlenden Werten sind willkommen — bitte mit Hersteller, Modell und betroffenem
 Register melden.
+
+Das Modul ist zweisprachig: Die Konsole zeigt Formular, Meldungen, Variablennamen und Auswahllisten
+auf Deutsch oder Englisch, je nach Sprache der Konsole. Variablennamen werden beim Anlegen gesetzt und
+danach nie überschrieben, du kannst sie also umbenennen.
 
 ## Unterstützte Hersteller
 
@@ -70,7 +76,7 @@ positiv), keinen Netz-/Einspeisezähler.
 
 **Energie-Einheit (kWh/Wh):** Standardmäßig werden Energiewerte in kWh ausgegeben. Der Schalter
 „Energie in Wh statt kWh ausgeben" (im Datenpunkte-Panel) stellt sie auf die Basiseinheit Wh um
-— konsistent zur Leistung (W); die neue IP-Symcon-Darstellung skaliert dann selbst auf
+— konsistent zur Leistung (W); die neue Symcon-Darstellung skaliert dann selbst auf
 Wh/kWh/MWh. Bestehende Instanzen bleiben ohne Umschalten bei kWh (kein Sprung in der Historie).
 
 **Invers-Schalter:** Je nach Verdrahtung/gewünschter Konvention lassen sich Netz-Leistung
@@ -102,8 +108,8 @@ das nicht). Mehrere IPs Komma-getrennt.
 
 **Bekannte Einschränkung:** Filter/Aktualisieren (oberhalb) und Erstellen/Alle erstellen/
 Zielkategorie-Auswahl (unterhalb) der Ergebnistabelle sind fester Bestandteil der nativen
-IP-Symcon-Konfigurator-Ansicht — ihre Position und ein „einzeln als gesehen markieren" lassen
-sich modulseitig nicht beeinflussen bzw. ergänzen (IP-Symcon-API-Grenze, keine Dokumentation
+Symcon-Konfigurator-Ansicht — ihre Position und ein „einzeln als gesehen markieren" lassen
+sich modulseitig nicht beeinflussen bzw. ergänzen (Symcon-API-Grenze, keine Dokumentation
 dafür vorhanden).
 
 ### InverterHubMqttBridge (Hoymiles MS-A2 per MQTT, Vorabversion)
@@ -149,13 +155,12 @@ selben Gateway wird wiederverwendet.
 - **Nicht nutzbar im Gateway-Modus:** Treiber, die für Zusatzgeräte eine eigene Direktverbindung
   aufbauen (Zähler bei Fronius, SMA und SolarEdge, Victron).
 
-### Kacheln (`InverterHubTile`, `InverterHubEnergy`, `InverterHubMonitor`) — entfernt
+### Kacheln (`InverterHubTile`, `InverterHubEnergy`, `InverterHubMonitor`) — abgelöst
 
-Auf dem früheren Zweig `ems-integration` (abgeschafft 27.10.2026) war entfernt (20.08.2026); auf `beta`/`main` bleiben die Module bestehen: Die Aufgabe der Visualisierung
-(Stromfluss-Kachel, Sankey-Diagramm, Monitoring/Diagnostik) übernimmt jetzt
-[NRGDashboard](https://github.com/DG65/NRGDashboard). Mit `InverterHubMonitor` ist auch der
-Diagnostik-Vertrag `IHUBMON_GetDiagnostics` entfallen. Die volle Doku dieser drei Module bleibt
-in der Git-Historie dieses Repos erhalten.
+Die Aufgabe der Visualisierung (Stromfluss-Kachel, Sankey-Diagramm, Monitoring/Diagnostik)
+übernimmt jetzt [NRGDashboard](https://github.com/DG65/NRGDashboard). Die drei Module bleiben auf
+`beta`/`main` bestehen, damit vorhandene Instanzen weiterlaufen. Ihre volle Dokumentation bleibt
+in der Git-Historie dieses Repositories erhalten.
 
 ## Fronius und SMA: Hinweis zur SunSpec-Discovery
 
@@ -199,7 +204,7 @@ Die Kopplung ist optional: Keines der Module setzt das andere voraus.
 
 ## Installation
 
-Über die IP-Symcon Modulverwaltung „Hinzufügen" mit der URL dieses Repositories:
+Über die Symcon-Modulverwaltung „Hinzufügen" mit der URL dieses Repositories:
 
 ```
 https://github.com/DG65/NRGInverterHub
@@ -238,4 +243,4 @@ betroffenes Register/Ident und beobachteter vs. erwarteter Wert.
 
 ## Lizenz
 
-MIT, siehe [LICENSE](LICENSE).
+PolyForm Noncommercial 1.0.0, siehe [LICENSE](LICENSE). Privat und nicht-kommerziell frei nutzbar, für den gewerblichen Einsatz braucht es eine gesonderte Lizenz.
