@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/ihub-text.inc.php';
 // Extrahiert IHUB_ModbusGatewayClient aus module.php und testet gegen ein
 // simuliertes ForwardToGateway()-Ergebnis (verifiziertes SymconBC-Antwortformat).
 $src = file_get_contents(__DIR__ . '/../InverterHub/module.php');

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/ihub-text.inc.php';
 // Prueft CreateBridge() (Knopf "Brücke anlegen und verbinden"), die beiden module.json
 // und die Sichtbarkeit der Gateway-Felder. Nicht nachbildbar: Kernel-Verhalten beim
 // Funktionsaufruf zwischen Instanzen und die Konsole selbst.
@@ -80,11 +81,11 @@ foreach (['ApplyChanges', 'GetConfigurationForm'] as $fn) {
     $chk(!empty($mm[0]) && strpos($mm[0], '$this->CreateBridge(') === false && strpos($mm[0], 'IPS_CreateInstance') === false, "$fn legt nie eine Bruecke an");
 }
 // --- Einheitliche Woerter in den drei Hubs (Mstaudi-Feedback 19.09.2026)
-$chk(strpos($src, "'caption'      => 'ModBus Gateway zum Gerät'") !== false, 'Feldname "ModBus Gateway zum Gerät"');
-$chk(strpos($src, "'caption'      => 'NRG-Stack Brücke (ModBus Gateway oder MQTT)'") !== false, 'Feldname "NRG-Stack Brücke (ModBus Gateway oder MQTT)"');
-$chk(strpos($src, "'caption' => 'Brücke anlegen und verbinden'") !== false && strpos($src, '… und Brücke') === false, 'Knopf "Brücke anlegen und verbinden" (ohne Auslassungspunkte), nirgends mehr im Modul');
-$chk(strpos($src, "'caption' => 'Bitte Verbindung einstellen.'") !== false && strpos($src, 'Bitte die Brücke zum ModBus Gateway eintragen') === false && strpos($src, "'Bitte IP-Adresse oder Hostname eintragen.'") === false, 'Statuszeile 104 in jedem Verbindungsweg neutral (folgt dem gespeicherten Stand)');
-$chk(strpos($src, 'keine Antwort über die Brücke') !== false && strpos($src, "'Verbindungsfehler – Wechselrichter nicht erreichbar.'") !== false, 'Statuszeile 201 je Verbindungsweg (Bruecke / Direkt)');
+$chk(strpos($src, "'caption'      => 'ModBus gateway to the device'") !== false, 'Feldname "ModBus Gateway zum Gerät"');
+$chk(strpos($src, "'caption'      => 'NRG-Stack bridge (ModBus gateway or MQTT)'") !== false, 'Feldname "NRG-Stack Brücke (ModBus Gateway oder MQTT)"');
+$chk(strpos($src, "'caption' => 'Create bridge and connect'") !== false && strpos($src, '… und Brücke') === false, 'Knopf "Brücke anlegen und verbinden" (ohne Auslassungspunkte), nirgends mehr im Modul');
+$chk(strpos($src, "'caption' => 'Please set up the connection.'") !== false && strpos($src, 'Bitte die Brücke zum ModBus Gateway eintragen') === false && strpos($src, "'Bitte IP-Adresse oder Hostname eintragen.'") === false, 'Statuszeile 104 in jedem Verbindungsweg neutral (folgt dem gespeicherten Stand)');
+$chk(strpos($src, 'no answer via the bridge') !== false && strpos($src, "'Connection error – inverter not reachable.'") !== false, 'Statuszeile 201 je Verbindungsweg (Bruecke / Direkt)');
 // --- genau EIN Alias je Modul, Muster "NRG-Stack InverterHub ..." (Mstaudi/MeterHub 20.09.2026)
 foreach (['InverterHub', 'InverterHubDiscovery', 'InverterHubBridge', 'InverterHubTile', 'InverterHubMonitor', 'InverterHubEnergy'] as $mod) {
     $j = json_decode(file_get_contents($root . "/$mod/module.json"), true);

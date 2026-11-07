@@ -11,6 +11,25 @@
 
 class InverterHubDiscovery extends IPSModule
 {
+    /** @var array<string,string> */
+    private static $merkliste = [];
+
+    // Translate() liest locale.json bei jedem Aufruf (SUITE.md Stolperstein 24): je Text einmal je Prozess.
+    private function T(string $text, ...$args): string
+    {
+        if (!isset(self::$merkliste[$text])) {
+            self::$merkliste[$text] = $this->Translate($text);
+        }
+        $out = self::$merkliste[$text];
+        if ($args === []) {
+            return $out;
+        }
+        $f = @vsprintf($out, array_map(function ($a) {
+            return is_scalar($a) || $a === null ? (string)$a : (string)json_encode($a);
+        }, $args));
+        return $f === false ? $out : $f;
+    }
+
     private const INVERTERHUB_GUID  = '{BBE2C593-1A91-426D-A714-29A9C7E87589}';
     // Verbund-Absprache mit MigrationsHub (29.07.2026): Migration als Teil
     // des normalen Scans statt separates Werkzeug. Rein additiv, komplett
@@ -23,7 +42,7 @@ class InverterHubDiscovery extends IPSModule
     private const METERHUB_GUID = '{BAB8E05C-9150-43B9-9F2B-E5215FA54F0A}';
     private const METER_LABELS = [
         'siemens_pac2200' => 'Siemens PAC2200',
-        'janitza_umg604'  => 'Janitza UMG (klassische Map)',
+        'janitza_umg604'  => 'Janitza UMG (classic map)',
         'janitza_umg800'  => 'Janitza UMG 800',
     ];
 
@@ -76,9 +95,9 @@ class InverterHubDiscovery extends IPSModule
     // „Was ist neu"-Banner (siehe newsBanner()/AckNews()).
     private const NEWS_VERSION = '0.46';
     private const NEWS_ITEMS = [
-        'FoxESS wird jetzt mit erkannt (Unit-ID-Kandidaten noch unbestätigt, Rückmeldung willkommen).',
-        'Victron und Huawei werden jetzt mit erkannt.',
-        'Freie Namensvorlage für neue Instanzen mit Platzhaltern ({hersteller}, {ip}, {unitid}, {nr}).',
+        'FoxESS is now detected as well (unit ID candidates still unconfirmed, feedback welcome).',
+        'Victron and Huawei are now detected as well.',
+        'Free name template for new instances with placeholders ({hersteller}, {ip}, {unitid}, {nr}).',
     ];
 
     public function Create()
@@ -131,7 +150,7 @@ class InverterHubDiscovery extends IPSModule
         // GetValue/SetValue - der „Abbrechen"-Button läuft in einem eigenen
         // Thread und setzt sie, die Scan-Schleifen prüfen sie). In ApplyChanges
         // registriert, damit auch bestehende Instanzen sie nach dem Update haben.
-        $this->RegisterVariableBoolean('ScanAbort', 'Scan-Abbruch', '', 100);
+        $this->RegisterVariableBoolean('ScanAbort', $this->T('Scan abort'), '', 100);
         IPS_SetHidden($this->GetIDForIdent('ScanAbort'), true);
         $this->AdoptDismissFromSibling();
     }
@@ -147,7 +166,7 @@ class InverterHubDiscovery extends IPSModule
         if (@IPS_GetObjectIDByIdent('ScanAbort', $this->InstanceID)) {
             $this->SetValue('ScanAbort', true);
         }
-        @$this->UpdateFormField('ScanProgress', 'caption', 'Abbruch angefordert – bitte kurz warten …');
+        @$this->UpdateFormField('ScanProgress', 'caption', $this->T('Abort requested – please wait a moment …'));
         @$this->UpdateFormField('ScanProgress', 'indeterminate', true);
     }
 
@@ -207,8 +226,8 @@ class InverterHubDiscovery extends IPSModule
             }
 
             $values[] = [
-                'name'         => $r['label'] . ' @ ' . $r['ip'] . ' (Unit ' . $r['unitId'] . ')',
-                'manufacturer' => $r['label'],
+                'name'         => $this->T('%s @ %s (Unit %d)', $this->T($r['label']), $r['ip'], $r['unitId']),
+                'manufacturer' => $this->T($r['label']),
                 'ip'           => $r['ip'],
                 'unitId'       => $r['unitId'],
                 'instanceID'   => $existing[$key] ?? 0,
@@ -220,42 +239,42 @@ class InverterHubDiscovery extends IPSModule
             'elements' => [
                 [
                     'type'    => 'ExpansionPanel',
-                    'caption' => '📖  Dokumentation & Hilfe',
+                    'caption' => '📖  Documentation & help',
                     'expanded' => false,
                     'items' => [
                         $this->VersionLabel(),
-                        ['type' => 'Label', 'caption' => 'Durchsucht einen IP-Bereich im lokalen Netz nach Wechselrichtern auf Modbus-TCP-Port 502 und erkennt den Hersteller anhand weniger typischer Register/Unit-IDs pro Hersteller.'],
-                        ['type' => 'Label', 'caption' => 'Start- und End-IP eintragen (Vorschlag anhand des eigenen Netzwerks ist schon ausgefüllt), dann „Netzwerk durchsuchen" klicken. Gefundene Geräte erscheinen unten in der Liste — Klick auf „Erstellen" legt eine InverterHub-Instanz mit vorausgefüllter IP-Adresse, Unit-ID und Hersteller an.'],
-                        ['type' => 'Label', 'caption' => 'Die Suche prüft nur wenige dokumentierte Standard-Unit-IDs je Hersteller, keinen vollen 1-247-Bereich — bei exotisch konfigurierter Unit-ID bitte die InverterHub-Instanz manuell anlegen.'],
-                        ['type' => 'Label', 'caption' => 'Wird ein bekannter Wechselrichter nicht gefunden: einen SCHMALEN Bereich (bis 64 Adressen, z. B. .30–.45) um dessen IP absuchen. Kleine Bereiche nutzen eine langsamere, aber zuverlässigere Port-Prüfung — die große Subnetz-Suche kann unter Windows oder bei langsam antwortenden Geräten (z. B. Sungrow WiNet-S) offene Ports übersehen.'],
-                        ['type' => 'Label', 'caption' => 'Kombinierte Suche: Ist zusätzlich das Modul „MeterHub" installiert, findet die Suche auch Energiezähler (Janitza, Siemens PAC) und legt sie per „Erstellen" gleich als MeterHub-Instanz an — Wechselrichter und Zähler in einem Durchgang.'],
-                        ['type' => 'Label', 'caption' => 'Hinweis: „Filter"/„Aktualisieren" oberhalb und „Erstellen"/„Alle erstellen" unterhalb der Tabelle sind fester Bestandteil der IP-Symcon-Konfigurator-Ansicht selbst — ihre Position lässt sich modulseitig nicht verändern.'],
+                        ['type' => 'Label', 'caption' => 'Searches an IP range in the local network for inverters on Modbus TCP port 502 and recognizes the manufacturer from a few typical registers/unit IDs per manufacturer.'],
+                        ['type' => 'Label', 'caption' => 'Enter the start and end IP (a suggestion based on your own network is already filled in), then click "Search network". Devices found appear in the list below — clicking "Create" creates an InverterHub instance with the IP address, unit ID and manufacturer already filled in.'],
+                        ['type' => 'Label', 'caption' => 'The search only checks a few documented default unit IDs per manufacturer, not the full 1-247 range — if the unit ID is configured in an unusual way, please create the InverterHub instance manually.'],
+                        ['type' => 'Label', 'caption' => 'If a known inverter is not found: search a NARROW range (up to 64 addresses, e.g. .30–.45) around its IP. Small ranges use a slower but more reliable port check — the large subnet search can miss open ports on Windows or with slowly answering devices (e.g. Sungrow WiNet-S).'],
+                        ['type' => 'Label', 'caption' => 'Combined search: if the module "MeterHub" is also installed, the search also finds energy meters (Janitza, Siemens PAC) and creates them as a MeterHub instance via "Create" — inverters and meters in one pass.'],
+                        ['type' => 'Label', 'caption' => 'Note: "Filter"/"Refresh" above and "Create"/"Create all" below the table are a fixed part of the Symcon configurator view itself — their position cannot be changed by the module.'],
                     ],
                 ],
                 [
                     'type'    => 'ExpansionPanel',
-                    'caption' => '🔎  Suchbereich',
+                    'caption' => '🔎  Search range',
                     'expanded' => true,
                     'items' => [
-                        ['type' => 'ValidationTextBox', 'name' => 'RangeStart', 'caption' => 'Start-IP', 'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
-                        ['type' => 'ValidationTextBox', 'name' => 'RangeEnd',   'caption' => 'End-IP',   'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
-                        ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'Modbus-TCP-Port', 'minimum' => 1, 'maximum' => 65535],
-                        ['type' => 'ValidationTextBox', 'name' => 'NameTemplate', 'caption' => 'Name-Vorlage (leer = Hersteller + lfd. Nr.)'],
-                        ['type' => 'Label', 'caption' => 'Platzhalter für die Vorlage: {hersteller} {ip} {unitid} {nr} — z.B. "{hersteller} Dach ({ip})"'],
-                        ['type' => 'ValidationTextBox', 'name' => 'IgnoreIPs', 'caption' => 'IPs ignorieren (Komma-getrennt)'],
-                        ['type' => 'Label', 'caption' => 'Diese Adressen werden bei der Suche komplett übersprungen — z.B. RTU/TCP-Konverter oder andere Modbus-Geräte, die sonst fälschlich als Wechselrichter erscheinen würden.'],
+                        ['type' => 'ValidationTextBox', 'name' => 'RangeStart', 'caption' => 'Start IP', 'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
+                        ['type' => 'ValidationTextBox', 'name' => 'RangeEnd',   'caption' => 'End IP',   'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
+                        ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'Modbus TCP port', 'minimum' => 1, 'maximum' => 65535],
+                        ['type' => 'ValidationTextBox', 'name' => 'NameTemplate', 'caption' => 'Name template (empty = manufacturer + running no.)'],
+                        ['type' => 'Label', 'caption' => 'Placeholders for the template: {hersteller} {ip} {unitid} {nr} — e.g. "{hersteller} Roof ({ip})"'],
+                        ['type' => 'ValidationTextBox', 'name' => 'IgnoreIPs', 'caption' => 'Ignore IPs (comma-separated)'],
+                        ['type' => 'Label', 'caption' => 'These addresses are skipped completely during the search — e.g. RTU/TCP converters or other Modbus devices that would otherwise wrongly appear as inverters.'],
                         [
                             'type'  => 'RowLayout',
                             'items' => [
-                                ['type' => 'Button', 'name' => 'BtnScan',  'caption' => '🔎  Netzwerk durchsuchen', 'onClick' => 'IHUBD_Discover($id);'],
-                                ['type' => 'Button', 'name' => 'BtnAbort', 'caption' => '✖  Suche abbrechen', 'onClick' => 'IHUBD_AbortScan($id);', 'visible' => false],
+                                ['type' => 'Button', 'name' => 'BtnScan',  'caption' => '🔎  Search network', 'onClick' => 'IHUBD_Discover($id);'],
+                                ['type' => 'Button', 'name' => 'BtnAbort', 'caption' => '✖  Abort search', 'onClick' => 'IHUBD_AbortScan($id);', 'visible' => false],
                             ],
                         ],
                         $this->DiscoverySummaryLine(count($results)),
                         [
                             'type'          => 'ProgressBar',
                             'name'          => 'ScanProgress',
-                            'caption'       => 'Bereit.',
+                            'caption'       => 'Ready.',
                             'minimum'       => 0,
                             'maximum'       => 100,
                             'current'       => 0,
@@ -266,19 +285,19 @@ class InverterHubDiscovery extends IPSModule
                 ],
                 [
                     'type'    => 'ExpansionPanel',
-                    'caption' => '🛠️  Erstellen',
+                    'caption' => '🛠️  Create',
                     'expanded' => true,
                     'items' => [
                         [
                             'type'     => 'Configurator',
                             'name'     => 'DiscoveryList',
-                            'caption'  => 'Gefundene Wechselrichter',
+                            'caption'  => 'Inverters found',
                             'rowCount' => 6,
                             'delete'   => false,
                             'sort'     => ['column' => 'ip', 'direction' => 'ascending'],
                             'columns'  => [
-                                ['caption' => 'Hersteller', 'name' => 'manufacturer', 'width' => '200px'],
-                                ['caption' => 'IP-Adresse', 'name' => 'ip',           'width' => '150px'],
+                                ['caption' => 'Manufacturer', 'name' => 'manufacturer', 'width' => '200px'],
+                                ['caption' => 'IP address', 'name' => 'ip',           'width' => '150px'],
                                 ['caption' => 'Unit ID',    'name' => 'unitId',       'width' => '100px'],
                             ],
                             'values' => $values,
@@ -294,12 +313,12 @@ class InverterHubDiscovery extends IPSModule
         $migrationItems = [];
         foreach ($results as $idx => $r) {
             foreach (($r['legacyCandidates'] ?? []) as $cand) {
-                $candName = (string)($cand['name'] ?? ('Instanz #' . ($cand['instanceID'] ?? '?')));
+                $candName = (string)($cand['name'] ?? $this->T('Instance #%s', $cand['instanceID'] ?? '?'));
                 $migrationItems[] = [
                     'type'  => 'RowLayout',
                     'items' => [
-                        ['type' => 'Label', 'caption' => $r['label'] . ' @ ' . $r['ip'] . ' (Unit ' . $r['unitId'] . ') — mögliche Alt-Instanz: ' . $candName],
-                        ['type' => 'Button', 'caption' => '🔀 Migration vorbereiten', 'onClick' => 'IHUBD_StartMigration($id, ' . $idx . ', ' . (int)($cand['instanceID'] ?? 0) . ');'],
+                        ['type' => 'Label', 'caption' => $this->T('%s @ %s (Unit %d) — possible old instance: %s', $this->T($r['label']), $r['ip'], $r['unitId'], $candName)],
+                        ['type' => 'Button', 'caption' => '🔀 Prepare migration', 'onClick' => 'IHUBD_StartMigration($id, ' . $idx . ', ' . (int)($cand['instanceID'] ?? 0) . ');'],
                     ],
                 ];
             }
@@ -308,16 +327,16 @@ class InverterHubDiscovery extends IPSModule
             $migrationItems[] = [
                 'type'    => 'OpenObjectButton',
                 'name'    => 'BtnOpenMigration',
-                'caption' => '➡️ Migration in Gerätetausch öffnen',
+                'caption' => '➡️ Open migration in Device swap',
                 'objectID' => 0,
                 'visible' => false,
             ];
             $form['elements'][] = [
                 'type'     => 'ExpansionPanel',
-                'caption'  => '🔀  Migration von Altinstanzen',
+                'caption'  => '🔀  Migration of old instances',
                 'expanded' => true,
                 'items'    => array_merge([
-                    ['type' => 'Label', 'caption' => 'Für diese gefundenen Geräte existiert vermutlich schon eine ältere Instanz eines anderen Moduls. „Migration vorbereiten" legt die neue InverterHub-Instanz an und öffnet anschließend Gerätetausch mit vorbelegter Quelle/Ziel — der eigentliche Übernahme-Ablauf (Simulieren/Übernehmen) läuft dort wie gewohnt.'],
+                    ['type' => 'Label', 'caption' => 'An older instance of another module probably already exists for these devices found. "Prepare migration" creates the new InverterHub instance and then opens Device swap with the source/target preset — the actual takeover procedure (simulate/apply) runs there as usual.'],
                 ], $migrationItems),
             ];
         }
@@ -327,8 +346,8 @@ class InverterHubDiscovery extends IPSModule
         array_splice($form['elements'], 1, 0, [$this->ConnectionPanel()]);
 
         $form['status'] = [
-            ['code' => 102, 'icon' => 'active',   'caption' => 'Bereit.'],
-            ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte den IP-Bereich für die Suche eintragen.'],
+            ['code' => 102, 'icon' => 'active',   'caption' => 'Ready.'],
+            ['code' => 104, 'icon' => 'inactive', 'caption' => 'Please enter the IP range for the search.'],
         ];
 
         // Symcon-Forum-Hinweis, einmalig dismissible (Referenz MeterHub::ForumHint()).
@@ -364,12 +383,12 @@ class InverterHubDiscovery extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true,
-            'caption' => '👋  Wozu dieses Modul?',
+            'caption' => '👋  What is this module for?',
             'items' => [
-                ['type' => 'Label', 'caption' => 'InverterHubDiscovery durchsucht dein lokales Netz nach Wechselrichtern und legt dafür passend konfigurierte InverterHub-Instanzen an — auch mehrere auf einmal.'],
-                ['type' => 'Label', 'caption' => 'Der Nutzen: kein manuelles Eintragen von IP-Adresse, Hersteller und Registerbelegung je Gerät — die Suche erkennt den Hersteller selbst und übernimmt die Ersteinrichtung.'],
-                ['type' => 'Label', 'caption' => 'Dieses Modul legt selbst keine Messwerte an, sondern nur InverterHub-Instanzen dafür — die eigentliche Anzeige und Steuerung übernehmen die dabei erzeugten Instanzen.'],
-                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'IHUBD_AckPurposeIntro($id);'],
+                ['type' => 'Label', 'caption' => 'InverterHubDiscovery searches your local network for inverters and creates suitably configured InverterHub instances for them — several at once if you like.'],
+                ['type' => 'Label', 'caption' => 'The benefit: no manual entry of IP address, manufacturer and register layout per device — the search recognizes the manufacturer itself and takes care of the initial setup.'],
+                ['type' => 'Label', 'caption' => 'This module creates no measured values itself, only InverterHub instances for them — the actual display and control are handled by the instances created in the process.'],
+                ['type' => 'Button', 'caption' => 'Understood – do not show again', 'onClick' => 'IHUBD_AckPurposeIntro($id);'],
             ],
         ];
     }
@@ -460,7 +479,7 @@ class InverterHubDiscovery extends IPSModule
     {
         $lib = @IPS_GetLibrary('{7EFE4BD7-DC14-460E-B0ED-88071197D35B}');
         $txt = (is_array($lib) && isset($lib['Version']))
-            ? 'ℹ️ InverterHubDiscovery Version ' . $lib['Version'] . ' (Build ' . ($lib['Build'] ?? '?') . ')'
+            ? $this->T('ℹ️ InverterHubDiscovery version %s (build %s)', $lib['Version'], $lib['Build'] ?? '?')
             : 'ℹ️ InverterHubDiscovery';
         return ['type' => 'Label', 'caption' => $txt];
     }
@@ -472,12 +491,12 @@ class InverterHubDiscovery extends IPSModule
         if ($this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {
             return null;
         }
-        $items = [['type' => 'Label', 'caption' => '🆕 Neu in diesem Modul — bitte kurz ansehen und ggf. die Einstellungen prüfen:']];
+        $items = [['type' => 'Label', 'caption' => '🆕 New in this module — please take a quick look and check the settings if necessary:']];
         foreach (self::NEWS_ITEMS as $line) {
-            $items[] = ['type' => 'Label', 'caption' => '• ' . $line];
+            $items[] = ['type' => 'Label', 'caption' => '• ' . $this->T($line)];
         }
-        $items[] = ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'IHUBD_AckNews($id);'];
-        return ['type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'caption' => '🆕 Neu in Version ' . self::NEWS_VERSION, 'expanded' => true, 'items' => $items];
+        $items[] = ['type' => 'Button', 'caption' => 'Understood – do not show again', 'onClick' => 'IHUBD_AckNews($id);'];
+        return ['type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'caption' => $this->T('🆕 New in version %s', self::NEWS_VERSION), 'expanded' => true, 'items' => $items];
     }
 
     public function AckNews()
@@ -502,11 +521,11 @@ class InverterHubDiscovery extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'name' => 'ReviewHint', 'expanded' => true,
-            'caption' => '💬  Feedback im Symcon-Forum',
+            'caption' => '💬  Feedback in the Symcon forum',
             'items' => [
-                ['type' => 'Label', 'caption' => 'InverterHubDiscovery ist Beta — Rückmeldungen und Testberichte sind im Symcon-Forum-Thread willkommen.'],
-                ['type' => 'Button', 'caption' => 'Zum Forums-Thread', 'onClick' => "echo '" . self::FORUM_THREAD_URL . "';", 'link' => true],
-                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'IHUBD_DismissReviewHint($id);'],
+                ['type' => 'Label', 'caption' => 'InverterHubDiscovery is beta — feedback and test reports are welcome in the Symcon forum thread.'],
+                ['type' => 'Button', 'caption' => 'To the forum thread', 'onClick' => "echo '" . self::FORUM_THREAD_URL . "';", 'link' => true],
+                ['type' => 'Button', 'caption' => 'Understood – do not show again', 'onClick' => 'IHUBD_DismissReviewHint($id);'],
             ],
         ];
     }
@@ -516,14 +535,14 @@ class InverterHubDiscovery extends IPSModule
     {
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => '🧡  Über dieses Modul',
+            'caption' => '🧡  About this module',
             'items' => [
-                ['type' => 'Label', 'caption' => 'Entstanden aus echter Begeisterung für die eigene Anlage — und ein paar durchgetippten Abenden. Trotzdem: Software-Hobby hin oder her, das hier ist geistiges Eigentum und echte Arbeit steckt drin.'],
-                ['type' => 'Label', 'caption' => 'Lizenz: PolyForm Noncommercial 1.0.0 — privat und nicht-kommerziell frei nutzbar, für den gewerblichen Einsatz braucht es eine gesonderte Lizenz vom Rechteinhaber.'],
-                ['type' => 'Button', 'caption' => 'Lizenztext ansehen', 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
-                ['type' => 'Label', 'caption' => 'Gewerbliche Nutzung oder Fragen zur Lizenz? Einfach melden: dietmar@gureth.eu'],
-                ['type' => 'Label', 'caption' => 'Gefällt dir das Modul und du möchtest trotzdem etwas dalassen? Über eine kleine Spende freue ich mich — völlig freiwillig, keine Gegenleistung nötig.'],
-                ['type' => 'Button', 'caption' => '☕  Spenden via PayPal', 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'Born from real enthusiasm for my own system — and a few evenings of typing. Still: hobby software or not, this is intellectual property and real work has gone into it.'],
+                ['type' => 'Label', 'caption' => 'License: PolyForm Noncommercial 1.0.0 — free for private and non-commercial use, commercial use requires a separate license from the rights holder.'],
+                ['type' => 'Button', 'caption' => 'View license text', 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'Commercial use or questions about the license? Just get in touch: dietmar@gureth.eu'],
+                ['type' => 'Label', 'caption' => 'Like the module and want to leave something anyway? I would be happy about a small donation — entirely voluntary, nothing expected in return.'],
+                ['type' => 'Button', 'caption' => '☕  Donate via PayPal', 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
             ],
         ];
     }
@@ -540,12 +559,12 @@ class InverterHubDiscovery extends IPSModule
         // 13.10.2026: MIGHUB_ -> GTAUSCH_, Parameter unveraendert).
         $hasNew = function_exists('GTAUSCH_PrefillMigration');
         if (!$hasNew && !function_exists('MIGHUB_PrefillMigration')) {
-            $this->LogMessage('Gerätetausch ist nicht (mehr) installiert - Migration nicht möglich.', KL_WARNING);
+            $this->LogMessage($this->T('Device swap is not (or no longer) installed - migration not possible.'), KL_WARNING);
             return;
         }
         $results = json_decode((string)$this->ReadAttributeString('ResultsJSON'), true);
         if (!is_array($results) || !isset($results[$resultIndex])) {
-            $this->LogMessage('Migration: Suchergebnis nicht mehr vorhanden - bitte erneut suchen.', KL_WARNING);
+            $this->LogMessage($this->T('Migration: search result no longer available - please search again.'), KL_WARNING);
             return;
         }
         $r = $results[$resultIndex];
@@ -553,7 +572,7 @@ class InverterHubDiscovery extends IPSModule
 
         $newId = @IPS_CreateInstance(self::INVERTERHUB_GUID);
         if (!$newId) {
-            $this->LogMessage('Migration: Neue InverterHub-Instanz konnte nicht angelegt werden.', KL_ERROR);
+            $this->LogMessage($this->T('Migration: the new InverterHub instance could not be created.'), KL_ERROR);
             return;
         }
         IPS_SetName($newId, $instanceName);
@@ -565,7 +584,7 @@ class InverterHubDiscovery extends IPSModule
 
         $mighubId = $this->MigrationsHubInstanceID();
         if ($mighubId <= 0) {
-            $this->LogMessage('Migration: Gerätetausch-Instanz konnte nicht gefunden/angelegt werden.', KL_ERROR);
+            $this->LogMessage($this->T('Migration: the Device swap instance could not be found/created.'), KL_ERROR);
             return;
         }
         if ($hasNew) {
@@ -631,7 +650,7 @@ class InverterHubDiscovery extends IPSModule
             $ips = array_slice($ips, 0, 1024);
         }
 
-        $this->ShowProgress('Durchsuche ' . count($ips) . ' IP-Adressen auf Port ' . $port . ' …', 0);
+        $this->ShowProgress($this->T('Searching %d IP addresses on port %d …', count($ips), $port), 0);
 
         // Ausgeschlossene IPs (z. B. bekannte RTU/TCP-Konverter) vor dem Scan
         // entfernen - sie erscheinen damit weder in der Ergebnisliste noch
@@ -657,7 +676,7 @@ class InverterHubDiscovery extends IPSModule
         foreach ($openIps as $ip) {
             if ($this->scanAborted()) { $aborted = true; break; }
             $i++;
-            $this->ShowProgress("Prüfe Hersteller: $ip ($i von $total offenen Ports) …", (int)round(($i / max(1, $total)) * 100));
+            $this->ShowProgress($this->T('Checking manufacturer: %s (%d of %d open ports) …', $ip, $i, $total), (int)round(($i / max(1, $total)) * 100));
             $found = $this->identifyVendor($ip, $port);
             if ($found !== null) {
                 // Alt-Instanzen-Check (Verbund-Absprache mit MigrationsHub,
@@ -682,7 +701,7 @@ class InverterHubDiscovery extends IPSModule
                             $found['legacyCandidates'] = $legacy;
                         }
                     } catch (Throwable $e) {
-                        $this->LogMessage('Alt-Instanzen-Check uebersprungen (Gerätetausch-Aufruf fehlgeschlagen): ' . $e->getMessage(), KL_WARNING);
+                        $this->LogMessage($this->T('Old-instance check skipped (Device swap call failed): %s', $e->getMessage()), KL_WARNING);
                     }
                 }
                 $results[] = $found;
@@ -690,9 +709,9 @@ class InverterHubDiscovery extends IPSModule
         }
 
         if ($aborted) {
-            $this->ShowProgress('Scan abgebrochen – ' . count($results) . ' Wechselrichter bis dahin gefunden.', 100);
+            $this->ShowProgress($this->T('Scan aborted – %d inverter(s) found so far.', count($results)), 100);
         } else {
-            $this->ShowProgress('Fertig: ' . count($results) . ' Wechselrichter gefunden (von ' . $total . ' offenen Ports).', 100);
+            $this->ShowProgress($this->T('Done: %d inverter(s) found (of %d open ports).', count($results), $total), 100);
         }
 
         $this->WriteAttributeString('ResultsJSON', json_encode($results));
@@ -710,11 +729,11 @@ class InverterHubDiscovery extends IPSModule
     {
         $ts = $this->ReadAttributeInteger('LastDiscoveryTs');
         if ($ts === 0) {
-            $caption = 'ℹ️ Noch nicht gesucht.';
+            $caption = $this->T('ℹ️ Not searched yet.');
         } elseif ($count > 0) {
-            $caption = '✅ ' . $count . ' Gerät' . ($count === 1 ? '' : 'e') . ' gefunden (zuletzt ' . date('H:i:s', $ts) . ' Uhr).';
+            $caption = $this->T('✅ %d device(s) found (last at %s).', $count, date('H:i:s', $ts));
         } else {
-            $caption = '⚠️ 0 Geräte gefunden (zuletzt ' . date('H:i:s', $ts) . ' Uhr).';
+            $caption = $this->T('⚠️ 0 devices found (last at %s).', date('H:i:s', $ts));
         }
         return ['type' => 'Label', 'caption' => $caption];
     }
@@ -798,7 +817,7 @@ class InverterHubDiscovery extends IPSModule
             foreach ($ips as $ip) {
                 if ($this->scanAborted()) { break; }
                 $i++;
-                $this->ShowProgress("Portscan (genau) … $i von $total", (int)round(($i / max(1, $total)) * 90));
+                $this->ShowProgress($this->T('Port scan (precise) … %d of %d', $i, $total), (int)round(($i / max(1, $total)) * 90));
                 $s = @fsockopen($ip, $port, $errno, $errstr, min(0.8, $timeoutSec));
                 if ($s !== false) {
                     $open[] = $ip;
@@ -867,7 +886,7 @@ class InverterHubDiscovery extends IPSModule
                 $elapsed = $now - $startTime;
                 $pct     = (int)round(min(95, ($elapsed / $timeoutSec) * 90));
                 $this->ShowProgress(
-                    "Portscan läuft … " . count($open) . " offen, " . count($pending) . " von $totalOpen noch offen",
+                    $this->T('Port scan running … %d open, %d of %d still pending', count($open), count($pending), $totalOpen),
                     $pct
                 );
                 $deadline += microtime(true) - $now;   // UI-Zeit nicht anrechnen
@@ -929,7 +948,7 @@ class InverterHubDiscovery extends IPSModule
         return [
             'type'     => 'ExpansionPanel',
             'name'     => 'ConnectionPanel',
-            'caption'  => '🔗  Verbundene Module',
+            'caption'  => '🔗  Connected modules',
             'expanded' => true,
             'items'    => [
                 ['type' => 'Label', 'name' => 'MeterHubStatus', 'caption' => $this->MeterHubStatusLine()],
@@ -952,13 +971,13 @@ class InverterHubDiscovery extends IPSModule
     private function MeterHubStatusLine(): string
     {
         if (!$this->meterHubInstalled()) {
-            return 'ℹ️ MeterHub ist nicht installiert: Die Suche findet nur Wechselrichter, Energiezähler (Janitza, Siemens) werden nicht angeboten.';
+            return $this->T('ℹ️ MeterHub is not installed: the search only finds inverters, energy meters (Janitza, Siemens) are not offered.');
         }
         $version = $this->LibraryVersion(self::METERHUB_GUID);
         $count   = count((array)@IPS_GetInstanceListByModuleID(self::METERHUB_GUID));
-        $have    = $count === 0 ? 'noch keine Instanz' : ($count === 1 ? '1 Instanz' : $count . ' Instanzen') . ' vorhanden';
-        return '✅ MeterHub installiert' . ($version !== '' ? ' (Version ' . $version . ')' : '') . ', ' . $have
-            . ': Die Suche findet zusätzlich Energiezähler und bietet sie als MeterHub-Instanz an, bereits angelegte werden als solche erkannt.';
+        $have    = $count === 0 ? $this->T('no instance yet') : $this->T('%d instance(s) present', $count);
+        $head    = $version !== '' ? $this->T('✅ MeterHub installed (version %s)', $version) : $this->T('✅ MeterHub installed');
+        return $head . ', ' . $have . $this->T(': the search additionally finds energy meters and offers them as a MeterHub instance, instances already created are recognized as such.');
     }
 
     private function MigrationsHubStatusLine(): string
@@ -966,15 +985,15 @@ class InverterHubDiscovery extends IPSModule
         $installed = (function_exists('GTAUSCH_FindLegacyCandidates') || function_exists('MIGHUB_FindLegacyCandidates'))
             && function_exists('IPS_ModuleExists') && IPS_ModuleExists(self::MIGRATIONSHUB_GUID);
         if (!$installed) {
-            return 'ℹ️ Gerätetausch ist nicht installiert: Die Prüfung auf ältere Instanzen (z. B. GoodweET) entfällt, die Suche arbeitet unverändert.';
+            return $this->T('ℹ️ Device swap is not installed: the check for older instances (e.g. GoodweET) is omitted, the search works unchanged.');
         }
         $version = $this->LibraryVersion(self::MIGRATIONSHUB_GUID);
         $ids     = (array)@IPS_GetInstanceListByModuleID(self::MIGRATIONSHUB_GUID);
-        $head    = '✅ Gerätetausch installiert' . ($version !== '' ? ' (Version ' . $version . ')' : '');
+        $head    = $version !== '' ? $this->T('✅ Device swap installed (version %s)', $version) : $this->T('✅ Device swap installed');
         if (count($ids) > 0) {
-            return $head . ', Instanz #' . (int)$ids[0] . ': Beim Durchsuchen wird geprüft, ob zu einem gefundenen Gerät eine ältere Instanz existiert, dann erscheint „Migration von Altinstanzen“.';
+            return $head . $this->T(', instance #%d: during the search it is checked whether an older instance exists for a device found, in which case "Migration of old instances" appears.', (int)$ids[0]);
         }
-        return $head . ', noch keine Instanz: Sie wird beim ersten Suchlauf angelegt, danach wird auf ältere Instanzen geprüft.';
+        return $head . $this->T(', no instance yet: it is created on the first search run, after which older instances are checked for.');
     }
 
     private function meterHubInstalled()

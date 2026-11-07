@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.81.0 (2026-11-07)
+
+- **Zweisprachig, Stufe 1 (Formular und Meldungen).** Die Quelltexte sind jetzt englisch, das Deutsche steht in `locale.json` (je Modul: InverterHub, InverterHubDiscovery, InverterHubBridge, InverterHubMqttBridge). Formular, Statuszeilen, Brücken-Meldungen, Protokolleinträge, Warnungen der Treiber und die „Neu in diesem Modul“-Liste erscheinen in der Sprache der Konsole. Meldungen sind ganze Sätze mit Platzhaltern. Die Beschriftungen der Variablen je Treiber folgen in Stufe 2.
+- **Store-Punkt 26:** Variablen werden über `UnregisterVariable()` entfernt statt über `IPS_DeleteVariable()` (Hilfsfunktion `DropVariable()`, Reste aus den früheren Unterordnern werden dafür zuerst eine Ebene hochgehängt).
+- **Store-Punkt 27:** Der Abgleich des Ausblendens mit Geschwister-Instanzen läuft nicht mehr in `ApplyChanges()`, sondern beim Öffnen des Formulars.
+- Prüfstand `.tools/test-zweisprachig.php` (jeder Text in `locale.json`, Platzhalter gleich, nichts Deutsches im Code, Punkt 26/27); die übrigen Prüfstände laden die Textschicht über `.tools/ihub-text.inc.php`.
+
 ## 0.80.2 (2026-11-07)
 
 - **GoodWe: ungültige Zählerwerte (0xFFFF) landen nicht mehr im Archiv.** Liefert das Gerät für einen Energiezähler 0xFFFF (16 Bit) oder 0xFFFFFFFF (32 Bit), bedeutet das

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/ihub-text.inc.php';
 /**
  * Prüfstand: Plausibilitätsschutz für SOC/SOH-Prozentwerte in SetVarInt()
  * (Folgefund Stefan/somm, SolarEdge, 17.09.2026 - siehe CLAUDE.md).

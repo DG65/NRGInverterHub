@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/ihub-text.inc.php';
 // Prueft die Schaltflaeche "Archivierung jetzt einrichten" (strukturell + eval der Methode):
 // - Schaltflaeche und Ergebnis-Label sind im Formular, der Hinweis nennt die Folgen der ausgeschalteten
 //   Archivierung (nicht mehr "nur fuer Migration"),
@@ -11,7 +12,7 @@ $src = file_get_contents(dirname(__DIR__) . '/InverterHub/module.php');
 
 ok(strpos($src, "'name'    => 'ArchiveNowButton'") !== false && strpos($src, 'IPS_RequestAction($id, "ArchiveNow", true);') !== false, 'Schaltflaeche im Formular');
 ok(strpos($src, "'name'    => 'ArchiveNowResult'") !== false, 'Ergebnis-Label im Formular');
-ok(strpos($src, 'Das ist nur für eine Migration aus einem Altmodul') === false && strpos($src, 'zeigen Dashboard, Tages- und Verlaufswerte nichts an') !== false, 'Hinweistext nennt die Folgen, nicht mehr "nur fuer Migration"');
+ok(strpos($src, 'This is only for a migration from an old module') === false && strpos($src, 'show nothing') !== false, 'Hinweistext nennt die Folgen, nicht mehr "nur fuer Migration"');
 ok(preg_match("/if \(\\\$Ident === 'ArchiveNow'\) \{\s*\\\$this->UpdateFormField\('ArchiveNowResult', 'caption', \\\$this->ArchiveAllNow\(\)\);\s*\\\$this->UpdateFormField\('AutoArchive', 'value', true\);/", $src) === 1, 'RequestAction: Ergebnis anzeigen und Haekchen im offenen Formular setzen');
 ok(strpos($src, "RegisterPropertyBoolean('AutoArchive', false)") !== false, 'Vorgabe von AutoArchive bleibt AUS (Store-Vorgabe)');
 
@@ -39,7 +40,7 @@ $t = new T();
 $msg = $t->run();
 ok($GLOBALS['set'] === [11 => true, 12 => false], 'archiviert nur empfohlene, noch nicht geloggte Variablen (Energie als Zaehler)');
 ok(!isset($GLOBALS['set'][10]) && !isset($GLOBALS['set'][13]) && !isset($GLOBALS['set'][14]), 'bereits archiviert, nicht empfohlen und abgeschaltete Gruppe bleiben unberuehrt');
-ok(strpos($msg, '2 Variablen') !== false && strpos($msg, '1 waren schon archiviert') !== false, 'Ergebnistext nennt die Anzahl: ' . $msg);
+ok(strpos($msg, '2 Variable(n)') !== false && strpos($msg, '1 waren schon archiviert') !== false, 'Ergebnistext nennt die Anzahl: ' . $msg);
 $GLOBALS['archives'] = [];
 ok(strpos($t->run(), 'Keine Archiv-Instanz') !== false, 'ohne Archiv-Instanz: klare Meldung, nichts eingerichtet');
 

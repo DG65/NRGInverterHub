@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/ihub-text.inc.php';
 // Prueft IHUB_HoymilesMsa2Driver (MQTT, kein Modbus) und die MQTT-Bruecke: Zuordnung der Felder aus
 // quick/state, device/state und system/state, Vorzeichen, Befehle, Frische ("verbunden").
 // Die Nachrichten stammen aus dem Mitschnitt von AKL (Forum, Firmware V01.07.02) und dem Quellcode Lin071/ha.
@@ -127,7 +128,7 @@ $hubmj = json_decode(file_get_contents(dirname(__DIR__) . '/InverterHub/module.j
 ok($mj['prefix'] === 'IHUBM' && $mj['parentRequirements'] === ['{043EA491-0325-4ADD-8FC2-A30C8EEB4D3F}'] && $mj['implemented'] === ['{7F7632D9-FA40-4F38-8DEA-C83CD4325A32}'], 'module.json der Brücke: Eltern- und Empfangsschnittstelle des MQTT-Servers');
 ok($hubmj['parentRequirements'] === [] && $hubmj['implemented'] === [], 'Hauptmodul bleibt ohne Pflicht-Elterninstanz (bestehende Instanzen unberührt)');
 ok(preg_match('/MQTT_BRIDGE_GUID = \'(\{[0-9A-F-]+\})\'/', $src, $g) && strtoupper($g[1]) === strtoupper($mj['id']), 'GUID der Brücke im Hauptmodul stimmt mit module.json überein');
-ok(strpos($src, "'hoymiles_msa2' => 'IHUB_HoymilesMsa2Driver'") !== false && strpos($src, "'label' => 'MQTT (Symcon-MQTT-Server") !== false, 'Hersteller und Verbindungsweg sind im Formular eingetragen');
+ok(strpos($src, "'hoymiles_msa2' => 'IHUB_HoymilesMsa2Driver'") !== false && strpos($src, "'label' => 'MQTT (Symcon MQTT server") !== false, 'Hersteller und Verbindungsweg sind im Formular eingetragen');
 
 echo "Erweiterungspacks und Notstrom/Steckdose (Forum AKL, 26.10.2026)\n";
 $groups = $d->getOptionalGroups();

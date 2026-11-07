@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/ihub-text.inc.php';
 /**
  * Prüfstand: Zählerschutz gegen einzelne Ausreißer-Nullwerte in SetVarFloat()
  * (Fund Stefan/somm, SolarEdge, 17.09.2026 - siehe CLAUDE.md). Extrahiert nur

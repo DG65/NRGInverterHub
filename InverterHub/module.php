@@ -72,7 +72,7 @@ class IHUB_ModbusGatewayClient
         if (!self::$warned) {
             self::$warned = true;
             if (is_callable($this->logger)) {
-                call_user_func($this->logger, 'Symbox-Gateway-Schreibpfad (' . $what . ') ist eine ungetestete Ableitung aus dem verifizierten Lesepfad - noch nicht an echter Hardware bestätigt.');
+                call_user_func($this->logger, IHUB_Text::t('Symbox gateway write path (%s) is an untested derivation from the verified read path - not yet confirmed on real hardware.', $what));
             }
         }
     }
@@ -921,10 +921,7 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
             $hub->SetVarInt('ctl_ems_mode', $emsModeLive);
             $hub->SetVarInt('ctl_ems_power', $mb->u16($emsCtl, 1));
             if ($emsModeLive === 255 && $prevEmsMode !== 255) {
-                $hub->WarnUser('GoodWe-Totmann ausgeloest: Register 47511 steht auf 255 '
-                    . '(Steuerung verloren, Wechselrichter im Sicherheits-Stopp/Wartemodus). '
-                    . 'InverterHub greift nicht ein - die Reaktion (erneut kommandieren, '
-                    . 'ctl_ems_enable aus, Heartbeat) ist Sache des EMS bzw. des Nutzers.');
+                $hub->WarnUser(IHUB_Text::t('GoodWe dead-man switch triggered: register 47511 is at 255 (control lost, inverter in safety stop/standby mode). InverterHub does not intervene - the reaction (command again, ctl_ems_enable off, heartbeat) is up to the EMS or the user.'));
             }
         }
 
@@ -1269,12 +1266,7 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 if ($val === 1) {
                     $lim = $mb->readHolding(self::REG_FEED_POWER_LIMIT, 1);
                     if ($lim !== null && $mb->u16($lim, 0) === 0) {
-                        $hub->WarnUser(
-                            'Einspeisebegrenzung wurde eingeschaltet, die hinterlegte Grenze '
-                            . 'beträgt aber 0 W. Der Wechselrichter speist damit NICHTS mehr ins '
-                            . 'Netz ein. Falls das nicht beabsichtigt ist: Grenze auf den '
-                            . 'gewünschten Wert setzen oder die Begrenzung wieder ausschalten.'
-                        );
+                        $hub->WarnUser(IHUB_Text::t('Feed-in limit was switched on, but the stored limit is 0 W. The inverter therefore feeds NOTHING into the grid any more. If this is not intended: set the limit to the desired value or switch the limit off again.'));
                     }
                 }
                 if ($mb->writeSingle(self::REG_FEED_POWER_ENABLE, $val)) {
@@ -1361,7 +1353,7 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                         $hub->SetVarInt('svc_grid_charge_w', 0);
                         $hub->SetVarInt('svc_discharge_to_grid_w', 0);
                     } else {
-                        $hub->WarnUser('Netzdienlich "Laden sperren" nur teilweise geschrieben - Wechselrichter-Zustand ungewiss, Register gegenlesen.');
+                        $hub->WarnUser(IHUB_Text::t('Grid-supportive "block charging" only partially written - inverter state uncertain, read the registers back.'));
                     }
                 } else {
                     $this->releaseGridService($mb, $hub);
@@ -1379,7 +1371,7 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                     $hub->SetVarBool('svc_charge_inhibit', false);
                     $hub->SetVarInt('svc_discharge_to_grid_w', 0);
                 } else {
-                    $hub->WarnUser('Netzdienlich "Netzladen" nur teilweise geschrieben - Wechselrichter-Zustand ungewiss, Register gegenlesen.');
+                    $hub->WarnUser(IHUB_Text::t('Grid-supportive "grid charging" only partially written - inverter state uncertain, read the registers back.'));
                 }
                 break;
 
@@ -1394,7 +1386,7 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                     $hub->SetVarBool('svc_charge_inhibit', false);
                     $hub->SetVarInt('svc_grid_charge_w', 0);
                 } else {
-                    $hub->WarnUser('Netzdienlich "Einspeisen aus Batterie" nur teilweise geschrieben - Wechselrichter-Zustand ungewiss, Register gegenlesen.');
+                    $hub->WarnUser(IHUB_Text::t('Grid-supportive "feed in from battery" only partially written - inverter state uncertain, read the registers back.'));
                 }
                 break;
 
@@ -1442,7 +1434,7 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 // verhindern soll (neuer Modus mit der alten Leistung). WR
                 // bleibt im alten, bekannten Zustand; EMS versucht es im
                 // naechsten Zyklus erneut.
-                $hub->WarnUser('Netzdienlich: Moduswechsel abgebrochen - Leistung konnte nicht vorab auf 0 gesetzt werden, Wechselrichter bleibt im bisherigen Modus.');
+                $hub->WarnUser(IHUB_Text::t('Grid-supportive: mode change aborted - power could not be set to 0 beforehand, the inverter stays in its previous mode.'));
                 return false;
             }
             if ($mb->writeSingle(self::REG_EMS_POWER_MODE, $mode)) {
@@ -1476,7 +1468,7 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
             $hub->SetVarInt('svc_grid_charge_w', 0);
             $hub->SetVarInt('svc_discharge_to_grid_w', 0);
         } else {
-            $hub->WarnUser('Netzdienlich "Freigeben" nur teilweise geschrieben - Wechselrichter-Zustand ungewiss, Register gegenlesen.');
+            $hub->WarnUser(IHUB_Text::t('Grid-supportive "release" only partially written - inverter state uncertain, read the registers back.'));
         }
     }
 }
@@ -2429,7 +2421,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
     {
         $r = $mb->readHolding(self::REG_STORAGE_MODE, 1);
         if ($r === null) {
-            $hub->WarnUser('Solis: Speicherbetrieb konnte nicht gelesen werden (Register 43110), Netzladen wird ohne Pruefung versucht.');
+            $hub->WarnUser(IHUB_Text::t('Solis: storage mode could not be read (register 43110), grid charging is attempted without checking.'));
             return true;
         }
         $cur = $mb->u16($r, 0);
@@ -2437,7 +2429,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             return true;
         }
         if (!in_array($cur, self::STORAGE_MODES_ALLOWED, true)) {
-            $hub->WarnUser('Solis: Speicherbetrieb ' . $cur . ' erlaubt kein Netzladen und liegt nicht in der erlaubten Auswahl; Zwangsladen wird versucht, setzt sich aber evtl. nur aus PV um.');
+            $hub->WarnUser(IHUB_Text::t('Solis: storage mode %s does not allow grid charging and is not in the allowed selection; forced charging is attempted, but may only take effect from PV.', $cur));
             return true;
         }
         $target = $this->gridStorageTarget($cur);
@@ -2445,7 +2437,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             $hub->SetVarInt('svc_prev_grid_storage', $cur);
         }
         if (!$this->writeVerified($mb, self::REG_STORAGE_MODE, $target, $err)) {
-            $hub->WarnUser('Solis: Netzladen konnte nicht erlaubt werden (Speicherbetrieb ' . $target . ', Register 43110): ' . $err . '. Zwangsladen wird nicht geschrieben.');
+            $hub->WarnUser(IHUB_Text::t('Solis: grid charging could not be allowed (storage mode %s, register 43110): %s. Forced charging is not written.', $target, $err));
             return false;
         }
         return true;
@@ -2461,13 +2453,13 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
         }
         $r = $mb->readHolding(self::REG_STORAGE_MODE, 1);
         if ($r === null) {
-            $hub->WarnUser('Solis: Speicherbetrieb konnte nicht gelesen werden (Register 43110), der vor dem Netzladen gemerkte Wert ' . $prev . ' wird nicht zurueckgeschrieben.');
+            $hub->WarnUser(IHUB_Text::t('Solis: storage mode could not be read (register 43110), the value %s remembered before grid charging is not written back.', $prev));
             return;
         }
         $cur = $mb->u16($r, 0);
         if ($cur === $this->gridStorageTarget($prev) && $cur !== $prev) {
             if (!$this->writeVerified($mb, self::REG_STORAGE_MODE, $prev, $err)) {
-                $hub->WarnUser('Solis: Speicherbetrieb ' . $prev . ' wurde vom Geraet nicht zurueckgenommen (Register 43110): ' . $err);
+                $hub->WarnUser(IHUB_Text::t('Solis: storage mode %s was not reverted by the device (register 43110): %s', $prev, $err));
                 return;
             }
         }
@@ -2486,7 +2478,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                     // Zwangsmodus laeuft: neue Leistung sofort ins passende Register schreiben.
                     $reg = ($mode === 1) ? self::REG_FORCE_CHG_W : self::REG_FORCE_DISCH_W;
                     if (!$this->writeVerified($mb, $reg, intdiv($w, 10), $err)) {
-                        $hub->WarnUser('Solis: Zwangsleistung konnte nicht geschrieben werden (Register ' . $reg . '): ' . $err);
+                        $hub->WarnUser(IHUB_Text::t('Solis: forced power could not be written (register %s): %s', $reg, $err));
                         return;
                     }
                 }
@@ -2496,7 +2488,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             case 'ctl_force_mode':
                 $mode = (int)$value;
                 if ($mode < 0 || $mode > 2) {
-                    $hub->WarnUser('Solis: Zwangsmodus ' . $mode . ' ist ungueltig (0 aus, 1 Laden, 2 Entladen).');
+                    $hub->WarnUser(IHUB_Text::t('Solis: forced mode %s is invalid (0 off, 1 charge, 2 discharge).', $mode));
                     return;
                 }
                 if ($mode !== 0) {
@@ -2504,12 +2496,12 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                     $w   = max(0, $hub->GetVarInt('ctl_force_w'));
                     $reg = ($mode === 1) ? self::REG_FORCE_CHG_W : self::REG_FORCE_DISCH_W;
                     if (!$this->writeVerified($mb, $reg, intdiv($w, 10), $err)) {
-                        $hub->WarnUser('Solis: Zwangsleistung konnte nicht geschrieben werden (Register ' . $reg . '), Modus bleibt unveraendert: ' . $err);
+                        $hub->WarnUser(IHUB_Text::t('Solis: forced power could not be written (register %s), mode remains unchanged: %s', $reg, $err));
                         return;
                     }
                 }
                 if (!$this->writeVerified($mb, self::REG_FORCE_MODE, $mode, $err)) {
-                    $hub->WarnUser('Solis: Zwangsmodus konnte nicht geschrieben werden (Register 43135): ' . $err);
+                    $hub->WarnUser(IHUB_Text::t('Solis: forced mode could not be written (register 43135): %s', $err));
                     return;
                 }
                 $hub->SetVarInt('ctl_force_mode', $mode);
@@ -2558,7 +2550,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 $on = (bool)$value;
                 $cur = $mb->readHolding(self::REG_STORAGE_MODE, 1);
                 if ($cur === null) {
-                    $hub->WarnUser('Solis: Speicherbetrieb konnte nicht gelesen werden (Register 43110), "Akku halten" nicht geaendert.');
+                    $hub->WarnUser(IHUB_Text::t('Solis: storage mode could not be read (register 43110), "hold battery" not changed.'));
                     return;
                 }
                 $cur = $mb->u16($cur, 0);
@@ -2568,12 +2560,12 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                         return;
                     }
                     if (!in_array($cur, self::STORAGE_MODES_ALLOWED, true)) {
-                        $hub->WarnUser('Solis: Speicherbetrieb ' . $cur . ' ist nicht in der erlaubten Auswahl, "Akku halten" wird nicht gesetzt.');
+                        $hub->WarnUser(IHUB_Text::t('Solis: storage mode %s is not in the allowed selection, "hold battery" is not set.', $cur));
                         return;
                     }
                     $hub->SetVarInt('svc_prev_storage', $cur);
                     if (!$this->writeVerified($mb, self::REG_STORAGE_MODE, self::STORAGE_HOLD, $err)) {
-                        $hub->WarnUser('Solis: "Akku halten" (Speicherbetrieb 17) wurde vom Geraet nicht uebernommen (Register 43110): ' . $err);
+                        $hub->WarnUser(IHUB_Text::t('Solis: "hold battery" (storage mode 17) was not accepted by the device (register 43110): %s', $err));
                         return;
                     }
                     $hub->SetVarBool('svc_discharge_inhibit', true);
@@ -2585,11 +2577,11 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                     return;
                 }
                 if (!in_array($prev, self::STORAGE_MODES_ALLOWED, true) || $prev === self::STORAGE_HOLD) {
-                    $hub->WarnUser('Solis: kein gemerkter Speicherbetrieb vorhanden, bitte "ctl_storage_mode" auf den gewuenschten Wert setzen.');
+                    $hub->WarnUser(IHUB_Text::t('Solis: no remembered storage mode available, please set "ctl_storage_mode" to the desired value.'));
                     return;
                 }
                 if (!$this->writeVerified($mb, self::REG_STORAGE_MODE, $prev, $err)) {
-                    $hub->WarnUser('Solis: Speicherbetrieb ' . $prev . ' wurde vom Geraet nicht uebernommen (Register 43110): ' . $err);
+                    $hub->WarnUser(IHUB_Text::t('Solis: storage mode %s was not accepted by the device (register 43110): %s', $prev, $err));
                     return;
                 }
                 $hub->SetVarBool('svc_discharge_inhibit', false);
@@ -2604,7 +2596,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 // Fest gespeichert (EEPROM): nur schreiben, wenn der zuletzt gelesene Wert abweicht.
                 if (abs($hub->GetVarFloat($cfg) - $amps) >= 0.05) {
                     if (!$mb->writeSingle($reg, (int)round($amps * 10))) {
-                        $hub->WarnUser('Solis: Stromgrenze konnte nicht geschrieben werden (Register ' . $reg . '): ' . (isset($mb->lastError) ? $mb->lastError : ''));
+                        $hub->WarnUser(IHUB_Text::t('Solis: current limit could not be written (register %s): %s', $reg, (isset($mb->lastError) ? $mb->lastError : '')));
                         return;
                     }
                 }
@@ -2614,7 +2606,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             case 'ctl_storage_mode':
                 $mode = (int)$value;
                 if (!in_array($mode, self::STORAGE_MODES_ALLOWED, true)) {
-                    $hub->WarnUser('Solis: Speicherbetrieb ' . $mode . ' wird nicht geschrieben (nicht in der erlaubten Auswahl, z. B. Inselbetrieb/Batterie-Wecken).');
+                    $hub->WarnUser(IHUB_Text::t('Solis: storage mode %s is not written (not in the allowed selection, e.g. island mode/battery wake-up).', $mode));
                     return;
                 }
                 // Das Register ist fest gespeichert - nur schreiben, wenn der zuletzt gelesene Wert abweicht.
@@ -2623,7 +2615,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                     return;
                 }
                 if (!$this->writeVerified($mb, self::REG_STORAGE_MODE, $mode, $err)) {
-                    $hub->WarnUser('Solis: Speicherbetrieb konnte nicht geschrieben werden (Register 43110): ' . $err);
+                    $hub->WarnUser(IHUB_Text::t('Solis: storage mode could not be written (register 43110): %s', $err));
                     return;
                 }
                 $hub->SetVarInt('ctl_storage_mode', $mode);
@@ -6270,18 +6262,18 @@ class IHUB_HoymilesMsa2Driver implements IHUB_InverterDriverInterface
     {
         $dev = $hub->MqttDeviceId();
         if ($dev === '') {
-            $hub->WarnUser('MS-A2: Geräte-ID fehlt, Befehl nicht gesendet.');
+            $hub->WarnUser(IHUB_Text::t('MS-A2: device ID missing, command not sent.'));
             return;
         }
         switch ($ident) {
             case 'ctl_ems_mode':
                 $mode = (int)$value;
                 if (!isset(self::EMS_MODES[$mode])) {
-                    $hub->WarnUser('MS-A2: unbekannter EMS-Modus ' . $mode . ' (0 general, 1 mqtt_ctrl, 2 tou_plan).');
+                    $hub->WarnUser(IHUB_Text::t('MS-A2: unknown EMS mode %s (0 general, 1 mqtt_ctrl, 2 tou_plan).', $mode));
                     return;
                 }
                 if (!$hub->MqttPublish('homeassistant/select/' . $dev . '/ems_mode/command', self::EMS_MODES[$mode])) {
-                    $hub->WarnUser('MS-A2: Befehl EMS-Modus konnte nicht gesendet werden (MQTT-Brücke/-Server prüfen).');
+                    $hub->WarnUser(IHUB_Text::t('MS-A2: EMS mode command could not be sent (check MQTT bridge/server).'));
                     return;
                 }
                 $hub->SetVarInt('ctl_ems_mode', $mode);
@@ -6290,7 +6282,7 @@ class IHUB_HoymilesMsa2Driver implements IHUB_InverterDriverInterface
             case 'ctl_power_ctrl':
                 $w = (int)round((float)$value);
                 if (!$hub->MqttPublish('homeassistant/number/' . $dev . '/power_ctrl/set', (string)$w)) {
-                    $hub->WarnUser('MS-A2: Leistungsvorgabe konnte nicht gesendet werden (MQTT-Brücke/-Server prüfen).');
+                    $hub->WarnUser(IHUB_Text::t('MS-A2: power setpoint could not be sent (check MQTT bridge/server).'));
                     return;
                 }
                 $hub->SetVarInt('ctl_power_ctrl', $w);
@@ -6671,9 +6663,9 @@ class IHUB_RctPowerDriver implements IHUB_InverterDriverInterface
         $hub->SetVarBool('connected', $answered);
         if (!$answered) {
             $why = ($mb->requests > 0 && $mb->crcErrors > 0)
-                ? 'nur fehlerhafte Antworten (Prüfsumme)'
-                : 'keine Antwort innerhalb des Zeitlimits';
-            throw new RuntimeException('RCT Power: ' . $why . '. Adresse und Port (meist 8899) prüfen; läuft die RCT-App oder Home Assistant gleichzeitig?');
+                ? IHUB_Text::t('only faulty answers (checksum)')
+                : IHUB_Text::t('no answer within the time limit');
+            throw new RuntimeException(IHUB_Text::t('RCT Power: %s. Check address and port (usually 8899); is the RCT app or Home Assistant running at the same time?', $why));
         }
 
         if ($soc !== null) {
@@ -6762,8 +6754,51 @@ class IHUB_RctPowerDriver implements IHUB_InverterDriverInterface
 // InverterHub — Hauptmodul, lädt den Treiber laut Manufacturer-Property
 // ---------------------------------------------------------------------------
 
+class IHUB_Text
+{
+    /** @var callable|null */
+    private static $uebersetzer = null;
+    /** @var array<string,string> */
+    private static $gemerkt = [];
+
+    public static function setzen(?callable $translate): void
+    {
+        self::$uebersetzer = $translate === null ? null : function (string $text) use ($translate): string {
+            if (!isset(self::$gemerkt[$text])) {
+                try {
+                    self::$gemerkt[$text] = (string)$translate($text);
+                } catch (\Throwable $e) {
+                    return $text;
+                }
+            }
+            return self::$gemerkt[$text];
+        };
+    }
+
+    // Translate() liest locale.json bei jedem Aufruf (SUITE.md Stolperstein 24): je Text einmal je Prozess.
+    public static function t(string $text, ...$args): string
+    {
+        $out = self::$uebersetzer !== null ? (self::$uebersetzer)($text) : $text;
+        if ($args === []) {
+            return $out;
+        }
+        $f = @vsprintf($out, array_map(function ($a) {
+            return is_scalar($a) || $a === null ? (string)$a : (string)json_encode($a);
+        }, $args));
+        return $f === false ? $out : $f;
+    }
+}
+
 class InverterHub extends IPSModule
 {
+    public function __construct($InstanceID)
+    {
+        parent::__construct($InstanceID);
+        IHUB_Text::setzen(function (string $text): string {
+            return $this->Translate($text);
+        });
+    }
+
     private const DRIVERS = [
         'goodwe'    => 'IHUB_GoodweDriver',
         'sungrow'   => 'IHUB_SungrowDriver',
@@ -6806,19 +6841,19 @@ class InverterHub extends IPSModule
     private const MQTT_BRIDGE_GUID = '{B8E699DE-22E4-4DF3-926B-8F4C118852B7}';
     private const MQTT_SERVER_GUID = '{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}';
     private const NEWS_ITEMS = [
-        'SMA: neue Gruppe „PV-Eingänge A und B“ mit der DC-Leistung je Eingang (z. B. für Ost/West-Anlagen). Nachts und bei nicht belegtem Eingang steht 0 W.',
-        'Neuer Hersteller: RCT Power Storage DC (eigenes Protokoll auf Port 8899, nur Lesen, Vorabversion). Werte und Vorzeichen von Netz und Batterie sind an einem RCT Power Storage DC 10.0 (Firmware 2.3.5689) gegen die RCT-App bestätigt.',
-        'Alle Variablen liegen jetzt direkt unter der Instanz, die Unterordner (PV, Batterie, Netz …) entfallen (Vorgabe des Symcon-Store). Bestehende Variablen werden beim Übernehmen automatisch heraufgehängt, ihre IDs, Archivdaten und Verknüpfungen bleiben erhalten.',
-        'Neuer Hersteller: Hoymiles MS-A2 (Speicher, per MQTT statt Modbus, Vorabversion ohne Gerätetest). Verbindungsweg „MQTT“ mit der neuen „NRG-Stack InverterHub Brücke (MQTT)“ am MQTT-Server von Symcon; Geräte-ID eintragen.',
-        'Symbox-Gateway (eingebauter RS485-Port): läuft jetzt über die neue „NRG-Stack InverterHub Brücke (ModBus-Gateway)“. Im Verbindungsweg „Symbox-Gateway“ das ModBus-Gateway wählen und „Brücke anlegen und verbinden“ klicken, danach übernehmen. Wer den Gateway-Weg mit früheren Beta-Ständen direkt an der Instanz eingerichtet hatte: Instanz und Historie bleiben, einfach Gateway wählen, den Knopf klicken und übernehmen. Direktverbindungen sind nicht betroffen, der Hinweis „benötigt eine übergeordnete Instanz“ verschwindet.',
-        'Neuer Wechselrichter: FoxESS H1/H3 (Read-Only-Vorabversion, Beta).',
-        'FoxESS H3 Smart / H3 Pro / KH: eigener Treiber für die neuere Registerbelegung (Holding 39xxx, wie in Home Assistant) — Read-Only-Vorabversion, bitte Rückmeldung im Forum.',
-        'SMA: mehrere Korrekturen an Skalierung, Batterie-/PV-Erkennung und Registerzugriff — Werte sind jetzt deutlich genauer.',
-        'Victron: Hauslast-Berechnung korrigiert (war zu hoch, wenn gleichzeitig Netzbezug bestand).',
-        'GoodWe: Schalter zur Einspeisebegrenzung korrekt beschriftet, plus Warnung bei einer Begrenzung auf 0 W.',
-        'Energiezähler: falscher Archiv-Aggregationstyp behoben — bestehende Variablen werden automatisch und ohne Datenverlust korrigiert.',
-        'Stromflusskachel: Einheit wählt sich automatisch (W/kW/MW), eingesteckte Wallbox wird nicht mehr fälschlich ausgegraut.',
-        'Monitoring: neuer Reiter „Strompreis" mit Netzbezug — bei installiertem Preismodul.',
+        'SMA: new group "PV inputs A and B" with the DC power per input (e.g. for east/west arrays). At night and for an unused input it shows 0 W.',
+        'New manufacturer: RCT Power Storage DC (own protocol on port 8899, read only, preview). Values and signs of grid and battery have been confirmed against the RCT app on an RCT Power Storage DC 10.0 (firmware 2.3.5689).',
+        'All variables now sit directly under the instance, the subfolders (PV, battery, grid …) are gone (Symcon store requirement). Existing variables are moved up automatically when you apply; their IDs, archive data and links are kept.',
+        'New manufacturer: Hoymiles MS-A2 (storage, via MQTT instead of Modbus, preview without device test). Connection type "MQTT" with the new "NRG-Stack InverterHub Bridge (MQTT)" on the Symcon MQTT server; enter the device ID.',
+        'Symbox gateway (built-in RS485 port): now runs via the new "NRG-Stack InverterHub Bridge (ModBus gateway)". Under connection type "Symbox gateway" select the ModBus gateway, click "Create bridge and connect", then apply. If you had set up the gateway route directly on the instance with earlier beta versions: instance and history are kept, just select the gateway, click the button and apply. Direct connections are not affected, the note "requires a parent instance" disappears.',
+        'New inverter: FoxESS H1/H3 (read-only preview, beta).',
+        'FoxESS H3 Smart / H3 Pro / KH: own driver for the newer register layout (holding 39xxx, as in Home Assistant) — read-only preview, please give feedback in the forum.',
+        'SMA: several corrections to scaling, battery/PV detection and register access — values are now much more accurate.',
+        'Victron: house load calculation corrected (it was too high when grid import was present at the same time).',
+        'GoodWe: feed-in limit switch labelled correctly, plus a warning when limiting to 0 W.',
+        'Energy meters: wrong archive aggregation type fixed — existing variables are corrected automatically and without data loss.',
+        'Power flow tile: unit is chosen automatically (W/kW/MW), a plugged-in wallbox is no longer wrongly greyed out.',
+        'Monitoring: new tab "Electricity price" with grid import — if the price module is installed.',
     ];
 
     private $driver = null;
@@ -7009,11 +7044,7 @@ class InverterHub extends IPSModule
         if (!$this->ReadAttributeBoolean('ImplausibleLogged')) {
             $this->WriteAttributeBoolean('ImplausibleLogged', true);
             $this->LogMessage(
-                'Das Gerät antwortet auf den abgefragten Registerbereich ausschließlich mit '
-                . '0xFFFF ("Register nicht belegt"). Es ist erreichbar, liefert aber keine '
-                . 'Messwerte. Bitte in den Instanzeinstellungen den Hersteller und die '
-                . 'Unit-ID prüfen - meist ist ein anderer Hersteller eingestellt, als das '
-                . 'Gerät tatsächlich ist.',
+                IHUB_Text::t('The device answers the requested register range only with 0xFFFF ("register not in use"). It is reachable but delivers no measured values. Please check the manufacturer and the unit ID in the instance settings - usually a different manufacturer is set than the device actually is.'),
                 KL_WARNING
             );
         }
@@ -7029,7 +7060,6 @@ class InverterHub extends IPSModule
         // ein fremdes Geraet zu sprechen. Muss VOR RegisterVariables() greifen,
         // da GetDriver() sonst mangels Auswahl auf GoodWe zurueckfallen wuerde.
         if ($this->ReadPropertyString('Manufacturer') === '') {
-            $this->AdoptDismissFromSibling();
             $this->SetStatus(104);
             $this->SetTimerInterval('FastTimer', 0);
             $this->SetTimerInterval('SlowTimer', 0);
@@ -7045,10 +7075,6 @@ class InverterHub extends IPSModule
         $this->reprofileEnergy = ($this->ReadAttributeBoolean('LastEnergyUnitWh') !== $wh);
         $this->RegisterVariables();
         $this->WriteAttributeBoolean('LastEnergyUnitWh', $wh);
-        // Vor der Bereitschaftspruefung (die bei inaktiven Instanzen frueh
-        // zurueckkehrt) - das Ausblenden gilt unabhaengig davon.
-        $this->AdoptDismissFromSibling();
-
         if (!$this->ReadPropertyBoolean('Active')) {
             $this->SetStatus(104);
             $this->SetTimerInterval('FastTimer', 0);
@@ -7168,7 +7194,7 @@ class InverterHub extends IPSModule
     public function ReadFast(): string
     {
         if (!$this->ReadPropertyBoolean('Active')) {
-            return 'ℹ️ Instanz ist deaktiviert ("Aktiv"-Schalter).';
+            return IHUB_Text::t('ℹ️ Instance is disabled ("Active" switch).');
         }
         try {
             $driver = $this->GetDriver();
@@ -7179,7 +7205,7 @@ class InverterHub extends IPSModule
             }
             $driver->readFast($mb, $this);
         } catch (Throwable $e) {
-            $msg = '⚠️ Verbindung fehlgeschlagen: ' . $e->getMessage();
+            $msg = IHUB_Text::t('⚠️ Connection failed: %s', $e->getMessage());
             $this->LogReadProblem($msg);
             return $msg;
         }
@@ -7190,14 +7216,14 @@ class InverterHub extends IPSModule
             $age = $this->MqttAge();
             if ($age < 0) {
                 $this->SetStatus(201);
-                return '⚠️ Noch keine MQTT-Nachricht des Geräts empfangen. Geräte-ID, MQTT-Zugang am Gerät und Brücke prüfen.';
+                return IHUB_Text::t('⚠️ No MQTT message from the device received yet. Check the device ID, the MQTT access on the device and the bridge.');
             }
             if ($age > IHUB_HoymilesMsa2Driver::STALE_SECONDS) {
                 $this->SetStatus(201);
-                return '⚠️ Letzte MQTT-Nachricht vor ' . $age . ' s - das Gerät sendet nicht mehr.';
+                return IHUB_Text::t('⚠️ Last MQTT message %d s ago - the device is no longer sending.', $age);
             }
             $this->SetStatus(102);
-            return '✅ MQTT: letzte Nachricht vor ' . $age . ' s.';
+            return IHUB_Text::t('✅ MQTT: last message %d s ago.', $age);
         }
         // Gateway-Modus: "Verbindung aktiv" haengt sonst nur an ApplyChanges und sagt
         // nichts ueber echte Antworten. Ohne verbundenes Gateway oder bei falscher
@@ -7234,7 +7260,7 @@ class InverterHub extends IPSModule
         // eine Diagnose-Sitzung noetig ist (Verbund-Ziel 3, SUITE.md).
         $this->EnableActions();
         $this->ClearReadProblem();
-        return '✅ Verbindung ok, Daten gelesen (' . date('H:i:s') . ' Uhr).';
+        return IHUB_Text::t('✅ Connection ok, data read (%s).', date('H:i:s'));
     }
 
     // Der Timer verwirft den Rueckgabetext von ReadFast() - nur der Knopf zeigt ihn. Ein
@@ -7254,7 +7280,7 @@ class InverterHub extends IPSModule
     {
         if ($this->GetBuffer('LastReadProblem') !== '') {
             $this->SetBuffer('LastReadProblem', '');
-            $this->LogMessage('✅ Lesezyklus läuft wieder.', KL_MESSAGE);
+            $this->LogMessage(IHUB_Text::t('✅ Read cycle is running again.'), KL_MESSAGE);
         }
     }
 
@@ -7306,10 +7332,7 @@ class InverterHub extends IPSModule
         // fuehren.
         if ($this->ReadPropertyString('ControlAuthority') !== 'ems') {
             $this->LogMessage(
-                'Schreibzugriff auf "' . $Ident . '" verweigert: Diese Instanz ist als "'
-                . $this->ReadPropertyString('ControlAuthority') . '" markiert (Steuerhoheit liegt '
-                . 'nicht beim EMS). Falls das EMS hier steuern soll, "Steuerhoheit" in den '
-                . 'Instanzeinstellungen auf "EMS" setzen.',
+                IHUB_Text::t('Write access to "%s" denied: this instance is marked as "%s" (control authority is not with the EMS). If the EMS is to control here, set "Control authority" to "EMS" in the instance settings.', $Ident, $this->ReadPropertyString('ControlAuthority')),
                 KL_WARNING
             );
             return;
@@ -7480,6 +7503,9 @@ class InverterHub extends IPSModule
 
     public function GetConfigurationForm()
     {
+        // Geteiltes Ausblenden: nicht in ApplyChanges() (Store-Punkt 27, keine Geschwister-
+        // Abfragen dort), sondern erst, wenn jemand das Formular oeffnet - nur dort wird es gebraucht.
+        $this->AdoptDismissFromSibling();
         $driver = $this->GetDriver();
 
         $groupItems = [];
@@ -7503,24 +7529,24 @@ class InverterHub extends IPSModule
                         [
                             'type'    => 'Select',
                             'name'    => 'ControlAuthority',
-                            'caption' => 'Steuerhoheit dieser Instanz',
+                            'caption' => 'Control authority of this instance',
                             'options' => [
-                                ['label' => 'EMS (Normalfall — das EMS darf hier schreiben)', 'value' => 'ems'],
-                                ['label' => 'Extern (ein anderer Akteur schreibt, z. B. Sunny Home Manager) — EMS darf NICHT schreiben', 'value' => 'external'],
-                                ['label' => 'Keine (niemand soll hier steuern)', 'value' => 'none'],
+                                ['label' => 'EMS (normal case — the EMS may write here)', 'value' => 'ems'],
+                                ['label' => 'External (another actor writes, e.g. Sunny Home Manager) — the EMS must NOT write', 'value' => 'external'],
+                                ['label' => 'None (nobody is to control here)', 'value' => 'none'],
                             ],
                         ],
                         [
                             'type'    => 'PopupButton',
-                            'caption' => 'Steuerhoheit — was bedeutet das?',
+                            'caption' => 'Control authority — what does it mean?',
                             'width'   => '480px',
                             'popup'   => [
-                                'caption' => 'Steuerhoheit — was bedeutet das?',
+                                'caption' => 'Control authority — what does it mean?',
                                 'items'   => [
-                                    ['type' => 'Label', 'caption' => '„EMS": Normalfall, das EMS besitzt den Schreibkanal auf diese Instanz (eigene Optimierung, §14a, Direktvermarktung) und darf hier schreiben.'],
-                                    ['type' => 'Label', 'caption' => '„Extern": ein anderer Akteur besitzt den Schreibkanal komplett außerhalb des EMS (z. B. Sunny Home Manager). InverterHub setzt dann KEINE EMS-Vorgabe um, egal ob das EMS den Eingriff bemerkt.'],
-                                    ['type' => 'Label', 'caption' => '„Keine": niemand soll hier steuern, RequestAction verweigert jeden Schreibzugriff.'],
-                                    ['type' => 'Label', 'caption' => 'Falsch gesetzt führt entweder zu zwei gleichzeitigen Reglern auf derselben Batterie oder dazu, dass das EMS gar nicht schreiben kann, ohne dass das sofort auffällt.'],
+                                    ['type' => 'Label', 'caption' => '"EMS": normal case, the EMS owns the write channel to this instance (own optimization, §14a, direct marketing) and may write here.'],
+                                    ['type' => 'Label', 'caption' => '"External": another actor owns the write channel completely outside the EMS (e.g. Sunny Home Manager). InverterHub then implements NO EMS setpoint, regardless of whether the EMS notices the intervention.'],
+                                    ['type' => 'Label', 'caption' => '"None": nobody is to control here, RequestAction refuses every write access.'],
+                                    ['type' => 'Label', 'caption' => 'Set wrongly, this leads either to two controllers acting on the same battery at the same time, or to the EMS not being able to write at all, without this being noticed immediately.'],
                                 ],
                             ],
                         ],
@@ -7540,12 +7566,12 @@ class InverterHub extends IPSModule
         $groupItems[] = [
             'type'    => 'CheckBox',
             'name'    => 'MeterInvert',
-            'caption' => 'Netz-Leistung (Meter) invertieren — falls Einspeisung/Bezug vertauscht angezeigt werden',
+            'caption' => 'Invert grid power (meter) — if feed-in/import are shown swapped',
         ];
         $groupItems[] = [
             'type'    => 'CheckBox',
             'name'    => 'BatInvert',
-            'caption' => 'Batterie-Leistung invertieren — Standard ist + Entladen / − Laden',
+            'caption' => 'Invert battery power — default is + discharging / − charging',
         ];
         // Store-Checkliste/Dashboard-Fund (16.09.2026, sunnyww-Vorfall): Beide
         // Schalter aendern die tatsaechlich gespeicherte Variable, nicht nur
@@ -7558,7 +7584,7 @@ class InverterHub extends IPSModule
         // Vorzeichen-Meldung des Geraets gedacht, nicht fuer Praeferenz.
         $groupItems[] = [
             'type' => 'Label',
-            'caption' => '⚠️ Wirkt auf die gespeicherte Variable selbst, nicht nur auf eine Anzeige — andere Module (z. B. NRG-Stack Dashboard), die diese Variable lesen, übernehmen die geänderte Richtung ungeprüft. Nur aktivieren, wenn dein Gerät die Richtung wirklich falsch meldet, nicht als reine Geschmackssache.',
+            'caption' => '⚠️ Acts on the stored variable itself, not just on a display — other modules (e.g. NRG-Stack Dashboard) that read this variable adopt the changed direction unchecked. Only enable if your device really reports the direction wrongly, not as a matter of taste.',
         ];
         // Anzahl MPPT-Eingänge: Die Treiber kennen so viele, wie die Baureihe
         // maximal haben kann. Wer weniger Strings betreibt, bekommt sonst leere
@@ -7575,37 +7601,35 @@ class InverterHub extends IPSModule
             $groupItems[] = [
                 'type'    => 'NumberSpinner',
                 'name'    => 'MpptCount',
-                'caption' => 'Anzahl MPPT-Eingänge (0 = alle ' . $maxMppt . ' anlegen)',
+                'caption' => IHUB_Text::t('Number of MPPT inputs (0 = create all %d)', $maxMppt),
                 'minimum' => 0,
                 'maximum' => $maxMppt,
             ];
             $groupItems[] = [
                 'type'    => 'Label',
-                'caption' => 'ℹ Dieser Wechselrichter unterstützt bis zu ' . $maxMppt . ' MPPT-Eingänge. '
-                    . 'Trage ein, wie viele tatsächlich belegt sind — die übrigen Variablen werden dann nicht '
-                    . 'angelegt bzw. beim Übernehmen wieder entfernt. 0 legt weiterhin alle an.',
+                'caption' => IHUB_Text::t('ℹ This inverter supports up to %d MPPT inputs. Enter how many are actually in use — the remaining variables are then not created or are removed again on apply. 0 still creates all of them.', $maxMppt),
             ];
         }
         $groupItems[] = [
             'type'    => 'CheckBox',
             'name'    => 'EnergyUnitWh',
-            'caption' => 'Energie in Wh statt kWh ausgeben (Basiseinheit; die neue IPS-Darstellung skaliert dann selbst auf Wh/kWh/MWh)',
+            'caption' => 'Output energy in Wh instead of kWh (base unit; the new Symcon presentation then scales itself to Wh/kWh/MWh)',
         ];
         $groupItems[] = [
             'type'    => 'CheckBox',
             'name'    => 'AutoArchive',
-            'caption' => 'Messwerte automatisch archivieren',
+            'caption' => 'Archive measured values automatically',
         ];
         if (!$this->ReadPropertyBoolean('AutoArchive')) {
             $groupItems[] = [
                 'type'    => 'Label',
-                'caption' => '⚠️ Automatische Archivierung ist aus (Vorgabe). Ohne Archiv zeigen Dashboard, Tages- und Verlaufswerte nichts an. Empfohlen: unten „Archivierung jetzt einrichten" klicken und das Häkchen setzen. Nur bei einer Migration aus einem Altmodul (z. B. GoodweET) bis zur Übernahme der Alt-Historie ausgeschaltet lassen — die Zielvariable muss dabei ohne eigene Historie bleiben.',
+                'caption' => '⚠️ Automatic archiving is off (default). Without an archive the dashboard, daily and history values show nothing. Recommended: click "Set up archiving now" below and tick the checkbox. Only when migrating from an old module (e.g. GoodweET) leave it off until the old history has been taken over — the target variable must remain without a history of its own.',
             ];
         }
         $groupItems[] = [
             'type'    => 'Button',
             'name'    => 'ArchiveNowButton',
-            'caption' => '🗄️ Archivierung jetzt für alle empfohlenen Messwerte einrichten',
+            'caption' => '🗄️ Set up archiving now for all recommended measured values',
             'onClick' => 'IPS_RequestAction($id, "ArchiveNow", true);',
         ];
         $groupItems[] = [
@@ -7614,11 +7638,11 @@ class InverterHub extends IPSModule
             'caption' => '',
         ];
         $groupItems[] = [
-            'type' => 'ExpansionPanel', 'caption' => '🗄️  Archiv-Verdichtung', 'expanded' => false,
+            'type' => 'ExpansionPanel', 'caption' => '🗄️  Archive compaction', 'expanded' => false,
             'items' => array_merge(
-                [['type' => 'Label', 'caption' => 'Verdichtet fein aufgelöste Archivwerte nach einer Weile automatisch zu gröberen Aggregaten, statt sie unbegrenzt in voller Auflösung zu behalten. Wirkt nur, wenn oben „Messwerte automatisch archivieren" aktiv ist.']],
-                $this->CompactionFields('Power', '⚡ Leistung'),
-                $this->CompactionFields('Energy', '🔋 Energie')
+                [['type' => 'Label', 'caption' => 'Compacts finely resolved archive values into coarser aggregates after a while, instead of keeping them in full resolution indefinitely. Only effective if "Archive measured values automatically" is active above.']],
+                $this->CompactionFields('Power', '⚡ Power'),
+                $this->CompactionFields('Energy', '🔋 Energy')
             ),
         ];
 
@@ -7629,7 +7653,7 @@ class InverterHub extends IPSModule
             $groupItems[] = [
                 'type'    => 'NumberSpinner',
                 'name'    => 'MeterUnitId',
-                'caption' => 'Smart-Meter-Adresse (Modbus Unit-ID, Vorgabe 200; je nach Fronius-Konfiguration z. B. 240)',
+                'caption' => 'Smart meter address (Modbus unit ID, default 200; e.g. 240 depending on the Fronius configuration)',
                 'minimum' => 1,
                 'maximum' => 247,
             ];
@@ -7644,10 +7668,10 @@ class InverterHub extends IPSModule
             $groupItems[] = [
                 'type'    => 'Select',
                 'name'    => 'KostalByteOrder',
-                'caption' => 'Byte-Reihenfolge (muss zur Einstellung im Plenticore passen)',
+                'caption' => 'Byte order (must match the setting in the Plenticore)',
                 'options' => [
-                    ['caption' => 'little-endian (CDAB) — Standard Modbus (Werkseinstellung)', 'value' => 0],
-                    ['caption' => 'big-endian (ABCD) — Sunspec', 'value' => 1],
+                    ['caption' => 'little-endian (CDAB) — standard Modbus (factory setting)', 'value' => 0],
+                    ['caption' => 'big-endian (ABCD) — SunSpec', 'value' => 1],
                 ],
             ];
         }
@@ -7656,12 +7680,7 @@ class InverterHub extends IPSModule
         if ($this->ReadPropertyString('Manufacturer') === 'sma') {
             $groupItems[] = [
                 'type'    => 'Label',
-                'caption' => 'ℹ SMA-Besonderheit bei der Unit-ID: Die SunSpec-Daten liegen NICHT auf der Unit-ID, '
-                    . 'die in der SMA-Oberfläche eingestellt ist, sondern auf dieser Zahl PLUS 123 — bei der '
-                    . 'SMA-Vorgabe 3 also auf 126, bei 4 auf 127. Das Modul probiert den Versatz automatisch, '
-                    . 'wenn unter der eingetragenen Unit-ID nichts gefunden wird. Kommt trotzdem keine Verbindung '
-                    . 'zustande: In der SMA-Oberfläche unter „Externe Kommunikation" den Modbus-TCP-Server '
-                    . 'aktivieren und prüfen, welche Unit-ID dort steht.',
+                'caption' => 'ℹ SMA peculiarity of the unit ID: the SunSpec data is NOT on the unit ID set in the SMA interface, but on this number PLUS 123 — with the SMA default 3 that is 126, with 4 it is 127. The module tries the offset automatically if nothing is found under the entered unit ID. If there is still no connection: in the SMA interface under "External communication" enable the Modbus TCP server and check which unit ID is set there.',
             ];
         }
 
@@ -7671,38 +7690,32 @@ class InverterHub extends IPSModule
             $groupItems[] = [
                 'type'    => 'ValidationTextBox',
                 'name'    => 'VictronMpptUnitIds',
-                'caption' => 'Solarladeregler-Unit-IDs (MPPT, kommagetrennt, max. 4 — im GX unter Einstellungen → Services → Modbus TCP → verfügbare Dienste ablesbar). Aktiviert die Gruppe „PV je Solarladeregler / MPPT".',
+                'caption' => 'Solar charge controller unit IDs (MPPT, comma-separated, max. 4 — readable in the GX under Settings → Services → Modbus TCP → available services). Enables the group "PV per solar charge controller / MPPT".',
             ];
             $groupItems[] = [
                 'type'    => 'NumberSpinner',
                 'name'    => 'VictronGridUnitId',
-                'caption' => 'Unit-ID des Netzzählers (0 = keiner) — für die Gruppe „Energiezähler"',
+                'caption' => 'Unit ID of the grid meter (0 = none) — for the group "Energy meters"',
                 'minimum' => 0,
                 'maximum' => 247,
             ];
             $groupItems[] = [
                 'type'    => 'Label',
-                'caption' => 'ℹ Zählerstände liegen bei Victron NICHT im Systemdienst, sondern auf eigenen Diensten: '
-                    . 'Netzbezug/-einspeisung beim Netzzähler (com.victronenergy.grid, Unit-ID oben eintragen), '
-                    . 'der Solarertrag bei den Solarladereglern (nutzt die MPPT-Unit-IDs mit). '
-                    . 'Hinweis: Der Solarertrag-Gesamtzähler ist geräteseitig nur 16 Bit und läuft nach 6.553,5 kWh über; '
-                    . 'Netzbezug und Einspeisung werden dagegen aus 32-Bit-Registern gelesen und sind davon nicht betroffen.',
+                'caption' => 'ℹ Victron does NOT keep the meter readings in the system service, but in separate services: grid import/export in the grid meter (com.victronenergy.grid, enter the unit ID above), the solar yield in the solar charge controllers (uses the MPPT unit IDs as well). Note: the total solar yield counter is only 16 bit on the device side and overflows after 6,553.5 kWh; grid import and export, on the other hand, are read from 32-bit registers and are not affected.',
             ];
             $groupItems[] = [
                 'type'    => 'CheckBox',
                 'name'    => 'VictronYieldFix',
-                'caption' => 'Solarertrag: Zählerüberlauf korrigieren (nötig ab 6.553,5 kWh je Laderegler)',
+                'caption' => 'Solar yield: correct counter overflow (needed from 6,553.5 kWh per charge controller)',
             ];
             $groupItems[] = [
                 'type'    => 'ValidationTextBox',
                 'name'    => 'VictronYieldCalib',
-                'caption' => 'Eichung: tatsächlicher Gesamtertrag je Laderegler in kWh, kommagetrennt in derselben Reihenfolge wie die Unit-IDs oben',
+                'caption' => 'Calibration: actual total yield per charge controller in kWh, comma-separated in the same order as the unit IDs above',
             ];
             $groupItems[] = [
                 'type'    => 'Label',
-                'caption' => 'ℹ Zur Eichung den Wert „Gesamt Lebensdauer" je Laderegler aus der VictronConnect-App bzw. dem GX ablesen und hier eintragen (Beispiel bei zwei Reglern: 10617,9628). Daraus ermittelt das Modul einmalig, wie oft der Zähler bereits übergelaufen ist; danach zählt es weitere Überläufe selbst mit. '
-                    . 'Wird der Ertragszähler am Gerät zurückgesetzt, erkennt das Modul dies und setzt die Korrektur aus — dann bitte neu eichen. '
-                    . 'Die Einzelwerte je Laderegler werden zusätzlich angelegt, damit sichtbar bleibt, was gemessen und was gerechnet ist.',
+                'caption' => 'ℹ For calibration, read the value "Total lifetime" per charge controller from the VictronConnect app or the GX and enter it here (example for two controllers: 10617,9628). From it the module determines once how often the counter has already overflowed; after that it counts further overflows itself. If the yield counter on the device is reset, the module detects this and suspends the correction — then please calibrate again. The individual values per charge controller are created in addition, so that it stays visible what is measured and what is calculated.',
             ];
         }
 
@@ -7710,95 +7723,95 @@ class InverterHub extends IPSModule
             'elements' => [
                 [
                     'type'    => 'ExpansionPanel',
-                    'caption' => '📖  Dokumentation & Hilfe',
+                    'caption' => '📖  Documentation & help',
                     'expanded' => false,
                     'items' => array_merge([
                         $this->VersionLabel(),
                     ], [
-                        ['type' => 'Label', 'caption' => 'InverterHub liest Wechselrichter verschiedener Hersteller direkt per Modbus TCP aus. Hersteller wählen, IP-Adresse oder Hostname (und ggf. Port/Unit-ID) eintragen, Datenpunkt-Gruppen je nach Anlage aktivieren. Tipp: Trägt man statt der IP einen festen Hostnamen ein (DHCP-Reservierung/mDNS), läuft das Modul auch nach einem IP-Wechsel des Wechselrichters weiter.'],
-                        ['type' => 'Label', 'caption' => 'Unterstützte Hersteller: GoodWe (GW-ET/EH/BT/BH), Sungrow (SH-Hybrid), Solis (Hybrid, 33000er-Register), Growatt (TL-X/TL3-X/MOD/MIX/SPH/WIT), SolaX, SMA (STP/STPS/SI, inkl. Netzmessung), Fronius (SunSpec, GEN24-Hybrid inkl. Batterie/Smart Meter), SolarEdge (inkl. StorEdge-Batterie), Deye (SG04LP3), Solplanet/AISWEI, Kostal (PLENTICORE plus Gen. 1), Victron GX (Cerbo/Venus OS), Huawei SUN2000 (inkl. DTSU666-Zähler + LUNA2000-Batterie, live an einer echten Anlage bestätigt) FoxESS H1/H3 sowie FoxESS H3 Smart / H3 Pro / KH (jeweils Read-Only-Vorabversion, Beta).'],
-                        ['type' => 'Label', 'caption' => '⚙️ Anschluss-Besonderheiten je Hersteller:'],
-                        ['type' => 'Label', 'caption' => '• Kostal: Standard-Port ist 1502 (nicht 502). Zusätzlich die Byte-Reihenfolge passend zum Wechselrichter wählen (Werkseinstellung CDAB).'],
-                        ['type' => 'Label', 'caption' => '• Victron GX: Port 502; die Unit-ID ist bei Victron ein Geräte-Selektor – der Systemdienst liegt fest auf 100 und wird automatisch angesprochen (die Formular-Unit-ID wird ignoriert). Im GX unter Einstellungen → Services → Modbus TCP aktivieren.'],
-                        ['type' => 'Label', 'caption' => '• Huawei SUN2000: Port 502, Unit-ID meist 1 (je nach Konfiguration auch 0/16). Modbus TCP im Wechselrichter aktivieren.'],
-                        ['type' => 'Label', 'caption' => '• Fronius: Der Smart Meter ist ein eigenes Modbus-Gerät mit eigener Unit-ID – über das Feld „Smart-Meter-Adresse" einstellbar (Vorgabe 200, je nach Konfiguration z. B. 240).'],
-                        ['type' => 'Label', 'caption' => '• SolaX: Der Wechselrichter selbst spricht nur Modbus RTU. Modbus TCP läuft nur über ein zusätzliches SolaX-Monitoring-Modul (Pocket WiFi/LAN) als Gateway – dessen IP-Adresse eintragen, nicht die des Wechselrichters.'],
-                        ['type' => 'Label', 'caption' => 'ℹ️ Vorzeichen-Konvention (modulweit): Batterie + = Entladen / − = Laden; Netz-Meter + = Einspeisung / − = Bezug. Stimmt eine Richtung an der eigenen Anlage nicht, hilft der jeweilige Invers-Schalter unten – die InverterHubTile-Kachel bleibt dabei automatisch korrekt.'],
-                        ['type' => 'Label', 'caption' => '🔄 Falls eine Migration auf ein anderes Hub-Modul geplant ist: Kommunikation (Modbus/EMS-Steuerung) vorerst deaktiviert lassen, bis die Migration abgeschlossen ist – Details siehe MigrationsHub.'],
-                        ['type' => 'Label', 'caption' => '🔌 Symbox-Gateway (eingebauter RS485-Port): Verbindungsweg „Symbox-Gateway“ wählen, das native ModBus-Gateway auswählen, „Brücke anlegen und verbinden“ klicken, übernehmen. Die Brücke ist ein kleines Zusatzmodul dieser Bibliothek; eine Brücke bedient genau ein Gerät, dessen Adresse (Unit ID) am Gateway als „Geräte-ID“ steht. Zeigt die Instanz Status 201, nennt der Verbindungstest den Grund (keine Brücke, kein Gateway an der Brücke, Gateway inaktiv, keine Antwort). Externe RTU-zu-TCP-Gateways (z. B. Waveshare/USR) laufen weiter über „Direkt“.'],
-                        ['type' => 'Label', 'caption' => '🛡️ Isolationswiderstand (Riso): bei GoodWe, Huawei, Sungrow, SMA und Kostal verfügbar; bei Growatt und Fronius optional (modellabhängig, je nach SunSpec-Register). Solis, SolaX, SolarEdge, Deye, Solplanet, Victron GX und FoxESS liefern ihn nicht.'],
-                        ['type' => 'Label', 'caption' => 'Registeradressen stehen im Beschreibungsfeld jeder Variable (Objekt-Manager, Spalte „Beschreibung").'],
+                        ['type' => 'Label', 'caption' => 'InverterHub reads inverters of various manufacturers directly via Modbus TCP. Select the manufacturer, enter the IP address or host name (and, if needed, port/unit ID), activate data point groups according to your system. Tip: if you enter a fixed host name instead of the IP (DHCP reservation/mDNS), the module keeps working even after the inverter\'s IP changes.'],
+                        ['type' => 'Label', 'caption' => 'Supported manufacturers: GoodWe (GW-ET/EH/BT/BH), Sungrow (SH hybrid), Solis (hybrid, 33000 registers), Growatt (TL-X/TL3-X/MOD/MIX/SPH/WIT), SolaX, SMA (STP/STPS/SI, incl. grid measurement), Fronius (SunSpec, GEN24 hybrid incl. battery/smart meter), SolarEdge (incl. StorEdge battery), Deye (SG04LP3), Solplanet/AISWEI, Kostal (PLENTICORE plus gen. 1), Victron GX (Cerbo/Venus OS), Huawei SUN2000 (incl. DTSU666 meter + LUNA2000 battery, confirmed live on a real system) FoxESS H1/H3 as well as FoxESS H3 Smart / H3 Pro / KH (each read-only preview, beta).'],
+                        ['type' => 'Label', 'caption' => '⚙️ Connection peculiarities per manufacturer:'],
+                        ['type' => 'Label', 'caption' => '• Kostal: the default port is 1502 (not 502). Also select the byte order matching the inverter (factory setting CDAB).'],
+                        ['type' => 'Label', 'caption' => '• Victron GX: port 502; with Victron the unit ID is a device selector — the system service is fixed at 100 and addressed automatically (the unit ID in the form is ignored). In the GX enable Settings → Services → Modbus TCP.'],
+                        ['type' => 'Label', 'caption' => '• Huawei SUN2000: port 502, unit ID usually 1 (0/16 depending on the configuration). Enable Modbus TCP in the inverter.'],
+                        ['type' => 'Label', 'caption' => '• Fronius: the smart meter is a Modbus device of its own with its own unit ID — adjustable in the field "Smart meter address" (default 200, e.g. 240 depending on the configuration).'],
+                        ['type' => 'Label', 'caption' => '• SolaX: the inverter itself only speaks Modbus RTU. Modbus TCP only works via an additional SolaX monitoring module (Pocket WiFi/LAN) as a gateway — enter its IP address, not that of the inverter.'],
+                        ['type' => 'Label', 'caption' => 'ℹ️ Sign convention (module-wide): battery + = discharging / − = charging; grid meter + = feed-in / − = import. If a direction is wrong on your own system, the respective invert switch below helps — the InverterHubTile tile stays correct automatically.'],
+                        ['type' => 'Label', 'caption' => '🔄 If a migration to another hub module is planned: leave communication (Modbus/EMS control) disabled for now until the migration is complete — see MigrationsHub for details.'],
+                        ['type' => 'Label', 'caption' => '🔌 Symbox gateway (built-in RS485 port): select connection type "Symbox gateway", select the native ModBus gateway, click "Create bridge and connect", apply. The bridge is a small add-on module of this library; one bridge serves exactly one device, whose address (unit ID) is set at the gateway as "Device ID". If the instance shows status 201, the connection test names the reason (no bridge, no gateway at the bridge, gateway inactive, no answer). External RTU-to-TCP gateways (e.g. Waveshare/USR) continue to work via "Direct".'],
+                        ['type' => 'Label', 'caption' => '🛡️ Insulation resistance (Riso): available for GoodWe, Huawei, Sungrow, SMA and Kostal; optional for Growatt and Fronius (model-dependent, depending on the SunSpec register). Solis, SolaX, SolarEdge, Deye, Solplanet, Victron GX and FoxESS do not provide it.'],
+                        ['type' => 'Label', 'caption' => 'Register addresses are in the description field of each variable (object manager, column "Description").'],
                     ]),
                 ],
                 [
                     'type'    => 'CheckBox',
                     'name'    => 'Active',
-                    'caption' => 'Kommunikation aktiv',
+                    'caption' => 'Communication active',
                 ],
                 [
                     'type'    => 'Select',
                     'name'    => 'Manufacturer',
-                    'caption' => 'Hersteller',
+                    'caption' => 'Manufacturer',
                     'options' => [
-                        ['label' => '— bitte wählen —', 'value' => ''],
+                        ['label' => '— please select —', 'value' => ''],
                         ['label' => 'GoodWe',  'value' => 'goodwe'],
                         ['label' => 'Sungrow', 'value' => 'sungrow'],
                         ['label' => 'Solis',   'value' => 'solis'],
                         ['label' => 'Growatt', 'value' => 'growatt'],
-                        ['label' => 'SolaX (nur über SolaX-Monitoring-Dongle)', 'value' => 'solax'],
+                        ['label' => 'SolaX (only via SolaX monitoring dongle)', 'value' => 'solax'],
                         ['label' => 'SMA',     'value' => 'sma'],
                         ['label' => 'Fronius', 'value' => 'fronius'],
                         ['label' => 'SolarEdge', 'value' => 'solaredge'],
                         ['label' => 'Deye', 'value' => 'deye'],
                         ['label' => 'Solplanet / AISWEI', 'value' => 'solplanet'],
-                        ['label' => 'Kostal (PLENTICORE plus Gen. 1)', 'value' => 'kostal'],
-                        ['label' => 'Victron GX (Cerbo/Venus OS, Unit-ID 100)', 'value' => 'victron'],
-                        ['label' => 'Huawei SUN2000 (+ DTSU666 / LUNA2000, Unit-ID meist 1)', 'value' => 'huawei'],
-                        ['label' => 'FoxESS H1/H3 (Read-Only-Vorabversion, Beta)', 'value' => 'foxess'],
-                        ['label' => 'FoxESS H3 Smart / H3 Pro / KH (Read-Only-Vorabversion, Beta)', 'value' => 'foxess_smart'],
-                        ['label' => 'Hoymiles MS-A2 (per MQTT, Vorabversion ohne Gerätetest)', 'value' => 'hoymiles_msa2'],
-                        ['label' => 'RCT Power Storage DC (eigenes Protokoll, Port 8899, nur Lesen, Vorabversion ohne Gerätetest)', 'value' => 'rct_power'],
+                        ['label' => 'Kostal (PLENTICORE plus gen. 1)', 'value' => 'kostal'],
+                        ['label' => 'Victron GX (Cerbo/Venus OS, unit ID 100)', 'value' => 'victron'],
+                        ['label' => 'Huawei SUN2000 (+ DTSU666 / LUNA2000, unit ID usually 1)', 'value' => 'huawei'],
+                        ['label' => 'FoxESS H1/H3 (read-only preview, beta)', 'value' => 'foxess'],
+                        ['label' => 'FoxESS H3 Smart / H3 Pro / KH (read-only preview, beta)', 'value' => 'foxess_smart'],
+                        ['label' => 'Hoymiles MS-A2 (via MQTT, preview without device test)', 'value' => 'hoymiles_msa2'],
+                        ['label' => 'RCT Power Storage DC (own protocol, port 8899, read only, preview without device test)', 'value' => 'rct_power'],
                     ],
                 ],
                 [
                     'type'    => 'Label',
-                    'caption' => 'ℹ️ RCT Power Storage DC: Port 8899 eintragen (502 wird dafür durch 8899 ersetzt). Nur Lesen, Abfrage höchstens alle 30 s, damit die RCT-App oder Home Assistant parallel nicht verdrängt werden. Die Vorzeichen von Netz (+ Einspeisung) und Batterie (+ Entladen) sind an einem RCT Power Storage DC 10.0 (Firmware 2.3.5689) gegen die RCT-App bestätigt. Zeigt dein Gerät das Gegenteil, nutze die Schalter „Netz invertieren“ bzw. „Batterie invertieren“ und melde es im Forum.',
+                    'caption' => 'ℹ️ RCT Power Storage DC: enter port 8899 (502 is replaced by 8899 for this). Read only, polling at most every 30 s so that the RCT app or Home Assistant is not displaced when running in parallel. The signs of grid (+ feed-in) and battery (+ discharging) have been confirmed against the RCT app on an RCT Power Storage DC 10.0 (firmware 2.3.5689). If your device shows the opposite, use the switches "Invert grid power" or "Invert battery power" and report it in the forum.',
                     'visible' => $this->ReadPropertyString('Manufacturer') === 'rct_power',
                 ],
                 [
                     'type'    => 'ExpansionPanel',
-                    'caption' => '🔌  Verbindung',
+                    'caption' => '🔌  Connection',
                     'expanded' => true,
                     'items' => [
                         [
                             'type' => 'Select',
                             'name' => 'ConnectionType',
-                            'caption' => 'Verbindungsweg',
+                            'caption' => 'Connection type',
                             'options' => [
-                                ['label' => 'Direkt (eigene TCP-Verbindung)', 'value' => 'direct'],
-                                ['label' => 'Symbox-Gateway (eingebauter RS485-Port, Beta)', 'value' => 'gateway'],
-                                ['label' => 'MQTT (Symcon-MQTT-Server, nur Hoymiles MS-A2, Vorabversion)', 'value' => 'mqtt'],
+                                ['label' => 'Direct (own TCP connection)', 'value' => 'direct'],
+                                ['label' => 'Symbox gateway (built-in RS485 port, beta)', 'value' => 'gateway'],
+                                ['label' => 'MQTT (Symcon MQTT server, Hoymiles MS-A2 only, preview)', 'value' => 'mqtt'],
                             ],
                             'onChange' => 'IPS_RequestAction($id, "ConnectionTypeChanged", $ConnectionType);',
                         ],
                         [
                             'type'         => 'SelectInstance',
                             'name'         => 'GatewayPick',
-                            'caption'      => 'ModBus Gateway zum Gerät',
+                            'caption'      => 'ModBus gateway to the device',
                             'validModules' => [self::NATIVE_GATEWAY_GUID],
                             'visible'      => $this->ReadPropertyString('ConnectionType') === 'gateway',
                         ],
                         [
                             'type'    => 'Button',
                             'name'    => 'CreateBridgeButton',
-                            'caption' => 'Brücke anlegen und verbinden',
+                            'caption' => 'Create bridge and connect',
                             'onClick' => 'echo IHUB_CreateBridge($id, $GatewayPick);',
                             'visible' => $this->ReadPropertyString('ConnectionType') === 'gateway',
                         ],
                         [
                             'type'         => 'SelectInstance',
                             'name'         => 'BridgeInstanceID',
-                            'caption'      => 'NRG-Stack Brücke (ModBus Gateway oder MQTT)',
+                            'caption'      => 'NRG-Stack bridge (ModBus gateway or MQTT)',
                             'validModules' => [self::BRIDGE_GUID, self::MQTT_BRIDGE_GUID],
                             'visible'      => in_array($this->ReadPropertyString('ConnectionType'), ['gateway', 'mqtt'], true),
                             'onChange'     => 'IPS_RequestAction($id, "BridgeChanged", $BridgeInstanceID);',
@@ -7815,42 +7828,42 @@ class InverterHub extends IPSModule
                         [
                             'type'    => 'ValidationTextBox',
                             'name'    => 'MqttDeviceID',
-                            'caption' => 'Geräte-ID des MS-A2 (z. B. MSA-280520260806)',
+                            'caption' => 'Device ID of the MS-A2 (e.g. MSA-280520260806)',
                             'visible' => $this->ReadPropertyString('ConnectionType') === 'mqtt',
                         ],
                         [
                             'type'         => 'SelectInstance',
                             'name'         => 'MqttServerPick',
-                            'caption'      => 'MQTT-Server von Symcon (an den der MS-A2 sendet)',
+                            'caption'      => 'Symcon MQTT server (the MS-A2 sends to it)',
                             'validModules' => [self::MQTT_SERVER_GUID],
                             'visible'      => $this->ReadPropertyString('ConnectionType') === 'mqtt',
                         ],
                         [
                             'type'    => 'Button',
                             'name'    => 'CreateMqttBridgeButton',
-                            'caption' => 'MQTT-Brücke anlegen und verbinden',
+                            'caption' => 'Create MQTT bridge and connect',
                             'onClick' => 'echo IHUB_CreateMqttBridge($id, $MqttServerPick);',
                             'visible' => $this->ReadPropertyString('ConnectionType') === 'mqtt',
                         ],
-                        ['type' => 'Label', 'caption' => 'ℹ️ „Symbox-Gateway" spricht den eingebauten RS485-Port der Symcon-Hardware über ein natives ModBus-Gateway an. Vorgehen: unten das ModBus-Gateway wählen, „Brücke anlegen und verbinden“ klicken (legt die Brücke an, verbindet sie und trägt sie ein) und danach „Übernehmen“ klicken. IP-Adresse, Port und Unit ID entfallen dann — die Geräteadresse (Unit ID) wird am Gateway als „Geräte-ID“ eingestellt, eine Brücke bedient genau ein Gerät. Kommen keine Werte, zuerst diese Geräte-ID prüfen. Lesen ist nach dem Schema von Symcons Referenzmodul umgesetzt, Schreiben (Steuerbefehle) ist noch ungetestet. Für einen externen RTU-zu-TCP-Gateway (z. B. Waveshare/USR) bitte „Direkt" mit dessen IP/Port verwenden — das funktioniert schon heute.'],
+                        ['type' => 'Label', 'caption' => 'ℹ️ "Symbox gateway" addresses the built-in RS485 port of the Symcon hardware via a native ModBus gateway. Procedure: select the ModBus gateway below, click "Create bridge and connect" (creates the bridge, connects it and enters it) and then click "Apply". IP address, port and unit ID then no longer apply — the device address (unit ID) is set at the gateway as "Device ID", one bridge serves exactly one device. If no values arrive, check this device ID first. Reading follows the scheme of Symcon\'s reference module, writing (control commands) is still untested. For an external RTU-to-TCP gateway (e.g. Waveshare/USR) please use "Direct" with its IP/port — that works today.'],
                         // IP-Adresse ODER Hostname erlaubt (fsockopen löst den
                         // Namen per DNS auf) - so überlebt die Instanz einen
                         // IP-Wechsel des Wechselrichters, wenn ein fester Name
                         // (DHCP-Reservierung/mDNS, z. B. „wr-fronius.local") genutzt wird.
-                        ['type' => 'ValidationTextBox', 'name' => 'Host', 'caption' => 'IP-Adresse oder Hostname', 'visible' => $this->ReadPropertyString('ConnectionType') === 'direct', 'validate' => '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'],
+                        ['type' => 'ValidationTextBox', 'name' => 'Host', 'caption' => 'IP address or host name', 'visible' => $this->ReadPropertyString('ConnectionType') === 'direct', 'validate' => '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'],
                         ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'TCP-Port', 'visible' => $this->ReadPropertyString('ConnectionType') === 'direct', 'minimum' => 1, 'maximum' => 65535],
                         ['type' => 'NumberSpinner', 'name' => 'UnitId', 'caption' => 'Unit ID', 'visible' => $this->ReadPropertyString('ConnectionType') === 'direct', 'minimum' => 1, 'maximum' => 247],
                     ],
                 ],
                 [
                     'type'    => 'ExpansionPanel',
-                    'caption' => '🏠  Externer Hauslastzähler — Eingang (optional)',
+                    'caption' => '🏠  External house load meter — input (optional)',
                     'expanded' => false,
                     'items' => [
-                        ['type' => 'Label', 'caption' => 'Eingang, nicht Ausgang: Hier optional eine bereits vorhandene Variable mit real GEMESSENER Hauslast auswählen (z. B. ein separater Energiezähler/Shelly am Hausanschluss). Bitte einen echten Verbrauchszähler wählen (immer positiv) — kein Netz-/Einspeisezähler, der negativ werden kann. Ist ein Zähler gewählt, zeigt die InverterHubTile-Kachel damit eine genauere Last sowie die Differenz zur PV/Netz/Batterie-Bilanz als „Wandlungsverluste" (Wechselrichter-Eigenverbrauch, Leitungsverluste). Ohne Auswahl bleibt es bei der reinen Bilanzschätzung.'],
-                        ['type' => 'Label', 'caption' => 'Hinweis: Die vom Modul BERECHNETE Hauslast als eigene Variable AUSGEBEN kannst du dagegen in der Kachel-Instanz (InverterHubTile) → Panel „Datenquelle" → „Berechnete Hauslast … in eine Variable schreiben".'],
-                        ['type' => 'Label', 'caption' => 'Priorität, falls beide Felder gesetzt sind: Ein an der InverterHubTile-Instanz selbst eingetragener „Echter Hausverbrauch" hat immer Vorrang vor diesem Feld hier.'],
-                        ['type' => 'SelectVariable', 'name' => 'HouseLoadMeterID', 'caption' => 'Externe Hauslast-Messvariable (Eingang)'],
+                        ['type' => 'Label', 'caption' => 'Input, not output: here you can optionally select an existing variable with the really MEASURED house load (e.g. a separate energy meter/Shelly at the house connection). Please select a real consumption meter (always positive) — not a grid/feed-in meter, which can become negative. If a meter is selected, the InverterHubTile tile uses it to show a more accurate load and the difference to the PV/grid/battery balance as "conversion losses" (inverter self-consumption, line losses). Without a selection it stays with the pure balance estimate.'],
+                        ['type' => 'Label', 'caption' => 'Note: you can OUTPUT the house load CALCULATED by the module as a variable of its own in the tile instance (InverterHubTile) → panel "Data source" → "Write calculated house load … to a variable".'],
+                        ['type' => 'Label', 'caption' => 'Priority if both fields are set: an "Actual house consumption" entered on the InverterHubTile instance itself always takes precedence over this field.'],
+                        ['type' => 'SelectVariable', 'name' => 'HouseLoadMeterID', 'caption' => 'External house load measurement variable (input)'],
                     ],
                 ],
                 [
@@ -7858,32 +7871,32 @@ class InverterHub extends IPSModule
                     'caption' => '⏱️  Polling',
                     'expanded' => false,
                     'items' => [
-                        ['type' => 'NumberSpinner', 'name' => 'IntervalFast', 'caption' => 'Schnell-Intervall (Sekunden)', 'minimum' => 5, 'maximum' => 60, 'suffix' => 's'],
-                        ['type' => 'NumberSpinner', 'name' => 'IntervalSlow', 'caption' => 'Langsam-Intervall (Sekunden)', 'minimum' => 60, 'maximum' => 3600, 'suffix' => 's'],
+                        ['type' => 'NumberSpinner', 'name' => 'IntervalFast', 'caption' => 'Fast interval (seconds)', 'minimum' => 5, 'maximum' => 60, 'suffix' => 's'],
+                        ['type' => 'NumberSpinner', 'name' => 'IntervalSlow', 'caption' => 'Slow interval (seconds)', 'minimum' => 60, 'maximum' => 3600, 'suffix' => 's'],
                     ],
                 ],
                 [
                     'type'    => 'ExpansionPanel',
-                    'caption' => '📊  Datenpunkte',
+                    'caption' => '📊  Data points',
                     'expanded' => true,
                     'items' => $groupItems,
                 ],
             ],
             'actions' => [
-                ['type' => 'Button', 'caption' => 'Verbindung testen / Daten sofort lesen', 'onClick' => 'echo IHUB_ReadFast($id);'],
-                ['type' => 'Button', 'caption' => '🔄 Übernehmen erzwingen (ohne Formularänderung)', 'onClick' => "IPS_ApplyChanges(\$id); echo '✅ ApplyChanges() ausgeführt.';"],
+                ['type' => 'Button', 'caption' => 'Test connection / read data now', 'onClick' => 'echo IHUB_ReadFast($id);'],
+                ['type' => 'Button', 'caption' => '🔄 Force apply (without a form change)', 'onClick' => 'IPS_ApplyChanges($id); echo ' . var_export(IHUB_Text::t('✅ ApplyChanges() executed.'), true) . ';'],
             ],
             // 104 folgt dem GESPEICHERTEN Stand und laesst sich im offenen Formular nicht live
             // umschalten - deshalb in jedem Verbindungsweg neutral (Mstaudi, 20.09.2026).
             // 201 gibt es nur bei laufender Instanz, dort stimmen Speicherstand und Anzeige ueberein.
             'status' => [
-                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte Verbindung einstellen.'],
-                ['code' => 102, 'icon' => 'active',   'caption' => 'Verbindung aktiv.'],
+                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Please set up the connection.'],
+                ['code' => 102, 'icon' => 'active',   'caption' => 'Connection active.'],
                 ['code' => 201, 'icon' => 'error',    'caption' => ($this->ReadPropertyString('ConnectionType') === 'gateway')
-                    ? 'Verbindungsfehler – keine Antwort über die Brücke: Brücke und ModBus Gateway prüfen (Unit ID = Geräte-ID am Gateway).'
+                    ? 'Connection error – no answer via the bridge: check the bridge and the ModBus gateway (unit ID = device ID at the gateway).'
                     : (($this->ReadPropertyString('ConnectionType') === 'mqtt')
-                        ? 'Keine MQTT-Nachrichten des Geräts: Geräte-ID, MQTT-Zugang am Gerät und Brücke prüfen.'
-                        : 'Verbindungsfehler – Wechselrichter nicht erreichbar.')],
+                        ? 'No MQTT messages from the device: check the device ID, the MQTT access on the device and the bridge.'
+                        : 'Connection error – inverter not reachable.')],
             ],
         ];
 
@@ -7923,12 +7936,12 @@ class InverterHub extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true,
-            'caption' => '👋  Wozu dieses Modul?',
+            'caption' => '👋  What is this module for?',
             'items' => [
-                ['type' => 'Label', 'caption' => 'InverterHub liest Wechselrichter verschiedener Hersteller direkt per Modbus TCP aus — Solarertrag, Batterie, Netzbezug und -einspeisung als normale IP-Symcon-Variablen, bei unterstützten Geräten auch mit Schreibzugriff für ein Energiemanagement-System (EMS).'],
-                ['type' => 'Label', 'caption' => 'Der Nutzen: reale Messwerte statt Schätzung — als Grundlage für Dashboards, Lastmanagement oder ein EMS, und bei steuerbaren Wechselrichtern die Möglichkeit, Lade-/Entladevorgaben tatsächlich umzusetzen.'],
-                ['type' => 'Label', 'caption' => 'Mehrere Wechselrichter oder willst du gleich mehrere Geräte auf einmal einrichten? InverterHubDiscovery durchsucht dafür das lokale Netz.'],
-                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'IHUB_AckPurposeIntro($id);'],
+                ['type' => 'Label', 'caption' => 'InverterHub reads inverters of various manufacturers directly via Modbus TCP — solar yield, battery, grid import and export as ordinary Symcon variables, with write access for an energy management system (EMS) on supported devices.'],
+                ['type' => 'Label', 'caption' => 'The benefit: real measured values instead of estimates — as a basis for dashboards, load management or an EMS, and, for controllable inverters, the possibility to actually implement charge/discharge setpoints.'],
+                ['type' => 'Label', 'caption' => 'Several inverters, or want to set up several devices at once? InverterHubDiscovery searches the local network for them.'],
+                ['type' => 'Button', 'caption' => 'Understood – do not show again', 'onClick' => 'IHUB_AckPurposeIntro($id);'],
             ],
         ];
     }
@@ -8042,7 +8055,7 @@ class InverterHub extends IPSModule
     {
         $lib = @IPS_GetLibrary('{7EFE4BD7-DC14-460E-B0ED-88071197D35B}');
         $txt = (is_array($lib) && isset($lib['Version']))
-            ? 'ℹ️ InverterHub Version ' . $lib['Version'] . ' (Build ' . ($lib['Build'] ?? '?') . ')'
+            ? IHUB_Text::t('ℹ️ InverterHub version %s (build %s)', $lib['Version'], $lib['Build'] ?? '?')
             : 'ℹ️ InverterHub';
         return ['type' => 'Label', 'caption' => $txt];
     }
@@ -8054,12 +8067,12 @@ class InverterHub extends IPSModule
         if ($this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {
             return null;
         }
-        $items = [['type' => 'Label', 'caption' => '🆕 Neu in diesem Modul — bitte kurz ansehen und ggf. die Einstellungen prüfen:']];
+        $items = [['type' => 'Label', 'caption' => '🆕 New in this module — please take a quick look and check the settings if necessary:']];
         foreach (self::NEWS_ITEMS as $line) {
-            $items[] = ['type' => 'Label', 'caption' => '• ' . $line];
+            $items[] = ['type' => 'Label', 'caption' => '• ' . IHUB_Text::t($line)];
         }
-        $items[] = ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'IHUB_AckNews($id);'];
-        return ['type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'caption' => '🆕 Neu in Version ' . self::NEWS_VERSION, 'expanded' => true, 'items' => $items];
+        $items[] = ['type' => 'Button', 'caption' => 'Understood – do not show again', 'onClick' => 'IHUB_AckNews($id);'];
+        return ['type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'caption' => IHUB_Text::t('🆕 New in version %s', self::NEWS_VERSION), 'expanded' => true, 'items' => $items];
     }
 
     public function AckNews()
@@ -8084,11 +8097,11 @@ class InverterHub extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'name' => 'ReviewHint', 'expanded' => true,
-            'caption' => '💬  Feedback im Symcon-Forum',
+            'caption' => '💬  Feedback in the Symcon forum',
             'items' => [
-                ['type' => 'Label', 'caption' => 'InverterHub ist Beta — Rückmeldungen und Testberichte sind im Symcon-Forum-Thread willkommen.'],
-                ['type' => 'Button', 'caption' => 'Zum Forums-Thread', 'onClick' => "echo '" . self::FORUM_THREAD_URL . "';", 'link' => true],
-                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'IHUB_DismissReviewHint($id);'],
+                ['type' => 'Label', 'caption' => 'InverterHub is beta — feedback and test reports are welcome in the Symcon forum thread.'],
+                ['type' => 'Button', 'caption' => 'To the forum thread', 'onClick' => "echo '" . self::FORUM_THREAD_URL . "';", 'link' => true],
+                ['type' => 'Button', 'caption' => 'Understood – do not show again', 'onClick' => 'IHUB_DismissReviewHint($id);'],
             ],
         ];
     }
@@ -8098,14 +8111,14 @@ class InverterHub extends IPSModule
     {
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => '🧡  Über dieses Modul',
+            'caption' => '🧡  About this module',
             'items' => [
-                ['type' => 'Label', 'caption' => 'Entstanden aus echter Begeisterung für die eigene Anlage — und ein paar durchgetippten Abenden. Trotzdem: Software-Hobby hin oder her, das hier ist geistiges Eigentum und echte Arbeit steckt drin.'],
-                ['type' => 'Label', 'caption' => 'Lizenz: PolyForm Noncommercial 1.0.0 — privat und nicht-kommerziell frei nutzbar, für den gewerblichen Einsatz braucht es eine gesonderte Lizenz vom Rechteinhaber.'],
-                ['type' => 'Button', 'caption' => 'Lizenztext ansehen', 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
-                ['type' => 'Label', 'caption' => 'Gewerbliche Nutzung oder Fragen zur Lizenz? Einfach melden: dietmar@gureth.eu'],
-                ['type' => 'Label', 'caption' => 'Gefällt dir das Modul und du möchtest trotzdem etwas dalassen? Über eine kleine Spende freue ich mich — völlig freiwillig, keine Gegenleistung nötig.'],
-                ['type' => 'Button', 'caption' => '☕  Spenden via PayPal', 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'Born from real enthusiasm for my own system — and a few evenings of typing. Still: hobby software or not, this is intellectual property and real work has gone into it.'],
+                ['type' => 'Label', 'caption' => 'License: PolyForm Noncommercial 1.0.0 — free for private and non-commercial use, commercial use requires a separate license from the rights holder.'],
+                ['type' => 'Button', 'caption' => 'View license text', 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'Commercial use or questions about the license? Just get in touch: dietmar@gureth.eu'],
+                ['type' => 'Label', 'caption' => 'Like the module and want to leave something anyway? I would be happy about a small donation — entirely voluntary, nothing expected in return.'],
+                ['type' => 'Button', 'caption' => '☕  Donate via PayPal', 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
             ],
         ];
     }
@@ -8348,7 +8361,7 @@ class InverterHub extends IPSModule
             $driver->onMqtt($this, $topic, $payload);
             $this->SetVarBool('connected', true);
         } catch (Throwable $e) {
-            $this->LogReadProblem('⚠️ MQTT-Nachricht nicht verarbeitet: ' . $e->getMessage());
+            $this->LogReadProblem(IHUB_Text::t('⚠️ MQTT message not processed: %s', $e->getMessage()));
         }
     }
 
@@ -8379,10 +8392,10 @@ class InverterHub extends IPSModule
     public function CreateMqttBridge(int $serverId): string
     {
         if ($serverId <= 0 || !IPS_InstanceExists($serverId)) {
-            return '⚠️ Bitte zuerst den MQTT-Server von Symcon auswählen.';
+            return IHUB_Text::t('⚠️ Please select the Symcon MQTT server first.');
         }
         if ((IPS_GetInstance($serverId)['ModuleInfo']['ModuleID'] ?? '') !== self::MQTT_SERVER_GUID) {
-            return '⚠️ Die gewählte Instanz ist kein MQTT-Server.';
+            return IHUB_Text::t('⚠️ The selected instance is not an MQTT server.');
         }
         $bridge = 0;
         foreach (IPS_GetInstanceListByModuleID(self::MQTT_BRIDGE_GUID) as $candidate) {
@@ -8395,42 +8408,45 @@ class InverterHub extends IPSModule
         if ($bridge === 0) {
             try {
                 $bridge = IPS_CreateInstance(self::MQTT_BRIDGE_GUID);
-                IPS_SetName($bridge, 'InverterHub Brücke MQTT (' . IPS_GetName($serverId) . ')');
+                IPS_SetName($bridge, IHUB_Text::t('InverterHub Bridge MQTT (%s)', IPS_GetName($serverId)));
                 IPS_SetParent($bridge, IPS_GetParent($this->InstanceID));
                 IPS_ConnectInstance($bridge, $serverId);
                 IPS_ApplyChanges($bridge);
                 $created = true;
             } catch (Throwable $e) {
-                return '⚠️ Brücke konnte nicht angelegt werden: ' . $e->getMessage() . ' Ist die Bibliothek aktuell (Modul „NRG-Stack InverterHub Brücke (MQTT)“ vorhanden)?';
+                return IHUB_Text::t('⚠️ Bridge could not be created: %s Is the library up to date (module "NRG-Stack InverterHub Bridge (MQTT)" present)?', $e->getMessage());
             }
         }
         $this->UpdateFormField('BridgeInstanceID', 'value', $bridge);
         $this->UpdateFormField('BridgeStatus', 'caption', $this->MqttBridgeStatusLine($bridge));
-        return ($created ? '✅ MQTT-Brücke angelegt und mit dem MQTT-Server verbunden.' : 'ℹ️ Vorhandene MQTT-Brücke an diesem Server wiederverwendet.')
-            . ' Sie ist oben eingetragen — jetzt Geräte-ID eintragen und „Übernehmen“ klicken.';
+        return $created
+            ? IHUB_Text::t('✅ MQTT bridge created and connected to the MQTT server. It is entered above - now enter the device ID and click "Apply".')
+            : IHUB_Text::t('ℹ️ Existing MQTT bridge on this server reused. It is entered above - now enter the device ID and click "Apply".');
     }
 
     private function MqttBridgeStatusLine(int $bridgeId): string
     {
         if ($bridgeId <= 0 || !IPS_InstanceExists($bridgeId)) {
-            return 'ℹ️ Keine MQTT-Brücke gewählt: Die Instanz bleibt inaktiv (Status 104). MQTT-Server wählen und „MQTT-Brücke anlegen und verbinden“ klicken.';
+            return IHUB_Text::t('ℹ️ No MQTT bridge selected: the instance stays inactive (status 104). Select the MQTT server and click "Create bridge and connect".');
         }
-        $head = 'Brücke #' . $bridgeId . ' „' . IPS_GetName($bridgeId) . '“';
+        $head = IHUB_Text::t('Bridge #%d "%s"', $bridgeId, IPS_GetName($bridgeId));
         if (!function_exists('IHUBM_GetState')) {
-            return '⚠️ ' . $head . ' ist gewählt, das Brücken-Modul antwortet aber nicht. Bibliothek in der Modulverwaltung aktualisieren.';
+            return IHUB_Text::t('⚠️ %s is selected, but the bridge module does not answer. Update the library in the module control.', $head);
         }
         $s = json_decode((string)@IHUBM_GetState($bridgeId), true);
         if (!is_array($s)) {
-            return '⚠️ ' . $head . ' liefert keinen Zustand. Bibliothek in der Modulverwaltung aktualisieren.';
+            return IHUB_Text::t('⚠️ %s returns no state. Update the library in the module control.', $head);
         }
         if (empty($s['connected'])) {
-            return '⚠️ ' . $head . ' ist mit keinem MQTT-Server verbunden.';
+            return IHUB_Text::t('⚠️ %s is not connected to an MQTT server.', $head);
         }
         if (empty($s['parentActive'])) {
-            return '⚠️ ' . $head . ': der MQTT-Server ist nicht aktiv (Status ' . (int)($s['parentStatus'] ?? 0) . ').';
+            return IHUB_Text::t('⚠️ %s: the MQTT server is not active (status %d).', $head, (int)($s['parentStatus'] ?? 0));
         }
-        $last = ((int)($s['lastAge'] ?? -1) >= 0) ? ' Letzte Nachricht vor ' . (int)$s['lastAge'] . ' s.' : ' Bisher keine Nachricht empfangen.';
-        return '✅ ' . $head . ' mit dem MQTT-Server verbunden.' . $last;
+        if ((int)($s['lastAge'] ?? -1) >= 0) {
+            return IHUB_Text::t('✅ %s connected to the MQTT server. Last message %d s ago.', $head, (int)$s['lastAge']);
+        }
+        return IHUB_Text::t('✅ %s connected to the MQTT server. No message received yet.', $head);
     }
 
     // Knopf "Brücke anlegen und verbinden": legt eine InverterHubBridge neben dieser
@@ -8440,10 +8456,10 @@ class InverterHub extends IPSModule
     public function CreateBridge(int $gatewayId): string
     {
         if ($gatewayId <= 0 || !IPS_InstanceExists($gatewayId)) {
-            return '⚠️ Bitte zuerst ein ModBus-Gateway auswählen.';
+            return IHUB_Text::t('⚠️ Please select a ModBus gateway first.');
         }
         if ((IPS_GetInstance($gatewayId)['ModuleInfo']['ModuleID'] ?? '') !== self::NATIVE_GATEWAY_GUID) {
-            return '⚠️ Die gewählte Instanz ist kein ModBus-Gateway.';
+            return IHUB_Text::t('⚠️ The selected instance is not a ModBus gateway.');
         }
         $bridge = 0;
         foreach (IPS_GetInstanceListByModuleID(self::BRIDGE_GUID) as $candidate) {
@@ -8456,19 +8472,20 @@ class InverterHub extends IPSModule
         if ($bridge === 0) {
             try {
                 $bridge = IPS_CreateInstance(self::BRIDGE_GUID);
-                IPS_SetName($bridge, 'InverterHub Brücke (' . IPS_GetName($gatewayId) . ')');
+                IPS_SetName($bridge, IHUB_Text::t('InverterHub Bridge (%s)', IPS_GetName($gatewayId)));
                 IPS_SetParent($bridge, IPS_GetParent($this->InstanceID));
                 IPS_ConnectInstance($bridge, $gatewayId);
                 IPS_ApplyChanges($bridge);
                 $created = true;
             } catch (Throwable $e) {
-                return '⚠️ Brücke konnte nicht angelegt werden: ' . $e->getMessage() . ' Ist die Bibliothek aktuell (Modul „NRG-Stack InverterHub Brücke“ vorhanden)?';
+                return IHUB_Text::t('⚠️ Bridge could not be created: %s Is the library up to date (module "NRG-Stack InverterHub Bridge" present)?', $e->getMessage());
             }
         }
         $this->UpdateFormField('BridgeInstanceID', 'value', $bridge);
         $this->UpdateFormField('BridgeStatus', 'caption', $this->BridgeStatusLine($bridge));
-        return ($created ? '✅ Brücke angelegt und mit dem Gateway verbunden.' : 'ℹ️ Vorhandene Brücke an diesem Gateway wiederverwendet.')
-            . ' Sie ist oben eingetragen — jetzt „Übernehmen“ klicken.';
+        return $created
+            ? IHUB_Text::t('✅ Bridge created and connected to the gateway. It is entered above - now click "Apply".')
+            : IHUB_Text::t('ℹ️ Existing bridge on this gateway reused. It is entered above - now click "Apply".');
     }
 
     // Statuszeile der gewaehlten Bruecke, live beim Oeffnen des Formulars, bei Auswahlwechsel
@@ -8481,40 +8498,42 @@ class InverterHub extends IPSModule
             return $this->MqttBridgeStatusLine($bridgeId);
         }
         if ($bridgeId <= 0 || !IPS_InstanceExists($bridgeId)) {
-            return 'ℹ️ Keine Brücke gewählt: Die Instanz bleibt inaktiv (Status 104). ModBus Gateway wählen und „Brücke anlegen und verbinden“ klicken.';
+            return IHUB_Text::t('ℹ️ No bridge selected: the instance stays inactive (status 104). Select a ModBus gateway and click "Create bridge and connect".');
         }
         $name = IPS_GetName($bridgeId);
-        $head = 'Brücke #' . $bridgeId . ' „' . $name . '“';
+        $head = IHUB_Text::t('Bridge #%d "%s"', $bridgeId, $name);
         if (!function_exists('IHUBB_GetState')) {
-            return '⚠️ ' . $head . ' ist gewählt, das Brücken-Modul antwortet aber nicht. Bibliothek in der Modulverwaltung aktualisieren.';
+            return IHUB_Text::t('⚠️ %s is selected, but the bridge module does not answer. Update the library in the module control.', $head);
         }
         $state = json_decode((string)@IHUBB_GetState($bridgeId), true);
         if (!is_array($state)) {
-            return '⚠️ ' . $head . ' liefert keinen Zustand. Bibliothek in der Modulverwaltung aktualisieren.';
+            return IHUB_Text::t('⚠️ %s returns no state. Update the library in the module control.', $head);
         }
         if (empty($state['connected'])) {
-            return '⚠️ ' . $head . ' ist mit keinem ModBus Gateway verbunden. In der Brücke ein Gateway wählen oder hier „Brücke anlegen und verbinden“ klicken.';
+            return IHUB_Text::t('⚠️ %s is not connected to a ModBus gateway. Select a gateway in the bridge or click "Create bridge and connect" here.', $head);
         }
         $gatewayId = (int)(IPS_GetInstance($bridgeId)['ConnectionID'] ?? 0);
-        $gw = 'ModBus Gateway #' . $gatewayId . ' „' . ($gatewayId > 0 ? IPS_GetName($gatewayId) : '?') . '“';
+        $gw = IHUB_Text::t('ModBus gateway #%d "%s"', $gatewayId, $gatewayId > 0 ? IPS_GetName($gatewayId) : '?');
         if (empty($state['parentActive'])) {
-            return '⚠️ ' . $head . ' ist mit ' . $gw . ' verbunden, das Gateway ist aber nicht aktiv (Status ' . (int)($state['parentStatus'] ?? 0) . '). Gateway und serielle Schnittstelle prüfen.';
+            return IHUB_Text::t('⚠️ %s is connected to %s, but the gateway is not active (status %d). Check the gateway and the serial interface.', $head, $gw, (int)($state['parentStatus'] ?? 0));
         }
-        $unit = ($state['unitId'] ?? null) !== null ? 'Geräte-ID am Gateway: ' . (int)$state['unitId'] : 'Geräte-ID am Gateway nicht lesbar';
-        return '✅ ' . $head . ' über ' . $gw . ' verbunden. ' . $unit . '. Ob das Gerät antwortet, zeigt „Verbindung testen / Daten sofort lesen“.';
+        $unit = ($state['unitId'] ?? null) !== null
+            ? IHUB_Text::t('Device ID at the gateway: %d', (int)$state['unitId'])
+            : IHUB_Text::t('Device ID at the gateway not readable');
+        return IHUB_Text::t('✅ %s connected via %s. %s. Whether the device answers is shown by "Test connection / read data now".', $head, $gw, $unit);
     }
 
     private function GatewayErrorText(string $error): string
     {
         switch ($error) {
             case 'no_bridge':
-                return '⚠️ Keine Brücke gewählt. Eine „NRG-Stack InverterHub Brücke (ModBus-Gateway)“ anlegen und hier auswählen.';
+                return IHUB_Text::t('⚠️ No bridge selected. Create a "NRG-Stack InverterHub Bridge (ModBus gateway)" and select it here.');
             case 'not_connected':
-                return '⚠️ Die Brücke ist mit keinem ModBus-Gateway verbunden. In der Brücken-Instanz ein Gateway wählen.';
+                return IHUB_Text::t('⚠️ The bridge is not connected to a ModBus gateway. Select a gateway in the bridge instance.');
             case 'parent_inactive':
-                return '⚠️ Das ModBus-Gateway ist nicht aktiv. Gateway-Instanz und serielle Schnittstelle prüfen.';
+                return IHUB_Text::t('⚠️ The ModBus gateway is not active. Check the gateway instance and the serial interface.');
             default:
-                return '⚠️ Das Gateway antwortet nicht. Geräte-ID am Gateway und Verbindung prüfen.';
+                return IHUB_Text::t('⚠️ The gateway does not answer. Check the device ID at the gateway and the connection.');
         }
     }
 
@@ -8618,7 +8637,7 @@ class InverterHub extends IPSModule
                 continue;
             }
             if (!isset($validIdents[$obj['ObjectIdent']])) {
-                @IPS_DeleteVariable($cid);
+                $this->DropVariable($cid);
             }
         }
 
@@ -8656,7 +8675,7 @@ class InverterHub extends IPSModule
         // SOC von Integer auf Float), muss die bestehende Variable neu angelegt
         // werden - IPS kann den Typ einer Variable nicht nachträglich ändern.
         if ($vid && IPS_GetVariable($vid)['VariableType'] !== $vtype) {
-            @IPS_DeleteVariable($vid);
+            $this->DropVariable($vid);
             $vid = 0;
         }
 
@@ -8704,7 +8723,7 @@ class InverterHub extends IPSModule
                 // Alte, roh erzeugte oder noch nicht registrierte Variable -
                 // erst loeschen, dann sauber ueber RegisterVariableXXX neu
                 // anlegen (sonst "Ident muss fuer jede Ebene eindeutig sein").
-                @IPS_DeleteVariable($vid);
+                $this->DropVariable($vid);
                 $vid = 0;
             }
         }
@@ -8770,8 +8789,7 @@ class InverterHub extends IPSModule
             // einen Fehler (Forum brdiver677, 28.10.2026). Dann Profil weglassen und warnen.
             $existing = @IPS_GetVariableProfile($profile);
             if (is_array($existing) && ($existing['ProfileType'] ?? $vtype) !== $vtype) {
-                $this->LogMessage('Profil "' . $profile . '" hat einen anderen Typ als die Variable "' . $caption
-                    . '" und wird nicht zugewiesen. Bitte das Profil unter Kernel > Variablenprofile prüfen oder löschen.', KL_WARNING);
+                $this->LogMessage(IHUB_Text::t('Profile "%s" has a different type than the variable "%s" and is not assigned. Please check or delete the profile under Kernel > Variable profiles.', $profile, $caption), KL_WARNING);
             } elseif (@IPS_GetVariable($vid)['VariableCustomProfile'] !== $profile) {
                 IPS_SetVariableCustomProfile($vid, $profile);
             }
@@ -8838,8 +8856,26 @@ class InverterHub extends IPSModule
     {
         $vid = $this->FindVarByIdent($ident);
         if ($vid) {
-            IPS_DeleteVariable($vid);
+            $this->DropVariable($vid);
         }
+    }
+
+    // Entfernt eine Variable dieser Instanz ueber UnregisterVariable() (Store-Punkt 26). Das geht nur
+    // fuer direkte Kinder; Reste aus den frueheren Unterordnern werden dazu erst eine Ebene hochgehaengt.
+    private function DropVariable(int $vid): void
+    {
+        if (!IPS_VariableExists($vid)) {
+            return;
+        }
+        $obj = IPS_GetObject($vid);
+        if ($obj['ParentID'] !== $this->InstanceID) {
+            @IPS_SetParent($vid, $this->InstanceID);
+            $obj = IPS_GetObject($vid);
+            if ($obj['ParentID'] !== $this->InstanceID) {
+                return;
+            }
+        }
+        $this->UnregisterVariable($obj['ObjectIdent']);
     }
 
     private function FindVarByIdent($ident){
@@ -8882,30 +8918,30 @@ class InverterHub extends IPSModule
     {
         return [
             ['type' => 'Label', 'caption' => $label],
-            ['type' => 'CheckBox', 'name' => 'AutoCompaction' . $kind, 'caption' => 'Automatische Verdichtung aktiv'],
-            ['type' => 'Label', 'caption' => '⚠️ Ausschalten löscht auch von Hand in der Konsole gesetzte Verdichtungsregeln.'],
-            ['type' => 'CheckBox', 'name' => 'CompactDirect' . $kind, 'caption' => 'Sofort auf höchste Verdichtungsstufe (1×/Minute)'],
+            ['type' => 'CheckBox', 'name' => 'AutoCompaction' . $kind, 'caption' => 'Automatic compaction active'],
+            ['type' => 'Label', 'caption' => '⚠️ Switching off also deletes compaction rules set manually in the console.'],
+            ['type' => 'CheckBox', 'name' => 'CompactDirect' . $kind, 'caption' => 'Immediately to the highest compaction level (1x/minute)'],
             ['type' => 'RowLayout', 'items' => [
-                ['type' => 'Label', 'caption' => 'Nach'],
-                ['type' => 'NumberSpinner', 'name' => 'CompactStage2Months' . $kind, 'suffix' => 'Monaten auf'],
+                ['type' => 'Label', 'caption' => 'After'],
+                ['type' => 'NumberSpinner', 'name' => 'CompactStage2Months' . $kind, 'suffix' => 'months to'],
                 ['type' => 'Select', 'name' => 'CompactStage2Type' . $kind, 'options' => self::COMPACTION_TYPES],
             ]],
             ['type' => 'RowLayout', 'items' => [
-                ['type' => 'Label', 'caption' => 'Nach'],
-                ['type' => 'NumberSpinner', 'name' => 'CompactStage3Months' . $kind, 'suffix' => 'Monaten auf'],
+                ['type' => 'Label', 'caption' => 'After'],
+                ['type' => 'NumberSpinner', 'name' => 'CompactStage3Months' . $kind, 'suffix' => 'months to'],
                 ['type' => 'Select', 'name' => 'CompactStage3Type' . $kind, 'options' => self::COMPACTION_TYPES],
             ]],
         ];
     }
 
     private const COMPACTION_TYPES = [
-        ['caption' => '1× pro Minute', 'value' => 0],
-        ['caption' => '1× pro 5 Minuten', 'value' => 1],
-        ['caption' => '1× pro Stunde', 'value' => 2],
-        ['caption' => '1× pro Tag', 'value' => 3],
-        ['caption' => '1× pro Woche', 'value' => 4],
-        ['caption' => '1× pro Monat', 'value' => 5],
-        ['caption' => '1× pro Jahr', 'value' => 6],
+        ['caption' => '1x per minute', 'value' => 0],
+        ['caption' => '1x per 5 minutes', 'value' => 1],
+        ['caption' => '1x per hour', 'value' => 2],
+        ['caption' => '1x per day', 'value' => 3],
+        ['caption' => '1x per week', 'value' => 4],
+        ['caption' => '1x per month', 'value' => 5],
+        ['caption' => '1x per year', 'value' => 6],
     ];
 
     // Vom Nutzer ausgeloest (Schaltflaeche): schaltet das Archiv fuer alle Variablen ein, die der
@@ -8915,7 +8951,7 @@ class InverterHub extends IPSModule
     {
         $archiveIDs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
         if (count($archiveIDs) === 0) {
-            return '⚠️ Keine Archiv-Instanz gefunden — es wurde nichts eingerichtet.';
+            return IHUB_Text::t('⚠️ No archive instance found - nothing was set up.');
         }
         $driver = $this->GetDriver();
         $vars = $driver->getBaseVars();
@@ -8944,9 +8980,10 @@ class InverterHub extends IPSModule
             $done++;
         }
         IPS_ApplyChanges($archiveIDs[0]);
-        return '✅ Archivierung eingerichtet für ' . $done . ' Variable' . ($done === 1 ? '' : 'n')
-            . ($already > 0 ? ' (' . $already . ' waren schon archiviert)' : '')
-            . '. Bitte das Häkchen oben mit „Übernehmen" speichern, damit künftig neue Messwerte ebenfalls archiviert werden.';
+        $head = $already > 0
+            ? IHUB_Text::t('✅ Archiving set up for %d variable(s) (%d were already archived).', $done, $already)
+            : IHUB_Text::t('✅ Archiving set up for %d variable(s).', $done);
+        return $head . ' ' . IHUB_Text::t('Please save the checkmark above with "Apply" so that new measured values are archived in future as well.');
     }
 
     /**
@@ -9040,7 +9077,7 @@ class InverterHub extends IPSModule
         if (abs($value) >= 3.0e38) {
             if ($this->GetBuffer('Sentinel_' . $ident) === '') {
                 $this->SetBuffer('Sentinel_' . $ident, '1');
-                $this->LogMessage('Register für "' . $ident . '" meldet „nicht belegt“ (Float32-Extremwert) - Wert wird nicht übernommen.', KL_MESSAGE);
+                $this->LogMessage(IHUB_Text::t('Register for "%s" reports "not in use" (float32 extreme value) - value is not accepted.', $ident), KL_MESSAGE);
             }
             return;
         }
@@ -9087,7 +9124,7 @@ class InverterHub extends IPSModule
                     $prevKwh /= 1000.0;
                 }
                 if ($value < 0.001 && $prevKwh > 0.5) {
-                    $this->LogMessage('Implausibler Zählerstand für "' . $ident . '" verworfen (0 statt zuvor ' . round($prevKwh, 2) . ' kWh) — vermutlich einzelner Modbus-Ausreißer.', KL_WARNING);
+                    $this->LogMessage(IHUB_Text::t('Implausible meter reading for "%s" discarded (0 instead of previously %s kWh) - probably a single Modbus outlier.', $ident, round($prevKwh, 2)), KL_WARNING);
                     return;
                 }
             }
@@ -9123,7 +9160,7 @@ class InverterHub extends IPSModule
             // wird verworfen (alter Stand bleibt stehen) statt als
             // Ausreisser-Punkt ins Archiv zu gelangen.
             if (preg_match('/(?:^|_)so[ch]$/', $ident) && ($value < 0 || $value > 100)) {
-                $this->LogMessage('Implausibler Wert für "' . $ident . '" verworfen (' . $value . ' statt 0-100 %) — vermutlich einzelner Modbus-Ausreißer.', KL_WARNING);
+                $this->LogMessage(IHUB_Text::t('Implausible value for "%s" discarded (%s instead of 0-100 %%) - probably a single Modbus outlier.', $ident, $value), KL_WARNING);
                 return;
             }
             SetValueInteger($vid, $value);

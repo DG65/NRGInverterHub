@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/ihub-text.inc.php';
 // Verbund-Konvention "Verbindungen im Formular sichtbar machen" (SUITE.md, 21.09.2026):
 // jede Verbindung zeigt live ✅ / ⚠️ / ℹ️. Prueft die Zeilen je Zustand und, dass sie im
 // ausgelieferten Formular stehen (Element direkt in den items, nicht ersetzt).
@@ -57,7 +58,8 @@ function MIGHUB_FindLegacyCandidates() {}
 preg_match("/METERHUB_GUID = '([^']+)'/", $disc, $g1); preg_match("/MIGRATIONSHUB_GUID = '([^']+)'/", $disc, $g2);
 $body = implode("\n", $methods);
 $body = str_replace("(function_exists('GTAUSCH_FindLegacyCandidates') || function_exists('MIGHUB_FindLegacyCandidates'))", '$GLOBALS["D"]["fn"]', $body);
-eval('class HD { const METERHUB_GUID = "' . $g1[1] . '"; const MIGRATIONSHUB_GUID = "' . $g2[1] . '";
+$GLOBALS['deD'] = json_decode(file_get_contents(dirname(__DIR__) . '/InverterHubDiscovery/locale.json'), true)['translations']['de'];
+eval('class HD { public function T($t, ...$a) { $o = $GLOBALS["deD"][$t] ?? $t; return $a ? vsprintf($o, $a) : $o; } const METERHUB_GUID = "' . $g1[1] . '"; const MIGRATIONSHUB_GUID = "' . $g2[1] . '";
     private function meterHubInstalled() { return IPS_ModuleExists(self::METERHUB_GUID); }
     ' . $body . ' public function mh() { return $this->MeterHubStatusLine(); } public function mig() { return $this->MigrationsHubStatusLine(); } public function panel() { return $this->ConnectionPanel(); } }');
 $x = new HD(); $MH = $g1[1]; $MIG = $g2[1];
@@ -68,7 +70,7 @@ $D['mods'][] = $MH; $D['libs'][$MH] = '0.31.3-beta.1';
 $r = $x->mh();
 $chk(strpos($r, '✅') === 0 && strpos($r, '0.31.3-beta.1') !== false && strpos($r, 'noch keine Instanz') !== false && strpos($r, 'Energiezähler') !== false, 'MeterHub installiert ohne Instanz: ✅ mit Version und Wirkung');
 $D['lists'][$MH] = [5, 6];
-$chk(strpos($x->mh(), '2 Instanzen vorhanden') !== false, 'MeterHub: Anzahl der Instanzen genannt');
+$chk(strpos($x->mh(), '2 Instanz(en) vorhanden') !== false, 'MeterHub: Anzahl der Instanzen genannt');
 
 $r = $x->mig();
 $chk(strpos($r, 'ℹ️') === 0 && strpos($r, 'nicht installiert') !== false && strpos($r, 'entfällt') !== false, 'MigrationsHub nicht installiert: ℹ️ und was dann gilt');

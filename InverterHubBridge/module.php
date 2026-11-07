@@ -20,6 +20,25 @@
 
 class InverterHubBridge extends IPSModule
 {
+    /** @var array<string,string> */
+    private static $merkliste = [];
+
+    // Translate() liest locale.json bei jedem Aufruf (SUITE.md Stolperstein 24): je Text einmal je Prozess.
+    private function T(string $text, ...$args): string
+    {
+        if (!isset(self::$merkliste[$text])) {
+            self::$merkliste[$text] = $this->Translate($text);
+        }
+        $out = self::$merkliste[$text];
+        if ($args === []) {
+            return $out;
+        }
+        $f = @vsprintf($out, array_map(function ($a) {
+            return is_scalar($a) || $a === null ? (string)$a : (string)json_encode($a);
+        }, $args));
+        return $f === false ? $out : $f;
+    }
+
     public function Create()
     {
         parent::Create();
@@ -81,24 +100,24 @@ class InverterHubBridge extends IPSModule
     {
         $state = $this->ParentState();
         if (!$state['connected']) {
-            $status = '⚠️ Mit keinem ModBus-Gateway verbunden. Oben über die Verbindung der Instanz ein Gateway wählen.';
+            $status = $this->T('⚠️ Not connected to a ModBus gateway. Select a gateway above via the connection of the instance.');
         } elseif (!$state['parentActive']) {
-            $status = '⚠️ Das ModBus-Gateway ist nicht aktiv (Status ' . $state['parentStatus'] . '). Gateway und serielle Schnittstelle prüfen.';
+            $status = $this->T('⚠️ The ModBus gateway is not active (status %d). Check the gateway and the serial interface.', $state['parentStatus']);
         } elseif ($state['unitId'] !== null) {
-            $status = '✅ Verbunden. Geräte-ID am Gateway: ' . $state['unitId'];
+            $status = $this->T('✅ Connected. Device ID at the gateway: %d', $state['unitId']);
         } else {
-            $status = '✅ Verbunden. Die Geräte-ID ließ sich am Gateway nicht auslesen.';
+            $status = $this->T('✅ Connected. The device ID could not be read at the gateway.');
         }
         return json_encode([
             'elements' => [
-                ['type' => 'Label', 'caption' => 'Diese Brücke verbindet eine InverterHub-Instanz mit einem ModBus-Gateway von Symcon, zum Beispiel dem eingebauten RS485-Port der Symbox.'],
-                ['type' => 'Label', 'caption' => 'Eine Brücke bedient genau ein Gerät: Die Geräteadresse (Unit ID) stellst du am Gateway als „Geräte-ID“ ein. Für ein zweites Gerät am selben Bus braucht es ein zweites Gateway und eine zweite Brücke.'],
-                ['type' => 'Label', 'caption' => 'In der InverterHub-Instanz „Symbox-Gateway“ als Verbindungsweg wählen und hier diese Brücke auswählen.'],
+                ['type' => 'Label', 'caption' => 'This bridge connects an InverterHub instance to a Symcon ModBus gateway, for example the built-in RS485 port of the Symbox.'],
+                ['type' => 'Label', 'caption' => 'One bridge serves exactly one device: you set the device address (unit ID) at the gateway as "Device ID". A second device on the same bus needs a second gateway and a second bridge.'],
+                ['type' => 'Label', 'caption' => 'In the InverterHub instance select "Symbox gateway" as the connection type and select this bridge here.'],
                 ['type' => 'Label', 'caption' => $status],
             ],
             'actions' => [],
             'status'  => [
-                ['code' => 102, 'icon' => 'active', 'caption' => 'Brücke bereit.'],
+                ['code' => 102, 'icon' => 'active', 'caption' => 'Bridge ready.'],
             ],
         ]);
     }

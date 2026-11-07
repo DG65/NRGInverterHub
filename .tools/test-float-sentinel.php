@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/ihub-text.inc.php';
 /**
  * Prüfstand: Float32-"nicht belegt"-Marke (-3.4028235E+38) bei SolarEdge/Kostal
  * (Forum-Beta-Tester somm, 21.09.2026: "Warning: The float -3.40282346638528E+38 is not

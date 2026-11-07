@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/ihub-text.inc.php';
 // Prueft IHUB_SolisDriver: Vorzeichen von Batterieleistung/-strom (Rohwert vorzeichenbehaftet,
 // positiv = Laden; Richtungsregister 33135) und die Skalierung der Energiezaehler
 // (Gesamtstaende 1 kWh, Tageswerte 0,1 kWh). Anlass: Abgleich mit dem Solis-Portal, 17.10.2026.

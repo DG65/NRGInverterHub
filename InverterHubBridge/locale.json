@@ -1,6 +1,15 @@
 {
   "translations": {
-    "de": {},
+    "de": {
+      "⚠️ Not connected to a ModBus gateway. Select a gateway above via the connection of the instance.": "⚠️ Mit keinem ModBus-Gateway verbunden. Oben über die Verbindung der Instanz ein Gateway wählen.",
+      "⚠️ The ModBus gateway is not active (status %d). Check the gateway and the serial interface.": "⚠️ Das ModBus-Gateway ist nicht aktiv (Status %d). Gateway und serielle Schnittstelle prüfen.",
+      "✅ Connected. Device ID at the gateway: %d": "✅ Verbunden. Geräte-ID am Gateway: %d",
+      "✅ Connected. The device ID could not be read at the gateway.": "✅ Verbunden. Die Geräte-ID ließ sich am Gateway nicht auslesen.",
+      "This bridge connects an InverterHub instance to a Symcon ModBus gateway, for example the built-in RS485 port of the Symbox.": "Diese Brücke verbindet eine InverterHub-Instanz mit einem ModBus-Gateway von Symcon, zum Beispiel dem eingebauten RS485-Port der Symbox.",
+      "One bridge serves exactly one device: you set the device address (unit ID) at the gateway as \"Device ID\". A second device on the same bus needs a second gateway and a second bridge.": "Eine Brücke bedient genau ein Gerät: Die Geräteadresse (Unit ID) stellst du am Gateway als „Geräte-ID“ ein. Für ein zweites Gerät am selben Bus braucht es ein zweites Gateway und eine zweite Brücke.",
+      "In the InverterHub instance select \"Symbox gateway\" as the connection type and select this bridge here.": "In der InverterHub-Instanz „Symbox-Gateway“ als Verbindungsweg wählen und hier diese Brücke auswählen.",
+      "Bridge ready.": "Brücke bereit."
+    },
     "en": {}
   }
 }

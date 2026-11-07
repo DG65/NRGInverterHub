@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/ihub-text.inc.php';
 /**
  * Prüfstand RCT Power (Stufe 1, nur Lesen): Rahmen, CRC, Maskierung und Treiber gegen einen
  * simulierten RCT-Server (eigener Prozess, unabhängige Frame-Bauweise mit Tabellen-CRC).

@@ -1,6 +1,19 @@
 {
   "translations": {
-    "de": {},
+    "de": {
+      "⚠️ Not connected to an MQTT server. Select the Symcon MQTT server above via the connection of the instance.": "⚠️ Mit keinem MQTT-Server verbunden. Oben über die Verbindung der Instanz den MQTT-Server von Symcon wählen.",
+      "⚠️ The MQTT server is not active (status %d). Check the server and the server socket.": "⚠️ Der MQTT-Server ist nicht aktiv (Status %d). Server und Server-Socket prüfen.",
+      "✅ Connected. No InverterHub instance with connection type \"MQTT\" selected yet (enter this bridge there).": "✅ Verbunden. Noch keine InverterHub-Instanz mit Verbindungsweg „MQTT“ ausgewählt (dort diese Brücke eintragen).",
+      "✅ Connected, %d instance(s) assigned. No message from the device received so far (check the device ID and the MQTT access on the device).": "✅ Verbunden, %d Instanz(en) zugeordnet. Bisher keine Nachricht des Geräts empfangen (Geräte-ID und MQTT-Zugang am Gerät prüfen).",
+      "✅ Connected, %d instance(s) assigned. Last message %d s ago (%s).": "✅ Verbunden, %d Instanz(en) zugeordnet. Letzte Nachricht vor %d s (%s).",
+      "This bridge connects InverterHub instances to the Symcon MQTT server to which a device (e.g. Hoymiles MS-A2) sends its data.": "Diese Brücke verbindet InverterHub-Instanzen mit dem MQTT-Server von Symcon, an den ein Gerät (z. B. Hoymiles MS-A2) seine Daten sendet.",
+      "You enter the device ID (e.g. MSA-280520260806) in the InverterHub instance, not here. Several devices can share one bridge.": "Die Geräte-ID (z. B. MSA-280520260806) trägst du in der InverterHub-Instanz ein, nicht hier. Mehrere Geräte können sich eine Brücke teilen.",
+      "In the InverterHub instance select \"MQTT\" as the connection type and select this bridge here.": "In der InverterHub-Instanz „MQTT“ als Verbindungsweg wählen und hier diese Brücke auswählen.",
+      "Rebuild filter": "Filter neu aufbauen",
+      "✅ Filter set.": "✅ Filter gesetzt.",
+      "ℹ️ No instance with a device ID assigned.": "ℹ️ Keine Instanz mit Geräte-ID zugeordnet.",
+      "Bridge ready.": "Brücke bereit."
+    },
     "en": {}
   }
 }

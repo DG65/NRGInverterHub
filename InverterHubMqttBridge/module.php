@@ -23,6 +23,25 @@
 
 class InverterHubMqttBridge extends IPSModule
 {
+    /** @var array<string,string> */
+    private static $merkliste = [];
+
+    // Translate() liest locale.json bei jedem Aufruf (SUITE.md Stolperstein 24): je Text einmal je Prozess.
+    private function T(string $text, ...$args): string
+    {
+        if (!isset(self::$merkliste[$text])) {
+            self::$merkliste[$text] = $this->Translate($text);
+        }
+        $out = self::$merkliste[$text];
+        if ($args === []) {
+            return $out;
+        }
+        $f = @vsprintf($out, array_map(function ($a) {
+            return is_scalar($a) || $a === null ? (string)$a : (string)json_encode($a);
+        }, $args));
+        return $f === false ? $out : $f;
+    }
+
     private const HUB_GUID = '{BBE2C593-1A91-426D-A714-29A9C7E87589}';
     private const TX_DATA_ID = '{043EA491-0325-4ADD-8FC2-A30C8EEB4D3F}';
 
@@ -142,28 +161,28 @@ class InverterHubMqttBridge extends IPSModule
     {
         $s = json_decode($this->GetState(), true);
         if (!$s['connected']) {
-            $status = '⚠️ Mit keinem MQTT-Server verbunden. Oben über die Verbindung der Instanz den MQTT-Server von Symcon wählen.';
+            $status = $this->T('⚠️ Not connected to an MQTT server. Select the Symcon MQTT server above via the connection of the instance.');
         } elseif (!$s['parentActive']) {
-            $status = '⚠️ Der MQTT-Server ist nicht aktiv (Status ' . $s['parentStatus'] . '). Server und Server-Socket prüfen.';
+            $status = $this->T('⚠️ The MQTT server is not active (status %d). Check the server and the server socket.', $s['parentStatus']);
         } elseif ($s['hubs'] === 0) {
-            $status = '✅ Verbunden. Noch keine InverterHub-Instanz mit Verbindungsweg „MQTT“ ausgewählt (dort diese Brücke eintragen).';
+            $status = $this->T('✅ Connected. No InverterHub instance with connection type "MQTT" selected yet (enter this bridge there).');
         } elseif ($s['lastAge'] < 0) {
-            $status = '✅ Verbunden, ' . $s['hubs'] . ' Instanz(en) zugeordnet. Bisher keine Nachricht des Geräts empfangen (Geräte-ID und MQTT-Zugang am Gerät prüfen).';
+            $status = $this->T('✅ Connected, %d instance(s) assigned. No message from the device received so far (check the device ID and the MQTT access on the device).', $s['hubs']);
         } else {
-            $status = '✅ Verbunden, ' . $s['hubs'] . ' Instanz(en) zugeordnet. Letzte Nachricht vor ' . $s['lastAge'] . ' s (' . $s['lastTopic'] . ').';
+            $status = $this->T('✅ Connected, %d instance(s) assigned. Last message %d s ago (%s).', $s['hubs'], $s['lastAge'], $s['lastTopic']);
         }
         return json_encode([
             'elements' => [
-                ['type' => 'Label', 'caption' => 'Diese Brücke verbindet InverterHub-Instanzen mit dem MQTT-Server von Symcon, an den ein Gerät (z. B. Hoymiles MS-A2) seine Daten sendet.'],
-                ['type' => 'Label', 'caption' => 'Die Geräte-ID (z. B. MSA-280520260806) trägst du in der InverterHub-Instanz ein, nicht hier. Mehrere Geräte können sich eine Brücke teilen.'],
-                ['type' => 'Label', 'caption' => 'In der InverterHub-Instanz „MQTT“ als Verbindungsweg wählen und hier diese Brücke auswählen.'],
+                ['type' => 'Label', 'caption' => 'This bridge connects InverterHub instances to the Symcon MQTT server to which a device (e.g. Hoymiles MS-A2) sends its data.'],
+                ['type' => 'Label', 'caption' => 'You enter the device ID (e.g. MSA-280520260806) in the InverterHub instance, not here. Several devices can share one bridge.'],
+                ['type' => 'Label', 'caption' => 'In the InverterHub instance select "MQTT" as the connection type and select this bridge here.'],
                 ['type' => 'Label', 'caption' => $status],
             ],
             'actions' => [
-                ['type' => 'Button', 'caption' => 'Filter neu aufbauen', 'onClick' => 'echo IHUBM_Refresh($id) ? "✅ Filter gesetzt." : "ℹ️ Keine Instanz mit Geräte-ID zugeordnet.";'],
+                ['type' => 'Button', 'caption' => 'Rebuild filter', 'onClick' => 'echo IHUBM_Refresh($id) ? ' . var_export($this->T('✅ Filter set.'), true) . ' : ' . var_export($this->T('ℹ️ No instance with a device ID assigned.'), true) . ';'],
             ],
             'status'  => [
-                ['code' => 102, 'icon' => 'active', 'caption' => 'Brücke bereit.'],
+                ['code' => 102, 'icon' => 'active', 'caption' => 'Bridge ready.'],
             ],
         ]);
     }
