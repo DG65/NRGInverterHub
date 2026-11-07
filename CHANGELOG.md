@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.80.2 (2026-11-07)
+
+- **GoodWe: ungültige Zählerwerte (0xFFFF) landen nicht mehr im Archiv.** Liefert das Gerät für einen Energiezähler 0xFFFF (16 Bit) oder 0xFFFFFFFF (32 Bit), bedeutet das
+  „ungültig“. Bei Dietmars Anlage stand dadurch am 01.11.2026 ein Tageszähler von 6553,5 kWh im Archiv. Solche Werte werden jetzt verworfen, der alte Stand bleibt stehen; eine echte 0
+  (Tagesbeginn) wird weiter geschrieben. Betrifft die Zähler PV, Verkauf, Bezug, Last, Batterie Laden und Entladen (Tag und Gesamt). Prüfstand `.tools/test-goodwe-energy-sentinel.php`.
+- **Hinweis (Messung an Dietmars Anlage, 31.10. bis 07.11.2026):** Die GoodWe-Gesamtzähler „Bat. Laden Gesamt“ und „Bat. Entl. Gesamt“ (Register 35206 und 35209) laufen in jedem
+  Messtag exakt doppelt so schnell wie die BMS-Zähler 37056 und 37058 und etwa doppelt so schnell wie das Leistungsintegral. Sie zählen vermutlich beide Batterietürme, obwohl das Gerät
+  nur eine Anlage meldet. Für Auswertungen eignet sich „Gesamt geteilt durch zwei“ oder das Integral der Batterieleistung. Das Modul rechnet die Werte nicht um.
+
 ## 0.80.1 (2026-11-07)
 
 - **RCT Power Storage DC: Werte und Vorzeichen bestätigt.** daniel81w1 (Forum) hat an einem RCT Power Storage DC 10.0 (Firmware 2.3.5689) bestätigt, dass SOC, PV,

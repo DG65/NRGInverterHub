@@ -1136,17 +1136,25 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
         if ($hub->GetPropBool('GroupEnergy')) {
             $e = $mb->readHolding(35191, 22);
             if ($e !== null) {
-                $hub->SetVarFloat('e_pv_total',     $mb->u32($e, 0)  / 10.0);
-                $hub->SetVarFloat('e_pv_day',       $mb->u32($e, 2)  / 10.0);
+                // Liefert das Geraet fuer einen Zaehler 0xFFFF (16 Bit) bzw. 0xFFFFFFFF (32 Bit),
+                // ist das "ungueltig" (Beobachtet 01.11.2026: Tageszaehler 6553,5 kWh im Archiv,
+                // Dietmars Anlage). Solche Werte nicht uebernehmen, der alte Stand bleibt stehen.
+                $put = function (string $ident, int $raw, int $sentinel) use ($hub) {
+                    if ($raw !== $sentinel) {
+                        $hub->SetVarFloat($ident, $raw / 10.0);
+                    }
+                };
+                $put('e_pv_total',     $mb->u32($e, 0),  0xFFFFFFFF);
+                $put('e_pv_day',       $mb->u32($e, 2),  0xFFFFFFFF);
                 $hub->SetVarFloat('work_hours',     (float)$mb->u32($e, 6));
-                $hub->SetVarFloat('e_sell_day',     $mb->u16($e, 8)  / 10.0);
-                $hub->SetVarFloat('e_buy_day',      $mb->u16($e, 11) / 10.0);
-                $hub->SetVarFloat('e_load_total',   $mb->u32($e, 12) / 10.0);
-                $hub->SetVarFloat('e_load_day',     $mb->u16($e, 14) / 10.0);
-                $hub->SetVarFloat('e_charge_total', $mb->u32($e, 15) / 10.0);
-                $hub->SetVarFloat('e_charge_day',   $mb->u16($e, 17) / 10.0);
-                $hub->SetVarFloat('e_disch_total',  $mb->u32($e, 18) / 10.0);
-                $hub->SetVarFloat('e_disch_day',    $mb->u16($e, 20) / 10.0);
+                $put('e_sell_day',     $mb->u16($e, 8),  0xFFFF);
+                $put('e_buy_day',      $mb->u16($e, 11), 0xFFFF);
+                $put('e_load_total',   $mb->u32($e, 12), 0xFFFFFFFF);
+                $put('e_load_day',     $mb->u16($e, 14), 0xFFFF);
+                $put('e_charge_total', $mb->u32($e, 15), 0xFFFFFFFF);
+                $put('e_charge_day',   $mb->u16($e, 17), 0xFFFF);
+                $put('e_disch_total',  $mb->u32($e, 18), 0xFFFFFFFF);
+                $put('e_disch_day',    $mb->u16($e, 20), 0xFFFF);
             }
         }
 
