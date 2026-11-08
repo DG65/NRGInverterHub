@@ -24,6 +24,26 @@ if ($mode === '--server') {
         0x71765BD8 => pack('N', 0xFFFFFFFE),               // Int32 -2
         0x22222222 => '',                                  // leere Nutzdaten (Länge nur die OID)
     ];
+    if ($behavior === 'full') {
+        $vals += [
+            0x65EED11B => pack('G', 380.0),                // Turm 1 Spannung
+            0x21961B58 => pack('G', -10.0),                // Turm 1 Strom
+            0x663F1452 => "\x02",                          // Anzahl Türme (1 Byte)
+            0xA7FA5C5D => pack('G', 750.0),                // Gesamtspannung
+            0xB408E40A => pack('G', -20.0),                // Gesamtstrom
+            0x79D7D617 => pack('G', -10.0),                // Turm 2 Strom
+            0xFCA1CBB5 => pack('G', 372.0),                // Turm 2 Spannung
+            0x8B4BE168 => pack('G', 0.5),                  // Turm 2 SOC
+            0x381B8BF9 => pack('G', 0.97),                 // Turm 1 SOH
+            0x1781CD31 => pack('G', 7.5),                  // Turm 2 SOH ausserhalb 0..1 (muss verworfen werden)
+            0xDC667958 => "\x03",                          // power_mng.state
+            0x315D1490 => "\x02",                          // bat_empty_full: Bit 1 = war voll
+            0xF168B748 => "\x02",                          // soc_strategy = extern
+            0xBD008E29 => pack('G', -3000.0),              // battery_power_extern
+            0x36A9E9A6 => "\x01",                          // use_grid_power_enable
+            0xCE266F0F => pack('G', 0.07),                 // soc_min
+        ];
+    }
     $tab = [];
     for ($i = 0; $i < 256; $i++) { $c = $i << 8; for ($b = 0; $b < 8; $b++) { $c = ($c & 0x8000) ? (($c << 1) ^ 0x1021) & 0xFFFF : ($c << 1) & 0xFFFF; } $tab[$i] = $c; }
     $crc = function (string $d) use ($tab) { if (strlen($d) & 1) { $d .= "\0"; } $c = 0xFFFF; foreach (str_split($d) as $ch) { $c = (($c << 8) & 0xFFFF) ^ $tab[(($c >> 8) ^ ord($ch)) & 0xFF]; } return $c; };
@@ -148,7 +168,7 @@ $c->close(); proc_terminate($proc); proc_close($proc);
 
 echo "3) Treiber\n";
 class HubMock {
-    public $v = []; public $groups = ['GroupPV' => true, 'GroupBat' => true, 'GroupEnergy' => true, 'GroupDevice' => true];
+    public $v = []; public $groups = ['GroupPV' => true, 'GroupBat' => true, 'GroupEnergy' => true, 'GroupDevice' => true, 'GroupBatTowers' => false, 'GroupBatState' => false, 'GroupControlState' => false];
     function SetVarFloat($i, $x) { $this->v[$i] = $x; } function SetVarInt($i, $x) { $this->v[$i] = $x; }
     function SetVarBool($i, $x) { $this->v[$i] = $x; } function SetVarStr($i, $x) { $this->v[$i] = $x; }
     function GetPropBool($n) { return $this->groups[$n] ?? false; }
@@ -172,9 +192,49 @@ $thrown = false; try { $d->readFast($c, $h); } catch (RuntimeException $e) { $th
 ok($thrown && $h->v['connected'] === false && count($h->v) === 1, 'keine Antwort: verbunden = false, Meldung, sonst nichts geschrieben');
 $c->close(); proc_terminate($proc); proc_close($proc);
 
+echo "3b) Stufe 2a: Türme, Batteriezustand, Steuerungszustand (nur Anzeige)\n";
+$pipes = server('full', $proc, $port);
+$d = new IHUB_RctPowerDriver(); $h = new HubMock();
+$h->groups['GroupBatTowers'] = $h->groups['GroupBatState'] = $h->groups['GroupControlState'] = true;
+$c = new IHUB_RctClient('127.0.0.1', $port, 2.0);
+try { $d->readFast($c, $h); $d->readSlow($c, $h); } catch (Throwable $e) { echo '  FAIL Lesen warf: ' . $e->getMessage() . "\n"; $fail++; }
+ok($h->v['bat_volt_total'] === 750.0 && $h->v['bat_curr_total'] === -20.0, 'Gesamtspannung und Gesamtstrom');
+ok($h->v['bat1_power'] === 380.0 * -10.0, 'Turm 1 Leistung = Spannung x Strom');
+ok($h->v['bat2_volt'] === 372.0 && $h->v['bat2_curr'] === -10.0 && $h->v['bat2_power'] === 372.0 * -10.0, 'Turm 2 Spannung, Strom, Leistung');
+ok($h->v['bat2_soc'] === 50, 'Turm 2 SOC 0,5 -> 50 %');
+ok($h->v['bat_tower_count'] === 2, 'Anzahl der Türme (Antwort mit 1 Byte)');
+ok($h->v['bat_soh'] === 97, 'Turm 1 SOH 0,97 -> 97 %');
+ok(!array_key_exists('bat2_soh', $h->v), 'SOH ausserhalb 0..1 wird verworfen, nichts geschrieben');
+ok($h->v['bat_mode_state'] === 3, 'power_mng.state');
+ok($h->v['bat_was_empty'] === false && $h->v['bat_was_full'] === true, 'bat_empty_full: Bit 0 / Bit 1');
+ok($h->v['rct_strategy'] === 2 && $h->v['rct_external_active'] === true, 'Strategie 2 = externe Steuerung aktiv');
+ok($h->v['rct_power_extern'] === -3000.0 && $h->v['rct_use_grid'] === true && $h->v['rct_soc_min'] === 7, 'externe Sollleistung, Netzbezug erlaubt, Mindest-SOC');
+$c->close(); proc_terminate($proc); proc_close($proc);
+// Gruppen aus: keine der neuen Variablen wird angefasst
+$pipes = server('full', $proc, $port);
+$h = new HubMock(); $c = new IHUB_RctClient('127.0.0.1', $port, 2.0);
+$d->readFast($c, $h); $d->readSlow($c, $h);
+$neu = ['bat_volt_total', 'bat2_volt', 'bat2_soc', 'bat_tower_count', 'bat_soh', 'bat_mode_state', 'rct_strategy', 'rct_external_active', 'rct_power_extern'];
+ok(array_intersect($neu, array_keys($h->v)) === [], 'Gruppen aus: keine neue Variable wird beschrieben');
+$c->close(); proc_terminate($proc); proc_close($proc);
+// Strategie 4 (intern): Warnvariable aus; Antwort mit 4 Byte wird ebenfalls als Zahl gelesen
+$d2 = new IHUB_RctPowerDriver();
+$stub = new class { function read($oid) { return $oid === 0xF168B748 ? pack('N', 4) : null; } function readFloat($oid) { return null; } };
+$h = new HubMock(); $h->groups['GroupControlState'] = true;
+$d2->readSlow($stub, $h);
+ok(($h->v['rct_strategy'] ?? null) === 4 && $h->v['rct_external_active'] === false, 'Strategie 4 (4-Byte-Antwort) = intern, Warnung aus');
+$stub6 = new class { function read($oid) { return $oid === 0xF168B748 ? "\x09" : null; } function readFloat($oid) { return null; } };
+$h = new HubMock(); $h->groups['GroupControlState'] = true;
+$d2->readSlow($stub6, $h);
+ok(!array_key_exists('rct_strategy', $h->v), 'unbekannte Strategie (9) wird nicht geschrieben');
+
 echo "4) Nur Lesen\n";
 ok(strpos($code, 'CMD_WRITE') === false && !preg_match('/chr\(0x0[23]\)/', $code), 'kein Schreibbefehl im Client');
-ok(!preg_match('/power_mng|soc_strategy|0xBD008E29|0xF168B748|0x36A9E9A6|0xCE266F0F|0x97997C93/', $code), 'keine Steuer-OIDs im Treiber (auch nicht als Kommentar)');
+// Steuer-Objekte dürfen nur gelesen werden: jede Verwendung muss ein Lesezugriff oder die Konstante selbst sein.
+$rest = preg_replace('/(readUInt\(\$mb, |readFloat\()self::OID_(STRATEGY|POWER_EXTERN|USE_GRID|SOC_MIN)\)/', '', $code);
+$rest = preg_replace('/const OID_(STRATEGY|POWER_EXTERN|USE_GRID|SOC_MIN)\b/', '', $rest);
+ok(!preg_match('/OID_(STRATEGY|POWER_EXTERN|USE_GRID|SOC_MIN)\b/', $rest), 'Steuer-Objekte werden nur gelesen (readUInt/readFloat), nirgends sonst verwendet');
+ok(!preg_match('/0x97997C93/', $code) && substr_count($code, 'buildReadFrame') === 2, 'kein weiterer Rahmenbauer: nur buildReadFrame (Definition und Aufruf)');
 ok(preg_match('/function writeControl\(\$mb, \$hub, string \$ident, \$value\)\s*\{\s*\}/', $code) === 1, 'writeControl ist leer');
 
 echo $fail === 0 ? "ALLES OK\n" : "$fail FEHLER\n";

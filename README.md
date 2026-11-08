@@ -3,7 +3,7 @@
 [English version: README.en.md](README.en.md)
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHP--Modul-blue)
-![Modul Version](https://img.shields.io/badge/Version-0.83.0-informational)
+![Modul Version](https://img.shields.io/badge/Version-0.84.0-informational)
 ![Symcon Version](https://img.shields.io/badge/Symcon-%E2%89%A5%209.0-orange)
 ![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-lightgrey)
 [![PayPal](https://img.shields.io/badge/PayPal-Spenden-blue?logo=paypal)](https://paypal.me/DietmarGureth)

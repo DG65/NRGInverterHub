@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.84.0 (2026-11-08)
+
+- **RCT Power, Stufe 2a (nur Lesen, Vorabversion).** Drei neue optionale Gruppen, standardmäßig aus: „Batterietürme“ (Turm 2 mit Spannung, Strom, Leistung und SOC, Gesamtspannung und Gesamtstrom, Gesundheitszustand je Turm, Anzahl der Türme), „Batteriezustand“ (Betriebszustand, war leer, war voll) und „Steuerungszustand“ (SOC-Strategie, Warnvariable „Externe Steuerung aktiv“ bei Strategie 2, externe Sollleistung, Netzbezug erlaubt, Mindest-SOC). Der Treiber schreibt weiterhin nichts an den Wechselrichter.
+- Anlass: Ein Neustart-Test an einem Storage DC 10.0 zeigte, dass die externe Strategie (2) einen Neustart übersteht. Der Ist-Zustand der Steuerung muss sichtbar sein, bevor eine Steuerung gebaut wird.
+- Adressen aus dem Master von IPSCoyote/RCT-Power (Version 2.3, Adresskommentare); Typen und Skalierung noch nicht am Gerät geprüft. Ganzzahlen werden nach Antwortlänge (1, 2 oder 4 Byte) gelesen, Anteile außerhalb 0..1 verworfen. Die Vorzeichen der berechneten Turm-Leistungen (Spannung × Strom) sind unbestätigt.
+- Offen: Ob die Adressen 0x65EED11B/0x21961B58 („Bat. Spannung/Strom“) bei zwei Türmen nur Turm 1 liefern. Die neuen Gesamtwerte (0xA7FA5C5D/0xB408E40A) stehen zum Vergleich daneben.
+- Prüfstand `.tools/test-rct.php` um 3b erweitert (neue Gruppen, Grenzfälle, „Steuer-Objekte nur lesen“).
+
 ## 0.83.0 (2026-11-07)
 
 - **Store-Punkt 28: Profil nur beim Anlegen, über `RegisterVariable*`.** Das Profil (Standarddarstellung) wird beim Anlegen einer Variablen als Parameter von `RegisterVariable*` mitgegeben, nicht mehr nachträglich per `IPS_SetVariableCustomProfile`. Neue Messvariablen werden ebenfalls über `RegisterVariable*` angelegt (bisher roh über `IPS_CreateVariable`); bestehende Variablen behalten ihre ID. Ausnahme bleibt der Schalter „Energie in Wh statt kWh“: Er setzt das Profil bestehender Energie-Variablen um, weil der Nutzer das im Formular ausdrücklich wählt.
