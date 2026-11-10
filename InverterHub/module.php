@@ -8418,7 +8418,11 @@ This KOSTAL HTTP API does not provide a battery temperature, so it is not read i
         $this->WriteAttributeString('KostalHttpPassword', $password);
         $this->WriteAttributeString('KostalHttpSession', '');
         $this->UpdateFormField('KostalHttpPasswordState', 'caption', IHUB_Text::t('ℹ️ A password is saved. It is not shown again.'));
-        return IHUB_Text::t('✅ Password saved. Click "Apply" now.');
+        // Das Passwort ist keine Eigenschaft, "Übernehmen" bleibt im Formular deshalb ausgegraut (Rückmeldung Dirk
+        // Allard, 10.11.2026). Es wird nichts an den Eigenschaften geändert: die Instanz wird nur neu angewendet, damit
+        // Status und Takt das neue Passwort sofort nutzen.
+        $this->ApplyChanges();
+        return IHUB_Text::t('✅ Password saved and applied.');
     }
 
     // Verbindungsarten im Formular. "Kostal HTTP" gibt es nur beim Hersteller Kostal; steht sie schon in der

@@ -1,9 +1,14 @@
 # Changelog
 
+## 0.85.1 (2026-11-10)
+
+- **Kostal HTTP: „Passwort speichern“ übernimmt die Instanz jetzt selbst.** Da das Passwort ein Attribut und keine Eigenschaft ist, blieb „Übernehmen“ im Formular ausgegraut, und man musste erst eine andere Einstellung ändern (Rückmeldung Dirk Allard, Test an einem PLENTICORE plus 7.0 G2: Installation, Anmeldung und Werte laufen, Abfrage ohne Auffälligkeiten). Der Knopf wendet die Instanz nun selbst an; an den Eigenschaften wird nichts geändert.
+- Namensnennung im Changelog und README: Dirk Allard.
+
 ## 0.85.0 (2026-11-10)
 
 - **Kostal PLENTICORE plus Generation 2 über die HTTP-Schnittstelle (nur Lesen, Vorabversion).** Neue Verbindungsart „Kostal HTTP-Schnittstelle v1“ beim Hersteller Kostal: nur IP/Hostname, Benutzer („user“) und das Anwenderpasswort, kein Modbus (der Wechselrichter lässt nur eine Modbus-Verbindung zu, die bei vielen schon die Wallbox belegt). Der Treiber bleibt derselbe, die Werte kommen über die processdata-Schnittstelle des Geräts auf dieselben Variablen wie bei Modbus. Die Batterietemperatur liefert die Schnittstelle nicht. Ein Schalter „PV3 ist der Batterieanschluss“ lässt die PV3-Werte weg.
-- Beitrag aus der Community (Forum), vom Ausgangsstand 0.84.0 übernommen und angepasst. Der Client schreibt nichts (Schreibzugriffe lösen eine Ausnahme aus), die Anmeldung läuft über das SCRAM-Verfahren des Geräts, das Passwort geht nie im Klartext über die Leitung.
+- Beitrag von Dirk Allard (Forum), vom Ausgangsstand 0.84.0 übernommen und angepasst. Der Client schreibt nichts (Schreibzugriffe lösen eine Ausnahme aus), die Anmeldung läuft über das SCRAM-Verfahren des Geräts, das Passwort geht nie im Klartext über die Leitung.
 - **Zugangsdaten nach Verbund-Konvention:** Das Passwort liegt als Attribut, nicht als Eigenschaft; Eingabe über ein eigenes maskiertes Feld und den Knopf „Passwort speichern“. Die Sitzungskennung liegt ebenfalls als Attribut und ist nicht über eine öffentliche Funktion erreichbar. Nach einer Neuinstallation des Moduls muss das Passwort wieder eingegeben werden (Attribute überstehen sie nicht).
 - Texte englisch mit deutscher Übersetzung (Store-Punkt 25); bestehende Variablen werden nicht versteckt (Store-Punkt 28), eine nicht mehr aktualisierte Variable bleibt einfach stehen.
 - Fehlt in einem Registerblock nur ein Punkt, bleiben die übrigen Werte des Blocks erhalten; der fehlende Wert trägt die Marke „nicht belegt“ und wird nie zu 0. Die Wh-in-kWh-Umrechnung des Kostal-Treibers lässt diese Marke unverändert.

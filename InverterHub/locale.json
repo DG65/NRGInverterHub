@@ -882,7 +882,6 @@
       "⚠️ Slow read failed: %s": "⚠️ Langsames Lesen fehlgeschlagen: %s",
       "⚠️ Please enter a password first.": "⚠️ Bitte zuerst ein Passwort eingeben.",
       "ℹ️ A password is saved. It is not shown again.": "ℹ️ Ein Passwort ist gespeichert. Es wird nicht wieder angezeigt.",
-      "✅ Password saved. Click \"Apply\" now.": "✅ Passwort gespeichert. Jetzt „Übernehmen“ anklicken.",
       "⚠️ No password saved yet.": "⚠️ Noch kein Passwort gespeichert.",
       "InverterHub reads supported inverters via Modbus TCP, MQTT or (for KOSTAL PLENTICORE plus Gen2) the local HTTP API. Select the manufacturer, connection type and applicable data point groups. For the KOSTAL HTTP mode no Modbus connection or port is needed.": "InverterHub liest unterstützte Wechselrichter über Modbus TCP, MQTT oder (beim KOSTAL PLENTICORE plus Gen2) die lokale HTTP-Schnittstelle. Hersteller, Verbindungsart und passende Datenpunkt-Gruppen auswählen. Für den KOSTAL-HTTP-Modus ist keine Modbus-Verbindung und kein Port nötig.",
       "• Kostal via Modbus TCP: the default port is 1502 (not 502). Select the byte order matching the inverter (factory setting CDAB).": "• Kostal über Modbus TCP: Standardport ist 1502 (nicht 502). Die Byte-Reihenfolge passend zum Wechselrichter wählen (Werkseinstellung CDAB).",
@@ -894,7 +893,8 @@
       "Kostal API username (typically user)": "Kostal-Benutzername (normalerweise user)",
       "Kostal API user password (enter it, then click \"Save password\")": "Kostal-Benutzerpasswort (eintragen, dann „Passwort speichern“ anklicken)",
       "Save password": "Passwort speichern",
-      "Kostal PLENTICORE plus Gen2: new connection type \"Kostal HTTP API\" (read only, preview). It needs no Modbus connection, only IP address, user and password. Contributed by a community member.": "Kostal PLENTICORE plus Gen2: neue Verbindungsart „Kostal HTTP-Schnittstelle“ (nur Lesen, Vorabversion). Sie braucht keine Modbus-Verbindung, nur IP-Adresse, Benutzer und Passwort. Beitrag aus der Community."
+      "Kostal PLENTICORE plus Gen2: new connection type \"Kostal HTTP API\" (read only, preview). It needs no Modbus connection, only IP address, user and password. Contributed by a community member.": "Kostal PLENTICORE plus Gen2: neue Verbindungsart „Kostal HTTP-Schnittstelle“ (nur Lesen, Vorabversion). Sie braucht keine Modbus-Verbindung, nur IP-Adresse, Benutzer und Passwort. Beitrag aus der Community.",
+      "✅ Password saved and applied.": "✅ Passwort gespeichert und übernommen."
     },
     "en": {}
   }
