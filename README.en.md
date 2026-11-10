@@ -3,7 +3,7 @@
 [Deutsche Version: README.md](README.md)
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHP%20module-blue)
-![Module version](https://img.shields.io/badge/Version-0.84.0-informational)
+![Module version](https://img.shields.io/badge/Version-0.85.0-informational)
 ![Symcon version](https://img.shields.io/badge/Symcon-%E2%89%A5%209.0-orange)
 ![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-lightgrey)
 [![PayPal](https://img.shields.io/badge/PayPal-Donate-blue?logo=paypal)](https://paypal.me/DietmarGureth)
@@ -37,7 +37,7 @@ never overwritten afterwards, so you can rename them.
 | **SolarEdge** | PV total power, grid, meter (incl. import/feed-in kWh), energy, temperature, status, StorEdge battery, calculated PV generation | SunSpec, runtime discovery |
 | **Deye** | PV (2 strings), grid, battery, house consumption, energy, start/stop control | SG04LP3 series, template tested on an 8K SG04LP3 |
 | **Solplanet / AISWEI** | PV (3 strings), battery, temperature, energy | ASW Gen series |
-| **Kostal** | PV (3 DC inputs), grid, battery, meter, house consumption by source, energy | Only PLENTICORE plus generation 1 tested — other generations/power classes unchecked. **Important:** choose the byte order matching the inverter |
+| **Kostal** | PV (3 DC inputs), grid, battery, meter, house consumption by source, energy | **Modbus TCP:** only PLENTICORE plus generation 1 tested — other generations/power classes unchecked. **Important:** choose the byte order matching the inverter. **HTTP API (since 0.85.0, read only):** for PLENTICORE plus generation 2, connection type "Kostal HTTP API"; tested with a PLENTICORE plus 7.0 G2, firmware 02.20.21395. No Modbus needed (the inverter allows only one Modbus connection); user "user" and the user password, this API does not provide a battery temperature. Community contribution. |
 | **SMA** | PV total power, PV inputs A/B, grid, meter, energy, temperature, status, device name/serial number | Pure SunSpec implementation with runtime discovery, as OpenEMS uses it for the SMA Sunny Tripower |
 | **Fronius** | PV (MPPT: voltage/current/power per string), grid, meter (total + optionally per phase), energy, battery (GEN24 hybrid), status, device name/serial number | SunSpec, runtime discovery |
 | **Victron GX** | PV (DC + AC-coupled, optionally per solar charge controller/MPPT), grid, battery, house consumption, grid source | Reads the aggregated system service |

@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/KostalHttpClient.php';
+
 // ---------------------------------------------------------------------------
 // InverterHub — generisches Wechselrichter-Modul mit austauschbaren
 // Hersteller-Treibern. Erster Treiber: GoodWe (portiert aus GoodweET).
@@ -4943,7 +4945,7 @@ class IHUB_KostalDriver implements IHUB_InverterDriverInterface
                 // Energie in Wh (nicht W wie ursprünglich fälschlich
                 // angenommen) - daher Umrechnung auf kWh wie bei allen
                 // anderen ~Electricity-Datenpunkten im Modul.
-                $hub->SetVarFloat('home_total',     $mb->readFloat32($home, 12) / 1000.0);
+                $hub->SetVarFloat('home_total',     $this->whToKwh($mb->readFloat32($home, 12)));
             }
         }
 
@@ -4962,11 +4964,18 @@ class IHUB_KostalDriver implements IHUB_InverterDriverInterface
         // mit hohem Gesamtertrag).
         $e = $mb->readHolding(320, 8); // 320-327
         if ($e !== null) {
-            $hub->SetVarFloat('e_total', $mb->readFloat32($e, 0) / 1000.0);
-            $hub->SetVarFloat('e_day',   $mb->readFloat32($e, 2) / 1000.0);
-            $hub->SetVarFloat('e_year',  $mb->readFloat32($e, 4) / 1000.0);
-            $hub->SetVarFloat('e_month', $mb->readFloat32($e, 6) / 1000.0);
+            $hub->SetVarFloat('e_total', $this->whToKwh($mb->readFloat32($e, 0)));
+            $hub->SetVarFloat('e_day',   $this->whToKwh($mb->readFloat32($e, 2)));
+            $hub->SetVarFloat('e_year',  $this->whToKwh($mb->readFloat32($e, 4)));
+            $hub->SetVarFloat('e_month', $this->whToKwh($mb->readFloat32($e, 6)));
         }
+    }
+
+    // Wh -> kWh. Die Marke "nicht belegt" (Float32-Extremwert) bleibt unverändert, damit SetVarFloat sie verwirft
+    // und nicht erst durch die Division zu einer scheinbar gültigen Zahl wird.
+    private function whToKwh(float $wh): float
+    {
+        return (abs($wh) >= 3.0e38) ? $wh : $wh / 1000.0;
     }
 
     public function readDeviceInfo($mb, $hub)
@@ -6992,6 +7001,7 @@ class InverterHub extends IPSModule
     private const MQTT_BRIDGE_GUID = '{B8E699DE-22E4-4DF3-926B-8F4C118852B7}';
     private const MQTT_SERVER_GUID = '{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}';
     private const NEWS_ITEMS = [
+        'Kostal PLENTICORE plus Gen2: new connection type "Kostal HTTP API" (read only, preview). It needs no Modbus connection, only IP address, user and password. Contributed by a community member.',
         'RCT Power: new optional groups for battery tower 2, state of health, battery state and the current control state (strategy, external target power). Read only, preview: nothing is written to the inverter.',
         'SMA: new group "PV inputs A and B" with the DC power per input (e.g. for east/west arrays). At night and for an unused input it shows 0 W.',
         'New manufacturer: RCT Power Storage DC (own protocol on port 8899, read only, preview). Values and signs of grid and battery have been confirmed against the RCT app on an RCT Power Storage DC 10.0 (firmware 2.3.5689).',
@@ -7022,6 +7032,9 @@ class InverterHub extends IPSModule
         $this->RegisterAttributeBoolean('LastEnergyUnitWh', false);
         // Zustand der Ueberlaufkorrektur: {unitId: {w: Ueberlaeufe, r: letzter Rohwert}}
         $this->RegisterAttributeString('VictronYieldState', '{}');
+        // Kostal HTTP API: Sitzungskennung und Passwort liegen als Attribut (nicht im Formular, nicht als Eigenschaft).
+        $this->RegisterAttributeString('KostalHttpSession', '');
+        $this->RegisterAttributeString('KostalHttpPassword', '');
 
         $this->RegisterPropertyBoolean('Active', true);
         // Store-Checkliste Punkt 12 (keine eigene Anlage als Norm): kein Hersteller
@@ -7087,6 +7100,8 @@ class InverterHub extends IPSModule
         // Modbus", Werkseinstellung Plenticore), 1 = ABCD (big-endian/SunSpec).
         // Falsche Wahl liefert unbrauchbare Werte (riesige/negative Zahlen).
         $this->RegisterPropertyInteger('KostalByteOrder', 0);
+        $this->RegisterPropertyString('KostalHttpUser', 'user');
+        $this->RegisterPropertyBoolean('KostalPv3Battery', false);
         // Victron: Unit-IDs der einzelnen Solarladeregler (MPPT), kommagetrennt.
         $this->RegisterPropertyString('VictronMpptUnitIds', '');
         // Unit-ID des Victron-Netzzaehlers (com.victronenergy.grid).
@@ -7246,6 +7261,16 @@ class InverterHub extends IPSModule
             $this->SetTimerInterval('EnableActionsTimer', 0);
             return;
         }
+        $httpMode = ($this->ReadPropertyString('ConnectionType') === 'kostal_http');
+        if ($httpMode && ($this->ReadPropertyString('Manufacturer') !== 'kostal'
+            || trim($this->ReadAttributeString('KostalHttpPassword')) === ''
+            || trim($this->ReadPropertyString('KostalHttpUser')) === '')) {
+            $this->SetStatus(104);
+            $this->SetTimerInterval('FastTimer', 0);
+            $this->SetTimerInterval('SlowTimer', 0);
+            $this->SetTimerInterval('EnableActionsTimer', 0);
+            return;
+        }
         $mqttMode = ($this->ReadPropertyString('ConnectionType') === 'mqtt');
         if ($mqttMode && ($this->ReadPropertyString('Manufacturer') !== 'hoymiles_msa2'
             || $this->ReadPropertyInteger('BridgeInstanceID') <= 0
@@ -7267,6 +7292,7 @@ class InverterHub extends IPSModule
 
         // RCT: Takt mindestens 30 s, damit die RCT-App oder Home Assistant parallel nicht verdrängt werden.
         $fast = $this->ReadPropertyInteger('IntervalFast');
+        if ($httpMode) { $fast = max(10, $fast); }
         if ($this->ReadPropertyString('Manufacturer') === 'rct_power') {
             $fast = max($fast, 30);
         }
@@ -7355,8 +7381,25 @@ class InverterHub extends IPSModule
                 $driver->readDeviceInfo($mb, $this);
                 $this->WriteAttributeBoolean('DeviceInfoRead', true);
             }
-            $driver->readFast($mb, $this);
+            $ok = $driver->readFast($mb, $this);
+            if ($mb instanceof IHUB_KostalHttpClient) {
+                $http = $mb;
+                $missing = $http->getMissingFor($driver, $this);
+                // Real HTTP communication is not an error merely because an
+                // optional hardware-dependent API point is absent.
+                if ($ok !== true || isset($missing['pv_total']) || isset($missing['ac_power'])) {
+                    $this->SetStatus(201);
+                    throw new RuntimeException('Kostal HTTP API core data missing: ' . json_encode($missing, JSON_UNESCAPED_SLASHES));
+                }
+                $this->SetStatus(102);
+                if ($missing !== []) {
+                    $details = json_encode($missing, JSON_UNESCAPED_SLASHES);
+                    $this->SendDebug('Kostal HTTP missing points', $details, 0);
+                    return IHUB_Text::t('⚠️ Kostal HTTP reachable, %d enabled data points not available: %s', count($missing), $details);
+                }
+            }
         } catch (Throwable $e) {
+            if ($this->ReadPropertyString('ConnectionType') === 'kostal_http') { $this->SetStatus(201); }
             $msg = IHUB_Text::t('⚠️ Connection failed: %s', $e->getMessage());
             $this->LogReadProblem($msg);
             return $msg;
@@ -7441,16 +7484,32 @@ class InverterHub extends IPSModule
         if (!$this->ReadPropertyBoolean('Active')) {
             return;
         }
-        $this->GetDriver()->readSlow($this->GetModbusClient(), $this);
+        try {
+            $mb = $this->GetModbusClient();
+            $this->GetDriver()->readSlow($mb, $this);
+        } catch (Throwable $e) {
+            $this->LogReadProblem(IHUB_Text::t('⚠️ Slow read failed: %s', $e->getMessage()));
+            if ($this->ReadPropertyString('ConnectionType') === 'kostal_http') { $this->SetStatus(201); }
+        }
     }
 
     public function RequestAction($Ident, $Value)
     {
         if ($Ident === 'ConnectionTypeChanged') {
             $direct = ($Value === 'direct');
+            $http = ($Value === 'kostal_http');
             $gateway = ($Value === 'gateway');
             $mqtt = ($Value === 'mqtt');
-            $this->UpdateFormField('Host', 'visible', $direct);
+            $this->UpdateFormField('KostalHttpUser', 'visible', $http);
+            $this->UpdateFormField('KostalHttpPasswordInput', 'visible', $http);
+            $this->UpdateFormField('KostalHttpPasswordSave', 'visible', $http);
+            $this->UpdateFormField('KostalHttpPasswordState', 'visible', $http);
+            $this->UpdateFormField('KostalPv3Battery', 'visible', $http);
+            $this->UpdateFormField('KostalHttpModeHelp', 'visible', $http);
+            $this->UpdateFormField('GatewayModeHelp', 'visible', $gateway);
+            $this->UpdateFormField('KostalModbusDocHelp', 'visible', !$http);
+            $this->UpdateFormField('KostalHttpDocHelp', 'visible', $http);
+            $this->UpdateFormField('Host', 'visible', $direct || $http);
             $this->UpdateFormField('Port', 'visible', $direct);
             $this->UpdateFormField('UnitId', 'visible', $direct);
             $this->UpdateFormField('BridgeInstanceID', 'visible', $gateway || $mqtt);
@@ -7824,7 +7883,8 @@ class InverterHub extends IPSModule
         // „little-endian (CDAB) Standard Modbus" (Werkseinstellung) und
         // „big-endian (ABCD) Sunspec". Muss hier passend gewählt werden, sonst
         // liefert das Gerät unbrauchbare Float-Werte (riesige/negative Zahlen).
-        if ($this->ReadPropertyString('Manufacturer') === 'kostal') {
+        if ($this->ReadPropertyString('Manufacturer') === 'kostal'
+            && $this->ReadPropertyString('ConnectionType') !== 'kostal_http') {
             $groupItems[] = [
                 'type'    => 'Select',
                 'name'    => 'KostalByteOrder',
@@ -7888,17 +7948,18 @@ class InverterHub extends IPSModule
                     'items' => array_merge([
                         $this->VersionLabel(),
                     ], [
-                        ['type' => 'Label', 'caption' => 'InverterHub reads inverters of various manufacturers directly via Modbus TCP. Select the manufacturer, enter the IP address or host name (and, if needed, port/unit ID), activate data point groups according to your system. Tip: if you enter a fixed host name instead of the IP (DHCP reservation/mDNS), the module keeps working even after the inverter\'s IP changes.'],
-                        ['type' => 'Label', 'caption' => 'Supported manufacturers: GoodWe (GW-ET/EH/BT/BH), Sungrow (SH hybrid), Solis (hybrid, 33000 registers), Growatt (TL-X/TL3-X/MOD/MIX/SPH/WIT), SolaX, SMA (STP/STPS/SI, incl. grid measurement), Fronius (SunSpec, GEN24 hybrid incl. battery/smart meter), SolarEdge (incl. StorEdge battery), Deye (SG04LP3), Solplanet/AISWEI, Kostal (PLENTICORE plus gen. 1), Victron GX (Cerbo/Venus OS), Huawei SUN2000 (incl. DTSU666 meter + LUNA2000 battery, confirmed live on a real system) FoxESS H1/H3 as well as FoxESS H3 Smart / H3 Pro / KH (each read-only preview, beta).'],
+                        ['type' => 'Label', 'caption' => 'InverterHub reads supported inverters via Modbus TCP, MQTT or (for KOSTAL PLENTICORE plus Gen2) the local HTTP API. Select the manufacturer, connection type and applicable data point groups. For the KOSTAL HTTP mode no Modbus connection or port is needed.'],
+                        ['type' => 'Label', 'caption' => 'Supported manufacturers: GoodWe (GW-ET/EH/BT/BH), Sungrow (SH hybrid), Solis (hybrid, 33000 registers), Growatt (TL-X/TL3-X/MOD/MIX/SPH/WIT), SolaX, SMA (STP/STPS/SI, incl. grid measurement), Fronius (SunSpec, GEN24 hybrid incl. battery/smart meter), SolarEdge (incl. StorEdge battery), Deye (SG04LP3), Solplanet/AISWEI, Kostal (Modbus Gen1 / HTTP API Gen2), Victron GX (Cerbo/Venus OS), Huawei SUN2000 (incl. DTSU666 meter + LUNA2000 battery, confirmed live on a real system) FoxESS H1/H3 as well as FoxESS H3 Smart / H3 Pro / KH (each read-only preview, beta).'],
                         ['type' => 'Label', 'caption' => '⚙️ Connection peculiarities per manufacturer:'],
-                        ['type' => 'Label', 'caption' => '• Kostal: the default port is 1502 (not 502). Also select the byte order matching the inverter (factory setting CDAB).'],
+                        ['type' => 'Label', 'name' => 'KostalModbusDocHelp', 'caption' => '• Kostal via Modbus TCP: the default port is 1502 (not 502). Select the byte order matching the inverter (factory setting CDAB).', 'visible' => $this->ReadPropertyString('ConnectionType') !== 'kostal_http'],
+                        ['type' => 'Label', 'name' => 'KostalHttpDocHelp', 'caption' => '• Kostal via HTTP API (PLENTICORE plus Gen2): only IP/host, local username and password are required. If PV3 is the battery input, enable the PV3 battery checkbox. Battery temperature is not exposed by this API and is disabled. No Modbus settings are required.', 'visible' => $this->ReadPropertyString('ConnectionType') === 'kostal_http'],
                         ['type' => 'Label', 'caption' => '• Victron GX: port 502; with Victron the unit ID is a device selector — the system service is fixed at 100 and addressed automatically (the unit ID in the form is ignored). In the GX enable Settings → Services → Modbus TCP.'],
                         ['type' => 'Label', 'caption' => '• Huawei SUN2000: port 502, unit ID usually 1 (0/16 depending on the configuration). Enable Modbus TCP in the inverter.'],
                         ['type' => 'Label', 'caption' => '• Fronius: the smart meter is a Modbus device of its own with its own unit ID — adjustable in the field "Smart meter address" (default 200, e.g. 240 depending on the configuration).'],
                         ['type' => 'Label', 'caption' => '• SolaX: the inverter itself only speaks Modbus RTU. Modbus TCP only works via an additional SolaX monitoring module (Pocket WiFi/LAN) as a gateway — enter its IP address, not that of the inverter.'],
                         ['type' => 'Label', 'caption' => 'ℹ️ Sign convention (module-wide): battery + = discharging / − = charging; grid meter + = feed-in / − = import. If a direction is wrong on your own system, the respective invert switch below helps — the InverterHubTile tile stays correct automatically.'],
                         ['type' => 'Label', 'caption' => '🔄 If a migration to another hub module is planned: leave communication (Modbus/EMS control) disabled for now until the migration is complete — see MigrationsHub for details.'],
-                        ['type' => 'Label', 'caption' => '🔌 Symbox gateway (built-in RS485 port): select connection type "Symbox gateway", select the native ModBus gateway, click "Create bridge and connect", apply. The bridge is a small add-on module of this library; one bridge serves exactly one device, whose address (unit ID) is set at the gateway as "Device ID". If the instance shows status 201, the connection test names the reason (no bridge, no gateway at the bridge, gateway inactive, no answer). External RTU-to-TCP gateways (e.g. Waveshare/USR) continue to work via "Direct".'],
+                        ['type' => 'Label', 'caption' => '🔌 Symbox gateway (built-in RS485 port): select connection type "Symbox gateway", select the native ModBus gateway, click "Create bridge and connect", apply. The bridge is a small add-on module of this library; one bridge serves exactly one device, whose address (unit ID) is set at the gateway as "Device ID". If the instance shows status 201, the connection test names the reason (no bridge, no gateway at the bridge, gateway inactive, no answer). External RTU-to-TCP gateways (e.g. Waveshare/USR) continue to work via "Direct".', 'visible' => $this->ReadPropertyString('ConnectionType') === 'gateway'],
                         ['type' => 'Label', 'caption' => '🛡️ Insulation resistance (Riso): available for GoodWe, Huawei, Sungrow, SMA and Kostal; optional for Growatt and Fronius (model-dependent, depending on the SunSpec register). Solis, SolaX, SolarEdge, Deye, Solplanet, Victron GX and FoxESS do not provide it.'],
                         ['type' => 'Label', 'caption' => 'Register addresses are in the description field of each variable (object manager, column "Description").'],
                     ]),
@@ -7924,7 +7985,7 @@ class InverterHub extends IPSModule
                         ['label' => 'SolarEdge', 'value' => 'solaredge'],
                         ['label' => 'Deye', 'value' => 'deye'],
                         ['label' => 'Solplanet / AISWEI', 'value' => 'solplanet'],
-                        ['label' => 'Kostal (PLENTICORE plus gen. 1)', 'value' => 'kostal'],
+                        ['label' => 'Kostal (PLENTICORE plus, Modbus gen. 1 / HTTP API gen. 2)', 'value' => 'kostal'],
                         ['label' => 'Victron GX (Cerbo/Venus OS, unit ID 100)', 'value' => 'victron'],
                         ['label' => 'Huawei SUN2000 (+ DTSU666 / LUNA2000, unit ID usually 1)', 'value' => 'huawei'],
                         ['label' => 'FoxESS H1/H3 (read-only preview, beta)', 'value' => 'foxess'],
@@ -7947,11 +8008,7 @@ class InverterHub extends IPSModule
                             'type' => 'Select',
                             'name' => 'ConnectionType',
                             'caption' => 'Connection type',
-                            'options' => [
-                                ['label' => 'Direct (own TCP connection)', 'value' => 'direct'],
-                                ['label' => 'Symbox gateway (built-in RS485 port, beta)', 'value' => 'gateway'],
-                                ['label' => 'MQTT (Symcon MQTT server, Hoymiles MS-A2 only, preview)', 'value' => 'mqtt'],
-                            ],
+                            'options' => $this->ConnectionTypeOptions(),
                             'onChange' => 'IPS_RequestAction($id, "ConnectionTypeChanged", $ConnectionType);',
                         ],
                         [
@@ -8005,12 +8062,49 @@ class InverterHub extends IPSModule
                             'onClick' => 'echo IHUB_CreateMqttBridge($id, $MqttServerPick);',
                             'visible' => $this->ReadPropertyString('ConnectionType') === 'mqtt',
                         ],
-                        ['type' => 'Label', 'caption' => 'ℹ️ "Symbox gateway" addresses the built-in RS485 port of the Symcon hardware via a native ModBus gateway. Procedure: select the ModBus gateway below, click "Create bridge and connect" (creates the bridge, connects it and enters it) and then click "Apply". IP address, port and unit ID then no longer apply — the device address (unit ID) is set at the gateway as "Device ID", one bridge serves exactly one device. If no values arrive, check this device ID first. Reading follows the scheme of Symcon\'s reference module, writing (control commands) is still untested. For an external RTU-to-TCP gateway (e.g. Waveshare/USR) please use "Direct" with its IP/port — that works today.'],
+                        [
+                            'type' => 'CheckBox',
+                            'name' => 'KostalPv3Battery',
+                            'caption' => 'PV3 is the battery connection (PV3 data points are not read)',
+                            'visible' => $this->ReadPropertyString('ConnectionType') === 'kostal_http',
+                        ],
+                        [
+                            'type' => 'Label',
+                            'name' => 'KostalHttpModeHelp',
+                            'visible' => $this->ReadPropertyString('ConnectionType') === 'kostal_http',
+                            'caption' => 'ℹ️ KOSTAL HTTP API v1 (PLENTICORE plus Gen2): enter the IP address or host name and the local user password (user name: user) and click "Save password". The connection uses HTTP only; Modbus port, unit ID and byte order have no function here.
+If DC3/PV3 is used as the battery connection, enable the switch above: current, voltage and power of PV3 are then not read. PV1/PV2 and the battery measurements stay active.
+This KOSTAL HTTP API does not provide a battery temperature, so it is not read in HTTP mode. Variables that already exist stay untouched, they are simply no longer updated.',
+                        ],
+                        ['type' => 'Label', 'caption' => 'ℹ️ "Symbox gateway" addresses the built-in RS485 port of the Symcon hardware via a native ModBus gateway. Procedure: select the ModBus gateway below, click "Create bridge and connect" (creates the bridge, connects it and enters it) and then click "Apply". IP address, port and unit ID then no longer apply — the device address (unit ID) is set at the gateway as "Device ID", one bridge serves exactly one device. If no values arrive, check this device ID first. Reading follows the scheme of Symcon\'s reference module, writing (control commands) is still untested. For an external RTU-to-TCP gateway (e.g. Waveshare/USR) please use "Direct" with its IP/port — that works today.', 'name' => 'GatewayModeHelp', 'visible' => $this->ReadPropertyString('ConnectionType') === 'gateway'],
                         // IP-Adresse ODER Hostname erlaubt (fsockopen löst den
                         // Namen per DNS auf) - so überlebt die Instanz einen
                         // IP-Wechsel des Wechselrichters, wenn ein fester Name
                         // (DHCP-Reservierung/mDNS, z. B. „wr-fronius.local") genutzt wird.
-                        ['type' => 'ValidationTextBox', 'name' => 'Host', 'caption' => 'IP address or host name', 'visible' => $this->ReadPropertyString('ConnectionType') === 'direct', 'validate' => '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'],
+                        [
+                            'type' => 'ValidationTextBox', 'name' => 'KostalHttpUser',
+                            'caption' => 'Kostal API username (typically user)',
+                            'visible' => $this->ReadPropertyString('ConnectionType') === 'kostal_http',
+                        ],
+                        // Das Passwort ist bewusst KEINE Eigenschaft: Das Feld hat keinen Property-Namen, der Knopf legt den Wert
+                        // als Attribut der Instanz ab (NRG-Stack-Konvention, siehe SUITE.md Zugangsdaten).
+                        [
+                            'type' => 'PasswordTextBox', 'name' => 'KostalHttpPasswordInput',
+                            'caption' => 'Kostal API user password (enter it, then click "Save password")',
+                            'visible' => $this->ReadPropertyString('ConnectionType') === 'kostal_http',
+                        ],
+                        [
+                            'type' => 'Button', 'name' => 'KostalHttpPasswordSave',
+                            'caption' => 'Save password',
+                            'onClick' => 'echo IHUB_SetKostalHttpPassword($id, $KostalHttpPasswordInput);',
+                            'visible' => $this->ReadPropertyString('ConnectionType') === 'kostal_http',
+                        ],
+                        [
+                            'type' => 'Label', 'name' => 'KostalHttpPasswordState',
+                            'caption' => $this->ReadAttributeString('KostalHttpPassword') !== '' ? 'ℹ️ A password is saved. It is not shown again.' : '⚠️ No password saved yet.',
+                            'visible' => $this->ReadPropertyString('ConnectionType') === 'kostal_http',
+                        ],
+                        ['type' => 'ValidationTextBox', 'name' => 'Host', 'caption' => 'IP address or host name', 'visible' => in_array($this->ReadPropertyString('ConnectionType'), ['direct', 'kostal_http'], true), 'validate' => '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'],
                         ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'TCP-Port', 'visible' => $this->ReadPropertyString('ConnectionType') === 'direct', 'minimum' => 1, 'maximum' => 65535],
                         ['type' => 'NumberSpinner', 'name' => 'UnitId', 'caption' => 'Unit ID', 'visible' => $this->ReadPropertyString('ConnectionType') === 'direct', 'minimum' => 1, 'maximum' => 247],
                     ],
@@ -8098,7 +8192,7 @@ class InverterHub extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true,
             'caption' => '👋  What is this module for?',
             'items' => [
-                ['type' => 'Label', 'caption' => 'InverterHub reads inverters of various manufacturers directly via Modbus TCP — solar yield, battery, grid import and export as ordinary Symcon variables, with write access for an energy management system (EMS) on supported devices.'],
+                ['type' => 'Label', 'caption' => 'InverterHub reads inverter measurements via supported connection types (including Modbus TCP and the read-only KOSTAL HTTP API) and publishes them as Symcon variables. Write access for an EMS is available only for drivers and connection types that explicitly support it.'],
                 ['type' => 'Label', 'caption' => 'The benefit: real measured values instead of estimates — as a basis for dashboards, load management or an EMS, and, for controllable inverters, the possibility to actually implement charge/discharge setpoints.'],
                 ['type' => 'Label', 'caption' => 'Several inverters, or want to set up several devices at once? InverterHubDiscovery searches the local network for them.'],
                 ['type' => 'Button', 'caption' => 'Understood – do not show again', 'onClick' => 'IHUB_AckPurposeIntro($id);'],
@@ -8308,7 +8402,36 @@ class InverterHub extends IPSModule
     // Float32-Wortreihenfolge bei Kostal: true = CDAB (Wort-Swap), false = ABCD.
     public function GetKostalWordSwap(): bool
     {
+        if ($this->ReadPropertyString('ConnectionType') === 'kostal_http') { return false; }
         return (int)$this->ReadPropertyInteger('KostalByteOrder') === 0;
+    }
+
+    /**
+     * Legt das lokale Benutzerpasswort der Kostal-HTTP-Schnittstelle als Attribut ab (nicht als Eigenschaft) und
+     * verwirft die gespeicherte Sitzung. Wird vom Knopf "Passwort speichern" im Formular aufgerufen.
+     */
+    public function SetKostalHttpPassword(string $password): string
+    {
+        if (trim($password) === '') {
+            return IHUB_Text::t('⚠️ Please enter a password first.');
+        }
+        $this->WriteAttributeString('KostalHttpPassword', $password);
+        $this->WriteAttributeString('KostalHttpSession', '');
+        $this->UpdateFormField('KostalHttpPasswordState', 'caption', IHUB_Text::t('ℹ️ A password is saved. It is not shown again.'));
+        return IHUB_Text::t('✅ Password saved. Click "Apply" now.');
+    }
+
+    // Verbindungsarten im Formular. "Kostal HTTP" gibt es nur beim Hersteller Kostal; steht sie schon in der
+    // gespeicherten Konfiguration, bleibt sie sichtbar, damit das Feld nicht leer erscheint.
+    private function ConnectionTypeOptions(): array
+    {
+        $options = [['label' => 'Direct (own TCP connection)', 'value' => 'direct']];
+        if ($this->ReadPropertyString('Manufacturer') === 'kostal' || $this->ReadPropertyString('ConnectionType') === 'kostal_http') {
+            $options[] = ['label' => 'Kostal HTTP API v1 (read only, PLENTICORE plus gen. 2)', 'value' => 'kostal_http'];
+        }
+        $options[] = ['label' => 'Symbox gateway (built-in RS485 port, beta)', 'value' => 'gateway'];
+        $options[] = ['label' => 'MQTT (Symcon MQTT server, Hoymiles MS-A2 only, preview)', 'value' => 'mqtt'];
+        return $options;
     }
 
     // Victron: Unit-IDs der Solarladeregler (MPPT) als Integer-Array (max. 4).
@@ -8433,6 +8556,16 @@ class InverterHub extends IPSModule
 
     private function GetModbusClient()
     {
+        if ($this->ReadPropertyString('ConnectionType') === 'kostal_http') {
+            return new IHUB_KostalHttpClient(
+                $this->ReadPropertyString('Host'),
+                $this->ReadPropertyString('KostalHttpUser'),
+                $this->ReadAttributeString('KostalHttpPassword'),
+                $this->ReadPropertyBoolean('KostalPv3Battery'),
+                function (): string { return $this->ReadAttributeString('KostalHttpSession'); },
+                function (string $session): void { $this->WriteAttributeString('KostalHttpSession', $session); }
+            );
+        }
         // RCT Power: eigenes TCP-Protokoll (Port 8899), kein Modbus. Der Modbus-Standardport 502
         // ist dort nie richtig und gilt als "nicht eingestellt".
         if ($this->ReadPropertyString('Manufacturer') === 'rct_power') {
@@ -8701,9 +8834,24 @@ class InverterHub extends IPSModule
     // Variablen-Registrierung (generisch, treiberunabhängig)
     // -----------------------------------------------------------------------
 
+    private function KostalHttpSuppressedIdents(): array
+    {
+        if ($this->ReadPropertyString('Manufacturer') !== 'kostal'
+            || $this->ReadPropertyString('ConnectionType') !== 'kostal_http') {
+            return [];
+        }
+        // Die Kostal HTTP API liefert keine Batterie-Temperatur.
+        $skip = ['bat_temp' => true];
+        if ($this->ReadPropertyBoolean('KostalPv3Battery')) {
+            foreach (['pv3_curr', 'pv3_power', 'pv3_volt'] as $ident) $skip[$ident] = true;
+        }
+        return $skip;
+    }
+
     private function RegisterVariables()
     {
         $driver = $this->GetDriver();
+        $suppressed = $this->KostalHttpSuppressedIdents();
 
         // Menge der gültigen Idents des AKTUELL gewählten Treibers (Basis +
         // aktivierte optionale Gruppen). Alles andere unter der Instanz ist
@@ -8732,7 +8880,9 @@ class InverterHub extends IPSModule
         foreach ($driver->getOptionalGroups() as $propName => $group) {
             if ($this->ReadPropertyBoolean($propName)) {
                 foreach ($this->MpptFiltered($group['vars']) as $v) {
-                    $this->RegisterVar($v, $pos++);
+                    if (!isset($suppressed[$v[0]])) {
+                        $this->RegisterVar($v, $pos++);
+                    }
                 }
             }
         }
@@ -9077,7 +9227,8 @@ class InverterHub extends IPSModule
                 }
             }
         }
-        return $vars;
+        $suppressed = $this->KostalHttpSuppressedIdents();
+        return array_values(array_filter($vars, static fn($v) => !isset($suppressed[$v[0]])));
     }
 
     // Vom Nutzer ausgeloest (Schaltflaeche, Store-Punkt 29): schreibt die Verdichtungsregeln ins Archiv der
@@ -9134,15 +9285,7 @@ class InverterHub extends IPSModule
         if (count($archiveIDs) === 0) {
             return IHUB_Text::t('⚠️ No archive instance found - nothing was set up.');
         }
-        $driver = $this->GetDriver();
-        $vars = $driver->getBaseVars();
-        foreach ($driver->getOptionalGroups() as $propName => $group) {
-            if ($this->ReadPropertyBoolean($propName)) {
-                foreach ($this->MpptFiltered($group['vars']) as $v) {
-                    $vars[] = $v;
-                }
-            }
-        }
+        $vars = $this->ActiveDriverVars();
         $done = 0;
         $already = 0;
         foreach ($vars as $v) {

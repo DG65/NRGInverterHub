@@ -18,6 +18,7 @@ ok(strpos($src, "RegisterPropertyBoolean('AutoArchive', false)") !== false, 'Vor
 
 // Methode ausfuehren
 if (!preg_match('/private function ArchiveAllNow\(\): string\n    \{.*?\n    \}\n/s', $src, $m)) { echo "FAIL ArchiveAllNow nicht gefunden\n"; exit(1); }
+if (!preg_match('/private function ActiveDriverVars\(\)[^{]*\{.*?\n    \}\n/s', $src, $m2)) { echo "FAIL ActiveDriverVars nicht gefunden\n"; exit(1); }
 $GLOBALS['logged'] = [10 => true];          // Variable 10 ist schon archiviert
 $GLOBALS['set'] = [];
 $GLOBALS['archives'] = [99];
@@ -28,7 +29,8 @@ class FakeDriver {
     public function getBaseVars() { return [['pv_total', 'PV', 'F', 'W', true, 'pv', ''], ['connected', 'V', 'B', '', false, 'errors', '']]; }
     public function getOptionalGroups() { return ['GroupEnergy' => ['vars' => [['e_pv_day', 'PV Heute', 'F', '~Electricity', true, 'energy', ''], ['bat_soh', 'SOH', 'I', '', true, 'bat1', '']]], 'GroupOff' => ['vars' => [['x_off', 'X', 'F', '', true, 'pv', '']]]]; }
 }
-eval('class T { ' . $m[0] . '
+eval('class T { ' . $m[0] . $m2[0] . '
+    private function KostalHttpSuppressedIdents() { return []; }
     public function GetDriver() { return new FakeDriver(); }
     public function ReadPropertyBoolean($n) { return $n !== "GroupOff"; }
     private function MpptFiltered($v) { return $v; }

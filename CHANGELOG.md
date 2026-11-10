@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.85.0 (2026-11-10)
+
+- **Kostal PLENTICORE plus Generation 2 über die HTTP-Schnittstelle (nur Lesen, Vorabversion).** Neue Verbindungsart „Kostal HTTP-Schnittstelle v1“ beim Hersteller Kostal: nur IP/Hostname, Benutzer („user“) und das Anwenderpasswort, kein Modbus (der Wechselrichter lässt nur eine Modbus-Verbindung zu, die bei vielen schon die Wallbox belegt). Der Treiber bleibt derselbe, die Werte kommen über die processdata-Schnittstelle des Geräts auf dieselben Variablen wie bei Modbus. Die Batterietemperatur liefert die Schnittstelle nicht. Ein Schalter „PV3 ist der Batterieanschluss“ lässt die PV3-Werte weg.
+- Beitrag aus der Community (Forum), vom Ausgangsstand 0.84.0 übernommen und angepasst. Der Client schreibt nichts (Schreibzugriffe lösen eine Ausnahme aus), die Anmeldung läuft über das SCRAM-Verfahren des Geräts, das Passwort geht nie im Klartext über die Leitung.
+- **Zugangsdaten nach Verbund-Konvention:** Das Passwort liegt als Attribut, nicht als Eigenschaft; Eingabe über ein eigenes maskiertes Feld und den Knopf „Passwort speichern“. Die Sitzungskennung liegt ebenfalls als Attribut und ist nicht über eine öffentliche Funktion erreichbar. Nach einer Neuinstallation des Moduls muss das Passwort wieder eingegeben werden (Attribute überstehen sie nicht).
+- Texte englisch mit deutscher Übersetzung (Store-Punkt 25); bestehende Variablen werden nicht versteckt (Store-Punkt 28), eine nicht mehr aktualisierte Variable bleibt einfach stehen.
+- Fehlt in einem Registerblock nur ein Punkt, bleiben die übrigen Werte des Blocks erhalten; der fehlende Wert trägt die Marke „nicht belegt“ und wird nie zu 0. Die Wh-in-kWh-Umrechnung des Kostal-Treibers lässt diese Marke unverändert.
+- Korrektur: Die Sichtbarkeit der Formularfelder beim Wechsel der Verbindungsart benutzte `$gateway` vor der Zuweisung.
+- Prüfstand `.tools/test-kostal-http.php` (Abbildung, Einheiten, fehlende Werte, PV3, nur Lesen, Sitzung, Anmeldung gegen eine unabhängige Python-Berechnung).
+- Offen (am Gerät zu bestätigen): Vorzeichen von Batterie und Zähler gegenüber der Kostal-Oberfläche, Anlagen ohne Batterie oder Zähler, Abfragelast am Wechselrichter (pro Lauf rund zehn Anfragen).
+
 ## 0.84.0 (2026-11-08)
 
 - **RCT Power, Stufe 2a (nur Lesen, Vorabversion).** Drei neue optionale Gruppen, standardmäßig aus: „Batterietürme“ (Turm 2 mit Spannung, Strom, Leistung und SOC, Gesamtspannung und Gesamtstrom, Gesundheitszustand je Turm, Anzahl der Türme), „Batteriezustand“ (Betriebszustand, war leer, war voll) und „Steuerungszustand“ (SOC-Strategie, Warnvariable „Externe Steuerung aktiv“ bei Strategie 2, externe Sollleistung, Netzbezug erlaubt, Mindest-SOC). Der Treiber schreibt weiterhin nichts an den Wechselrichter.
