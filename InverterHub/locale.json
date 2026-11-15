@@ -894,7 +894,19 @@
       "Kostal API user password (enter it, then click \"Save password\")": "Kostal-Benutzerpasswort (eintragen, dann „Passwort speichern“ anklicken)",
       "Save password": "Passwort speichern",
       "Kostal PLENTICORE plus Gen2: new connection type \"Kostal HTTP API\" (read only, preview). It needs no Modbus connection, only IP address, user and password. Contributed by a community member.": "Kostal PLENTICORE plus Gen2: neue Verbindungsart „Kostal HTTP-Schnittstelle“ (nur Lesen, Vorabversion). Sie braucht keine Modbus-Verbindung, nur IP-Adresse, Benutzer und Passwort. Beitrag aus der Community.",
-      "✅ Password saved and applied.": "✅ Passwort gespeichert und übernommen."
+      "✅ Password saved and applied.": "✅ Passwort gespeichert und übernommen.",
+      "no connection (%s)": "keine Verbindung (%s)",
+      "ℹ️ Read cycle skipped: a command is being written to the device.": "ℹ️ Lesezyklus ausgelassen: Es wird gerade ein Befehl an das Gerät geschrieben.",
+      "The read cycle did not release the device within %s s, command \"%s\" is written anyway.": "Der Lesezyklus hat das Gerät nicht innerhalb von %s s freigegeben, der Befehl „%s“ wird trotzdem geschrieben.",
+      "Failed commands (count)": "Gescheiterte Befehle (Anzahl)",
+      "Last failed command": "Letzter gescheiterter Befehl",
+      "Last failure": "Letzter Fehler",
+      "Last successful command": "Letzter erfolgreicher Befehl",
+      "Counts the write commands that did not arrive (after both attempts), since the variable was created": "Zählt die Schreibbefehle, die nach beiden Versuchen nicht angekommen sind, seit die Variable angelegt wurde",
+      "Time of the last write command that did not arrive": "Zeitpunkt des letzten Schreibbefehls, der nicht angekommen ist",
+      "Ident of the command and reason of the last failure": "Ident des Befehls und Grund des letzten Fehlers",
+      "Time of the last write command that went through without a warning": "Zeitpunkt des letzten Schreibbefehls, der ohne Warnung durchging",
+      "Writing to the device is more reliable: read cycles and commands no longer run at the same time on an instance, a failed connection is retried once after a short pause and the error code appears in the warning. Solis now reads over one shared connection. Instances with controls get four read-only variables (ctl_write_*) that show commands which did not arrive.": "Das Schreiben ans Gerät ist zuverlässiger: Lesezyklen und Befehle laufen an einer Instanz nicht mehr gleichzeitig, eine gescheiterte Verbindung wird nach kurzer Pause einmal wiederholt, und der Fehlercode steht in der Warnung. Der Solis liest jetzt über eine gemeinsame Verbindung. Instanzen mit Steuerpunkten bekommen vier nur lesende Variablen (ctl_write_*), die nicht angekommene Befehle anzeigen."
     },
     "en": {}
   }

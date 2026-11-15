@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.86.0 (2026-11-15)
+
+- **Schreibbefehle kommen zuverlässiger an.** Auslöser war ein Solis mit Datenlogger, der nur eine Verbindung gleichzeitig zulässt: Über einen Vormittag scheiterten 30 Schreibbefehle mit „keine Verbindung“, während das Lesen weiterlief. Befund aus dem Code: Der Lesezyklus (beim Solis vier bis fünf frisch geöffnete Verbindungen je Takt) und ein Schreibbefehl liefen gleichzeitig, jeder mit eigener Verbindung.
+- **Sperre je Instanz für alle Hersteller und Verbindungsarten.** Lesezyklen (schnell und langsam) und Schreibbefehle laufen nicht mehr gleichzeitig. Die Sperre hat ein Zeitlimit: Ein Lesezyklus wartet bis zu 8 s und lässt sonst diesen Takt aus; ein Schreibbefehl wartet bis zu 20 s und wird danach trotzdem geschrieben (mit Warnung), damit ein hängender Lesezyklus nie einen Befehl verhindert. Hält ein Lauf die Sperre länger als 45 s, gilt sie als verwaist und wird ignoriert.
+- **Solis liest über eine gemeinsame Verbindung** (statt vier bis fünf je Zyklus), wie GoodWe und Sungrow.
+- **Wiederholung mit Pause.** Scheitert das Öffnen der Verbindung für einen Schreibbefehl, wartet das Modul 1,5 s und versucht es einmal erneut (alle Hersteller mit Modbus-TCP-Weg). Beim Solis liegt außerdem 1,5 s zwischen dem ersten und dem zweiten Versuch des geprüften Schreibens.
+- **Fehlernummer in der Meldung.** „keine Verbindung (111 Connection refused)“ statt nur „keine Verbindung“; so ist erkennbar, ob die Verbindung abgelehnt wurde oder ein Zeitlimit lief. `writeMultiple` meldet jetzt ebenfalls Fehlertext.
+- **Neue Variablen für nicht angekommene Befehle** (nur bei Instanzen mit Steuerpunkten, Gruppe „Diagnose“, nur lesend, nicht archiviert): `ctl_write_fail_count` (Anzahl der Schreibbefehle, die nach beiden Versuchen nicht angekommen sind), `ctl_write_fail_time` (Zeitpunkt des letzten), `ctl_write_fail_text` (Ident und Grund des letzten Fehlers), `ctl_write_ok_time` (Zeitpunkt des letzten Befehls ohne Warnung). Ein Befehl gilt als nicht ausgeführt, sobald der Treiber dabei eine Warnung meldet.
+- Das Modul wiederholt weiterhin selbst nichts über den Befehl hinaus und hat keinen Totmann (Architekturentscheidung 29.08.2026): Das Neuschreiben bleibt Sache des EMS.
+- Prüfstand `.tools/test-write-lock.php` (Wiederholung mit Pause gegen einen echten Server, Sperre mit Wiedereintritt, Zeitlimit und verwaister Sperre, Fehlerverfolgung); `.tools/test-solis.php` um das Batch-Lesen erweitert.
+
 ## 0.85.1 (2026-11-10)
 
 - **Kostal HTTP: „Passwort speichern“ übernimmt die Instanz jetzt selbst.** Da das Passwort ein Attribut und keine Eigenschaft ist, blieb „Übernehmen“ im Formular ausgegraut, und man musste erst eine andere Einstellung ändern (Rückmeldung Dirk Allard, Test an einem PLENTICORE plus 7.0 G2: Installation, Anmeldung und Werte laufen, Abfrage ohne Auffälligkeiten). Der Knopf wendet die Instanz nun selbst an; an den Eigenschaften wird nichts geändert.

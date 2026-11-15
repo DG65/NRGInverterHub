@@ -24,6 +24,9 @@ class MockMb
     public $regs = [];
     public $writes = [];
     public $failWrites = false;
+    public $batches = 0;   // wie oft ein Lesezyklus eine gemeinsame Verbindung geoeffnet hat
+    public function beginBatch() { $this->batches++; }
+    public function endBatch() {}
     public $dropWrites = 0;   // so viele Schreibbefehle werden bestaetigt, aber nicht uebernommen (wie an der Anlage beobachtet)
     public function writeSingle($reg, $val)
     {
@@ -71,6 +74,13 @@ function run($regs, $slow = false, $props = [])
     if ($slow) { $d->readSlow($mb, $hub); }
     return $hub->v;
 }
+
+echo "Batch-Lesen\n";
+$d = new IHUB_SolisDriver(); $mb = new MockMb(); $mb->regs = [33049 => 586]; $hub = new MockHub();
+$d->readFast($mb, $hub);
+ok($mb->batches === 1, 'readFast liest ueber EINE gemeinsame Verbindung (beginBatch einmal)');
+$d->readSlow($mb, $hub);
+ok($mb->batches === 2, 'readSlow ebenso (eine weitere gemeinsame Verbindung)');
 
 echo "Batterie-Vorzeichen\n";
 $base = [33049 => 586, 33057 => 0, 33058 => 0, 33134 => 145, 33139 => 17, 33140 => 100, 33133 => 2101];

@@ -352,11 +352,34 @@ class IHUB_ModbusTcpClient
         return $this->readRegisters(0x04, $startReg, $count);
     }
 
+    // Oeffnet die Verbindung fuer einen Schreibbefehl. Scheitert das Oeffnen (z. B. weil ein Datenlogger nur
+    // eine Verbindung zulaesst und gerade eine andere offen ist), wird nach einer Pause von 1,5 s einmal
+    // wiederholt. Bleibt es dabei, steht Fehlernummer und Text des Systems in lastError (abgelehnt oder
+    // Zeitlimit, 15.11.2026, Pauls Solis).
+    private function openForWrite()
+    {
+        $errno = 0;
+        $errstr = '';
+        for ($try = 0; $try < 2; $try++) {
+            $sock = @fsockopen($this->host, $this->port, $errno, $errstr, 3.0);
+            if ($sock !== false) {
+                return $sock;
+            }
+            if ($try === 0) {
+                usleep(1500000);
+            }
+        }
+        $detail = trim($errno . ' ' . $errstr);
+        $this->lastError = ($detail !== '' && $detail !== '0')
+            ? IHUB_Text::t('no connection (%s)', $detail)
+            : IHUB_Text::t('no connection');
+        return false;
+    }
+
     public function writeSingle($reg, $value)
     {
-        $sock = @fsockopen($this->host, $this->port, $errno, $errstr, 3.0);
+        $sock = $this->openForWrite();
         if ($sock === false) {
-            $this->lastError = IHUB_Text::t('no connection');
             return false;
         }
         stream_set_timeout($sock, 3);
@@ -383,7 +406,7 @@ class IHUB_ModbusTcpClient
 
     public function writeMultiple($startReg, $values)
     {
-        $sock = @fsockopen($this->host, $this->port, $errno, $errstr, 3.0);
+        $sock = $this->openForWrite();
         if ($sock === false) {
             return false;
         }
@@ -403,7 +426,16 @@ class IHUB_ModbusTcpClient
         $resp = @fread($sock, 64);
         fclose($sock);
 
-        return ($resp !== false && strlen($resp) >= 8 && ord($resp[7]) === 0x10);
+        if ($resp === false || strlen($resp) < 8) {
+            $this->lastError = IHUB_Text::t('no answer');
+            return false;
+        }
+        if (ord($resp[7]) === 0x10) {
+            $this->lastError = '';
+            return true;
+        }
+        $this->lastError = (ord($resp[7]) & 0x80) ? IHUB_Text::t('exception code %s', strlen($resp) >= 9 ? ord($resp[8]) : '?') : IHUB_Text::t('unexpected answer');
+        return false;
     }
 
     public function u16($regs, $offset)
@@ -2044,7 +2076,20 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
         ];
     }
 
+    // Eine wiederverwendete Verbindung fuer den ganzen Lesezyklus statt vier bis fuenf frisch geoeffneter
+    // (15.11.2026, Pauls Solis: der Datenlogger lehnt gleichzeitige und schnell aufeinanderfolgende
+    // Verbindungen ab).
     public function readFast($mb, $hub)
+    {
+        $mb->beginBatch();
+        try {
+            return $this->readFastInner($mb, $hub);
+        } finally {
+            $mb->endBatch();
+        }
+    }
+
+    private function readFastInner($mb, $hub)
     {
         $pv     = $mb->readInput(33049, 12);   // 33049-33060 (PV1-4 V/I + Total DC-Bereich)
         $ac     = $mb->readInput(33079, 6);    // 33079-33084 Wirk/Blind/Scheinleistung
@@ -2285,6 +2330,16 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
 
     public function readSlow($mb, $hub)
     {
+        $mb->beginBatch();
+        try {
+            $this->readSlowInner($mb, $hub);
+        } finally {
+            $mb->endBatch();
+        }
+    }
+
+    private function readSlowInner($mb, $hub)
+    {
         if ($hub->GetPropBool('GroupBat')) {
             $t = $mb->readInput(33043, 1);   // BMS-Batterietemperatur, 0,1 Grad
             if ($t !== null) {
@@ -2392,6 +2447,9 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
     {
         $err = '';
         for ($try = 0; $try < 2; $try++) {
+            if ($try > 0) {
+                usleep(1500000);   // Pause vor dem zweiten Versuch (Datenlogger mit nur einer Verbindung)
+            }
             if (!$mb->writeSingle($reg, $value)) {
                 $err = isset($mb->lastError) && $mb->lastError !== '' ? $mb->lastError : IHUB_Text::t('write failed');
                 continue;
@@ -6910,6 +6968,20 @@ class IHUB_RctPowerDriver implements IHUB_InverterDriverInterface
     }
 }
 
+// Kern-Variablen fuer Schreibbefehle (nicht Teil eines Treibers, gelten fuer jede Instanz mit Steuerpunkten).
+class IHUB_WriteDiag
+{
+    public static function vars(): array
+    {
+        return [
+            ['ctl_write_fail_count', 'Failed commands (count)', 'I', '', false, 'diag', 'Counts the write commands that did not arrive (after both attempts), since the variable was created'],
+            ['ctl_write_fail_time',  'Last failed command',     'I', '~UnixTimestamp', false, 'diag', 'Time of the last write command that did not arrive'],
+            ['ctl_write_fail_text',  'Last failure',            'S', '', false, 'diag', 'Ident of the command and reason of the last failure'],
+            ['ctl_write_ok_time',    'Last successful command', 'I', '~UnixTimestamp', false, 'diag', 'Time of the last write command that went through without a warning'],
+        ];
+    }
+}
+
 // ---------------------------------------------------------------------------
 // InverterHub — Hauptmodul, lädt den Treiber laut Manufacturer-Property
 // ---------------------------------------------------------------------------
@@ -7001,6 +7073,7 @@ class InverterHub extends IPSModule
     private const MQTT_BRIDGE_GUID = '{B8E699DE-22E4-4DF3-926B-8F4C118852B7}';
     private const MQTT_SERVER_GUID = '{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}';
     private const NEWS_ITEMS = [
+        'Writing to the device is more reliable: read cycles and commands no longer run at the same time on an instance, a failed connection is retried once after a short pause and the error code appears in the warning. Solis now reads over one shared connection. Instances with controls get four read-only variables (ctl_write_*) that show commands which did not arrive.',
         'Kostal PLENTICORE plus Gen2: new connection type "Kostal HTTP API" (read only, preview). It needs no Modbus connection, only IP address, user and password. Contributed by a community member.',
         'RCT Power: new optional groups for battery tower 2, state of health, battery state and the current control state (strategy, external target power). Read only, preview: nothing is written to the inverter.',
         'SMA: new group "PV inputs A and B" with the DC power per input (e.g. for east/west arrays). At night and for an unused input it shows 0 W.',
@@ -7187,6 +7260,9 @@ class InverterHub extends IPSModule
     public function WarnUser(string $message)
     {
         $this->LogMessage($message, KL_WARNING);
+        if ($this->inWriteCall && $this->writeFailure === '') {
+            $this->writeFailure = $message;
+        }
     }
 
     public function BlockLooksUnset(array $regs): bool
@@ -7369,11 +7445,76 @@ class InverterHub extends IPSModule
     // Daten sofort lesen"-Button ruft dieselbe Methode wie der periodische
     // FastTimer auf - der Rueckgabewert wird dabei stumm verworfen, das
     // Button-onClick nutzt ihn per echo als sichtbaren Erfolgs-/Fehlertext.
+    // Sperre je Instanz fuer alle Zugriffe auf das Geraet (Lesezyklen und Schreibbefehle), fuer jeden
+    // Hersteller und jede Verbindungsart (15.11.2026, Pauls Solis: Datenlogger mit nur einer Verbindung,
+    // Schreibbefehle scheiterten mit "keine Verbindung", weil der Lesezyklus gleichzeitig verbunden war).
+    // Nicht wiedereintrittsfaehig in IPS, daher die Tiefe. Die Sperre hat ein Zeitlimit: Wer sie nicht
+    // bekommt, liest in diesem Zyklus nicht (Lesen) bzw. schreibt trotzdem (Schreiben), damit ein
+    // haengender Lesezyklus nie dauerhaft blockiert. Haelt ein Lauf die Sperre laenger als
+    // LOCK_STALE_SEC, gilt sie als verwaist und wird ignoriert.
+    const LOCK_WAIT_READ_MS  = 8000;
+    const LOCK_WAIT_WRITE_MS = 20000;
+    const LOCK_STALE_SEC     = 45;
+    private $ihubLockDepth = 0;
+
+    private function LockName(): string
+    {
+        return 'IHUB_IO_' . $this->InstanceID;
+    }
+
+    private function LockEnter(int $waitMs): bool
+    {
+        if ($this->ihubLockDepth > 0) {
+            $this->ihubLockDepth++;
+            return true;
+        }
+        if (!function_exists('IPS_SemaphoreEnter') || !IPS_SemaphoreEnter($this->LockName(), $waitMs)) {
+            return false;
+        }
+        $this->ihubLockDepth = 1;
+        $this->SetBuffer('IoLockSince', (string)time());
+        return true;
+    }
+
+    private function LockLeave(): void
+    {
+        if ($this->ihubLockDepth <= 0) {
+            return;
+        }
+        $this->ihubLockDepth--;
+        if ($this->ihubLockDepth === 0) {
+            $this->SetBuffer('IoLockSince', '');
+            IPS_SemaphoreLeave($this->LockName());
+        }
+    }
+
+    private function LockIsStale(): bool
+    {
+        $since = (int)$this->GetBuffer('IoLockSince');
+        return $since > 0 && (time() - $since) > self::LOCK_STALE_SEC;
+    }
+
     public function ReadFast(): string
     {
         if (!$this->ReadPropertyBoolean('Active')) {
             return IHUB_Text::t('ℹ️ Instance is disabled ("Active" switch).');
         }
+        $held = $this->LockEnter(self::LOCK_WAIT_READ_MS);
+        if (!$held && function_exists('IPS_SemaphoreEnter') && !$this->LockIsStale()) {
+            $this->SendDebug('Lock', 'Read cycle skipped, a command is being written', 0);
+            return IHUB_Text::t('ℹ️ Read cycle skipped: a command is being written to the device.');
+        }
+        try {
+            return $this->ReadFastUnlocked();
+        } finally {
+            if ($held) {
+                $this->LockLeave();
+            }
+        }
+    }
+
+    private function ReadFastUnlocked(): string
+    {
         try {
             $driver = $this->GetDriver();
             $mb = $this->GetModbusClient();
@@ -7484,6 +7625,22 @@ class InverterHub extends IPSModule
         if (!$this->ReadPropertyBoolean('Active')) {
             return;
         }
+        $held = $this->LockEnter(self::LOCK_WAIT_READ_MS);
+        if (!$held && function_exists('IPS_SemaphoreEnter') && !$this->LockIsStale()) {
+            $this->SendDebug('Lock', 'Slow read skipped, a command is being written', 0);
+            return;
+        }
+        try {
+            $this->ReadSlowUnlocked();
+        } finally {
+            if ($held) {
+                $this->LockLeave();
+            }
+        }
+    }
+
+    private function ReadSlowUnlocked()
+    {
         try {
             $mb = $this->GetModbusClient();
             $this->GetDriver()->readSlow($mb, $this);
@@ -7552,7 +7709,49 @@ class InverterHub extends IPSModule
             );
             return;
         }
-        $this->GetDriver()->writeControl($this->GetModbusClient(), $this, $Ident, $Value);
+        $held = $this->LockEnter(self::LOCK_WAIT_WRITE_MS);
+        if (!$held && function_exists('IPS_SemaphoreEnter')) {
+            // Haengender Lesezyklus: Der Befehl wird trotzdem geschrieben, damit er nicht verloren geht.
+            $this->LogMessage(IHUB_Text::t('The read cycle did not release the device within %s s, command "%s" is written anyway.', (int)(self::LOCK_WAIT_WRITE_MS / 1000), $Ident), KL_WARNING);
+        }
+        $this->writeFailure = '';
+        $this->inWriteCall = true;
+        try {
+            $this->GetDriver()->writeControl($this->GetModbusClient(), $this, $Ident, $Value);
+        } catch (Throwable $e) {
+            $this->writeFailure = $e->getMessage();
+            $this->RecordWriteResult($Ident, $this->writeFailure);
+            throw $e;
+        } finally {
+            $this->inWriteCall = false;
+            if ($held) {
+                $this->LockLeave();
+            }
+        }
+        $this->RecordWriteResult($Ident, $this->writeFailure);
+    }
+
+    // Verfolgung endgueltig nicht angekommener Befehle (15.11.2026): Meldet ein Treiber waehrend eines
+    // Schreibbefehls eine Warnung (WarnUser), gilt der Befehl als nicht ausgefuehrt. Nur Lesen fuer das EMS:
+    // Zaehler, Zeitpunkte und letzter Text stehen in den Variablen ctl_write_* (nur bei Treibern mit Steuerung).
+    private $inWriteCall = false;
+    private $writeFailure = '';
+
+    private function RecordWriteResult(string $ident, string $failure): void
+    {
+        if ($this->FindVarByIdent('ctl_write_fail_count') === 0) {
+            return;
+        }
+        if ($failure === '') {
+            $this->SetVarInt('ctl_write_ok_time', time());
+            return;
+        }
+        $this->SetVarInt('ctl_write_fail_count', $this->GetVarInt('ctl_write_fail_count') + 1);
+        $this->SetVarInt('ctl_write_fail_time', time());
+        $vid = $this->FindVarByIdent('ctl_write_fail_text');
+        if ($vid) {
+            SetValueString($vid, mb_substr($ident . ': ' . $failure, 0, 250));
+        }
     }
 
     // Verbund-Vertrag mit MigrationsHub (29.07.2026): liefert je Fremdmodul-GUID
@@ -8865,15 +9064,27 @@ This KOSTAL HTTP API does not provide a battery temperature, so it is not read i
         // stehen (real gemeldet: neu angelegte Fronius-Instanz zeigte die
         // GoodWe-Datenpunkte).
         $valid = [];
+        $hasControl = false;
         foreach ($driver->getBaseVars() as $v) {
             $valid[$v[0]] = true;
+            if ($v[5] === 'control') {
+                $hasControl = true;
+            }
         }
         foreach ($driver->getOptionalGroups() as $propName => $group) {
             if ($this->ReadPropertyBoolean($propName)) {
                 foreach ($this->MpptFiltered($group['vars']) as $v) {
                     $valid[$v[0]] = true;
+                    if ($v[5] === 'control') {
+                        $hasControl = true;
+                    }
                 }
             }
+        }
+        // Fehlervariablen fuer Schreibbefehle: nur bei Instanzen, die ueberhaupt Steuerpunkte haben.
+        $writeDiag = $hasControl ? $this->WriteDiagVars() : [];
+        foreach ($writeDiag as $v) {
+            $valid[$v[0]] = true;
         }
         $this->PruneForeignObjects($valid);
 
@@ -8890,8 +9101,18 @@ This KOSTAL HTTP API does not provide a battery temperature, so it is not read i
                 }
             }
         }
+        foreach ($writeDiag as $v) {
+            $this->RegisterVar($v, $pos++);
+        }
         // Frueher angelegte Kategorien (cat_*) sind jetzt leer und werden entfernt.
         $this->PruneForeignObjects($valid);
+    }
+
+    // Vom Kern fuer jede Instanz mit Steuerpunkten gefuehrte Meldung, ob Schreibbefehle angekommen sind
+    // (15.11.2026, Wunsch EMS fuer die Statuszeile). Gruppe 'diag', kein Steuerpunkt, keine Aktion.
+    private function WriteDiagVars(): array
+    {
+        return IHUB_WriteDiag::vars();
     }
 
     /**
