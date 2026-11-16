@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.86.1 (2026-11-16)
+
+- **FoxESS (H3 Smart und verwandte Reihen): Hausleistung in W.** Neue Variable `house_load_total` („Hauslast (Leistung)“) aus den Registern 39225/39226 (I32, W), im schon gelesenen Leistungsblock. Bisher gab es nur den Hausverbrauch als Energie (kWh). Anlass: Ein Nutzer wollte den Hausverbrauch in einem virtuellen MeterHub-Zähler abziehen. Die Register stammen aus der Home-Assistant-Integration (`load_power`), am Gerät noch nicht bestätigt: Wert und Vorzeichen bitte mit „Gesamt Home“ in der Fox-App vergleichen. Die Variable ist zugleich der `houseLoadID` im Vertrag `IHUB_GetFunctions`.
+- Nur additiv: eine neue Variable bei bestehenden Instanzen des Smart-Treibers; der ältere FoxESS-Treiber (Register 10000/11000) bleibt unverändert.
+- Prüfstand `.tools/test-foxess-smart.php` um die Hausleistung erweitert.
+
 ## 0.86.0 (2026-11-15)
 
 - **Schreibbefehle kommen zuverlässiger an.** Auslöser war ein Solis mit Datenlogger, der nur eine Verbindung gleichzeitig zulässt: Über einen Vormittag scheiterten 30 Schreibbefehle mit „keine Verbindung“, während das Lesen weiterlief. Befund aus dem Code: Der Lesezyklus (beim Solis vier bis fünf frisch geöffnete Verbindungen je Takt) und ein Schreibbefehl liefen gleichzeitig, jeder mit eigener Verbindung.

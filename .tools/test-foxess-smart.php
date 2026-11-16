@@ -87,6 +87,7 @@ function baseRegs()
     put16($r, 39141, 412);                 // 41,2 °C
     put32($r, 39134, 4321);                // AC-Leistung 4321 W
     put32($r, 39237, -1800);               // Batterie laedt mit 1800 W
+    put32($r, 39225, 2468);                // Hausleistung 2468 W
     put32($r, 39279, 3000); put32($r, 39281, 2500); put32($r, 39283, -5); put32($r, 39285, 0);
     put32($r, 38814, -12345);              // Netz: 1234,5 W Bezug (negativ), Einheit 0,1 W
     put16($r, 37609, 4023); put16($r, 37610, -150); put16($r, 37611, 255); put16($r, 37612, 67);
@@ -115,6 +116,7 @@ ok(abs($hub->v['grid_freq'] - 50.01) < 0.001, 'Netzfrequenz (÷100)');
 ok(abs($hub->v['temp_inv'] - 41.2) < 0.01, 'Wechselrichter-Temperatur');
 ok($hub->v['ac_power'] === 4321.0, 'AC-Leistung (I32, Wort-Reihenfolge hoch zuerst)');
 ok($hub->v['bat_power'] === -1800.0, 'Batterieleistung negativ = Laden (I32)');
+ok($hub->v['house_load_total'] === 2468.0, 'Hausleistung (HR 39225/39226, I32) als house_load_total');
 ok($hub->v['pv_total'] === 5500.0, 'PV-Summe ohne negative String-Werte');
 ok(abs($hub->v['meter_total'] - (-1234.5)) < 0.01, 'Netz: -1234,5 W (Bezug), Einheit 0,1 W');
 ok(abs($hub->v['bat_volt'] - 402.3) < 0.01 && abs($hub->v['bat_curr'] - (-15.0)) < 0.01 && abs($hub->v['bat_temp'] - 25.5) < 0.01, 'BMS Spannung/Strom/Temperatur');

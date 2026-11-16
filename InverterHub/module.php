@@ -5496,6 +5496,7 @@ class IHUB_FoxEssSmartDriver implements IHUB_InverterDriverInterface
             ['bat_power', 'Bat. power (+ discharging / − charging)', 'F', 'FOXS.Watt', true, 'bat', 'HR 39237 (I32)'],
             ['bat_soc',   'Bat. SOC',          'I', '~Battery.100',    true,  'bat',    'HR 37612'],
             ['meter_total', 'Grid power (+ feed-in / − import)', 'F', 'FOXS.Watt', true, 'grid', 'HR 38814 (I32, ÷10)'],
+            ['house_load_total', 'House load power', 'F', 'FOXS.Watt', true, 'grid', 'HR 39225+39226 (I32, W)'],
         ];
     }
 
@@ -5646,11 +5647,14 @@ class IHUB_FoxEssSmartDriver implements IHUB_InverterDriverInterface
             }
         }
 
-        // Leistungsblock 39201-39286 (86 Register): Batterieleistung (39237/38)
+        // Leistungsblock 39201-39286 (86 Register): Hausleistung (39225/26), Batterieleistung (39237/38)
         // und die vier PV-String-Leistungen (39279/80, 81/82, 83/84, 85/86).
         $c = $this->readBlock($mb, 39201, 86);
         if ($c !== null) {
             $hub->SetVarFloat('bat_power', (float)$mb->s32($c, 36));      // 39237/39238
+            // Hausleistung (load_power der Home-Assistant-Integration, H3 Pro/Smart): 39225/39226, I32, W.
+            // Aus dem Open-Source-Code uebernommen, am Geraet noch nicht bestaetigt (16.11.2026).
+            $hub->SetVarFloat('house_load_total', (float)$mb->s32($c, 24));
             // Je String kann der Wert ohne angeschlossene Module negativ werden
             // (HA: max(x, 0)) - sonst ergaebe die Summe Unsinn.
             $pv = 0.0;
@@ -7073,6 +7077,7 @@ class InverterHub extends IPSModule
     private const MQTT_BRIDGE_GUID = '{B8E699DE-22E4-4DF3-926B-8F4C118852B7}';
     private const MQTT_SERVER_GUID = '{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}';
     private const NEWS_ITEMS = [
+        'FoxESS (H3 Smart and related series): new variable "House load power" in W (register 39225/39226). Not yet confirmed on a device, please compare with "Total home" in the Fox app.',
         'Writing to the device is more reliable: read cycles and commands no longer run at the same time on an instance, a failed connection is retried once after a short pause and the error code appears in the warning. Solis now reads over one shared connection. Instances with controls get four read-only variables (ctl_write_*) that show commands which did not arrive.',
         'Kostal PLENTICORE plus Gen2: new connection type "Kostal HTTP API" (read only, preview). It needs no Modbus connection, only IP address, user and password. Contributed by a community member.',
         'RCT Power: new optional groups for battery tower 2, state of health, battery state and the current control state (strategy, external target power). Read only, preview: nothing is written to the inverter.',
