@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.87.0 (2026-11-17)
+
+- **GoodWe: zwei belastbare Batteriezähler aus dem BMS.** Neue Variablen `bms_e_charge_total` („Batterie geladen gesamt (BMS)“) und `bms_e_disch_total` („Batterie entladen gesamt (BMS)“) aus den Registern 37056/37057 und 37058/37059 (U32, 0,1 kWh), archiviert als Zähler, in der Gruppe Energiezähler. Grund: Die Wechselrichter-Gesamtzähler 35206/35209 sind in jeder Messung exakt das Doppelte der BMS-Zähler (Messung 07.11.2026: 8669,7 und 8429,7 kWh gegen 17339,4 und 16859,4 kWh), weshalb sich daraus kein Rundwirkungsgrad bestimmen lässt. Ungültige Werte (0xFFFFFFFF) werden nicht übernommen, der alte Stand bleibt stehen. Die bisherigen Zähler bleiben unverändert (Archiv, Verknüpfungen).
+- **Vertrag `IHUB_GetFunctions` 1.5 → 1.6 (additiv):** neue Felder `batteryChargeEnergyID` und `batteryDischargeEnergyID` mit den Variablen-IDs dieser Zähler, 0 bei Treibern ohne belastbare Batteriezähler. Anlass: EMS-Wunsch zur Bestimmung des Rundwirkungsgrads.
+- Prüfstand `.tools/test-goodwe-energy-sentinel.php` um die BMS-Zähler erweitert (Werte, Ungültig-Wert, keine Antwort).
+
 ## 0.86.1 (2026-11-16)
 
 - **FoxESS (H3 Smart und verwandte Reihen): Hausleistung in W.** Neue Variable `house_load_total` („Hauslast (Leistung)“) aus den Registern 39225/39226 (I32, W), im schon gelesenen Leistungsblock. Bisher gab es nur den Hausverbrauch als Energie (kWh). Anlass: Ein Nutzer wollte den Hausverbrauch in einem virtuellen MeterHub-Zähler abziehen. Die Register stammen aus der Home-Assistant-Integration (`load_power`), am Gerät noch nicht bestätigt: Wert und Vorzeichen bitte mit „Gesamt Home“ in der Fox-App vergleichen. Die Variable ist zugleich der `houseLoadID` im Vertrag `IHUB_GetFunctions`.

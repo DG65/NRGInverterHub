@@ -703,6 +703,8 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 ['e_charge_total', 'Bat. charge total',   'F', '~Electricity', true, 'energy', 'DSP 35206'],
                 ['e_disch_day',    'Bat. discharge today',    'F', '~Electricity', true, 'energy', 'DSP 35211'],
                 ['e_disch_total',  'Bat. discharge total',   'F', '~Electricity', true, 'energy', 'DSP 35209'],
+                ['bms_e_charge_total', 'Bat. charge total (BMS)',    'F', '~Electricity', true, 'energy', 'DSP 37056-37057 (U32, 0.1 kWh)'],
+                ['bms_e_disch_total',  'Bat. discharge total (BMS)', 'F', '~Electricity', true, 'energy', 'DSP 37058-37059 (U32, 0.1 kWh)'],
                 ['work_hours',     'Operating hours',     'F', '', false, 'energy', 'DSP 35197'],
             ]],
             'GroupMeter' => ['caption' => 'Smart meter (power, voltage, current per phase)', 'vars' => [
@@ -1186,6 +1188,18 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 $put('e_charge_day',   $mb->u16($e, 17), 0xFFFF);
                 $put('e_disch_total',  $mb->u32($e, 18), 0xFFFFFFFF);
                 $put('e_disch_day',    $mb->u16($e, 20), 0xFFFF);
+            }
+            // BMS-Gesamtzaehler (37056 Laden, 37058 Entladen, U32, 0,1 kWh): laut Messung 07.11.2026
+            // belastbar, die Wechselrichter-Gesamtzaehler 35206/35209 sind exakt doppelt (siehe CLAUDE.md).
+            // 0xFFFFFFFF = ungueltig, dann bleibt der alte Stand stehen.
+            $bmsE = $mb->readHolding(37056, 4);
+            if ($bmsE !== null) {
+                foreach ([['bms_e_charge_total', 0], ['bms_e_disch_total', 2]] as $pair) {
+                    $raw = $mb->u32($bmsE, $pair[1]);
+                    if ($raw !== 0xFFFFFFFF) {
+                        $hub->SetVarFloat($pair[0], $raw / 10.0);
+                    }
+                }
             }
         }
 
@@ -7077,6 +7091,7 @@ class InverterHub extends IPSModule
     private const MQTT_BRIDGE_GUID = '{B8E699DE-22E4-4DF3-926B-8F4C118852B7}';
     private const MQTT_SERVER_GUID = '{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}';
     private const NEWS_ITEMS = [
+        'GoodWe: two new battery meters from the BMS (total charged / total discharged, kWh). The inverter totals are exactly doubled, the BMS values are reliable, for example to determine the round-trip efficiency.',
         'FoxESS (H3 Smart and related series): new variable "House load power" in W (register 39225/39226). Not yet confirmed on a device, please compare with "Total home" in the Fox app.',
         'Writing to the device is more reliable: read cycles and commands no longer run at the same time on an instance, a failed connection is retried once after a short pause and the error code appears in the warning. Solis now reads over one shared connection. Instances with controls get four read-only variables (ctl_write_*) that show commands which did not arrive.',
         'Kostal PLENTICORE plus Gen2: new connection type "Kostal HTTP API" (read only, preview). It needs no Modbus connection, only IP address, user and password. Contributed by a community member.',
@@ -7885,7 +7900,9 @@ class InverterHub extends IPSModule
             // entfernt/umbenannt/umgedeutet, Major bleibt unveraendert (siehe
             // CLAUDE.md "Vertragsversionierung"). 1.3 -> 1.4: houseLoadID (Dashboard-Wunsch
             // 19.10.2026, gemessener Gesamtverbrauch; bisher nur Solis: house_load_total).
-            'contractVersion'  => '1.5',
+            // 1.5 -> 1.6: batteryChargeEnergyID/batteryDischargeEnergyID (EMS-Wunsch 17.11.2026,
+            // belastbare Batterie-Gesamtzaehler kWh, bisher nur GoodWe: bms_e_*_total; sonst 0).
+            'contractVersion'  => '1.6',
             'houseLoadID'      => $find('house_load_total'),
             'gridServiceCapabilities' => $gridServiceCapabilities,
             'instanceID'       => $this->InstanceID,
@@ -7914,6 +7931,8 @@ class InverterHub extends IPSModule
             'batterySocIDs'    => $batterySocIDs,
             'batterySohIDs'    => $batterySohIDs,
             'batteryCapacityID' => $find('bat_capacity'),
+            'batteryChargeEnergyID'    => $find('bms_e_charge_total'),
+            'batteryDischargeEnergyID' => $find('bms_e_disch_total'),
             'mpptPowerIDs'     => $mpptPowerIDs,
             'mpptCurrentIDs'   => $mpptCurrentIDs,
             'mpptVoltageIDs'   => $mpptVoltageIDs,
