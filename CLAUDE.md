@@ -565,6 +565,10 @@ dessen Präfix in `FOREIGN_PREFIXES` ergänzen — sonst prüft der Prüfer dara
 
 Die alten Prüfstände lesen den früheren Gesamttext über `.tools/ih-source.inc.php` (`ih_source()` setzt die `libs/`-Dateien an der Stelle der `require_once`-Zeilen wieder ein). Neue Prüfstände laden die Klassen direkt (`require_once` von `module.php`, Vorbild `.tools/test-ref-*.php`). `check-class-scope.php` fasst `InverterHub/` und `libs/` zu einem Pool zusammen, sonst würde die Prüfung nach dem Aufteilen nichts mehr finden (jede Klasse läge allein in ihrer Datei).
 
+### Gemeinsame Modbus-Bibliothek NRGModbus (seit 0.90.0, 19.11.2026)
+
+Die Modbus-Clients kommen aus der Bibliothek `NRGModbus` (lokales Repo `../NRGModbus`, ohne Remote; InverterHub pflegt sie). In diesem Repo liegt eine **unveränderte Kopie** unter `libs/NRGModbus/` (Namensraum `IHUB\NRGModbus`, Kopfzeile mit Version und Prüfsumme). **Die Kopie nie von Hand ändern**: Änderungen in der Quelle, dann `php ../NRGModbus/.tools/modbus-sync.php sync IHUB <dieses Repo>`; `php .tools/check-modbus-lib.php` meldet jede Abweichung. `IHUB_ModbusTcpClient` und `IHUB_ModbusGatewayClient` (`libs/`) sind Anpassungsklassen mit den alten Methoden- und Feldnamen (`$unitId`, `$host`, `$port`, `$floatWordSwap`, `$lastError` als Klartext des letzten Schreibzugriffs); Treiber werden dafür nicht geändert. Schreiben läuft über einen zweiten Bibliotheksclient mit eigener Verbindung (2 Versuche, 1,5 s Pause, keine Prüfung der Transaktions-ID). Die Prüfung der Transaktions-ID beim Schreiben ist über die Bibliotheksoption `verifyWriteTid` zuschaltbar und bewusst aus (eigener späterer Schritt). Schreibwiederholung, Sperre je Instanz und `ctl_write_*` bleiben im Hauptmodul. Prüfstände: `.tools/test-modbus-adapter.php`, `.tools/mutate-modbus-adapter.php`, `.tools/test-modbus-vergleich.php` (alt gegen neu, holt den Altstand per `git show`), `.tools/check-modbus-lib.php`.
+
 ### Klassengrenzen prüfen — `InverterHub/module.php` hat 15 Treiberklassen
 
 ```

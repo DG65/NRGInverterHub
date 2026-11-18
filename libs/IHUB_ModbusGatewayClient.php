@@ -2,25 +2,18 @@
 
 // ---------------------------------------------------------------------------
 // IHUB_ModbusGatewayClient — Anbindung an Symcons eingebauten Symbox-RS485-
-// Port über das native Gateway-Instanzmodell (SendDataToParent()/ForwardData()
-// statt eigenem fsockopen-Client), zusätzlich zum direkten TCP-Weg oben, kein
-// Ersatz. SUITE.md 9j, Verbund-Abstimmung mit MeterHub/ChargerHub (18.09.2026):
-// gleiche vier Methoden wie IHUB_ModbusTcpClient (readHolding/readInput/
-// writeSingle/writeMultiple), damit Treiber beim Umschalten unverändert
-// bleiben. Das exakte ForwardData()-Payload-Schema (Function Code/Adresse/
-// Quantity/Unit-ID-Kodierung im Puffer) ist nirgends öffentlich dokumentiert —
-// weder SDK-Doku noch Modulreferenz noch Community-Threads zeigen ein
-// vollständiges Beispiel, die nativen Module sind kompiliert. Deshalb bewusst
-// nur als Stub: liefert kontrolliert null/false statt Fatal Error, bis das
-// Schema an echter Symbox-Hardware oder über eine Forum-Antwort geklärt ist.
-// -----------------------------------------------------------------------
+// Port über das native Gateway-Instanzmodell, zusätzlich zum direkten TCP-Weg, kein
+// Ersatz. SUITE.md 9j, Verbund-Abstimmung mit MeterHub/ChargerHub (18.09.2026).
+// Seit 0.90.0 Anpassungsklasse über der gemeinsamen Bibliothek NRGModbus (GatewayTransport):
+// die Bibliothek baut die Anfrage als JSON, diese Klasse zerlegt sie und ruft ForwardToGateway()
+// der Modulinstanz (SendDataToParent() ist in IPSModule protected). Verhalten wie vorher:
+// $requests/$responses zählen, Antworten werden nicht auf die angefragte Zahl gekürzt, der
+// Schreibweg (FC6/FC16) ist eine UNGETESTETE Ableitung aus dem verifizierten Lesepfad.
+// Lesepfad von MeterHub am Rohcode des offiziellen SymconBC-Referenzmoduls verifiziert
+// (github.com/symcon/SymconBC, EM24-DIN/module.php, 18.09.2026).
+// ---------------------------------------------------------------------------
 class IHUB_ModbusGatewayClient
 {
-    // Von MeterHub direkt am Rohcode des offiziellen SymconBC-Referenzmoduls
-    // verifiziert (github.com/symcon/SymconBC, EM24-DIN/module.php, 18.09.2026):
-    // Lesepfad ist damit ein bestätigter Fund, kein Community-Reverse-Engineering.
-    private const GATEWAY_DATA_ID = '{E310B701-4AE7-458E-B618-EC13A1A6F6A8}';
-
     private $module;
     // Wird im Gateway-Modus NIE gesendet (die Nutzlast hat keine Unit-ID, die Adresse
     // steckt in der Geraete-ID der Gateway-Instanz). Public nur, damit Treiber, die
@@ -36,25 +29,34 @@ class IHUB_ModbusGatewayClient
     // Wie IHUB_ModbusTcpClient: Float32-Wortreihenfolge (Kostal = CDAB).
     public $floatWordSwap = false;
 
-    // SendDataToParent() ist eine Methode der IPSModule-Instanz, keine globale
-    // Funktion - die Klasse braucht daher (anders als IHUB_ModbusTcpClient, der
-    // rein per fsockopen arbeitet) einen Verweis auf die aufrufende Modulinstanz.
+    /** @var \IHUB\NRGModbus\ModbusClient */
+    private $client;
+
     public function __construct($module, $port, $unitId, $logger = null)
     {
         $this->module = $module;
         $this->unitId = $unitId;
         $this->logger = $logger;
+        $this->client = \IHUB\NRGModbus\ModbusClient::gateway((int)$unitId, function (string $json) {
+            return $this->forward($json);
+        }, ['trimReply' => false]);
     }
 
-    private function request($function, $address, $quantity, $data = '')
+    // Zerlegt die Anfrage der Bibliothek (JSON, Data in Base64) und ruft die Weiterleitung der Modulinstanz auf.
+    private function forward(string $json)
     {
         if (!method_exists($this->module, 'ForwardToGateway')) {
-            return null;
+            return false;
         }
+        $req = json_decode($json, true);
+        if (!is_array($req)) {
+            return false;
+        }
+        $data = base64_decode((string)($req['Data'] ?? ''), true);
         $this->requests++;
-        $response = @$this->module->ForwardToGateway(self::GATEWAY_DATA_ID, $function, $address, $quantity, $data);
+        $response = @$this->module->ForwardToGateway((string)$req['DataID'], (int)$req['Function'], (int)$req['Address'], (int)$req['Quantity'], $data === false ? '' : $data);
         if ($response === false || $response === null || $response === '') {
-            return null;
+            return false;
         }
         $this->responses++;
         return $response;
@@ -84,79 +86,48 @@ class IHUB_ModbusGatewayClient
     }
 
     // Dekodier-Hilfen, die JEDER Treiber am Client aufruft (u16/s16/u32/s32/
-    // readStr/readFloat32). Muessen zeichengleich zu IHUB_ModbusTcpClient
-    // bleiben - .tools/test-gateway-client.php prueft, dass jede von Treibern
+    // readStr/readFloat32). .tools/test-gateway-client.php prueft, dass jede von Treibern
     // genutzte Client-Methode hier existiert. Fehlten sie, brach der erste
     // Lesezugriff im Gateway-Modus mit "Call to undefined method" ab (Forum-
     // Beta-Tester Mstaudi, 19.09.2026: "Aktualisieren tut es auch noch nicht").
     public function u16($regs, $offset)
     {
-        return isset($regs[$offset]) ? ($regs[$offset] & 0xFFFF) : 0;
+        return \IHUB\NRGModbus\ModbusDecode::u16($regs, $offset);
     }
 
     public function s16($regs, $offset)
     {
-        $v = $this->u16($regs, $offset);
-        return $v > 32767 ? $v - 65536 : $v;
+        return \IHUB\NRGModbus\ModbusDecode::s16($regs, $offset);
     }
 
     public function u32($regs, $offset)
     {
-        return (($this->u16($regs, $offset) << 16) | $this->u16($regs, $offset + 1));
+        return \IHUB\NRGModbus\ModbusDecode::u32($regs, $offset);
     }
 
     public function s32($regs, $offset)
     {
-        $v = $this->u32($regs, $offset);
-        return $v > 2147483647 ? $v - 4294967296 : $v;
+        return \IHUB\NRGModbus\ModbusDecode::s32($regs, $offset);
     }
 
     public function readStr($regs, $offset, int $regCount)
     {
-        $s = '';
-        for ($i = 0; $i < $regCount; $i++) {
-            $r  = $this->u16($regs, $offset + $i);
-            $s .= chr(($r >> 8) & 0xFF) . chr($r & 0xFF);
-        }
-        return rtrim($s, "\x00 ");
+        return \IHUB\NRGModbus\ModbusDecode::str($regs, $offset, $regCount);
     }
 
     public function readFloat32($regs, $offset)
     {
-        $hi  = $this->u16($regs, $offset);
-        $lo  = $this->u16($regs, $offset + 1);
-        if ($this->floatWordSwap) {
-            $tmp = $hi; $hi = $lo; $lo = $tmp;
-        }
-        $raw = pack('nn', $hi, $lo);
-        $val = unpack('G', $raw);
-        return (float)($val[1] ?? 0.0);
+        return \IHUB\NRGModbus\ModbusDecode::float32($regs, $offset, $this->floatWordSwap);
     }
 
     public function readHolding($startReg, $count)
     {
-        return $this->readRegisters(3, $startReg, $count);
+        return $this->client->readHolding($startReg, $count);
     }
 
     public function readInput($startReg, $count)
     {
-        return $this->readRegisters(4, $startReg, $count);
-    }
-
-    // Verifiziertes Antwortformat (MeterHub, 18.09.2026): erste 2 Byte sind
-    // Function-Code + Byte-Count der Modbus-PDU (vom Gateway bereits abgetrennt
-    // vom MBAP/RTU-Rahmen zurückgegeben), danach 16-Bit-Register big-endian.
-    private function readRegisters($function, $startReg, $count)
-    {
-        $response = $this->request($function, $startReg, $count);
-        if ($response === null || strlen($response) < 2) {
-            return null;
-        }
-        $unpacked = @unpack('n*', substr($response, 2));
-        if ($unpacked === false) {
-            return null;
-        }
-        return array_values($unpacked);
+        return $this->client->readInput($startReg, $count);
     }
 
     // Ungetestete Ableitung aus dem verifizierten Lesepfad - für den Schreibfall
@@ -166,18 +137,12 @@ class IHUB_ModbusGatewayClient
     public function writeSingle($reg, $value)
     {
         $this->notImplemented('writeSingle/FC6');
-        $response = $this->request(6, $reg, 1, pack('n', $value & 0xFFFF));
-        return $response !== null;
+        return $this->client->writeSingle($reg, $value);
     }
 
     public function writeMultiple($startReg, $values)
     {
         $this->notImplemented('writeMultiple/FC16');
-        $data = '';
-        foreach ($values as $v) {
-            $data .= pack('n', $v & 0xFFFF);
-        }
-        $response = $this->request(16, $startReg, count($values), $data);
-        return $response !== null;
+        return $this->client->writeMultiple($startReg, $values);
     }
 }

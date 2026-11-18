@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.90.0 (noch nicht veröffentlicht)
+
+- **Interner Umbau: die beiden Modbus-Clients sitzen jetzt auf der gemeinsamen Bibliothek NRGModbus.** `IHUB_ModbusTcpClient` und `IHUB_ModbusGatewayClient` sind dünne Anpassungsklassen, die Übertragung, Batch, Prüfung der Transaktions-ID und Dekodierung kommen aus `libs/NRGModbus/` (unveränderte Kopie, Namensraum `IHUB\NRGModbus`). Die Treiber bleiben unverändert und sehen dieselben Methoden und Felder wie vorher.
+- **Verhalten bleibt gleich:** Geschrieben wird weiter auf einer eigenen Verbindung (zwei Verbindungsversuche mit 1,5 s Pause), die Antwort wird dabei wie bisher ohne Prüfung der Transaktions-ID angenommen, ein laufender Batch bleibt unberührt. Lesen liefert bei jedem Fehler `null`, `lastError` bleibt der Klartext des letzten Schreibzugriffs, Gateway-Antworten werden nicht gekürzt. Alle Referenzläufe (`.tools/ref/*.json`) bleiben unverändert.
+- **Eine Abweichung, bewusst:** Kommt die Antwort auf einen Schreibzugriff in mehreren Stücken an, galt sie bisher als „keine Antwort“ (der alte Client las sie mit einem einzigen Lesevorgang). Der neue Client liest sie exakt nach Frame-Länge und wertet sie richtig aus. Bei Geräten, die vollständig antworten, ändert sich nichts.
+- Prüfstände neu: `.tools/test-modbus-adapter.php` (36 Prüfungen), `.tools/mutate-modbus-adapter.php` (21 Mutationsproben), `.tools/test-modbus-vergleich.php` (Gegenlauf alter gegen neuer Client über neun Servermodi und sieben Gateway-Antworten), `.tools/check-modbus-lib.php` (Kopie gleich der Quelle).
+- Release nur auf Beta, mindestens 5 Tage keine Stable (der Schreibweg ist betroffen); Live-Prüfung je 24 h an Dietmars GoodWe (#52838) und an Pauls Solis (#11535).
+
 ## 0.89.1 (2026-11-18)
 
 - **Gerätesuche: Geschwister-Abfrage nicht mehr in `ApplyChanges`, sondern erst beim Öffnen des Formulars.** Hinweis des Store-Gutachters zu 0.88.0: Gibt es mehrere Instanzen der Gerätesuche, werden sie bei einem Update oder beim Neustart von Symcon nacheinander initialisiert. Fragte die zuerst initialisierte Instanz in `AdoptDismissFromSibling` die noch nicht initialisierte ab, scheiterte das mit einer Warnung, die der vorhandene `try/catch` nicht fängt, und die zuerst initialisierte Instanz blieb im falschen Zustand. Jetzt läuft der Abgleich des gemeinsamen Ausblendens (Einleitung, Review-Hinweis, „Was ist neu“) erst, wenn jemand das Formular öffnet; dann ist das System vollständig initialisiert. Das Hauptmodul macht es seit 0.77 genauso.

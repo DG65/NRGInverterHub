@@ -11,6 +11,7 @@ require_once __DIR__ . '/KostalHttpClient.php';
 // einmal in genau einer Datei: zwei Dateien mit derselben Klasse führen zu
 // "Cannot redeclare class". Hier bleibt die Modulklasse InverterHub.
 // ---------------------------------------------------------------------------
+require_once __DIR__ . '/../libs/NRGModbus/autoload.php';
 require_once __DIR__ . '/../libs/IHUB_ModbusGatewayClient.php';
 require_once __DIR__ . '/../libs/IHUB_ModbusTcpClient.php';
 require_once __DIR__ . '/../libs/IHUB_InverterDriverInterface.php';

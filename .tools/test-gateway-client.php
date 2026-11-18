@@ -3,6 +3,7 @@ require_once __DIR__ . '/ihub-text.inc.php';
 // Extrahiert IHUB_ModbusGatewayClient aus module.php und testet gegen ein
 // simuliertes ForwardToGateway()-Ergebnis (verifiziertes SymconBC-Antwortformat).
 require_once __DIR__ . '/ih-source.inc.php';
+require_once dirname(__DIR__) . '/libs/NRGModbus/autoload.php';   // der Adapter sitzt seit 0.90.0 auf der Bibliothek
 $src = ih_source();
 if (!preg_match('/class IHUB_ModbusGatewayClient\b.*?\n}\n/s', $src, $m)) {
     fwrite(STDERR, "Klasse nicht gefunden\n");
