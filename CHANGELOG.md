@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.90.0 (2026-11-19)
+## 0.90.0 (2026-11-18)
 
 - **Interner Umbau: die beiden Modbus-Clients sitzen jetzt auf der gemeinsamen Bibliothek NRGModbus.** `IHUB_ModbusTcpClient` und `IHUB_ModbusGatewayClient` sind dünne Anpassungsklassen, die Übertragung, Batch, Prüfung der Transaktions-ID und Dekodierung kommen aus `libs/NRGModbus/` (unveränderte Kopie, Namensraum `IHUB\NRGModbus`). Die Treiber bleiben unverändert und sehen dieselben Methoden und Felder wie vorher.
 - **Verhalten bleibt gleich:** Geschrieben wird weiter auf einer eigenen Verbindung (zwei Verbindungsversuche mit 1,5 s Pause), die Antwort wird dabei wie bisher ohne Prüfung der Transaktions-ID angenommen, ein laufender Batch bleibt unberührt. Lesen liefert bei jedem Fehler `null`, `lastError` bleibt der Klartext des letzten Schreibzugriffs, Gateway-Antworten werden nicht gekürzt. Alle Referenzläufe (`.tools/ref/*.json`) bleiben unverändert.
