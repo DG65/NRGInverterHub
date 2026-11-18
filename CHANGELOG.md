@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.89.0 (2026-11-18)
+
+- **Neues Vertragsfeld `phaseCurrentIDs` in `IHUB_GetFunctions` (Vertrag 1.6 → 1.7, additiv).** Liste mit genau drei Variablen-IDs `[L1, L2, L3]` (Strom in A) am Netzanschlusspunkt, gemessen vom **Zähler**, nicht am Wechselrichter-Ausgang. Anlass ist der Phasenwächter im EMS (0.107.0) nach dem Ausfall vom 15.11.2026 (L1 mit 57,7 A an einem 50-A-Lasttrennschalter). Quellen: Solis (Register 33252/33254/33256, ÷100) und GoodWe (Register 36055-36057, ÷10) über die schon vorhandenen Variablen `mt_l1_curr` bis `mt_l3_curr`, Fronius über `meter_l1_curr` bis `meter_l3_curr` (SunSpec-Zähler). Die AC-Ströme des Wechselrichters (`grid_l1_curr` bei Solis 33076, Kostal, Deye, Solax) zählen bewusst nicht. Fehlt eine der drei Phasen oder die Zählergruppe, bleibt das Feld leer.
+- **Voraussetzung:** Die Zählerströme liegen in der optionalen Gruppe „Smart Meter (Spannung, Strom je Phase)“ (Solis), „Smart Meter (Leistung, Spannung, Strom je Phase)“ (GoodWe) bzw. „Smart Meter je Phase (Spannung/Strom/Leistung)“ (Fronius). Ohne diese Gruppe bleibt das Feld leer, das EMS nutzt dann seine manuelle Zuordnung. Die Werte werden in jedem schnellen Lesezyklus gesetzt, auch unverändert.
+- Keine neuen Variablen, keine Änderung an Lesen und Schreiben. Prüfstand `.tools/test-phase-currents.php` (13 Prüfungen, drei Mutationsproben).
+
 ## 0.88.0 (2026-11-18)
 
 - **Interner Umbau ohne Verhaltensänderung: die Treiber liegen jetzt je Klasse in einer eigenen Datei.** `InverterHub/module.php` hatte 9.809 Zeilen mit allen 17 Treibern, den Modbus-Clients und den Hilfsklassen; jetzt enthält sie nur noch die Modulklasse (rund 2.800 Zeilen). Die übrigen 23 Klassen und die Schnittstelle liegen unverändert (wörtlich verschoben) in `libs/<Klassenname>.php` und werden von `module.php` per `require_once` geladen. Grund: Die Datei war kaum noch zu überblicken, ein Textersatz konnte die falsche, wortgleiche Stelle treffen (so kam der Fehler in den Builds 145/146 zustande), und die Prüfstände mussten Klassen per regulärem Ausdruck herausschneiden.

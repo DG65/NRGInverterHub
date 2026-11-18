@@ -867,6 +867,22 @@ class InverterHub extends IPSModule
                 $mpptVoltageIDs[] = $v;
             }
         }
+        // Phasenstroeme am Netzanschlusspunkt (EMS-Wunsch 18.11.2026, EMS 0.107.0 Phasenwaechter nach dem Ausfall bei Paul:
+        // L1 57,7 A an einem 50-A-SLS). Gemeint ist der Strom des ZAEHLERS am Netzanschluss, NICHT der AC-Strom des
+        // Wechselrichters (grid_l1_curr bei Solis 33076, Kostal, Deye; grid_r/s/t_curr bei Solax; grid_curr bei SMA/SolarEdge).
+        // Nur Treiber, die Phasenstroeme eines Zaehlers lesen, bieten das Feld an: mt_l1..3_curr (Solis 33252/33254/33256,
+        // GoodWe 36055-36057) oder meter_l1..3_curr (Fronius, SunSpec-Zaehler). Alle drei muessen vorhanden sein, sonst leer.
+        // Die Variablen stehen in den optionalen Gruppen "Zaehler" (Solis, GoodWe: GroupMeter, Fronius: GroupMeterPhases);
+        // ohne diese Gruppe bleibt das Feld leer und das EMS faellt auf seine manuelle Zuordnung zurueck. Geschrieben werden
+        // sie in jedem schnellen Lesezyklus (SetVarFloat setzt den Wert immer, auch unveraendert).
+        $phaseCurrentIDs = [];
+        foreach ([['mt_l1_curr', 'mt_l2_curr', 'mt_l3_curr'], ['meter_l1_curr', 'meter_l2_curr', 'meter_l3_curr']] as $set) {
+            $ids = [$find($set[0]), $find($set[1]), $find($set[2])];
+            if (min($ids) > 0) {
+                $phaseCurrentIDs = $ids;
+                break;
+            }
+        }
         // Netzdienlichkeits-Faehigkeiten (EMS-Vertrag, 12.09.2026): generisch
         // ueber die Existenz der svc_*-Idents erkannt, kein Treiber-Sonderfall
         // noetig - ein neuer Treiber, der diese Idents registriert (siehe
@@ -896,9 +912,11 @@ class InverterHub extends IPSModule
             // entfernt/umbenannt/umgedeutet, Major bleibt unveraendert (siehe
             // CLAUDE.md "Vertragsversionierung"). 1.3 -> 1.4: houseLoadID (Dashboard-Wunsch
             // 19.10.2026, gemessener Gesamtverbrauch; bisher nur Solis: house_load_total).
+            // 1.6 -> 1.7: phaseCurrentIDs (EMS-Wunsch 18.11.2026, Phasenstroeme des Zaehlers am Netzanschluss, [L1, L2, L3] in A,
+            // leer ohne Zaehlerphasen).
             // 1.5 -> 1.6: batteryChargeEnergyID/batteryDischargeEnergyID (EMS-Wunsch 17.11.2026,
             // belastbare Batterie-Gesamtzaehler kWh, bisher nur GoodWe: bms_e_*_total; sonst 0).
-            'contractVersion'  => '1.6',
+            'contractVersion'  => '1.7',
             'houseLoadID'      => $find('house_load_total'),
             'gridServiceCapabilities' => $gridServiceCapabilities,
             'instanceID'       => $this->InstanceID,
@@ -932,6 +950,7 @@ class InverterHub extends IPSModule
             'mpptPowerIDs'     => $mpptPowerIDs,
             'mpptCurrentIDs'   => $mpptCurrentIDs,
             'mpptVoltageIDs'   => $mpptVoltageIDs,
+            'phaseCurrentIDs'  => $phaseCurrentIDs,
         ];
     }
 
