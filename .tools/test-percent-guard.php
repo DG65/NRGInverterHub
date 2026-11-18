@@ -20,7 +20,8 @@ class IPSModule
     public function FindVarByIdent($ident) { return 'V_' . $ident; }
 }
 
-$src = file_get_contents(dirname(__DIR__) . '/InverterHub/module.php');
+require_once __DIR__ . '/ih-source.inc.php';
+$src = ih_source();
 preg_match('/public function SetVarInt\(.*?\n    \}/s', $src, $m);
 if (empty($m)) {
     fwrite(STDERR, "Extraktion fehlgeschlagen: SetVarInt (umbenannt/umformatiert?)\n");

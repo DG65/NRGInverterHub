@@ -15,7 +15,8 @@ class IPSModule
     public function ReadPropertyInteger($k) { return (int)($this->props[$k] ?? 0); }
 }
 
-$src = file_get_contents(dirname(__DIR__) . '/InverterHub/module.php');
+require_once __DIR__ . '/ih-source.inc.php';
+$src = ih_source();
 preg_match('/private function CompactionPlan\(.*?\n    \}/s', $src, $mPlan);
 if (empty($mPlan)) {
     fwrite(STDERR, "Extraktion fehlgeschlagen: CompactionPlan (umbenannt/umformatiert?)\n");

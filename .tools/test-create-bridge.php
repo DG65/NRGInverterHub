@@ -4,7 +4,8 @@ require_once __DIR__ . '/ihub-text.inc.php';
 // und die Sichtbarkeit der Gateway-Felder. Nicht nachbildbar: Kernel-Verhalten beim
 // Funktionsaufruf zwischen Instanzen und die Konsole selbst.
 $root = __DIR__ . '/..';
-$src  = file_get_contents($root . '/InverterHub/module.php');
+require_once __DIR__ . '/ih-source.inc.php';
+$src  = ih_source();
 $fails = 0;
 $chk = function($ok, $n) use (&$fails) { echo ($ok ? "OK   " : "FAIL ") . $n . "\n"; if (!$ok) $fails++; };
 

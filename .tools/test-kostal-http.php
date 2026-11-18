@@ -7,7 +7,8 @@
  */
 foreach (['VARIABLETYPE_BOOLEAN' => 0, 'VARIABLETYPE_INTEGER' => 1, 'VARIABLETYPE_FLOAT' => 2, 'VARIABLETYPE_STRING' => 3] as $k => $v) { define($k, $v); }
 require_once dirname(__DIR__) . '/InverterHub/KostalHttpClient.php';
-$src = file_get_contents(dirname(__DIR__) . '/InverterHub/module.php');
+require_once __DIR__ . '/ih-source.inc.php';
+$src = ih_source();
 $a = strpos($src, 'interface IHUB_InverterDriverInterface');
 $b = strpos($src, "\nclass InverterHub extends IPSModule");
 eval(substr($src, $a, $b - $a));

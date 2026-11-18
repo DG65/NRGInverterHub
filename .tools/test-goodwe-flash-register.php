@@ -1,6 +1,7 @@
 <?php
 // GoodWe-Flash-Register (47509/47510/45356, "einmal schreiben"): nur bei geaendertem Wert schreiben.
-$src = file_get_contents(__DIR__ . '/../InverterHub/module.php');
+require_once __DIR__ . '/ih-source.inc.php';
+$src = ih_source();
 $fails = 0;
 function check($ok, $t) { global $fails; echo ($ok ? 'OK   ' : 'FAIL ') . $t . "\n"; if (!$ok) $fails++; }
 

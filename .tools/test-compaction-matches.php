@@ -1,6 +1,7 @@
 <?php
 // CompactionMatches(): Verdichtung nur schreiben, wenn das Archiv vom Plan abweicht.
-$src = file_get_contents(__DIR__ . '/../InverterHub/module.php');
+require_once __DIR__ . '/ih-source.inc.php';
+$src = ih_source();
 $fails = 0;
 function check($ok, $t) { global $fails; echo ($ok ? 'OK   ' : 'FAIL ') . $t . "\n"; if (!$ok) $fails++; }
 preg_match('/private function CompactionMatches\(.*?\n    }\n/s', $src, $m);

@@ -8,7 +8,8 @@
  *
  *   php .tools/test-varposition-guard.php    # 0 = alle Prüfungen bestanden
  */
-$src = file_get_contents(dirname(__DIR__) . '/InverterHub/module.php');
+require_once __DIR__ . '/ih-source.inc.php';
+$src = ih_source();
 if (!preg_match('/private function RegisterVar\(array \$def, int \$pos\).*?\n    \}\n/s', $src, $m)) {
     fwrite(STDERR, "RegisterVar() nicht gefunden (umbenannt/umformatiert?)\n");
     exit(1);

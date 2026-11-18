@@ -2,7 +2,8 @@
 require_once __DIR__ . '/ihub-text.inc.php';
 // LogReadProblem/ClearReadProblem: einmal loggen, bei gleichem Text nicht wiederholen,
 // bei geaendertem Text erneut, bei Erholung genau eine Meldung.
-$src = file_get_contents(__DIR__ . '/../InverterHub/module.php');
+require_once __DIR__ . '/ih-source.inc.php';
+$src = ih_source();
 if (!preg_match('/private function LogReadProblem\(.*?\n    \}\n\n    private function ClearReadProblem\(.*?\n    \}\n/s', $src, $m)) {
     fwrite(STDERR, "FAIL Methoden nicht gefunden\n"); exit(1);
 }

@@ -4,7 +4,8 @@ require_once __DIR__ . '/ihub-text.inc.php';
 // Aufruf: php .tools/test-store-28-29.php
 $fail = 0;
 function ok($c, $m) { global $fail; if ($c) { echo "  ok   $m\n"; } else { echo "  FAIL $m\n"; $fail++; } }
-$src = file_get_contents(dirname(__DIR__) . '/InverterHub/module.php');
+require_once __DIR__ . '/ih-source.inc.php';
+$src = ih_source();
 preg_match('/private function RegisterVar\(.*?\n    }\n/s', $src, $rv);
 $rv = $rv[0] ?? '';
 ok($rv !== '', 'RegisterVar gefunden');

@@ -91,7 +91,8 @@ $mutants = [
     'Float little endian'                   => ["unpack('G', \$p)", "unpack('g', \$p)"],
     'Länge ohne OID gezählt'                => ['if ($len < 4 || $len > 4096) {', 'if ($len < 5 || $len > 4096) {'],
 ];
-$src = file_get_contents(dirname(__DIR__) . '/InverterHub/module.php');
+require_once __DIR__ . '/ih-source.inc.php';
+$src = ih_source();
 $a = strpos($src, 'class IHUB_RctClient');
 $b = strpos($src, 'class IHUB_RctPowerDriver');
 $e = strpos($src, "\n}\n", $b);

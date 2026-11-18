@@ -4,7 +4,8 @@
 // Aufruf: php .tools/test-flat-idents.php
 $fail = 0;
 function ok($c, $m) { global $fail; if ($c) { echo "  ok   $m\n"; } else { echo "  FAIL $m\n"; $fail++; } }
-$src = file_get_contents(dirname(__DIR__) . '/InverterHub/module.php');
+require_once __DIR__ . '/ih-source.inc.php';
+$src = ih_source();
 $a = strpos($src, 'interface IHUB_InverterDriverInterface');
 $b = strpos($src, "\nclass InverterHub extends IPSModule");
 if ($a === false || $b === false) { echo "FAIL Quelltext-Grenzen nicht gefunden\n"; exit(1); }

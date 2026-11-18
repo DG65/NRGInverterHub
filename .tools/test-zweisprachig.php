@@ -17,8 +17,9 @@ function lits(string $src): array {
     return $out;
 }
 $german = '/[äöüÄÖÜß]|\b(der|die|das|und|nicht|oder|wird|ist|bitte|mit|von|bei|auf|zum|zur|noch|nur|keine|kein|konnte|für|prüfen|Gerät|Wert|Instanz|Verbindung)\b/u';
+require_once __DIR__ . '/ih-source.inc.php';
 foreach (['InverterHub', 'InverterHubDiscovery', 'InverterHubBridge', 'InverterHubMqttBridge'] as $mod) {
-    $src = file_get_contents("$root/$mod/module.php");
+    $src = $mod === 'InverterHub' ? ih_source() : file_get_contents("$root/$mod/module.php");
     $de = json_decode(file_get_contents("$root/$mod/locale.json"), true)['translations']['de'];
     $from = 0;
     $nakedFrom = 0;

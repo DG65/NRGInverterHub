@@ -122,8 +122,27 @@ $files = phpFiles($targets);
 $findings = [];
 $checked  = 0;
 
+/**
+ * Pool: Die Klassen des Moduls InverterHub liegen seit 0.88.0 je in einer eigenen Datei (libs/ plus InverterHub/),
+ * die Verwechslung gilt aber weiterhin ueber alle diese Dateien hinweg. Alle anderen Dateien bilden je einen eigenen Pool.
+ */
+function poolOf(string $file): string
+{
+    $sep = DIRECTORY_SEPARATOR;
+    $p = str_replace(dirname(__DIR__) . $sep, '', $file);
+    if (strpos($p, 'libs' . $sep) === 0 || strpos($p, 'InverterHub' . $sep) === 0) { return 'inverterhub-kern'; }
+    return $file;
+}
+
+$pools = [];
 foreach ($files as $file) {
-    $classes = classesOf(file_get_contents($file));
+    foreach (classesOf(file_get_contents($file)) as $c) {
+        $c['file'] = $file;
+        $pools[poolOf($file)][] = $c;
+    }
+}
+
+foreach ($pools as $classes) {
     if (count($classes) < 2) {
         continue;   // ohne zweite Klasse ist eine Verwechslung nicht möglich
     }
@@ -131,7 +150,7 @@ foreach ($files as $file) {
     foreach ($classes as $c) { $byName[$c['name']] = $c; }
 
     foreach ($classes as $c) {
-        // Eigene Methoden plus die der Vorfahren INNERHALB dieser Datei
+        // Eigene Methoden plus die der Vorfahren INNERHALB des Pools
         $own = $c['methods'];
         $p   = $c['extends'];
         $seen = [];
@@ -143,10 +162,10 @@ foreach ($files as $file) {
         foreach ($c['calls'] as [$m, $line]) {
             $checked++;
             if (isset($own[$m])) { continue; }
-            // Nur melden, wenn es die Methode woanders in der Datei GIBT.
+            // Nur melden, wenn es die Methode woanders im Pool GIBT.
             foreach ($classes as $other) {
                 if ($other['name'] !== $c['name'] && isset($other['methods'][$m])) {
-                    $findings[] = [$file, $c['name'], $m, $line, $other['name'], $other['methods'][$m]];
+                    $findings[] = [$c['file'], $c['name'], $m, $line, $other['name'], $other['methods'][$m]];
                     break;
                 }
             }

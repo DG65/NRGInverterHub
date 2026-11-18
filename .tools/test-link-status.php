@@ -4,7 +4,8 @@ require_once __DIR__ . '/ihub-text.inc.php';
 // jede Verbindung zeigt live ✅ / ⚠️ / ℹ️. Prueft die Zeilen je Zustand und, dass sie im
 // ausgelieferten Formular stehen (Element direkt in den items, nicht ersetzt).
 $root = __DIR__ . '/..';
-$hub  = file_get_contents($root . '/InverterHub/module.php');
+require_once __DIR__ . '/ih-source.inc.php';
+$hub  = ih_source();
 $disc = file_get_contents($root . '/InverterHubDiscovery/module.php');
 $fails = 0;
 $chk = function ($ok, $n) use (&$fails) { echo ($ok ? "OK   " : "FAIL ") . $n . "\n"; if (!$ok) $fails++; };

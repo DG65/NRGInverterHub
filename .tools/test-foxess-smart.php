@@ -17,7 +17,8 @@ function ok($cond, $msg)
 }
 
 $root = dirname(__DIR__);
-$core = file_get_contents($root . '/InverterHub/module.php');
+require_once __DIR__ . '/ih-source.inc.php';
+$core = ih_source();
 $disc = file_get_contents($root . '/InverterHubDiscovery/module.php');
 
 // Treiberklasse extrahieren und mit minimalem Umfeld auswerten.

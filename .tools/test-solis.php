@@ -8,7 +8,8 @@ require_once __DIR__ . '/ihub-text.inc.php';
 $fail = 0;
 function ok($c, $m) { global $fail; if ($c) { echo "  ok   $m\n"; } else { echo "  FAIL $m\n"; $fail++; } }
 
-$src = file_get_contents(dirname(__DIR__) . '/InverterHub/module.php');
+require_once __DIR__ . '/ih-source.inc.php';
+$src = ih_source();
 if (!preg_match('/(class IHUB_SolisDriver implements IHUB_InverterDriverInterface\s*\{.*?\n\})\n\n\/\/ -{20,}\n\/\/ IHUB_GrowattDriver/s', $src, $m)) {
     echo "FAIL Treiberklasse nicht gefunden\n";
     exit(1);

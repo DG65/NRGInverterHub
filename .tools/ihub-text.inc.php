@@ -2,7 +2,8 @@
 // Gemeinsamer Test-Baustein: laedt IHUB_Text aus module.php und uebersetzt wie Symcon ueber locale.json.
 // Sprache: Umgebungsvariable IHUB_SPRACHE (de = Vorgabe, en = Quelltext).
 if (!class_exists('IHUB_Text', false)) {
-    $__src = file_get_contents(__DIR__ . '/../InverterHub/module.php');
+    require_once __DIR__ . '/ih-source.inc.php';
+    $__src = ih_source();
     if (!preg_match('/^class IHUB_Text\n\{.*?^\}\n/ms', $__src, $__m)) {
         fwrite(STDERR, "IHUB_Text nicht gefunden\n");
         exit(1);

@@ -2,7 +2,8 @@
 // SMA: DC-Leistung je Eingang A/B (Register 30773/30961), Forum thorsten1 05.11.2026.
 $fail = 0;
 function ok($c, $m) { global $fail; if ($c) { echo "  ok   $m\n"; } else { echo "  FAIL $m\n"; $fail++; } }
-$src = file_get_contents(dirname(__DIR__) . '/InverterHub/module.php');
+require_once __DIR__ . '/ih-source.inc.php';
+$src = ih_source();
 $a = strpos($src, 'class IHUB_SmaDriver'); $b = strpos($src, 'class IHUB_FroniusDriver');
 $sma = substr($src, $a, $b - $a);
 if (!preg_match('/    private function readDcInputPower\(.*?\n    }\n/s', $sma, $m)) { echo "FAIL Hilfsfunktion nicht in der SMA-Klasse\n"; exit(1); }

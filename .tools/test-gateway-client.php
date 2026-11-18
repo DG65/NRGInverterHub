@@ -2,7 +2,8 @@
 require_once __DIR__ . '/ihub-text.inc.php';
 // Extrahiert IHUB_ModbusGatewayClient aus module.php und testet gegen ein
 // simuliertes ForwardToGateway()-Ergebnis (verifiziertes SymconBC-Antwortformat).
-$src = file_get_contents(__DIR__ . '/../InverterHub/module.php');
+require_once __DIR__ . '/ih-source.inc.php';
+$src = ih_source();
 if (!preg_match('/class IHUB_ModbusGatewayClient\b.*?\n}\n/s', $src, $m)) {
     fwrite(STDERR, "Klasse nicht gefunden\n");
     exit(1);
@@ -133,8 +134,8 @@ if (!$onceOk) { echo "FAIL Schreibpfad-Warnung ueber Rueckruf (einmalig)\n"; $fa
 
 // Test 11: kein IPS_LogMessage( in den Modul-Dateien (nur $this->LogMessage).
 $noIps = true;
-foreach ([dirname(__DIR__) . '/InverterHub/module.php', dirname(__DIR__) . '/InverterHubDiscovery/module.php'] as $f) {
-    if (strpos(file_get_contents($f), 'IPS_LogMessage(') !== false) { $noIps = false; echo "FAIL IPS_LogMessage( in $f\n"; }
+foreach (['/InverterHub/module.php (mit libs/)' => ih_source(), '/InverterHubDiscovery/module.php' => file_get_contents(dirname(__DIR__) . '/InverterHubDiscovery/module.php')] as $f => $txt) {
+    if (strpos($txt, 'IPS_LogMessage(') !== false) { $noIps = false; echo "FAIL IPS_LogMessage( in $f\n"; }
 }
 if ($noIps) { echo "OK kein IPS_LogMessage( in den Moduldateien\n"; } else { $fails++; }
 

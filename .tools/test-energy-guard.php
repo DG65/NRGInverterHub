@@ -25,7 +25,8 @@ class IPSModule
     public function FindVarByIdent($ident) { return 'V_' . $ident; }
 }
 
-$src = file_get_contents(dirname(__DIR__) . '/InverterHub/module.php');
+require_once __DIR__ . '/ih-source.inc.php';
+$src = ih_source();
 preg_match('/public function SetVarFloat\(.*?\n    \}/s', $src, $mSet);
 preg_match('/private function IsEnergyIdent\(.*?\n    \}/s', $src, $mIs);
 foreach (['SetVarFloat' => $mSet, 'IsEnergyIdent' => $mIs] as $label => $m) {

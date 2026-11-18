@@ -2,7 +2,8 @@
 // GoodWe: Zaehlerwert 0xFFFF/0xFFFFFFFF ("ungueltig") wird nicht uebernommen (Fund 01.11.2026, Tageszaehler 6553,5 kWh).
 $fail = 0;
 function ok($c, $m) { global $fail; if ($c) { echo "  ok   $m\n"; } else { echo "  FAIL $m\n"; $fail++; } }
-$src = file_get_contents(dirname(__DIR__) . '/InverterHub/module.php');
+require_once __DIR__ . '/ih-source.inc.php';
+$src = ih_source();
 if (!preg_match('/(class IHUB_GoodweDriver implements IHUB_InverterDriverInterface\s*\{.*?\n\})\n\n\/\/ -{20,}\n\/\/ IHUB_SungrowDriver/s', $src, $m)) { echo "FAIL Treiberklasse nicht gefunden\n"; exit(1); }
 define('VARIABLETYPE_FLOAT', 2); define('VARIABLETYPE_INTEGER', 1);
 interface IHUB_InverterDriverInterface {}

@@ -559,13 +559,19 @@ auslösen. Rückgabewert 0 = sauber, 1 = mindestens eine ungesicherte Stelle (f�
 **Vor jedem Release ausführen**, und bei jeder neuen Kopplung. Kommt ein Partnermodul dazu,
 dessen Präfix in `FOREIGN_PREFIXES` ergänzen — sonst prüft der Prüfer daran vorbei.
 
+### Dateiaufteilung seit 0.88.0 (18.11.2026): eine Klasse, eine Datei in `libs/`
+
+`InverterHub/module.php` enthält nur noch die Modulklasse `InverterHub` (rund 2.800 Zeilen). Die 17 Treiber, die beiden Modbus-Clients, `IHUB_RctClient`, das Treiber-Interface sowie `IHUB_WriteDiag` und `IHUB_Text` liegen wörtlich verschoben in **`libs/<Klassenname>.php`** (Ordner auf Bibliotheksebene wie bei RLTHub und WPModbusHub, `libs` ist der übliche Ordner und kein Modul-Ordner). `module.php` lädt sie per `require_once __DIR__ . '/../libs/…'` in der alten Reihenfolge; das Interface steht vor den Treibern. **Eine Klasse genau einmal in genau einer Datei** (kein `class_exists()`-Schutz, siehe „Globale Klassennamen“). Wer einen Treiber ändert, ändert seine Datei in `libs/`, nicht `module.php`.
+
+Die alten Prüfstände lesen den früheren Gesamttext über `.tools/ih-source.inc.php` (`ih_source()` setzt die `libs/`-Dateien an der Stelle der `require_once`-Zeilen wieder ein). Neue Prüfstände laden die Klassen direkt (`require_once` von `module.php`, Vorbild `.tools/test-ref-*.php`). `check-class-scope.php` fasst `InverterHub/` und `libs/` zu einem Pool zusammen, sonst würde die Prüfung nach dem Aufteilen nichts mehr finden (jede Klasse läge allein in ihrer Datei).
+
 ### Klassengrenzen prüfen — `InverterHub/module.php` hat 15 Treiberklassen
 
 ```
 php .tools/check-class-scope.php
 ```
 
-Meldet jeden `$this->foo()`-Aufruf, dessen Methode **in einer anderen Klasse derselben Datei**
+Meldet jeden `$this->foo()`-Aufruf, dessen Methode **in einer anderen Klasse derselben Datei bzw. des InverterHub-Pools (`InverterHub/` plus `libs/`)**
 definiert ist. Zur Laufzeit wäre das ein Fatal Error, sobald der Zweig ausgeführt wird.
 
 **Warum das hier real passiert ist:** `SmaDriver`, `FroniusDriver` und `SolarEdgeDriver` sprechen
