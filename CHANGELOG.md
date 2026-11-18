@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.90.1 (noch nicht veröffentlicht)
+## 0.90.1 (2026-11-18)
 
 - **Gerätesuche: Typangaben an der öffentlichen Funktion `IHUBD_StartMigration`.** Symcon meldet beim Laden der Bibliothek, dass die Parameter `resultIndex` und `legacyInstanceID` keinen Datentyp haben (Befund von EMS im Systemprotokoll nach dem Update auf 0.90.0, die Funktion ist seit 0.77.0 so). Beide sind jetzt `int`, der Aufruf der Schaltfläche übergibt schon Zahlen. Keine Änderung am Verhalten.
 - Neuer Prüfer `.tools/check-public-types.php` (alle öffentlichen Funktionen aller Modulklassen; Fehlprobe erkannt).
