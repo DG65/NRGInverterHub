@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.87.1 (2026-11-18)
+
+- **Fronius: Isolationswiderstand wird nicht mehr in jedem schnellen Zyklus gelesen.** Ursache: Im schnellen Zyklus entscheidet der Betriebszustand des Wechselrichters, ob der Isolationswiderstand (SunSpec-Modell 122) gelesen wird, nämlich nur wenn der Wechselrichter nicht einspeist (Status ungleich 4 und 5); im Betrieb genügt die Auffrischung im langsamen Zyklus. Die dafür verwendete Variable wurde aber nie mit dem gelesenen Status belegt und stand deshalb immer auf 0, die Bedingung war immer erfüllt. Wirkung: Bei jedem schnellen Zyklus kamen eine Modellsuche und ein Block von 44 Registern dazu, also mehr Modbus-Verkehr als vorgesehen; der Wert selbst war richtig. Jetzt wird der Status aus dem Wechselrichterblock übernommen (Float-Modell Offset 46, Int+SF-Modell Offset 36), sodass der Isolationswiderstand im Betrieb nur noch im langsamen Zyklus aktualisiert wird und im Stillstand und beim Anlauf weiterhin in jedem schnellen Zyklus.
+- Nur eine Änderung am Lesepfad, keine neuen Variablen, keine Änderung am Schreiben. Alle übrigen Werte bleiben gleich (Referenzlauf: im Vergleich zu 0.87.0 ändert sich ausschließlich `riso` im schnellen Zyklus bei Status 4 und 5).
+- Neu: Referenzläufe für GoodWe, SMA, Fronius und acht weitere Treiber (`.tools/test-ref-*.php`, nur Prüfwerkzeuge).
+
 ## 0.87.0 (2026-11-17)
 
 - **GoodWe: zwei belastbare Batteriezähler aus dem BMS.** Neue Variablen `bms_e_charge_total` („Batterie geladen gesamt (BMS)“) und `bms_e_disch_total` („Batterie entladen gesamt (BMS)“) aus den Registern 37056/37057 und 37058/37059 (U32, 0,1 kWh), archiviert als Zähler, in der Gruppe Energiezähler. Grund: Die Wechselrichter-Gesamtzähler 35206/35209 sind in jeder Messung exakt das Doppelte der BMS-Zähler (Messung 07.11.2026: 8669,7 und 8429,7 kWh gegen 17339,4 und 16859,4 kWh), weshalb sich daraus kein Rundwirkungsgrad bestimmen lässt. Ungültige Werte (0xFFFFFFFF) werden nicht übernommen, der alte Stand bleibt stehen. Die bisherigen Zähler bleiben unverändert (Archiv, Verknüpfungen).

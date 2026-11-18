@@ -49,10 +49,6 @@
                 "F",
                 230.199997
             ],
-            "riso": [
-                "F",
-                8000
-            ],
             "status": [
                 "I",
                 4
@@ -176,10 +172,6 @@
             "pv_total": [
                 "F",
                 3599
-            ],
-            "riso": [
-                "F",
-                8000
             ],
             "status": [
                 "I",
@@ -305,10 +297,6 @@
                 "F",
                 3599
             ],
-            "riso": [
-                "F",
-                8000
-            ],
             "status": [
                 "I",
                 4
@@ -433,10 +421,6 @@
                 "F",
                 3599
             ],
-            "riso": [
-                "F",
-                8000
-            ],
             "status": [
                 "I",
                 4
@@ -545,10 +529,6 @@
                 "F",
                 3599
             ],
-            "riso": [
-                "F",
-                8000
-            ],
             "status": [
                 "I",
                 4
@@ -597,6 +577,886 @@
         "writes": [],
         "warnings": 0,
         "return": null,
+        "unitId": 1
+    },
+    "readFast float Status 2: riso wird gelesen": {
+        "vars": {
+            "ac_power": [
+                "F",
+                3650
+            ],
+            "bat_power": [
+                "F",
+                1200
+            ],
+            "bat_soc": [
+                "F",
+                55
+            ],
+            "bat_volt": [
+                "F",
+                410
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_total": [
+                "F",
+                8765
+            ],
+            "grid_curr": [
+                "F",
+                8.2
+            ],
+            "grid_freq": [
+                "F",
+                49.98
+            ],
+            "grid_volt": [
+                "F",
+                230.199997
+            ],
+            "meter_exp": [
+                "F",
+                120
+            ],
+            "meter_imp": [
+                "F",
+                340
+            ],
+            "meter_l1_curr": [
+                "F",
+                3.1
+            ],
+            "meter_l1_pwr": [
+                "F",
+                150
+            ],
+            "meter_l1_volt": [
+                "F",
+                230.1
+            ],
+            "meter_l2_curr": [
+                "F",
+                3.2
+            ],
+            "meter_l2_pwr": [
+                "F",
+                151
+            ],
+            "meter_l2_volt": [
+                "F",
+                230.2
+            ],
+            "meter_l3_curr": [
+                "F",
+                3.3
+            ],
+            "meter_l3_pwr": [
+                "F",
+                149
+            ],
+            "meter_l3_volt": [
+                "F",
+                230.3
+            ],
+            "meter_total": [
+                "F",
+                -450
+            ],
+            "mppt1_curr": [
+                "F",
+                5.2
+            ],
+            "mppt1_power": [
+                "F",
+                2041
+            ],
+            "mppt1_volt": [
+                "F",
+                392.1
+            ],
+            "mppt2_curr": [
+                "F",
+                4.1
+            ],
+            "mppt2_power": [
+                "F",
+                1558
+            ],
+            "mppt2_volt": [
+                "F",
+                380
+            ],
+            "pv_total": [
+                "F",
+                3599
+            ],
+            "riso": [
+                "F",
+                8000
+            ],
+            "status": [
+                "I",
+                2
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 1
+    },
+    "readFast float Status 4: riso wird nicht gelesen": {
+        "vars": {
+            "ac_power": [
+                "F",
+                3650
+            ],
+            "bat_power": [
+                "F",
+                1200
+            ],
+            "bat_soc": [
+                "F",
+                55
+            ],
+            "bat_volt": [
+                "F",
+                410
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_total": [
+                "F",
+                8765
+            ],
+            "grid_curr": [
+                "F",
+                8.2
+            ],
+            "grid_freq": [
+                "F",
+                49.98
+            ],
+            "grid_volt": [
+                "F",
+                230.199997
+            ],
+            "meter_exp": [
+                "F",
+                120
+            ],
+            "meter_imp": [
+                "F",
+                340
+            ],
+            "meter_l1_curr": [
+                "F",
+                3.1
+            ],
+            "meter_l1_pwr": [
+                "F",
+                150
+            ],
+            "meter_l1_volt": [
+                "F",
+                230.1
+            ],
+            "meter_l2_curr": [
+                "F",
+                3.2
+            ],
+            "meter_l2_pwr": [
+                "F",
+                151
+            ],
+            "meter_l2_volt": [
+                "F",
+                230.2
+            ],
+            "meter_l3_curr": [
+                "F",
+                3.3
+            ],
+            "meter_l3_pwr": [
+                "F",
+                149
+            ],
+            "meter_l3_volt": [
+                "F",
+                230.3
+            ],
+            "meter_total": [
+                "F",
+                -450
+            ],
+            "mppt1_curr": [
+                "F",
+                5.2
+            ],
+            "mppt1_power": [
+                "F",
+                2041
+            ],
+            "mppt1_volt": [
+                "F",
+                392.1
+            ],
+            "mppt2_curr": [
+                "F",
+                4.1
+            ],
+            "mppt2_power": [
+                "F",
+                1558
+            ],
+            "mppt2_volt": [
+                "F",
+                380
+            ],
+            "pv_total": [
+                "F",
+                3599
+            ],
+            "status": [
+                "I",
+                4
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 1
+    },
+    "readFast float Status 5: riso wird nicht gelesen": {
+        "vars": {
+            "ac_power": [
+                "F",
+                3650
+            ],
+            "bat_power": [
+                "F",
+                1200
+            ],
+            "bat_soc": [
+                "F",
+                55
+            ],
+            "bat_volt": [
+                "F",
+                410
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_total": [
+                "F",
+                8765
+            ],
+            "grid_curr": [
+                "F",
+                8.2
+            ],
+            "grid_freq": [
+                "F",
+                49.98
+            ],
+            "grid_volt": [
+                "F",
+                230.199997
+            ],
+            "meter_exp": [
+                "F",
+                120
+            ],
+            "meter_imp": [
+                "F",
+                340
+            ],
+            "meter_l1_curr": [
+                "F",
+                3.1
+            ],
+            "meter_l1_pwr": [
+                "F",
+                150
+            ],
+            "meter_l1_volt": [
+                "F",
+                230.1
+            ],
+            "meter_l2_curr": [
+                "F",
+                3.2
+            ],
+            "meter_l2_pwr": [
+                "F",
+                151
+            ],
+            "meter_l2_volt": [
+                "F",
+                230.2
+            ],
+            "meter_l3_curr": [
+                "F",
+                3.3
+            ],
+            "meter_l3_pwr": [
+                "F",
+                149
+            ],
+            "meter_l3_volt": [
+                "F",
+                230.3
+            ],
+            "meter_total": [
+                "F",
+                -450
+            ],
+            "mppt1_curr": [
+                "F",
+                5.2
+            ],
+            "mppt1_power": [
+                "F",
+                2041
+            ],
+            "mppt1_volt": [
+                "F",
+                392.1
+            ],
+            "mppt2_curr": [
+                "F",
+                4.1
+            ],
+            "mppt2_power": [
+                "F",
+                1558
+            ],
+            "mppt2_volt": [
+                "F",
+                380
+            ],
+            "pv_total": [
+                "F",
+                3599
+            ],
+            "status": [
+                "I",
+                5
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 1
+    },
+    "readFast float Status 8: riso wird gelesen": {
+        "vars": {
+            "ac_power": [
+                "F",
+                3650
+            ],
+            "bat_power": [
+                "F",
+                1200
+            ],
+            "bat_soc": [
+                "F",
+                55
+            ],
+            "bat_volt": [
+                "F",
+                410
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_total": [
+                "F",
+                8765
+            ],
+            "grid_curr": [
+                "F",
+                8.2
+            ],
+            "grid_freq": [
+                "F",
+                49.98
+            ],
+            "grid_volt": [
+                "F",
+                230.199997
+            ],
+            "meter_exp": [
+                "F",
+                120
+            ],
+            "meter_imp": [
+                "F",
+                340
+            ],
+            "meter_l1_curr": [
+                "F",
+                3.1
+            ],
+            "meter_l1_pwr": [
+                "F",
+                150
+            ],
+            "meter_l1_volt": [
+                "F",
+                230.1
+            ],
+            "meter_l2_curr": [
+                "F",
+                3.2
+            ],
+            "meter_l2_pwr": [
+                "F",
+                151
+            ],
+            "meter_l2_volt": [
+                "F",
+                230.2
+            ],
+            "meter_l3_curr": [
+                "F",
+                3.3
+            ],
+            "meter_l3_pwr": [
+                "F",
+                149
+            ],
+            "meter_l3_volt": [
+                "F",
+                230.3
+            ],
+            "meter_total": [
+                "F",
+                -450
+            ],
+            "mppt1_curr": [
+                "F",
+                5.2
+            ],
+            "mppt1_power": [
+                "F",
+                2041
+            ],
+            "mppt1_volt": [
+                "F",
+                392.1
+            ],
+            "mppt2_curr": [
+                "F",
+                4.1
+            ],
+            "mppt2_power": [
+                "F",
+                1558
+            ],
+            "mppt2_volt": [
+                "F",
+                380
+            ],
+            "pv_total": [
+                "F",
+                3599
+            ],
+            "riso": [
+                "F",
+                8000
+            ],
+            "status": [
+                "I",
+                8
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 1
+    },
+    "readFast int Status 2: riso wird gelesen": {
+        "vars": {
+            "ac_power": [
+                "F",
+                3650
+            ],
+            "bat_power": [
+                "F",
+                1200
+            ],
+            "bat_soc": [
+                "F",
+                55
+            ],
+            "bat_volt": [
+                "F",
+                410
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_total": [
+                "F",
+                8765
+            ],
+            "grid_curr": [
+                "F",
+                8.2
+            ],
+            "grid_freq": [
+                "F",
+                49.98
+            ],
+            "grid_volt": [
+                "F",
+                230.2
+            ],
+            "meter_exp": [
+                "F",
+                120
+            ],
+            "meter_imp": [
+                "F",
+                340
+            ],
+            "meter_l1_curr": [
+                "F",
+                3.1
+            ],
+            "meter_l1_pwr": [
+                "F",
+                150
+            ],
+            "meter_l1_volt": [
+                "F",
+                230.1
+            ],
+            "meter_l2_curr": [
+                "F",
+                3.2
+            ],
+            "meter_l2_pwr": [
+                "F",
+                151
+            ],
+            "meter_l2_volt": [
+                "F",
+                230.2
+            ],
+            "meter_l3_curr": [
+                "F",
+                3.3
+            ],
+            "meter_l3_pwr": [
+                "F",
+                149
+            ],
+            "meter_l3_volt": [
+                "F",
+                230.3
+            ],
+            "meter_total": [
+                "F",
+                -450
+            ],
+            "mppt1_curr": [
+                "F",
+                5.2
+            ],
+            "mppt1_power": [
+                "F",
+                2041
+            ],
+            "mppt1_volt": [
+                "F",
+                392.1
+            ],
+            "mppt2_curr": [
+                "F",
+                4.1
+            ],
+            "mppt2_power": [
+                "F",
+                1558
+            ],
+            "mppt2_volt": [
+                "F",
+                380
+            ],
+            "pv_total": [
+                "F",
+                3599
+            ],
+            "riso": [
+                "F",
+                8000
+            ],
+            "status": [
+                "I",
+                2
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 1
+    },
+    "readFast int Status 4: riso wird nicht gelesen": {
+        "vars": {
+            "ac_power": [
+                "F",
+                3650
+            ],
+            "bat_power": [
+                "F",
+                1200
+            ],
+            "bat_soc": [
+                "F",
+                55
+            ],
+            "bat_volt": [
+                "F",
+                410
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_total": [
+                "F",
+                8765
+            ],
+            "grid_curr": [
+                "F",
+                8.2
+            ],
+            "grid_freq": [
+                "F",
+                49.98
+            ],
+            "grid_volt": [
+                "F",
+                230.2
+            ],
+            "meter_exp": [
+                "F",
+                120
+            ],
+            "meter_imp": [
+                "F",
+                340
+            ],
+            "meter_l1_curr": [
+                "F",
+                3.1
+            ],
+            "meter_l1_pwr": [
+                "F",
+                150
+            ],
+            "meter_l1_volt": [
+                "F",
+                230.1
+            ],
+            "meter_l2_curr": [
+                "F",
+                3.2
+            ],
+            "meter_l2_pwr": [
+                "F",
+                151
+            ],
+            "meter_l2_volt": [
+                "F",
+                230.2
+            ],
+            "meter_l3_curr": [
+                "F",
+                3.3
+            ],
+            "meter_l3_pwr": [
+                "F",
+                149
+            ],
+            "meter_l3_volt": [
+                "F",
+                230.3
+            ],
+            "meter_total": [
+                "F",
+                -450
+            ],
+            "mppt1_curr": [
+                "F",
+                5.2
+            ],
+            "mppt1_power": [
+                "F",
+                2041
+            ],
+            "mppt1_volt": [
+                "F",
+                392.1
+            ],
+            "mppt2_curr": [
+                "F",
+                4.1
+            ],
+            "mppt2_power": [
+                "F",
+                1558
+            ],
+            "mppt2_volt": [
+                "F",
+                380
+            ],
+            "pv_total": [
+                "F",
+                3599
+            ],
+            "status": [
+                "I",
+                4
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 1
+    },
+    "readFast int Status 5: riso wird nicht gelesen": {
+        "vars": {
+            "ac_power": [
+                "F",
+                3650
+            ],
+            "bat_power": [
+                "F",
+                1200
+            ],
+            "bat_soc": [
+                "F",
+                55
+            ],
+            "bat_volt": [
+                "F",
+                410
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_total": [
+                "F",
+                8765
+            ],
+            "grid_curr": [
+                "F",
+                8.2
+            ],
+            "grid_freq": [
+                "F",
+                49.98
+            ],
+            "grid_volt": [
+                "F",
+                230.2
+            ],
+            "meter_exp": [
+                "F",
+                120
+            ],
+            "meter_imp": [
+                "F",
+                340
+            ],
+            "meter_l1_curr": [
+                "F",
+                3.1
+            ],
+            "meter_l1_pwr": [
+                "F",
+                150
+            ],
+            "meter_l1_volt": [
+                "F",
+                230.1
+            ],
+            "meter_l2_curr": [
+                "F",
+                3.2
+            ],
+            "meter_l2_pwr": [
+                "F",
+                151
+            ],
+            "meter_l2_volt": [
+                "F",
+                230.2
+            ],
+            "meter_l3_curr": [
+                "F",
+                3.3
+            ],
+            "meter_l3_pwr": [
+                "F",
+                149
+            ],
+            "meter_l3_volt": [
+                "F",
+                230.3
+            ],
+            "meter_total": [
+                "F",
+                -450
+            ],
+            "mppt1_curr": [
+                "F",
+                5.2
+            ],
+            "mppt1_power": [
+                "F",
+                2041
+            ],
+            "mppt1_volt": [
+                "F",
+                392.1
+            ],
+            "mppt2_curr": [
+                "F",
+                4.1
+            ],
+            "mppt2_power": [
+                "F",
+                1558
+            ],
+            "mppt2_volt": [
+                "F",
+                380
+            ],
+            "pv_total": [
+                "F",
+                3599
+            ],
+            "status": [
+                "I",
+                5
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
         "unitId": 1
     },
     "readSlow Isolationswiderstand": {

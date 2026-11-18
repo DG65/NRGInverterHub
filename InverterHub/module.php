@@ -3767,9 +3767,11 @@ class IHUB_FroniusDriver implements IHUB_InverterDriverInterface
         // 22 Hz(Frequenz), 20 W(Wirkleistung), 30 WH(Gesamtertrag), 46 St(Status)
         // Int+SF (Model 103, je Feld 1 Register + eigenes SF-Register):
         // 0 A, 8 PhVphA, 14 Hz(+SF@15), 12 W(+SF@13), 36 St
+        $invStatus = 0;
         if ($isFloat) {
             $hub->SetVarFloat('ac_power', $mb->readFloat32($blk, 20));
-            $hub->SetVarInt('status', $mb->u16($blk, 46));
+            $invStatus = $mb->u16($blk, 46);
+            $hub->SetVarInt('status', $invStatus);
             if ($hub->GetPropBool('GroupGrid')) {
                 $hub->SetVarFloat('grid_curr', $mb->readFloat32($blk, 0));
                 $hub->SetVarFloat('grid_volt', $mb->readFloat32($blk, 14));
@@ -3791,7 +3793,8 @@ class IHUB_FroniusDriver implements IHUB_InverterDriverInterface
             if ($v !== null) {
                 $hub->SetVarFloat('ac_power', $v);
             }
-            $hub->SetVarInt('status', $mb->u16($blk, 36));
+            $invStatus = $mb->u16($blk, 36);
+            $hub->SetVarInt('status', $invStatus);
             if ($hub->GetPropBool('GroupGrid')) {
                 $v = $this->scaledSf($mb, $blk, 0, 4);
                 if ($v !== null) {

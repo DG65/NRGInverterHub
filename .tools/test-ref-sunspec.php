@@ -137,6 +137,7 @@ function fro_models(string $kind = 'float', array $mo = []): array
         foreach ($mo['inv'] ?? [] as $k => $v) { $inv[$k] = $v; }
         $invm = ['id' => 103, 'len' => 50, 'set' => $inv];
     }
+    if (isset($mo['status'])) { $inv[$kind === 'float' ? 46 : 36] = $mo['status']; $invm['set'] = $inv; }
     $m160 = [0 => s16(-2), 1 => s16(-1), 2 => 0, 3 => 0, 6 => 4];
     $mod = [[9 => 520, 10 => 3921, 11 => 2041], [9 => 410, 10 => 3800, 11 => 1558], [9 => 0, 10 => 4100, 11 => 0xFFFF], [9 => 300, 10 => 4100, 11 => 1200]];
     foreach ($mod as $n => $vals) { foreach ($vals as $o => $v) { $m160[8 + $n * 20 + $o] = $v; } }
@@ -185,8 +186,14 @@ run('fronius', 'readDeviceInfo', $fro, $mb, new RefHub(), 'readDeviceInfo');
 $mb = new RefMb(1); $hub = new RefHub(); $fro->writeControl($mb, $hub, 'ctl_x', 1);
 ref_ok($mb->writes === [] && $hub->vars === [], 'Fronius writeControl: keine Schreibzugriffe');
 
-// Beobachtung festhalten: Isolationswiderstand wird in jedem schnellen Zyklus gelesen, weil $invStatus nie gesetzt wird.
-$mb = new RefMb(1); ss_chain($mb, null, fro_models('float')); $hub = new RefHub($all); $fro->readFast($mb, $hub);
-ref_ok(isset($hub->vars['riso']), 'Fronius (Beobachtung): riso wird im schnellen Zyklus gelesen, obwohl der Wechselrichter einspeist (Status 4); die Variable $invStatus ist im Quelltext nirgends zugewiesen');
+// Isolationswiderstand im schnellen Zyklus (Fund vom 18.11.2026, behoben in 0.87.1): nur wenn der Wechselrichter
+// NICHT einspeist (Status ungleich 4 und 5), sonst genuegt readSlow.
+foreach ([['float', 4, false], ['float', 5, false], ['float', 2, true], ['float', 8, true], ['int', 4, false], ['int', 5, false], ['int', 2, true]] as [$kind, $st, $erwartet]) {
+    $mb = new RefMb(1); ss_chain($mb, null, fro_models($kind, ['status' => $st])); $hub = new RefHub($all);
+    $res = run('fronius', "readFast $kind Status $st: riso " . ($erwartet ? 'wird gelesen' : 'wird nicht gelesen'), $fro, $mb, $hub);
+    ref_ok(isset($hub->vars['riso']) === $erwartet, "Fronius $kind Status $st: riso im schnellen Zyklus " . ($erwartet ? 'vorhanden (Wechselrichter speist nicht ein)' : 'nicht gelesen (Wechselrichter speist ein)'));
+}
+$mb = new RefMb(1); ss_chain($mb, null, fro_models('float')); $hub = new RefHub($all); $fro->readSlow($mb, $hub);
+ref_ok(isset($hub->vars['riso']), 'Fronius readSlow liest riso weiterhin (Auffrischung im Betrieb)');
 
 ref_finish('SMA und Fronius');
