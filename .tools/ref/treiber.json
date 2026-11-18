@@ -1,0 +1,8112 @@
+{
+    "deye Gruppen aus": {
+        "vars": {
+            "bat_power": [
+                "F",
+                2443
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "pv_total": [
+                "F",
+                3191
+            ],
+            "status": [
+                "I",
+                3013
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                500,
+                1,
+                1
+            ],
+            [
+                3,
+                672,
+                8,
+                1
+            ],
+            [
+                3,
+                586,
+                6,
+                1
+            ],
+            [
+                3,
+                598,
+                3,
+                1
+            ],
+            [
+                3,
+                616,
+                4,
+                1
+            ],
+            [
+                3,
+                638,
+                1,
+                1
+            ],
+            [
+                3,
+                650,
+                4,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "deye Muster negativ (hohes Bit)": {
+        "vars": {
+            "bat_curr": [
+                "F",
+                -16.16
+            ],
+            "bat_power": [
+                "F",
+                -1653
+            ],
+            "bat_soc": [
+                "I",
+                63809
+            ],
+            "bat_temp": [
+                "F",
+                -180.1
+            ],
+            "bat_volt": [
+                "F",
+                637.72
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_buy_day": [
+                "F",
+                6519.3
+            ],
+            "e_buy_total": [
+                "F",
+                6526.7
+            ],
+            "e_charge_day": [
+                "F",
+                6497.1
+            ],
+            "e_charge_total": [
+                "F",
+                6504.5
+            ],
+            "e_disch_day": [
+                "F",
+                6500.8
+            ],
+            "e_disch_total": [
+                "F",
+                6511.9
+            ],
+            "e_load_day": [
+                "F",
+                6541.5
+            ],
+            "e_load_total": [
+                "F",
+                6155.2
+            ],
+            "e_pv_day": [
+                "F",
+                6162.6
+            ],
+            "e_pv_total": [
+                "F",
+                6181.1
+            ],
+            "e_sell_day": [
+                "F",
+                6523
+            ],
+            "e_sell_total": [
+                "F",
+                6534.1
+            ],
+            "grid_freq": [
+                "F",
+                617.59
+            ],
+            "grid_l1_curr": [
+                "F",
+                -691
+            ],
+            "grid_l1_volt": [
+                "F",
+                6417.9
+            ],
+            "grid_l2_curr": [
+                "F",
+                -654
+            ],
+            "grid_l2_volt": [
+                "F",
+                6421.6
+            ],
+            "grid_l3_curr": [
+                "F",
+                -617
+            ],
+            "grid_l3_volt": [
+                "F",
+                6425.3
+            ],
+            "grid_total": [
+                "F",
+                -580
+            ],
+            "load_l1": [
+                "F",
+                -3333
+            ],
+            "load_l2": [
+                "F",
+                -3296
+            ],
+            "load_l3": [
+                "F",
+                -3259
+            ],
+            "load_total": [
+                "F",
+                -3222
+            ],
+            "pv1_curr": [
+                "F",
+                6320.2
+            ],
+            "pv1_power": [
+                "F",
+                -2519
+            ],
+            "pv1_volt": [
+                "F",
+                6316.5
+            ],
+            "pv2_curr": [
+                "F",
+                6327.6
+            ],
+            "pv2_power": [
+                "F",
+                -2482
+            ],
+            "pv2_volt": [
+                "F",
+                6323.9
+            ],
+            "pv_total": [
+                "F",
+                -5001
+            ],
+            "status": [
+                "I",
+                64453
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                500,
+                1,
+                1
+            ],
+            [
+                3,
+                672,
+                8,
+                1
+            ],
+            [
+                3,
+                586,
+                6,
+                1
+            ],
+            [
+                3,
+                598,
+                3,
+                1
+            ],
+            [
+                3,
+                616,
+                4,
+                1
+            ],
+            [
+                3,
+                638,
+                1,
+                1
+            ],
+            [
+                3,
+                650,
+                4,
+                1
+            ],
+            [
+                3,
+                514,
+                11,
+                1
+            ],
+            [
+                3,
+                526,
+                9,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "deye Muster positiv": {
+        "vars": {
+            "bat_curr": [
+                "F",
+                24.8
+            ],
+            "bat_power": [
+                "F",
+                2443
+            ],
+            "bat_soc": [
+                "I",
+                2369
+            ],
+            "bat_temp": [
+                "F",
+                229.5
+            ],
+            "bat_volt": [
+                "F",
+                23.32
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_buy_day": [
+                "F",
+                375.3
+            ],
+            "e_buy_total": [
+                "F",
+                382.7
+            ],
+            "e_charge_day": [
+                "F",
+                353.1
+            ],
+            "e_charge_total": [
+                "F",
+                360.5
+            ],
+            "e_disch_day": [
+                "F",
+                356.8
+            ],
+            "e_disch_total": [
+                "F",
+                367.9
+            ],
+            "e_load_day": [
+                "F",
+                397.5
+            ],
+            "e_load_total": [
+                "F",
+                11.2
+            ],
+            "e_pv_day": [
+                "F",
+                18.6
+            ],
+            "e_pv_total": [
+                "F",
+                37.1
+            ],
+            "e_sell_day": [
+                "F",
+                379
+            ],
+            "e_sell_total": [
+                "F",
+                390.1
+            ],
+            "grid_freq": [
+                "F",
+                3.19
+            ],
+            "grid_l1_curr": [
+                "F",
+                3405
+            ],
+            "grid_l1_volt": [
+                "F",
+                273.9
+            ],
+            "grid_l2_curr": [
+                "F",
+                3442
+            ],
+            "grid_l2_volt": [
+                "F",
+                277.6
+            ],
+            "grid_l3_curr": [
+                "F",
+                3479
+            ],
+            "grid_l3_volt": [
+                "F",
+                281.3
+            ],
+            "grid_total": [
+                "F",
+                3516
+            ],
+            "load_l1": [
+                "F",
+                763
+            ],
+            "load_l2": [
+                "F",
+                800
+            ],
+            "load_l3": [
+                "F",
+                837
+            ],
+            "load_total": [
+                "F",
+                874
+            ],
+            "pv1_curr": [
+                "F",
+                176.2
+            ],
+            "pv1_power": [
+                "F",
+                1577
+            ],
+            "pv1_volt": [
+                "F",
+                172.5
+            ],
+            "pv2_curr": [
+                "F",
+                183.6
+            ],
+            "pv2_power": [
+                "F",
+                1614
+            ],
+            "pv2_volt": [
+                "F",
+                179.9
+            ],
+            "pv_total": [
+                "F",
+                3191
+            ],
+            "status": [
+                "I",
+                3013
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                500,
+                1,
+                1
+            ],
+            [
+                3,
+                672,
+                8,
+                1
+            ],
+            [
+                3,
+                586,
+                6,
+                1
+            ],
+            [
+                3,
+                598,
+                3,
+                1
+            ],
+            [
+                3,
+                616,
+                4,
+                1
+            ],
+            [
+                3,
+                638,
+                1,
+                1
+            ],
+            [
+                3,
+                650,
+                4,
+                1
+            ],
+            [
+                3,
+                514,
+                11,
+                1
+            ],
+            [
+                3,
+                526,
+                9,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "deye alles 0": {
+        "vars": {
+            "bat_curr": [
+                "F",
+                0
+            ],
+            "bat_power": [
+                "F",
+                0
+            ],
+            "bat_soc": [
+                "I",
+                0
+            ],
+            "bat_temp": [
+                "F",
+                0
+            ],
+            "bat_volt": [
+                "F",
+                0
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_buy_day": [
+                "F",
+                0
+            ],
+            "e_buy_total": [
+                "F",
+                0
+            ],
+            "e_charge_day": [
+                "F",
+                0
+            ],
+            "e_charge_total": [
+                "F",
+                0
+            ],
+            "e_disch_day": [
+                "F",
+                0
+            ],
+            "e_disch_total": [
+                "F",
+                0
+            ],
+            "e_load_day": [
+                "F",
+                0
+            ],
+            "e_load_total": [
+                "F",
+                0
+            ],
+            "e_pv_day": [
+                "F",
+                0
+            ],
+            "e_pv_total": [
+                "F",
+                0
+            ],
+            "e_sell_day": [
+                "F",
+                0
+            ],
+            "e_sell_total": [
+                "F",
+                0
+            ],
+            "grid_freq": [
+                "F",
+                0
+            ],
+            "grid_l1_curr": [
+                "F",
+                0
+            ],
+            "grid_l1_volt": [
+                "F",
+                0
+            ],
+            "grid_l2_curr": [
+                "F",
+                0
+            ],
+            "grid_l2_volt": [
+                "F",
+                0
+            ],
+            "grid_l3_curr": [
+                "F",
+                0
+            ],
+            "grid_l3_volt": [
+                "F",
+                0
+            ],
+            "grid_total": [
+                "F",
+                0
+            ],
+            "load_l1": [
+                "F",
+                0
+            ],
+            "load_l2": [
+                "F",
+                0
+            ],
+            "load_l3": [
+                "F",
+                0
+            ],
+            "load_total": [
+                "F",
+                0
+            ],
+            "pv1_curr": [
+                "F",
+                0
+            ],
+            "pv1_power": [
+                "F",
+                0
+            ],
+            "pv1_volt": [
+                "F",
+                0
+            ],
+            "pv2_curr": [
+                "F",
+                0
+            ],
+            "pv2_power": [
+                "F",
+                0
+            ],
+            "pv2_volt": [
+                "F",
+                0
+            ],
+            "pv_total": [
+                "F",
+                0
+            ],
+            "status": [
+                "I",
+                0
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                500,
+                1,
+                1
+            ],
+            [
+                3,
+                672,
+                8,
+                1
+            ],
+            [
+                3,
+                586,
+                6,
+                1
+            ],
+            [
+                3,
+                598,
+                3,
+                1
+            ],
+            [
+                3,
+                616,
+                4,
+                1
+            ],
+            [
+                3,
+                638,
+                1,
+                1
+            ],
+            [
+                3,
+                650,
+                4,
+                1
+            ],
+            [
+                3,
+                514,
+                11,
+                1
+            ],
+            [
+                3,
+                526,
+                9,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "deye alles 0xFFFF (nicht implementiert)": {
+        "vars": {
+            "bat_curr": [
+                "F",
+                -0.01
+            ],
+            "bat_power": [
+                "F",
+                -1
+            ],
+            "bat_soc": [
+                "I",
+                65535
+            ],
+            "bat_temp": [
+                "F",
+                -0.1
+            ],
+            "bat_volt": [
+                "F",
+                655.35
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_buy_day": [
+                "F",
+                6553.5
+            ],
+            "e_buy_total": [
+                "F",
+                6553.5
+            ],
+            "e_charge_day": [
+                "F",
+                6553.5
+            ],
+            "e_charge_total": [
+                "F",
+                6553.5
+            ],
+            "e_disch_day": [
+                "F",
+                6553.5
+            ],
+            "e_disch_total": [
+                "F",
+                6553.5
+            ],
+            "e_load_day": [
+                "F",
+                6553.5
+            ],
+            "e_load_total": [
+                "F",
+                6553.5
+            ],
+            "e_pv_day": [
+                "F",
+                6553.5
+            ],
+            "e_pv_total": [
+                "F",
+                6553.5
+            ],
+            "e_sell_day": [
+                "F",
+                6553.5
+            ],
+            "e_sell_total": [
+                "F",
+                6553.5
+            ],
+            "grid_freq": [
+                "F",
+                655.35
+            ],
+            "grid_l1_curr": [
+                "F",
+                -1
+            ],
+            "grid_l1_volt": [
+                "F",
+                6553.5
+            ],
+            "grid_l2_curr": [
+                "F",
+                -1
+            ],
+            "grid_l2_volt": [
+                "F",
+                6553.5
+            ],
+            "grid_l3_curr": [
+                "F",
+                -1
+            ],
+            "grid_l3_volt": [
+                "F",
+                6553.5
+            ],
+            "grid_total": [
+                "F",
+                -1
+            ],
+            "load_l1": [
+                "F",
+                -1
+            ],
+            "load_l2": [
+                "F",
+                -1
+            ],
+            "load_l3": [
+                "F",
+                -1
+            ],
+            "load_total": [
+                "F",
+                -1
+            ],
+            "pv1_curr": [
+                "F",
+                6553.5
+            ],
+            "pv1_power": [
+                "F",
+                -1
+            ],
+            "pv1_volt": [
+                "F",
+                6553.5
+            ],
+            "pv2_curr": [
+                "F",
+                6553.5
+            ],
+            "pv2_power": [
+                "F",
+                -1
+            ],
+            "pv2_volt": [
+                "F",
+                6553.5
+            ],
+            "pv_total": [
+                "F",
+                -2
+            ],
+            "status": [
+                "I",
+                65535
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                500,
+                1,
+                1
+            ],
+            [
+                3,
+                672,
+                8,
+                1
+            ],
+            [
+                3,
+                586,
+                6,
+                1
+            ],
+            [
+                3,
+                598,
+                3,
+                1
+            ],
+            [
+                3,
+                616,
+                4,
+                1
+            ],
+            [
+                3,
+                638,
+                1,
+                1
+            ],
+            [
+                3,
+                650,
+                4,
+                1
+            ],
+            [
+                3,
+                514,
+                11,
+                1
+            ],
+            [
+                3,
+                526,
+                9,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "deye keine Antwort": {
+        "vars": {
+            "connected": [
+                "B",
+                false
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": false,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                500,
+                1,
+                1
+            ],
+            [
+                3,
+                672,
+                8,
+                1
+            ],
+            [
+                3,
+                586,
+                6,
+                1
+            ],
+            [
+                3,
+                598,
+                3,
+                1
+            ],
+            [
+                3,
+                616,
+                4,
+                1
+            ],
+            [
+                3,
+                638,
+                1,
+                1
+            ],
+            [
+                3,
+                650,
+                4,
+                1
+            ],
+            [
+                3,
+                514,
+                11,
+                1
+            ],
+            [
+                3,
+                526,
+                9,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "deye write ctl_onoff an": {
+        "vars": {
+            "ctl_onoff": [
+                "B",
+                true
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                80,
+                1
+            ]
+        ],
+        "warnings": 0
+    },
+    "deye write ctl_onoff an scheitert": {
+        "vars": [],
+        "writes": [
+            [
+                "single-failed",
+                80,
+                1
+            ]
+        ],
+        "warnings": 0
+    },
+    "deye write ctl_onoff aus": {
+        "vars": {
+            "ctl_onoff": [
+                "B",
+                false
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                80,
+                0
+            ]
+        ],
+        "warnings": 0
+    },
+    "foxess Gruppen aus": {
+        "vars": {
+            "ac_power": [
+                "F",
+                1920
+            ],
+            "bat_power": [
+                "F",
+                1809
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_model": [
+                "S",
+                "hex:0db90dde0e030e280e4d0e720e970ebc"
+            ],
+            "dev_sn": [
+                "S",
+                "hex:0ee10f060f2b0f500f750f9a008300a8"
+            ],
+            "pv_total": [
+                "F",
+                3285
+            ],
+            "status": [
+                "I",
+                3585
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                10000,
+                16,
+                1
+            ],
+            [
+                4,
+                11000,
+                96,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "foxess Muster negativ (hohes Bit)": {
+        "vars": {
+            "ac_power": [
+                "F",
+                -2176
+            ],
+            "bat_curr": [
+                "F",
+                -128.8
+            ],
+            "bat_power": [
+                "F",
+                -2287
+            ],
+            "bat_soc": [
+                "I",
+                64285
+            ],
+            "bat_status": [
+                "I",
+                65062
+            ],
+            "bat_temp": [
+                "F",
+                -117.7
+            ],
+            "bat_volt": [
+                "F",
+                -132.5
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_model": [
+                "S",
+                "hex:fdb9fddefe03fe28fe4dfe72fe97febc"
+            ],
+            "dev_sn": [
+                "S",
+                "hex:fee1ff06ff2bff50ff75ff9af083f0a8"
+            ],
+            "e_charge_day": [
+                "F",
+                6179.1
+            ],
+            "e_charge_total": [
+                "F",
+                404474706.6
+            ],
+            "e_disch_day": [
+                "F",
+                6190.2
+            ],
+            "e_disch_total": [
+                "F",
+                405202167.3
+            ],
+            "e_load_day": [
+                "F",
+                6245.7
+            ],
+            "e_load_total": [
+                "F",
+                408839470.8
+            ],
+            "e_pv_day": [
+                "F",
+                6168
+            ],
+            "e_pv_total": [
+                "F",
+                403747245.9
+            ],
+            "e_sell_day": [
+                "F",
+                6201.3
+            ],
+            "e_sell_total": [
+                "F",
+                405929628
+            ],
+            "eps_freq": [
+                "F",
+                636.93
+            ],
+            "eps_pwr": [
+                "F",
+                -1954
+            ],
+            "eps_volt": [
+                "F",
+                6350.8
+            ],
+            "grid_freq": [
+                "F",
+                634.71
+            ],
+            "grid_volt": [
+                "F",
+                6328.6
+            ],
+            "meter1_pwr": [
+                "F",
+                -1806
+            ],
+            "meter2_pwr": [
+                "F",
+                -1769
+            ],
+            "pv1_curr": [
+                "F",
+                -254.6
+            ],
+            "pv1_volt": [
+                "F",
+                -258.3
+            ],
+            "pv2_curr": [
+                "F",
+                -243.5
+            ],
+            "pv2_volt": [
+                "F",
+                -247.2
+            ],
+            "pv_total": [
+                "F",
+                -4907
+            ],
+            "status": [
+                "I",
+                65025
+            ],
+            "temp_env": [
+                "F",
+                -165.8
+            ],
+            "temp_inv": [
+                "F",
+                -169.5
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                10000,
+                16,
+                1
+            ],
+            [
+                4,
+                11000,
+                96,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "foxess Muster positiv": {
+        "vars": {
+            "ac_power": [
+                "F",
+                1920
+            ],
+            "bat_curr": [
+                "F",
+                280.8
+            ],
+            "bat_power": [
+                "F",
+                1809
+            ],
+            "bat_soc": [
+                "I",
+                2845
+            ],
+            "bat_status": [
+                "I",
+                3622
+            ],
+            "bat_temp": [
+                "F",
+                291.9
+            ],
+            "bat_volt": [
+                "F",
+                277.1
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_model": [
+                "S",
+                "hex:0db90dde0e030e280e4d0e720e970ebc"
+            ],
+            "dev_sn": [
+                "S",
+                "hex:0ee10f060f2b0f500f750f9a008300a8"
+            ],
+            "e_charge_day": [
+                "F",
+                35.1
+            ],
+            "e_charge_total": [
+                "F",
+                1815378.6
+            ],
+            "e_disch_day": [
+                "F",
+                46.2
+            ],
+            "e_disch_total": [
+                "F",
+                2542839.3
+            ],
+            "e_load_day": [
+                "F",
+                101.7
+            ],
+            "e_load_total": [
+                "F",
+                6180142.8
+            ],
+            "e_pv_day": [
+                "F",
+                24
+            ],
+            "e_pv_total": [
+                "F",
+                1087917.9
+            ],
+            "e_sell_day": [
+                "F",
+                57.3
+            ],
+            "e_sell_total": [
+                "F",
+                3270300
+            ],
+            "eps_freq": [
+                "F",
+                22.53
+            ],
+            "eps_pwr": [
+                "F",
+                2142
+            ],
+            "eps_volt": [
+                "F",
+                206.8
+            ],
+            "grid_freq": [
+                "F",
+                20.31
+            ],
+            "grid_volt": [
+                "F",
+                184.6
+            ],
+            "meter1_pwr": [
+                "F",
+                2290
+            ],
+            "meter2_pwr": [
+                "F",
+                2327
+            ],
+            "pv1_curr": [
+                "F",
+                155
+            ],
+            "pv1_volt": [
+                "F",
+                151.3
+            ],
+            "pv2_curr": [
+                "F",
+                166.1
+            ],
+            "pv2_volt": [
+                "F",
+                162.4
+            ],
+            "pv_total": [
+                "F",
+                3285
+            ],
+            "status": [
+                "I",
+                3585
+            ],
+            "temp_env": [
+                "F",
+                243.8
+            ],
+            "temp_inv": [
+                "F",
+                240.1
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                10000,
+                16,
+                1
+            ],
+            [
+                4,
+                11000,
+                96,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "foxess alles 0": {
+        "vars": {
+            "ac_power": [
+                "F",
+                0
+            ],
+            "bat_curr": [
+                "F",
+                0
+            ],
+            "bat_power": [
+                "F",
+                0
+            ],
+            "bat_soc": [
+                "I",
+                0
+            ],
+            "bat_status": [
+                "I",
+                0
+            ],
+            "bat_temp": [
+                "F",
+                0
+            ],
+            "bat_volt": [
+                "F",
+                0
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_model": [
+                "S",
+                ""
+            ],
+            "dev_sn": [
+                "S",
+                ""
+            ],
+            "e_charge_day": [
+                "F",
+                0
+            ],
+            "e_charge_total": [
+                "F",
+                0
+            ],
+            "e_disch_day": [
+                "F",
+                0
+            ],
+            "e_disch_total": [
+                "F",
+                0
+            ],
+            "e_load_day": [
+                "F",
+                0
+            ],
+            "e_load_total": [
+                "F",
+                0
+            ],
+            "e_pv_day": [
+                "F",
+                0
+            ],
+            "e_pv_total": [
+                "F",
+                0
+            ],
+            "e_sell_day": [
+                "F",
+                0
+            ],
+            "e_sell_total": [
+                "F",
+                0
+            ],
+            "eps_freq": [
+                "F",
+                0
+            ],
+            "eps_pwr": [
+                "F",
+                0
+            ],
+            "eps_volt": [
+                "F",
+                0
+            ],
+            "grid_freq": [
+                "F",
+                0
+            ],
+            "grid_volt": [
+                "F",
+                0
+            ],
+            "meter1_pwr": [
+                "F",
+                0
+            ],
+            "meter2_pwr": [
+                "F",
+                0
+            ],
+            "pv1_curr": [
+                "F",
+                0
+            ],
+            "pv1_volt": [
+                "F",
+                0
+            ],
+            "pv2_curr": [
+                "F",
+                0
+            ],
+            "pv2_volt": [
+                "F",
+                0
+            ],
+            "pv_total": [
+                "F",
+                0
+            ],
+            "status": [
+                "I",
+                0
+            ],
+            "temp_env": [
+                "F",
+                0
+            ],
+            "temp_inv": [
+                "F",
+                0
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                10000,
+                16,
+                1
+            ],
+            [
+                4,
+                11000,
+                96,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "foxess alles 0xFFFF (nicht implementiert)": {
+        "vars": {
+            "ac_power": [
+                "F",
+                -1
+            ],
+            "bat_curr": [
+                "F",
+                -0.1
+            ],
+            "bat_power": [
+                "F",
+                -1
+            ],
+            "bat_soc": [
+                "I",
+                65535
+            ],
+            "bat_status": [
+                "I",
+                65535
+            ],
+            "bat_temp": [
+                "F",
+                -0.1
+            ],
+            "bat_volt": [
+                "F",
+                -0.1
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_model": [
+                "S",
+                "hex:ffffffffffffffffffffffffffffffff"
+            ],
+            "dev_sn": [
+                "S",
+                "hex:ffffffffffffffffffffffffffffffff"
+            ],
+            "e_charge_day": [
+                "F",
+                6553.5
+            ],
+            "e_charge_total": [
+                "F",
+                429496729.5
+            ],
+            "e_disch_day": [
+                "F",
+                6553.5
+            ],
+            "e_disch_total": [
+                "F",
+                429496729.5
+            ],
+            "e_load_day": [
+                "F",
+                6553.5
+            ],
+            "e_load_total": [
+                "F",
+                429496729.5
+            ],
+            "e_pv_day": [
+                "F",
+                6553.5
+            ],
+            "e_pv_total": [
+                "F",
+                429496729.5
+            ],
+            "e_sell_day": [
+                "F",
+                6553.5
+            ],
+            "e_sell_total": [
+                "F",
+                429496729.5
+            ],
+            "eps_freq": [
+                "F",
+                655.35
+            ],
+            "eps_pwr": [
+                "F",
+                -1
+            ],
+            "eps_volt": [
+                "F",
+                6553.5
+            ],
+            "grid_freq": [
+                "F",
+                655.35
+            ],
+            "grid_volt": [
+                "F",
+                6553.5
+            ],
+            "meter1_pwr": [
+                "F",
+                -1
+            ],
+            "meter2_pwr": [
+                "F",
+                -1
+            ],
+            "pv1_curr": [
+                "F",
+                -0.1
+            ],
+            "pv1_volt": [
+                "F",
+                -0.1
+            ],
+            "pv2_curr": [
+                "F",
+                -0.1
+            ],
+            "pv2_volt": [
+                "F",
+                -0.1
+            ],
+            "pv_total": [
+                "F",
+                -2
+            ],
+            "status": [
+                "I",
+                65535
+            ],
+            "temp_env": [
+                "F",
+                -0.1
+            ],
+            "temp_inv": [
+                "F",
+                -0.1
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                10000,
+                16,
+                1
+            ],
+            [
+                4,
+                11000,
+                96,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "foxess keine Antwort": {
+        "vars": {
+            "connected": [
+                "B",
+                false
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": false,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                10000,
+                16,
+                1
+            ],
+            [
+                4,
+                11000,
+                96,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "growatt Gruppen aus": {
+        "vars": {
+            "ac_power": [
+                "F",
+                9227613.3
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "grid_freq": [
+                "F",
+                14.82
+            ],
+            "pv_total": [
+                "F",
+                983058.7
+            ],
+            "status": [
+                "I",
+                113
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                0,
+                108,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "growatt Muster negativ (hohes Bit)": {
+        "vars": {
+            "ac_power": [
+                "F",
+                411886941.3
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_day": [
+                "F",
+                416251705.5
+            ],
+            "e_total": [
+                "F",
+                416736679.3
+            ],
+            "fault_main": [
+                "I",
+                65438
+            ],
+            "fault_sub": [
+                "I",
+                61612
+            ],
+            "grid_freq": [
+                "F",
+                629.22
+            ],
+            "iac1": [
+                "F",
+                6299.6
+            ],
+            "iac2": [
+                "F",
+                6314.4
+            ],
+            "iac3": [
+                "F",
+                6329.2
+            ],
+            "pac1": [
+                "F",
+                413099375.8
+            ],
+            "pac2": [
+                "F",
+                414069323.4
+            ],
+            "pac3": [
+                "F",
+                415039271
+            ],
+            "pv1_curr": [
+                "F",
+                6170.1
+            ],
+            "pv1_power": [
+                "F",
+                404612334.3
+            ],
+            "pv1_volt": [
+                "F",
+                6166.4
+            ],
+            "pv2_curr": [
+                "F",
+                6184.9
+            ],
+            "pv2_power": [
+                "F",
+                405582281.9
+            ],
+            "pv2_volt": [
+                "F",
+                6181.2
+            ],
+            "pv3_curr": [
+                "F",
+                6199.7
+            ],
+            "pv3_power": [
+                "F",
+                406552229.5
+            ],
+            "pv3_volt": [
+                "F",
+                6196
+            ],
+            "pv_total": [
+                "F",
+                403642386.7
+            ],
+            "riso": [
+                "F",
+                65053
+            ],
+            "status": [
+                "I",
+                61553
+            ],
+            "temp1": [
+                "F",
+                -54.2
+            ],
+            "vac1": [
+                "F",
+                6295.9
+            ],
+            "vac2": [
+                "F",
+                6310.7
+            ],
+            "vac3": [
+                "F",
+                6325.5
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                0,
+                108,
+                1
+            ],
+            [
+                4,
+                200,
+                1,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "growatt Muster positiv": {
+        "vars": {
+            "ac_power": [
+                "F",
+                9227613.3
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_day": [
+                "F",
+                13592377.5
+            ],
+            "e_total": [
+                "F",
+                14077351.3
+            ],
+            "fault_main": [
+                "I",
+                3998
+            ],
+            "fault_sub": [
+                "I",
+                172
+            ],
+            "grid_freq": [
+                "F",
+                14.82
+            ],
+            "iac1": [
+                "F",
+                155.6
+            ],
+            "iac2": [
+                "F",
+                170.4
+            ],
+            "iac3": [
+                "F",
+                185.2
+            ],
+            "pac1": [
+                "F",
+                10440047.8
+            ],
+            "pac2": [
+                "F",
+                11409995.4
+            ],
+            "pac3": [
+                "F",
+                12379943
+            ],
+            "pv1_curr": [
+                "F",
+                26.1
+            ],
+            "pv1_power": [
+                "F",
+                1953006.3
+            ],
+            "pv1_volt": [
+                "F",
+                22.4
+            ],
+            "pv2_curr": [
+                "F",
+                40.9
+            ],
+            "pv2_power": [
+                "F",
+                2922953.9
+            ],
+            "pv2_volt": [
+                "F",
+                37.2
+            ],
+            "pv3_curr": [
+                "F",
+                55.7
+            ],
+            "pv3_power": [
+                "F",
+                3892901.5
+            ],
+            "pv3_volt": [
+                "F",
+                52
+            ],
+            "pv_total": [
+                "F",
+                983058.7
+            ],
+            "riso": [
+                "F",
+                3613
+            ],
+            "status": [
+                "I",
+                113
+            ],
+            "temp1": [
+                "F",
+                355.4
+            ],
+            "vac1": [
+                "F",
+                151.9
+            ],
+            "vac2": [
+                "F",
+                166.7
+            ],
+            "vac3": [
+                "F",
+                181.5
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                0,
+                108,
+                1
+            ],
+            [
+                4,
+                200,
+                1,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "growatt alles 0": {
+        "vars": {
+            "ac_power": [
+                "F",
+                0
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_day": [
+                "F",
+                0
+            ],
+            "e_total": [
+                "F",
+                0
+            ],
+            "fault_main": [
+                "I",
+                0
+            ],
+            "fault_sub": [
+                "I",
+                0
+            ],
+            "grid_freq": [
+                "F",
+                0
+            ],
+            "iac1": [
+                "F",
+                0
+            ],
+            "iac2": [
+                "F",
+                0
+            ],
+            "iac3": [
+                "F",
+                0
+            ],
+            "pac1": [
+                "F",
+                0
+            ],
+            "pac2": [
+                "F",
+                0
+            ],
+            "pac3": [
+                "F",
+                0
+            ],
+            "pv1_curr": [
+                "F",
+                0
+            ],
+            "pv1_power": [
+                "F",
+                0
+            ],
+            "pv1_volt": [
+                "F",
+                0
+            ],
+            "pv2_curr": [
+                "F",
+                0
+            ],
+            "pv2_power": [
+                "F",
+                0
+            ],
+            "pv2_volt": [
+                "F",
+                0
+            ],
+            "pv3_curr": [
+                "F",
+                0
+            ],
+            "pv3_power": [
+                "F",
+                0
+            ],
+            "pv3_volt": [
+                "F",
+                0
+            ],
+            "pv_total": [
+                "F",
+                0
+            ],
+            "riso": [
+                "F",
+                0
+            ],
+            "status": [
+                "I",
+                0
+            ],
+            "temp1": [
+                "F",
+                0
+            ],
+            "vac1": [
+                "F",
+                0
+            ],
+            "vac2": [
+                "F",
+                0
+            ],
+            "vac3": [
+                "F",
+                0
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                0,
+                108,
+                1
+            ],
+            [
+                4,
+                200,
+                1,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "growatt alles 0xFFFF (nicht implementiert)": {
+        "vars": {
+            "ac_power": [
+                "F",
+                429496729.5
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_day": [
+                "F",
+                429496729.5
+            ],
+            "e_total": [
+                "F",
+                429496729.5
+            ],
+            "fault_main": [
+                "I",
+                65535
+            ],
+            "fault_sub": [
+                "I",
+                65535
+            ],
+            "grid_freq": [
+                "F",
+                655.35
+            ],
+            "iac1": [
+                "F",
+                6553.5
+            ],
+            "iac2": [
+                "F",
+                6553.5
+            ],
+            "iac3": [
+                "F",
+                6553.5
+            ],
+            "pac1": [
+                "F",
+                429496729.5
+            ],
+            "pac2": [
+                "F",
+                429496729.5
+            ],
+            "pac3": [
+                "F",
+                429496729.5
+            ],
+            "pv1_curr": [
+                "F",
+                6553.5
+            ],
+            "pv1_power": [
+                "F",
+                429496729.5
+            ],
+            "pv1_volt": [
+                "F",
+                6553.5
+            ],
+            "pv2_curr": [
+                "F",
+                6553.5
+            ],
+            "pv2_power": [
+                "F",
+                429496729.5
+            ],
+            "pv2_volt": [
+                "F",
+                6553.5
+            ],
+            "pv3_curr": [
+                "F",
+                6553.5
+            ],
+            "pv3_power": [
+                "F",
+                429496729.5
+            ],
+            "pv3_volt": [
+                "F",
+                6553.5
+            ],
+            "pv_total": [
+                "F",
+                429496729.5
+            ],
+            "riso": [
+                "F",
+                65535
+            ],
+            "status": [
+                "I",
+                65535
+            ],
+            "temp1": [
+                "F",
+                -0.1
+            ],
+            "vac1": [
+                "F",
+                6553.5
+            ],
+            "vac2": [
+                "F",
+                6553.5
+            ],
+            "vac3": [
+                "F",
+                6553.5
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                0,
+                108,
+                1
+            ],
+            [
+                4,
+                200,
+                1,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "growatt keine Antwort": {
+        "vars": {
+            "connected": [
+                "B",
+                false
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": false,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                0,
+                108,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "huawei Gruppen aus": {
+        "vars": {
+            "ac_power": [
+                "F",
+                96536038
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_model": [
+                "S",
+                "hex:09d109f60a1b0a400a650a8a0aaf0ad40af90b1e0b430b680b8d0bb20bd7"
+            ],
+            "pv_total": [
+                "F",
+                57738134
+            ],
+            "riso": [
+                "F",
+                1.769
+            ],
+            "status": [
+                "I",
+                1806
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                30000,
+                15,
+                1
+            ],
+            [
+                3,
+                32064,
+                26,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "huawei Muster negativ (hohes Bit)": {
+        "vars": {
+            "ac_power": [
+                "F",
+                -171837978
+            ],
+            "bat_curr": [
+                "F",
+                310.6
+            ],
+            "bat_power": [
+                "F",
+                251989729
+            ],
+            "bat_soc": [
+                "I",
+                6180
+            ],
+            "bat_status": [
+                "I",
+                61653
+            ],
+            "bat_temp": [
+                "F",
+                -306.9
+            ],
+            "bat_volt": [
+                "F",
+                6176.4
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_model": [
+                "S",
+                "hex:f9d1f9f6fa1bfa40fa65fa8afaaffad4faf9fb1efb43fb68fb8dfbb2fbd7"
+            ],
+            "e_day": [
+                "F",
+                42055748.64
+            ],
+            "e_total": [
+                "F",
+                41861759.12
+            ],
+            "grid_curr": [
+                "F",
+                -191236.93
+            ],
+            "grid_freq": [
+                "F",
+                630.98
+            ],
+            "grid_volt": [
+                "F",
+                6250.6
+            ],
+            "meter_curr": [
+                "F",
+                -2505479.15
+            ],
+            "meter_freq": [
+                "F",
+                -34.17
+            ],
+            "meter_total": [
+                "F",
+                -235998701
+            ],
+            "meter_volt": [
+                "F",
+                -950282.9
+            ],
+            "pv_total": [
+                "F",
+                -210635882
+            ],
+            "riso": [
+                "F",
+                63.209
+            ],
+            "status": [
+                "I",
+                63246
+            ],
+            "temp_cab": [
+                "F",
+                -236.4
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                30000,
+                15,
+                1
+            ],
+            [
+                3,
+                32064,
+                26,
+                1
+            ],
+            [
+                3,
+                37100,
+                19,
+                1
+            ],
+            [
+                3,
+                37000,
+                23,
+                1
+            ],
+            [
+                3,
+                32106,
+                10,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "huawei Muster positiv": {
+        "vars": {
+            "ac_power": [
+                "F",
+                96536038
+            ],
+            "bat_curr": [
+                "F",
+                -99
+            ],
+            "bat_power": [
+                "F",
+                -16384287
+            ],
+            "bat_soc": [
+                "I",
+                36
+            ],
+            "bat_status": [
+                "I",
+                213
+            ],
+            "bat_temp": [
+                "F",
+                102.7
+            ],
+            "bat_volt": [
+                "F",
+                32.4
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_model": [
+                "S",
+                "hex:09d109f60a1b0a400a650a8a0aaf0ad40af90b1e0b430b680b8d0bb20bd7"
+            ],
+            "e_day": [
+                "F",
+                1789815.84
+            ],
+            "e_total": [
+                "F",
+                1595826.32
+            ],
+            "grid_curr": [
+                "F",
+                77137.086
+            ],
+            "grid_freq": [
+                "F",
+                16.58
+            ],
+            "grid_volt": [
+                "F",
+                106.6
+            ],
+            "meter_curr": [
+                "F",
+                178261.01
+            ],
+            "meter_freq": [
+                "F",
+                6.79
+            ],
+            "meter_total": [
+                "F",
+                32375315
+            ],
+            "meter_volt": [
+                "F",
+                25887118.7
+            ],
+            "pv_total": [
+                "F",
+                57738134
+            ],
+            "riso": [
+                "F",
+                1.769
+            ],
+            "status": [
+                "I",
+                1806
+            ],
+            "temp_cab": [
+                "F",
+                173.2
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                30000,
+                15,
+                1
+            ],
+            [
+                3,
+                32064,
+                26,
+                1
+            ],
+            [
+                3,
+                37100,
+                19,
+                1
+            ],
+            [
+                3,
+                37000,
+                23,
+                1
+            ],
+            [
+                3,
+                32106,
+                10,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "huawei alles 0": {
+        "vars": {
+            "ac_power": [
+                "F",
+                0
+            ],
+            "bat_curr": [
+                "F",
+                0
+            ],
+            "bat_power": [
+                "F",
+                0
+            ],
+            "bat_soc": [
+                "I",
+                0
+            ],
+            "bat_status": [
+                "I",
+                0
+            ],
+            "bat_temp": [
+                "F",
+                0
+            ],
+            "bat_volt": [
+                "F",
+                0
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_model": [
+                "S",
+                ""
+            ],
+            "e_day": [
+                "F",
+                0
+            ],
+            "e_total": [
+                "F",
+                0
+            ],
+            "grid_curr": [
+                "F",
+                0
+            ],
+            "grid_freq": [
+                "F",
+                0
+            ],
+            "grid_volt": [
+                "F",
+                0
+            ],
+            "meter_curr": [
+                "F",
+                0
+            ],
+            "meter_freq": [
+                "F",
+                0
+            ],
+            "meter_total": [
+                "F",
+                0
+            ],
+            "meter_volt": [
+                "F",
+                0
+            ],
+            "pv_total": [
+                "F",
+                0
+            ],
+            "riso": [
+                "F",
+                0
+            ],
+            "status": [
+                "I",
+                0
+            ],
+            "temp_cab": [
+                "F",
+                0
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                30000,
+                15,
+                1
+            ],
+            [
+                3,
+                32064,
+                26,
+                1
+            ],
+            [
+                3,
+                37100,
+                19,
+                1
+            ],
+            [
+                3,
+                37000,
+                23,
+                1
+            ],
+            [
+                3,
+                32106,
+                10,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "huawei alles 0xFFFF (nicht implementiert)": {
+        "vars": {
+            "ac_power": [
+                "F",
+                -1
+            ],
+            "bat_curr": [
+                "F",
+                0.1
+            ],
+            "bat_power": [
+                "F",
+                1
+            ],
+            "bat_soc": [
+                "I",
+                6554
+            ],
+            "bat_status": [
+                "I",
+                65535
+            ],
+            "bat_temp": [
+                "F",
+                -0.1
+            ],
+            "bat_volt": [
+                "F",
+                6553.5
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_model": [
+                "S",
+                "hex:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+            ],
+            "e_day": [
+                "F",
+                42949672.95
+            ],
+            "e_total": [
+                "F",
+                42949672.95
+            ],
+            "grid_curr": [
+                "F",
+                -0.001
+            ],
+            "grid_freq": [
+                "F",
+                655.35
+            ],
+            "grid_volt": [
+                "F",
+                6553.5
+            ],
+            "meter_curr": [
+                "F",
+                -0.01
+            ],
+            "meter_freq": [
+                "F",
+                -0.01
+            ],
+            "meter_total": [
+                "F",
+                -1
+            ],
+            "meter_volt": [
+                "F",
+                -0.1
+            ],
+            "pv_total": [
+                "F",
+                -1
+            ],
+            "riso": [
+                "F",
+                65.535
+            ],
+            "status": [
+                "I",
+                65535
+            ],
+            "temp_cab": [
+                "F",
+                -0.1
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                30000,
+                15,
+                1
+            ],
+            [
+                3,
+                32064,
+                26,
+                1
+            ],
+            [
+                3,
+                37100,
+                19,
+                1
+            ],
+            [
+                3,
+                37000,
+                23,
+                1
+            ],
+            [
+                3,
+                32106,
+                10,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "huawei keine Antwort": {
+        "vars": {
+            "connected": [
+                "B",
+                false
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": false,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                30000,
+                15,
+                1
+            ],
+            [
+                3,
+                32064,
+                26,
+                1
+            ],
+            [
+                3,
+                32106,
+                10,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "solax Gruppen aus": {
+        "vars": {
+            "bat_power": [
+                "F",
+                143198382
+            ],
+            "bat_soc": [
+                "I",
+                2333
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_sn": [
+                "S",
+                "hex:09c709ec0a110a360a5b"
+            ],
+            "dev_type": [
+                "I",
+                890
+            ],
+            "grid_status": [
+                "I",
+                1075
+            ],
+            "ongrid_total": [
+                "F",
+                133498906
+            ],
+            "pv_total": [
+                "F",
+                128649168
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                21,
+                1,
+                1
+            ],
+            [
+                3,
+                170,
+                5,
+                1
+            ],
+            [
+                4,
+                0,
+                12,
+                1
+            ],
+            [
+                4,
+                26,
+                36,
+                1
+            ],
+            [
+                4,
+                40,
+                9,
+                1
+            ],
+            [
+                4,
+                290,
+                3,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "solax Muster negativ (hohes Bit)": {
+        "vars": {
+            "bat_capacity": [
+                "F",
+                4174641.4
+            ],
+            "bat_power": [
+                "F",
+                -125175634
+            ],
+            "bat_soc": [
+                "I",
+                63773
+            ],
+            "bat_soh": [
+                "I",
+                63810
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_sn": [
+                "S",
+                "hex:f9c7f9ecfa11fa36fa5b"
+            ],
+            "dev_type": [
+                "I",
+                62330
+            ],
+            "feedin_r": [
+                "F",
+                -201329628
+            ],
+            "feedin_s": [
+                "F",
+                -196479890
+            ],
+            "feedin_total": [
+                "F",
+                -91227468
+            ],
+            "grid_curr": [
+                "F",
+                -394.6
+            ],
+            "grid_freq": [
+                "F",
+                618.12
+            ],
+            "grid_pwr": [
+                "F",
+                -3909
+            ],
+            "grid_r_curr": [
+                "F",
+                -392.4
+            ],
+            "grid_r_pwr": [
+                "F",
+                -3887
+            ],
+            "grid_r_volt": [
+                "F",
+                6157.5
+            ],
+            "grid_s_curr": [
+                "F",
+                -377.6
+            ],
+            "grid_s_pwr": [
+                "F",
+                -3739
+            ],
+            "grid_s_volt": [
+                "F",
+                6172.3
+            ],
+            "grid_status": [
+                "I",
+                62515
+            ],
+            "grid_t_curr": [
+                "F",
+                -362.8
+            ],
+            "grid_t_pwr": [
+                "F",
+                -3591
+            ],
+            "grid_t_volt": [
+                "F",
+                6187.1
+            ],
+            "grid_volt": [
+                "F",
+                6155.3
+            ],
+            "offgrid_total": [
+                "F",
+                -130025372
+            ],
+            "ongrid_total": [
+                "F",
+                -134875110
+            ],
+            "pv1_curr": [
+                "F",
+                6173.8
+            ],
+            "pv1_power": [
+                "F",
+                61923
+            ],
+            "pv1_volt": [
+                "F",
+                6166.4
+            ],
+            "pv2_curr": [
+                "F",
+                6177.5
+            ],
+            "pv2_power": [
+                "F",
+                61960
+            ],
+            "pv2_volt": [
+                "F",
+                6170.1
+            ],
+            "pv3_curr": [
+                "F",
+                6452
+            ],
+            "pv3_power": [
+                "F",
+                64557
+            ],
+            "pv3_volt": [
+                "F",
+                6448.3
+            ],
+            "pv4_curr": [
+                "F",
+                6314.4
+            ],
+            "pv4_power": [
+                "F",
+                63255
+            ],
+            "pv4_volt": [
+                "F",
+                6303.3
+            ],
+            "pv5_curr": [
+                "F",
+                6318.1
+            ],
+            "pv5_power": [
+                "F",
+                63292
+            ],
+            "pv5_volt": [
+                "F",
+                6307
+            ],
+            "pv6_curr": [
+                "F",
+                6321.8
+            ],
+            "pv6_power": [
+                "F",
+                63329
+            ],
+            "pv6_volt": [
+                "F",
+                6310.7
+            ],
+            "pv_total": [
+                "F",
+                4155242448
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                21,
+                1,
+                1
+            ],
+            [
+                3,
+                170,
+                5,
+                1
+            ],
+            [
+                4,
+                0,
+                12,
+                1
+            ],
+            [
+                4,
+                26,
+                36,
+                1
+            ],
+            [
+                4,
+                40,
+                9,
+                1
+            ],
+            [
+                4,
+                290,
+                3,
+                1
+            ],
+            [
+                4,
+                106,
+                12,
+                1
+            ],
+            [
+                4,
+                70,
+                64,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "solax Muster positiv": {
+        "vars": {
+            "bat_capacity": [
+                "F",
+                148048.12
+            ],
+            "bat_power": [
+                "F",
+                143198382
+            ],
+            "bat_soc": [
+                "I",
+                2333
+            ],
+            "bat_soh": [
+                "I",
+                2370
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_sn": [
+                "S",
+                "hex:09c709ec0a110a360a5b"
+            ],
+            "dev_type": [
+                "I",
+                890
+            ],
+            "feedin_r": [
+                "F",
+                67044388
+            ],
+            "feedin_s": [
+                "F",
+                71894126
+            ],
+            "feedin_total": [
+                "F",
+                177146548
+            ],
+            "grid_curr": [
+                "F",
+                15
+            ],
+            "grid_freq": [
+                "F",
+                3.72
+            ],
+            "grid_pwr": [
+                "F",
+                187
+            ],
+            "grid_r_curr": [
+                "F",
+                17.2
+            ],
+            "grid_r_pwr": [
+                "F",
+                209
+            ],
+            "grid_r_volt": [
+                "F",
+                13.5
+            ],
+            "grid_s_curr": [
+                "F",
+                32
+            ],
+            "grid_s_pwr": [
+                "F",
+                357
+            ],
+            "grid_s_volt": [
+                "F",
+                28.3
+            ],
+            "grid_status": [
+                "I",
+                1075
+            ],
+            "grid_t_curr": [
+                "F",
+                46.8
+            ],
+            "grid_t_pwr": [
+                "F",
+                505
+            ],
+            "grid_t_volt": [
+                "F",
+                43.1
+            ],
+            "grid_volt": [
+                "F",
+                11.3
+            ],
+            "offgrid_total": [
+                "F",
+                138348644
+            ],
+            "ongrid_total": [
+                "F",
+                133498906
+            ],
+            "pv1_curr": [
+                "F",
+                29.8
+            ],
+            "pv1_power": [
+                "F",
+                483
+            ],
+            "pv1_volt": [
+                "F",
+                22.4
+            ],
+            "pv2_curr": [
+                "F",
+                33.5
+            ],
+            "pv2_power": [
+                "F",
+                520
+            ],
+            "pv2_volt": [
+                "F",
+                26.1
+            ],
+            "pv3_curr": [
+                "F",
+                308
+            ],
+            "pv3_power": [
+                "F",
+                3117
+            ],
+            "pv3_volt": [
+                "F",
+                304.3
+            ],
+            "pv4_curr": [
+                "F",
+                170.4
+            ],
+            "pv4_power": [
+                "F",
+                1815
+            ],
+            "pv4_volt": [
+                "F",
+                159.3
+            ],
+            "pv5_curr": [
+                "F",
+                174.1
+            ],
+            "pv5_power": [
+                "F",
+                1852
+            ],
+            "pv5_volt": [
+                "F",
+                163
+            ],
+            "pv6_curr": [
+                "F",
+                177.8
+            ],
+            "pv6_power": [
+                "F",
+                1889
+            ],
+            "pv6_volt": [
+                "F",
+                166.7
+            ],
+            "pv_total": [
+                "F",
+                128649168
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                21,
+                1,
+                1
+            ],
+            [
+                3,
+                170,
+                5,
+                1
+            ],
+            [
+                4,
+                0,
+                12,
+                1
+            ],
+            [
+                4,
+                26,
+                36,
+                1
+            ],
+            [
+                4,
+                40,
+                9,
+                1
+            ],
+            [
+                4,
+                290,
+                3,
+                1
+            ],
+            [
+                4,
+                106,
+                12,
+                1
+            ],
+            [
+                4,
+                70,
+                64,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "solax alles 0": {
+        "vars": {
+            "bat_capacity": [
+                "F",
+                0
+            ],
+            "bat_power": [
+                "F",
+                0
+            ],
+            "bat_soc": [
+                "I",
+                0
+            ],
+            "bat_soh": [
+                "I",
+                0
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_sn": [
+                "S",
+                ""
+            ],
+            "dev_type": [
+                "I",
+                0
+            ],
+            "feedin_r": [
+                "F",
+                0
+            ],
+            "feedin_s": [
+                "F",
+                0
+            ],
+            "feedin_total": [
+                "F",
+                0
+            ],
+            "grid_curr": [
+                "F",
+                0
+            ],
+            "grid_freq": [
+                "F",
+                0
+            ],
+            "grid_pwr": [
+                "F",
+                0
+            ],
+            "grid_r_curr": [
+                "F",
+                0
+            ],
+            "grid_r_pwr": [
+                "F",
+                0
+            ],
+            "grid_r_volt": [
+                "F",
+                0
+            ],
+            "grid_s_curr": [
+                "F",
+                0
+            ],
+            "grid_s_pwr": [
+                "F",
+                0
+            ],
+            "grid_s_volt": [
+                "F",
+                0
+            ],
+            "grid_status": [
+                "I",
+                0
+            ],
+            "grid_t_curr": [
+                "F",
+                0
+            ],
+            "grid_t_pwr": [
+                "F",
+                0
+            ],
+            "grid_t_volt": [
+                "F",
+                0
+            ],
+            "grid_volt": [
+                "F",
+                0
+            ],
+            "offgrid_total": [
+                "F",
+                0
+            ],
+            "ongrid_total": [
+                "F",
+                0
+            ],
+            "pv1_curr": [
+                "F",
+                0
+            ],
+            "pv1_power": [
+                "F",
+                0
+            ],
+            "pv1_volt": [
+                "F",
+                0
+            ],
+            "pv2_curr": [
+                "F",
+                0
+            ],
+            "pv2_power": [
+                "F",
+                0
+            ],
+            "pv2_volt": [
+                "F",
+                0
+            ],
+            "pv3_curr": [
+                "F",
+                0
+            ],
+            "pv3_power": [
+                "F",
+                0
+            ],
+            "pv3_volt": [
+                "F",
+                0
+            ],
+            "pv4_curr": [
+                "F",
+                0
+            ],
+            "pv4_power": [
+                "F",
+                0
+            ],
+            "pv4_volt": [
+                "F",
+                0
+            ],
+            "pv5_curr": [
+                "F",
+                0
+            ],
+            "pv5_power": [
+                "F",
+                0
+            ],
+            "pv5_volt": [
+                "F",
+                0
+            ],
+            "pv6_curr": [
+                "F",
+                0
+            ],
+            "pv6_power": [
+                "F",
+                0
+            ],
+            "pv6_volt": [
+                "F",
+                0
+            ],
+            "pv_total": [
+                "F",
+                0
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                21,
+                1,
+                1
+            ],
+            [
+                3,
+                170,
+                5,
+                1
+            ],
+            [
+                4,
+                0,
+                12,
+                1
+            ],
+            [
+                4,
+                26,
+                36,
+                1
+            ],
+            [
+                4,
+                40,
+                9,
+                1
+            ],
+            [
+                4,
+                290,
+                3,
+                1
+            ],
+            [
+                4,
+                106,
+                12,
+                1
+            ],
+            [
+                4,
+                70,
+                64,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "solax alles 0xFFFF (nicht implementiert)": {
+        "vars": {
+            "bat_capacity": [
+                "F",
+                4294967.295
+            ],
+            "bat_power": [
+                "F",
+                -1
+            ],
+            "bat_soc": [
+                "I",
+                65535
+            ],
+            "bat_soh": [
+                "I",
+                65535
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_sn": [
+                "S",
+                "hex:ffffffffffffffffffff"
+            ],
+            "dev_type": [
+                "I",
+                65535
+            ],
+            "feedin_r": [
+                "F",
+                -1
+            ],
+            "feedin_s": [
+                "F",
+                -1
+            ],
+            "feedin_total": [
+                "F",
+                -1
+            ],
+            "grid_curr": [
+                "F",
+                -0.1
+            ],
+            "grid_freq": [
+                "F",
+                655.35
+            ],
+            "grid_pwr": [
+                "F",
+                -1
+            ],
+            "grid_r_curr": [
+                "F",
+                -0.1
+            ],
+            "grid_r_pwr": [
+                "F",
+                -1
+            ],
+            "grid_r_volt": [
+                "F",
+                6553.5
+            ],
+            "grid_s_curr": [
+                "F",
+                -0.1
+            ],
+            "grid_s_pwr": [
+                "F",
+                -1
+            ],
+            "grid_s_volt": [
+                "F",
+                6553.5
+            ],
+            "grid_status": [
+                "I",
+                65535
+            ],
+            "grid_t_curr": [
+                "F",
+                -0.1
+            ],
+            "grid_t_pwr": [
+                "F",
+                -1
+            ],
+            "grid_t_volt": [
+                "F",
+                6553.5
+            ],
+            "grid_volt": [
+                "F",
+                6553.5
+            ],
+            "offgrid_total": [
+                "F",
+                -1
+            ],
+            "ongrid_total": [
+                "F",
+                -1
+            ],
+            "pv1_curr": [
+                "F",
+                6553.5
+            ],
+            "pv1_power": [
+                "F",
+                65535
+            ],
+            "pv1_volt": [
+                "F",
+                6553.5
+            ],
+            "pv2_curr": [
+                "F",
+                6553.5
+            ],
+            "pv2_power": [
+                "F",
+                65535
+            ],
+            "pv2_volt": [
+                "F",
+                6553.5
+            ],
+            "pv3_curr": [
+                "F",
+                6553.5
+            ],
+            "pv3_power": [
+                "F",
+                65535
+            ],
+            "pv3_volt": [
+                "F",
+                6553.5
+            ],
+            "pv4_curr": [
+                "F",
+                6553.5
+            ],
+            "pv4_power": [
+                "F",
+                65535
+            ],
+            "pv4_volt": [
+                "F",
+                6553.5
+            ],
+            "pv5_curr": [
+                "F",
+                6553.5
+            ],
+            "pv5_power": [
+                "F",
+                65535
+            ],
+            "pv5_volt": [
+                "F",
+                6553.5
+            ],
+            "pv6_curr": [
+                "F",
+                6553.5
+            ],
+            "pv6_power": [
+                "F",
+                65535
+            ],
+            "pv6_volt": [
+                "F",
+                6553.5
+            ],
+            "pv_total": [
+                "F",
+                4294967295
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                21,
+                1,
+                1
+            ],
+            [
+                3,
+                170,
+                5,
+                1
+            ],
+            [
+                4,
+                0,
+                12,
+                1
+            ],
+            [
+                4,
+                26,
+                36,
+                1
+            ],
+            [
+                4,
+                40,
+                9,
+                1
+            ],
+            [
+                4,
+                290,
+                3,
+                1
+            ],
+            [
+                4,
+                106,
+                12,
+                1
+            ],
+            [
+                4,
+                70,
+                64,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "solax keine Antwort": {
+        "vars": {
+            "connected": [
+                "B",
+                false
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": false,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                21,
+                1,
+                1
+            ],
+            [
+                3,
+                170,
+                5,
+                1
+            ],
+            [
+                4,
+                0,
+                12,
+                1
+            ],
+            [
+                4,
+                26,
+                36,
+                1
+            ],
+            [
+                4,
+                40,
+                9,
+                1
+            ],
+            [
+                4,
+                290,
+                3,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "solplanet Gruppen aus": {
+        "vars": {
+            "ac_power": [
+                "F",
+                6750348
+            ],
+            "bat_power": [
+                "F",
+                96929260
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "pv_total": [
+                "F",
+                53281618
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                1368,
+                4,
+                1
+            ],
+            [
+                4,
+                1600,
+                2,
+                1
+            ],
+            [
+                4,
+                1616,
+                7,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "solplanet Muster negativ (hohes Bit)": {
+        "vars": {
+            "ac_power": [
+                "F",
+                -261623668
+            ],
+            "bat_curr": [
+                "F",
+                -265.4
+            ],
+            "bat_power": [
+                "F",
+                -171444756
+            ],
+            "bat_soc": [
+                "I",
+                63030
+            ],
+            "bat_soh": [
+                "I",
+                63067
+            ],
+            "bat_temp": [
+                "F",
+                -254.3
+            ],
+            "bat_volt": [
+                "F",
+                628.45
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_charge_day": [
+                "F",
+                414049662.3
+            ],
+            "e_disch_day": [
+                "F",
+                414534636.1
+            ],
+            "e_inv_day": [
+                "F",
+                412404683.6
+            ],
+            "e_inv_total": [
+                "F",
+                412889657.4
+            ],
+            "e_pv_day": [
+                "F",
+                408472463.6
+            ],
+            "e_pv_total": [
+                "F",
+                408957437.4
+            ],
+            "pv1_curr": [
+                "F",
+                635.56
+            ],
+            "pv1_volt": [
+                "F",
+                6351.9
+            ],
+            "pv2_curr": [
+                "F",
+                636.3
+            ],
+            "pv2_volt": [
+                "F",
+                6359.3
+            ],
+            "pv3_curr": [
+                "F",
+                637.04
+            ],
+            "pv3_volt": [
+                "F",
+                6366.7
+            ],
+            "pv_total": [
+                "F",
+                4079874898
+            ],
+            "temp_env": [
+                "F",
+                6521.3
+            ],
+            "temp_internal": [
+                "F",
+                -231.3
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                1368,
+                4,
+                1
+            ],
+            [
+                4,
+                1600,
+                2,
+                1
+            ],
+            [
+                4,
+                1616,
+                7,
+                1
+            ],
+            [
+                4,
+                1318,
+                6,
+                1
+            ],
+            [
+                4,
+                1620,
+                1,
+                1
+            ],
+            [
+                4,
+                1310,
+                1,
+                1
+            ],
+            [
+                4,
+                1680,
+                1,
+                1
+            ],
+            [
+                4,
+                1302,
+                4,
+                1
+            ],
+            [
+                4,
+                1602,
+                4,
+                1
+            ],
+            [
+                4,
+                1625,
+                4,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "solplanet Muster positiv": {
+        "vars": {
+            "ac_power": [
+                "F",
+                6750348
+            ],
+            "bat_curr": [
+                "F",
+                144.2
+            ],
+            "bat_power": [
+                "F",
+                96929260
+            ],
+            "bat_soc": [
+                "I",
+                1590
+            ],
+            "bat_soh": [
+                "I",
+                1627
+            ],
+            "bat_temp": [
+                "F",
+                155.3
+            ],
+            "bat_volt": [
+                "F",
+                14.05
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_charge_day": [
+                "F",
+                11390334.3
+            ],
+            "e_disch_day": [
+                "F",
+                11875308.1
+            ],
+            "e_inv_day": [
+                "F",
+                9745355.6
+            ],
+            "e_inv_total": [
+                "F",
+                10230329.4
+            ],
+            "e_pv_day": [
+                "F",
+                5813135.6
+            ],
+            "e_pv_total": [
+                "F",
+                6298109.4
+            ],
+            "pv1_curr": [
+                "F",
+                21.16
+            ],
+            "pv1_volt": [
+                "F",
+                207.9
+            ],
+            "pv2_curr": [
+                "F",
+                21.9
+            ],
+            "pv2_volt": [
+                "F",
+                215.3
+            ],
+            "pv3_curr": [
+                "F",
+                22.64
+            ],
+            "pv3_volt": [
+                "F",
+                222.7
+            ],
+            "pv_total": [
+                "F",
+                53281618
+            ],
+            "temp_env": [
+                "F",
+                377.3
+            ],
+            "temp_internal": [
+                "F",
+                178.3
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                1368,
+                4,
+                1
+            ],
+            [
+                4,
+                1600,
+                2,
+                1
+            ],
+            [
+                4,
+                1616,
+                7,
+                1
+            ],
+            [
+                4,
+                1318,
+                6,
+                1
+            ],
+            [
+                4,
+                1620,
+                1,
+                1
+            ],
+            [
+                4,
+                1310,
+                1,
+                1
+            ],
+            [
+                4,
+                1680,
+                1,
+                1
+            ],
+            [
+                4,
+                1302,
+                4,
+                1
+            ],
+            [
+                4,
+                1602,
+                4,
+                1
+            ],
+            [
+                4,
+                1625,
+                4,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "solplanet alles 0": {
+        "vars": {
+            "ac_power": [
+                "F",
+                0
+            ],
+            "bat_curr": [
+                "F",
+                0
+            ],
+            "bat_power": [
+                "F",
+                0
+            ],
+            "bat_soc": [
+                "I",
+                0
+            ],
+            "bat_soh": [
+                "I",
+                0
+            ],
+            "bat_temp": [
+                "F",
+                0
+            ],
+            "bat_volt": [
+                "F",
+                0
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_charge_day": [
+                "F",
+                0
+            ],
+            "e_disch_day": [
+                "F",
+                0
+            ],
+            "e_inv_day": [
+                "F",
+                0
+            ],
+            "e_inv_total": [
+                "F",
+                0
+            ],
+            "e_pv_day": [
+                "F",
+                0
+            ],
+            "e_pv_total": [
+                "F",
+                0
+            ],
+            "pv1_curr": [
+                "F",
+                0
+            ],
+            "pv1_volt": [
+                "F",
+                0
+            ],
+            "pv2_curr": [
+                "F",
+                0
+            ],
+            "pv2_volt": [
+                "F",
+                0
+            ],
+            "pv3_curr": [
+                "F",
+                0
+            ],
+            "pv3_volt": [
+                "F",
+                0
+            ],
+            "pv_total": [
+                "F",
+                0
+            ],
+            "temp_env": [
+                "F",
+                0
+            ],
+            "temp_internal": [
+                "F",
+                0
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                1368,
+                4,
+                1
+            ],
+            [
+                4,
+                1600,
+                2,
+                1
+            ],
+            [
+                4,
+                1616,
+                7,
+                1
+            ],
+            [
+                4,
+                1318,
+                6,
+                1
+            ],
+            [
+                4,
+                1620,
+                1,
+                1
+            ],
+            [
+                4,
+                1310,
+                1,
+                1
+            ],
+            [
+                4,
+                1680,
+                1,
+                1
+            ],
+            [
+                4,
+                1302,
+                4,
+                1
+            ],
+            [
+                4,
+                1602,
+                4,
+                1
+            ],
+            [
+                4,
+                1625,
+                4,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "solplanet alles 0xFFFF (nicht implementiert)": {
+        "vars": {
+            "ac_power": [
+                "F",
+                -1
+            ],
+            "bat_curr": [
+                "F",
+                -0.1
+            ],
+            "bat_power": [
+                "F",
+                -1
+            ],
+            "bat_soc": [
+                "I",
+                65535
+            ],
+            "bat_soh": [
+                "I",
+                65535
+            ],
+            "bat_temp": [
+                "F",
+                -0.1
+            ],
+            "bat_volt": [
+                "F",
+                655.35
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_charge_day": [
+                "F",
+                429496729.5
+            ],
+            "e_disch_day": [
+                "F",
+                429496729.5
+            ],
+            "e_inv_day": [
+                "F",
+                429496729.5
+            ],
+            "e_inv_total": [
+                "F",
+                429496729.5
+            ],
+            "e_pv_day": [
+                "F",
+                429496729.5
+            ],
+            "e_pv_total": [
+                "F",
+                429496729.5
+            ],
+            "pv1_curr": [
+                "F",
+                655.35
+            ],
+            "pv1_volt": [
+                "F",
+                6553.5
+            ],
+            "pv2_curr": [
+                "F",
+                655.35
+            ],
+            "pv2_volt": [
+                "F",
+                6553.5
+            ],
+            "pv3_curr": [
+                "F",
+                655.35
+            ],
+            "pv3_volt": [
+                "F",
+                6553.5
+            ],
+            "pv_total": [
+                "F",
+                4294967295
+            ],
+            "temp_env": [
+                "F",
+                6553.5
+            ],
+            "temp_internal": [
+                "F",
+                -0.1
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                1368,
+                4,
+                1
+            ],
+            [
+                4,
+                1600,
+                2,
+                1
+            ],
+            [
+                4,
+                1616,
+                7,
+                1
+            ],
+            [
+                4,
+                1318,
+                6,
+                1
+            ],
+            [
+                4,
+                1620,
+                1,
+                1
+            ],
+            [
+                4,
+                1310,
+                1,
+                1
+            ],
+            [
+                4,
+                1680,
+                1,
+                1
+            ],
+            [
+                4,
+                1302,
+                4,
+                1
+            ],
+            [
+                4,
+                1602,
+                4,
+                1
+            ],
+            [
+                4,
+                1625,
+                4,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "solplanet keine Antwort": {
+        "vars": {
+            "connected": [
+                "B",
+                false
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": false,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                1368,
+                4,
+                1
+            ],
+            [
+                4,
+                1600,
+                2,
+                1
+            ],
+            [
+                4,
+                1616,
+                7,
+                1
+            ],
+            [
+                4,
+                1302,
+                4,
+                1
+            ],
+            [
+                4,
+                1602,
+                4,
+                1
+            ],
+            [
+                4,
+                1625,
+                4,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "sungrow Gruppen aus": {
+        "vars": {
+            "ac_power": [
+                "F",
+                175049364
+            ],
+            "bat_power": [
+                "F",
+                126551984
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_rated_w": [
+                "I",
+                185000
+            ],
+            "dev_sn": [
+                "S",
+                "hex:057e05a305c805ed06120637065c068106a606cb"
+            ],
+            "dev_type": [
+                "I",
+                1813
+            ],
+            "meter_total": [
+                "F",
+                42599087
+            ],
+            "power_flow_status": [
+                "I",
+                1450
+            ],
+            "pv_total": [
+                "F",
+                160041391
+            ],
+            "riso": [
+                "F",
+                540
+            ],
+            "running_state": [
+                "I",
+                1413
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                13000,
+                1,
+                1
+            ],
+            [
+                4,
+                5000,
+                2,
+                1
+            ],
+            [
+                4,
+                4989,
+                10,
+                1
+            ],
+            [
+                4,
+                13000,
+                2,
+                1
+            ],
+            [
+                4,
+                5011,
+                12,
+                1
+            ],
+            [
+                4,
+                5115,
+                2,
+                1
+            ],
+            [
+                4,
+                5033,
+                4,
+                1
+            ],
+            [
+                4,
+                5214,
+                2,
+                1
+            ],
+            [
+                4,
+                5601,
+                2,
+                1
+            ],
+            [
+                4,
+                5603,
+                6,
+                1
+            ],
+            [
+                4,
+                5242,
+                1,
+                1
+            ],
+            [
+                4,
+                13034,
+                2,
+                1
+            ],
+            [
+                4,
+                5071,
+                1,
+                1
+            ],
+            [
+                4,
+                13000,
+                1,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "sungrow Muster negativ (hohes Bit)": {
+        "vars": {
+            "ac_power": [
+                "F",
+                -93324652
+            ],
+            "backup_freq": [
+                "F",
+                631.11
+            ],
+            "backup_total": [
+                "F",
+                -178260604
+            ],
+            "bat_curr": [
+                "F",
+                6363
+            ],
+            "bat_power": [
+                "F",
+                -141822032
+            ],
+            "bat_soc": [
+                "I",
+                6370
+            ],
+            "bat_soh": [
+                "I",
+                6374
+            ],
+            "bat_temp": [
+                "F",
+                -175.8
+            ],
+            "bat_volt": [
+                "F",
+                6359.3
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_rated_w": [
+                "I",
+                6329000
+            ],
+            "dev_sn": [
+                "S",
+                "hex:f57ef5a3f5c8f5edf612f637f65cf681f6a6f6cb"
+            ],
+            "dev_type": [
+                "I",
+                63253
+            ],
+            "e_pv_day": [
+                "F",
+                6292.7
+            ],
+            "e_pv_total": [
+                "F",
+                412647170.5
+            ],
+            "export_power": [
+                "F",
+                -151521508
+            ],
+            "grid_freq": [
+                "F",
+                644.07
+            ],
+            "grid_reactive": [
+                "F",
+                -69534721
+            ],
+            "grid_v1": [
+                "F",
+                6399.3
+            ],
+            "grid_v2": [
+                "F",
+                6403
+            ],
+            "grid_v3": [
+                "F",
+                6406.7
+            ],
+            "load_power": [
+                "F",
+                -156371246
+            ],
+            "meter_total": [
+                "F",
+                -225774929
+            ],
+            "mppt1_curr": [
+                "F",
+                6369.7
+            ],
+            "mppt1_volt": [
+                "F",
+                6366
+            ],
+            "mppt2_curr": [
+                "F",
+                6377.1
+            ],
+            "mppt2_volt": [
+                "F",
+                6373.4
+            ],
+            "mppt3_curr": [
+                "F",
+                6384.5
+            ],
+            "mppt3_volt": [
+                "F",
+                6380.8
+            ],
+            "mppt4_curr": [
+                "F",
+                6364.5
+            ],
+            "mppt4_volt": [
+                "F",
+                6360.8
+            ],
+            "mt_l1_pwr": [
+                "F",
+                -220925191
+            ],
+            "mt_l2_pwr": [
+                "F",
+                -216075453
+            ],
+            "mt_l3_pwr": [
+                "F",
+                -211225715
+            ],
+            "power_factor": [
+                "F",
+                -0.988
+            ],
+            "power_flow_status": [
+                "I",
+                62890
+            ],
+            "pv_total": [
+                "F",
+                4186634671
+            ],
+            "riso": [
+                "F",
+                61980
+            ],
+            "running_state": [
+                "I",
+                62853
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                13000,
+                1,
+                1
+            ],
+            [
+                4,
+                5000,
+                2,
+                1
+            ],
+            [
+                4,
+                4989,
+                10,
+                1
+            ],
+            [
+                4,
+                13000,
+                2,
+                1
+            ],
+            [
+                4,
+                5011,
+                12,
+                1
+            ],
+            [
+                4,
+                5115,
+                2,
+                1
+            ],
+            [
+                4,
+                5033,
+                4,
+                1
+            ],
+            [
+                4,
+                5214,
+                2,
+                1
+            ],
+            [
+                4,
+                5601,
+                2,
+                1
+            ],
+            [
+                4,
+                5603,
+                6,
+                1
+            ],
+            [
+                4,
+                5242,
+                1,
+                1
+            ],
+            [
+                4,
+                13034,
+                2,
+                1
+            ],
+            [
+                4,
+                5071,
+                1,
+                1
+            ],
+            [
+                4,
+                13020,
+                7,
+                1
+            ],
+            [
+                4,
+                5726,
+                10,
+                1
+            ],
+            [
+                4,
+                13000,
+                1,
+                1
+            ],
+            [
+                4,
+                13002,
+                11,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "sungrow Muster positiv": {
+        "vars": {
+            "ac_power": [
+                "F",
+                175049364
+            ],
+            "backup_freq": [
+                "F",
+                16.71
+            ],
+            "backup_total": [
+                "F",
+                90113412
+            ],
+            "bat_curr": [
+                "F",
+                219
+            ],
+            "bat_power": [
+                "F",
+                126551984
+            ],
+            "bat_soc": [
+                "I",
+                226
+            ],
+            "bat_soh": [
+                "I",
+                230
+            ],
+            "bat_temp": [
+                "F",
+                233.8
+            ],
+            "bat_volt": [
+                "F",
+                215.3
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_rated_w": [
+                "I",
+                185000
+            ],
+            "dev_sn": [
+                "S",
+                "hex:057e05a305c805ed06120637065c068106a606cb"
+            ],
+            "dev_type": [
+                "I",
+                1813
+            ],
+            "e_pv_day": [
+                "F",
+                148.7
+            ],
+            "e_pv_total": [
+                "F",
+                9987842.5
+            ],
+            "export_power": [
+                "F",
+                116852508
+            ],
+            "grid_freq": [
+                "F",
+                29.67
+            ],
+            "grid_reactive": [
+                "F",
+                198839295
+            ],
+            "grid_v1": [
+                "F",
+                255.3
+            ],
+            "grid_v2": [
+                "F",
+                259
+            ],
+            "grid_v3": [
+                "F",
+                262.7
+            ],
+            "load_power": [
+                "F",
+                112002770
+            ],
+            "meter_total": [
+                "F",
+                42599087
+            ],
+            "mppt1_curr": [
+                "F",
+                225.7
+            ],
+            "mppt1_volt": [
+                "F",
+                222
+            ],
+            "mppt2_curr": [
+                "F",
+                233.1
+            ],
+            "mppt2_volt": [
+                "F",
+                229.4
+            ],
+            "mppt3_curr": [
+                "F",
+                240.5
+            ],
+            "mppt3_volt": [
+                "F",
+                236.8
+            ],
+            "mppt4_curr": [
+                "F",
+                220.5
+            ],
+            "mppt4_volt": [
+                "F",
+                216.8
+            ],
+            "mt_l1_pwr": [
+                "F",
+                47448825
+            ],
+            "mt_l2_pwr": [
+                "F",
+                52298563
+            ],
+            "mt_l3_pwr": [
+                "F",
+                57148301
+            ],
+            "power_factor": [
+                "F",
+                3.108
+            ],
+            "power_flow_status": [
+                "I",
+                1450
+            ],
+            "pv_total": [
+                "F",
+                160041391
+            ],
+            "riso": [
+                "F",
+                540
+            ],
+            "running_state": [
+                "I",
+                1413
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                13000,
+                1,
+                1
+            ],
+            [
+                4,
+                5000,
+                2,
+                1
+            ],
+            [
+                4,
+                4989,
+                10,
+                1
+            ],
+            [
+                4,
+                13000,
+                2,
+                1
+            ],
+            [
+                4,
+                5011,
+                12,
+                1
+            ],
+            [
+                4,
+                5115,
+                2,
+                1
+            ],
+            [
+                4,
+                5033,
+                4,
+                1
+            ],
+            [
+                4,
+                5214,
+                2,
+                1
+            ],
+            [
+                4,
+                5601,
+                2,
+                1
+            ],
+            [
+                4,
+                5603,
+                6,
+                1
+            ],
+            [
+                4,
+                5242,
+                1,
+                1
+            ],
+            [
+                4,
+                13034,
+                2,
+                1
+            ],
+            [
+                4,
+                5071,
+                1,
+                1
+            ],
+            [
+                4,
+                13020,
+                7,
+                1
+            ],
+            [
+                4,
+                5726,
+                10,
+                1
+            ],
+            [
+                4,
+                13000,
+                1,
+                1
+            ],
+            [
+                4,
+                13002,
+                11,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "sungrow String-WR (13000 fehlt) negativ": {
+        "vars": {
+            "ac_power": [
+                "F",
+                4220582763
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_rated_w": [
+                "I",
+                6325300
+            ],
+            "dev_sn": [
+                "S",
+                "hex:f57ef5a3f5c8f5edf612f637f65cf681f6a6f6cb"
+            ],
+            "dev_type": [
+                "I",
+                63216
+            ],
+            "e_pv_day": [
+                "F",
+                6332.7
+            ],
+            "e_pv_total": [
+                "F",
+                4155111300
+            ],
+            "grid_c1": [
+                "F",
+                6403
+            ],
+            "grid_c2": [
+                "F",
+                6406.7
+            ],
+            "grid_c3": [
+                "F",
+                6410.4
+            ],
+            "grid_freq": [
+                "F",
+                6454.8
+            ],
+            "grid_reactive": [
+                "F",
+                -69534795
+            ],
+            "grid_v1": [
+                "F",
+                6391.9
+            ],
+            "grid_v2": [
+                "F",
+                6395.6
+            ],
+            "grid_v3": [
+                "F",
+                6399.3
+            ],
+            "mppt10_curr": [
+                "F",
+                6423.7
+            ],
+            "mppt10_volt": [
+                "F",
+                6420
+            ],
+            "mppt11_curr": [
+                "F",
+                6431.1
+            ],
+            "mppt11_volt": [
+                "F",
+                6427.4
+            ],
+            "mppt12_curr": [
+                "F",
+                6438.5
+            ],
+            "mppt12_volt": [
+                "F",
+                6434.8
+            ],
+            "mppt1_curr": [
+                "F",
+                6366
+            ],
+            "mppt1_volt": [
+                "F",
+                6362.3
+            ],
+            "mppt2_curr": [
+                "F",
+                6373.4
+            ],
+            "mppt2_volt": [
+                "F",
+                6369.7
+            ],
+            "mppt3_curr": [
+                "F",
+                6380.8
+            ],
+            "mppt3_volt": [
+                "F",
+                6377.1
+            ],
+            "mppt4_curr": [
+                "F",
+                6360.8
+            ],
+            "mppt4_volt": [
+                "F",
+                6357.1
+            ],
+            "mppt5_curr": [
+                "F",
+                6368.2
+            ],
+            "mppt5_volt": [
+                "F",
+                6364.5
+            ],
+            "mppt6_curr": [
+                "F",
+                6375.6
+            ],
+            "mppt6_volt": [
+                "F",
+                6371.9
+            ],
+            "mppt7_curr": [
+                "F",
+                6383
+            ],
+            "mppt7_volt": [
+                "F",
+                6379.3
+            ],
+            "mppt8_curr": [
+                "F",
+                6390.4
+            ],
+            "mppt8_volt": [
+                "F",
+                6386.7
+            ],
+            "mppt9_curr": [
+                "F",
+                6416.3
+            ],
+            "mppt9_volt": [
+                "F",
+                6412.6
+            ],
+            "power_factor": [
+                "F",
+                -1.025
+            ],
+            "pv_total": [
+                "F",
+                4186634597
+            ],
+            "riso": [
+                "F",
+                61943
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                13000,
+                1,
+                1
+            ],
+            [
+                4,
+                4999,
+                2,
+                1
+            ],
+            [
+                4,
+                4989,
+                10,
+                1
+            ],
+            [
+                4,
+                13000,
+                2,
+                1
+            ],
+            [
+                4,
+                5000,
+                40,
+                1
+            ],
+            [
+                4,
+                5070,
+                1,
+                1
+            ],
+            [
+                4,
+                5100,
+                50,
+                1
+            ],
+            [
+                4,
+                13000,
+                1,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "sungrow String-WR (13000 fehlt) positiv": {
+        "vars": {
+            "ac_power": [
+                "F",
+                193989483
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_rated_w": [
+                "I",
+                181300
+            ],
+            "dev_sn": [
+                "S",
+                "hex:057e05a305c805ed06120637065c068106a606cb"
+            ],
+            "dev_type": [
+                "I",
+                1776
+            ],
+            "e_pv_day": [
+                "F",
+                188.7
+            ],
+            "e_pv_total": [
+                "F",
+                128518020
+            ],
+            "grid_c1": [
+                "F",
+                259
+            ],
+            "grid_c2": [
+                "F",
+                262.7
+            ],
+            "grid_c3": [
+                "F",
+                266.4
+            ],
+            "grid_freq": [
+                "F",
+                310.8
+            ],
+            "grid_reactive": [
+                "F",
+                198839221
+            ],
+            "grid_v1": [
+                "F",
+                247.9
+            ],
+            "grid_v2": [
+                "F",
+                251.6
+            ],
+            "grid_v3": [
+                "F",
+                255.3
+            ],
+            "mppt10_curr": [
+                "F",
+                279.7
+            ],
+            "mppt10_volt": [
+                "F",
+                276
+            ],
+            "mppt11_curr": [
+                "F",
+                287.1
+            ],
+            "mppt11_volt": [
+                "F",
+                283.4
+            ],
+            "mppt12_curr": [
+                "F",
+                294.5
+            ],
+            "mppt12_volt": [
+                "F",
+                290.8
+            ],
+            "mppt1_curr": [
+                "F",
+                222
+            ],
+            "mppt1_volt": [
+                "F",
+                218.3
+            ],
+            "mppt2_curr": [
+                "F",
+                229.4
+            ],
+            "mppt2_volt": [
+                "F",
+                225.7
+            ],
+            "mppt3_curr": [
+                "F",
+                236.8
+            ],
+            "mppt3_volt": [
+                "F",
+                233.1
+            ],
+            "mppt4_curr": [
+                "F",
+                216.8
+            ],
+            "mppt4_volt": [
+                "F",
+                213.1
+            ],
+            "mppt5_curr": [
+                "F",
+                224.2
+            ],
+            "mppt5_volt": [
+                "F",
+                220.5
+            ],
+            "mppt6_curr": [
+                "F",
+                231.6
+            ],
+            "mppt6_volt": [
+                "F",
+                227.9
+            ],
+            "mppt7_curr": [
+                "F",
+                239
+            ],
+            "mppt7_volt": [
+                "F",
+                235.3
+            ],
+            "mppt8_curr": [
+                "F",
+                246.4
+            ],
+            "mppt8_volt": [
+                "F",
+                242.7
+            ],
+            "mppt9_curr": [
+                "F",
+                272.3
+            ],
+            "mppt9_volt": [
+                "F",
+                268.6
+            ],
+            "power_factor": [
+                "F",
+                3.071
+            ],
+            "pv_total": [
+                "F",
+                160041317
+            ],
+            "riso": [
+                "F",
+                503
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                13000,
+                1,
+                1
+            ],
+            [
+                4,
+                4999,
+                2,
+                1
+            ],
+            [
+                4,
+                4989,
+                10,
+                1
+            ],
+            [
+                4,
+                13000,
+                2,
+                1
+            ],
+            [
+                4,
+                5000,
+                40,
+                1
+            ],
+            [
+                4,
+                5070,
+                1,
+                1
+            ],
+            [
+                4,
+                5100,
+                50,
+                1
+            ],
+            [
+                4,
+                13000,
+                1,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "sungrow alles 0": {
+        "vars": {
+            "ac_power": [
+                "F",
+                0
+            ],
+            "backup_freq": [
+                "F",
+                0
+            ],
+            "backup_total": [
+                "F",
+                0
+            ],
+            "bat_curr": [
+                "F",
+                0
+            ],
+            "bat_power": [
+                "F",
+                0
+            ],
+            "bat_soc": [
+                "I",
+                0
+            ],
+            "bat_soh": [
+                "I",
+                0
+            ],
+            "bat_temp": [
+                "F",
+                0
+            ],
+            "bat_volt": [
+                "F",
+                0
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_rated_w": [
+                "I",
+                0
+            ],
+            "dev_sn": [
+                "S",
+                ""
+            ],
+            "dev_type": [
+                "I",
+                0
+            ],
+            "e_pv_day": [
+                "F",
+                0
+            ],
+            "e_pv_total": [
+                "F",
+                0
+            ],
+            "export_power": [
+                "F",
+                0
+            ],
+            "grid_freq": [
+                "F",
+                0
+            ],
+            "grid_reactive": [
+                "F",
+                0
+            ],
+            "grid_v1": [
+                "F",
+                0
+            ],
+            "grid_v2": [
+                "F",
+                0
+            ],
+            "grid_v3": [
+                "F",
+                0
+            ],
+            "load_power": [
+                "F",
+                0
+            ],
+            "meter_total": [
+                "F",
+                0
+            ],
+            "mppt1_curr": [
+                "F",
+                0
+            ],
+            "mppt1_volt": [
+                "F",
+                0
+            ],
+            "mppt2_curr": [
+                "F",
+                0
+            ],
+            "mppt2_volt": [
+                "F",
+                0
+            ],
+            "mppt3_curr": [
+                "F",
+                0
+            ],
+            "mppt3_volt": [
+                "F",
+                0
+            ],
+            "mppt4_curr": [
+                "F",
+                0
+            ],
+            "mppt4_volt": [
+                "F",
+                0
+            ],
+            "mt_l1_pwr": [
+                "F",
+                0
+            ],
+            "mt_l2_pwr": [
+                "F",
+                0
+            ],
+            "mt_l3_pwr": [
+                "F",
+                0
+            ],
+            "power_factor": [
+                "F",
+                0
+            ],
+            "power_flow_status": [
+                "I",
+                0
+            ],
+            "pv_total": [
+                "F",
+                0
+            ],
+            "riso": [
+                "F",
+                0
+            ],
+            "running_state": [
+                "I",
+                0
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                13000,
+                1,
+                1
+            ],
+            [
+                4,
+                5000,
+                2,
+                1
+            ],
+            [
+                4,
+                4989,
+                10,
+                1
+            ],
+            [
+                4,
+                13000,
+                2,
+                1
+            ],
+            [
+                4,
+                5011,
+                12,
+                1
+            ],
+            [
+                4,
+                5115,
+                2,
+                1
+            ],
+            [
+                4,
+                5033,
+                4,
+                1
+            ],
+            [
+                4,
+                5214,
+                2,
+                1
+            ],
+            [
+                4,
+                5601,
+                2,
+                1
+            ],
+            [
+                4,
+                5603,
+                6,
+                1
+            ],
+            [
+                4,
+                5242,
+                1,
+                1
+            ],
+            [
+                4,
+                13034,
+                2,
+                1
+            ],
+            [
+                4,
+                5071,
+                1,
+                1
+            ],
+            [
+                4,
+                13020,
+                7,
+                1
+            ],
+            [
+                4,
+                5726,
+                10,
+                1
+            ],
+            [
+                4,
+                13000,
+                1,
+                1
+            ],
+            [
+                4,
+                13002,
+                11,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "sungrow alles 0xFFFF (nicht implementiert)": {
+        "vars": {
+            "ac_power": [
+                "F",
+                -1
+            ],
+            "backup_freq": [
+                "F",
+                655.35
+            ],
+            "backup_total": [
+                "F",
+                -1
+            ],
+            "bat_curr": [
+                "F",
+                6553.5
+            ],
+            "bat_power": [
+                "F",
+                -1
+            ],
+            "bat_soc": [
+                "I",
+                6554
+            ],
+            "bat_soh": [
+                "I",
+                6554
+            ],
+            "bat_temp": [
+                "F",
+                -0.1
+            ],
+            "bat_volt": [
+                "F",
+                6553.5
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "dev_rated_w": [
+                "I",
+                6553500
+            ],
+            "dev_sn": [
+                "S",
+                "hex:ffffffffffffffffffffffffffffffffffffffff"
+            ],
+            "dev_type": [
+                "I",
+                65535
+            ],
+            "e_pv_day": [
+                "F",
+                6553.5
+            ],
+            "e_pv_total": [
+                "F",
+                429496729.5
+            ],
+            "export_power": [
+                "F",
+                -1
+            ],
+            "grid_freq": [
+                "F",
+                655.35
+            ],
+            "grid_reactive": [
+                "F",
+                -1
+            ],
+            "grid_v1": [
+                "F",
+                6553.5
+            ],
+            "grid_v2": [
+                "F",
+                6553.5
+            ],
+            "grid_v3": [
+                "F",
+                6553.5
+            ],
+            "load_power": [
+                "F",
+                -1
+            ],
+            "meter_total": [
+                "F",
+                -1
+            ],
+            "mppt1_curr": [
+                "F",
+                6553.5
+            ],
+            "mppt1_volt": [
+                "F",
+                6553.5
+            ],
+            "mppt2_curr": [
+                "F",
+                6553.5
+            ],
+            "mppt2_volt": [
+                "F",
+                6553.5
+            ],
+            "mppt3_curr": [
+                "F",
+                6553.5
+            ],
+            "mppt3_volt": [
+                "F",
+                6553.5
+            ],
+            "mppt4_curr": [
+                "F",
+                6553.5
+            ],
+            "mppt4_volt": [
+                "F",
+                6553.5
+            ],
+            "mt_l1_pwr": [
+                "F",
+                -1
+            ],
+            "mt_l2_pwr": [
+                "F",
+                -1
+            ],
+            "mt_l3_pwr": [
+                "F",
+                -1
+            ],
+            "power_factor": [
+                "F",
+                -0.001
+            ],
+            "power_flow_status": [
+                "I",
+                65535
+            ],
+            "pv_total": [
+                "F",
+                4294967295
+            ],
+            "riso": [
+                "F",
+                65535
+            ],
+            "running_state": [
+                "I",
+                65535
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                13000,
+                1,
+                1
+            ],
+            [
+                4,
+                5000,
+                2,
+                1
+            ],
+            [
+                4,
+                4989,
+                10,
+                1
+            ],
+            [
+                4,
+                13000,
+                2,
+                1
+            ],
+            [
+                4,
+                5011,
+                12,
+                1
+            ],
+            [
+                4,
+                5115,
+                2,
+                1
+            ],
+            [
+                4,
+                5033,
+                4,
+                1
+            ],
+            [
+                4,
+                5214,
+                2,
+                1
+            ],
+            [
+                4,
+                5601,
+                2,
+                1
+            ],
+            [
+                4,
+                5603,
+                6,
+                1
+            ],
+            [
+                4,
+                5242,
+                1,
+                1
+            ],
+            [
+                4,
+                13034,
+                2,
+                1
+            ],
+            [
+                4,
+                5071,
+                1,
+                1
+            ],
+            [
+                4,
+                13020,
+                7,
+                1
+            ],
+            [
+                4,
+                5726,
+                10,
+                1
+            ],
+            [
+                4,
+                13000,
+                1,
+                1
+            ],
+            [
+                4,
+                13002,
+                11,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "sungrow keine Antwort": {
+        "vars": {
+            "connected": [
+                "B",
+                false
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": false,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                4,
+                13000,
+                1,
+                1
+            ],
+            [
+                4,
+                4999,
+                2,
+                1
+            ],
+            [
+                4,
+                4989,
+                10,
+                1
+            ],
+            [
+                4,
+                13000,
+                2,
+                1
+            ],
+            [
+                4,
+                5000,
+                40,
+                1
+            ],
+            [
+                4,
+                13000,
+                1,
+                1
+            ]
+        ],
+        "unitId": 1
+    },
+    "sungrow write ctl_run an": {
+        "vars": {
+            "ctl_run": [
+                "B",
+                true
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                13000,
+                207
+            ]
+        ],
+        "warnings": 0
+    },
+    "sungrow write ctl_run an scheitert": {
+        "vars": [],
+        "writes": [
+            [
+                "single-failed",
+                13000,
+                207
+            ]
+        ],
+        "warnings": 0
+    },
+    "sungrow write ctl_run aus": {
+        "vars": {
+            "ctl_run": [
+                "B",
+                false
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                13000,
+                206
+            ]
+        ],
+        "warnings": 0
+    },
+    "victron Gruppen aus": {
+        "vars": {
+            "ac_power": [
+                "F",
+                9237
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "pv_total": [
+                "F",
+                26076
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                808,
+                19,
+                100
+            ],
+            [
+                3,
+                850,
+                1,
+                100
+            ],
+            [
+                3,
+                840,
+                5,
+                100
+            ]
+        ],
+        "unitId": 100
+    },
+    "victron Muster negativ (hohes Bit)": {
+        "vars": {
+            "ac_power": [
+                "F",
+                193557
+            ],
+            "bat_curr": [
+                "F",
+                16.6
+            ],
+            "bat_power": [
+                "F",
+                129
+            ],
+            "bat_soc": [
+                "I",
+                61544
+            ],
+            "bat_state": [
+                "I",
+                61581
+            ],
+            "bat_volt": [
+                "F",
+                6533.3
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_pv_day": [
+                "F",
+                12652.2
+            ],
+            "e_pv_total": [
+                "F",
+                8256220260.000001
+            ],
+            "grid_source": [
+                "I",
+                -721
+            ],
+            "meter_exp": [
+                "F",
+                128314238.04
+            ],
+            "meter_imp": [
+                "F",
+                127877761.62
+            ],
+            "meter_total": [
+                "F",
+                2718
+            ],
+            "mppt1_e_day": [
+                "F",
+                6326.1
+            ],
+            "mppt1_e_total": [
+                "F",
+                4128110130
+            ],
+            "mppt1_power": [
+                "F",
+                6344.6
+            ],
+            "mppt1_state": [
+                "I",
+                62928
+            ],
+            "mppt1_volt": [
+                "F",
+                629.65
+            ],
+            "mppt2_e_day": [
+                "F",
+                6326.1
+            ],
+            "mppt2_e_total": [
+                "F",
+                4128110130
+            ],
+            "mppt2_power": [
+                "F",
+                6344.6
+            ],
+            "mppt2_state": [
+                "I",
+                62928
+            ],
+            "mppt2_volt": [
+                "F",
+                629.65
+            ],
+            "pv_ac": [
+                "F",
+                578673
+            ],
+            "pv_dc": [
+                "F",
+                61803
+            ],
+            "pv_total": [
+                "F",
+                640476
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                808,
+                19,
+                100
+            ],
+            [
+                3,
+                850,
+                1,
+                100
+            ],
+            [
+                3,
+                840,
+                5,
+                100
+            ],
+            [
+                3,
+                789,
+                1,
+                223
+            ],
+            [
+                3,
+                776,
+                1,
+                223
+            ],
+            [
+                3,
+                775,
+                1,
+                223
+            ],
+            [
+                3,
+                789,
+                1,
+                224
+            ],
+            [
+                3,
+                776,
+                1,
+                224
+            ],
+            [
+                3,
+                775,
+                1,
+                224
+            ],
+            [
+                3,
+                2622,
+                2,
+                30
+            ],
+            [
+                3,
+                2624,
+                2,
+                30
+            ],
+            [
+                3,
+                2626,
+                2,
+                30
+            ],
+            [
+                3,
+                2628,
+                2,
+                30
+            ],
+            [
+                3,
+                2630,
+                2,
+                30
+            ],
+            [
+                3,
+                2632,
+                2,
+                30
+            ],
+            [
+                3,
+                3728,
+                2,
+                223
+            ],
+            [
+                3,
+                784,
+                1,
+                223
+            ],
+            [
+                3,
+                3728,
+                2,
+                224
+            ],
+            [
+                3,
+                784,
+                1,
+                224
+            ]
+        ],
+        "unitId": 100
+    },
+    "victron Muster positiv": {
+        "vars": {
+            "ac_power": [
+                "F",
+                9237
+            ],
+            "bat_curr": [
+                "F",
+                -393
+            ],
+            "bat_power": [
+                "F",
+                -3967
+            ],
+            "bat_soc": [
+                "I",
+                104
+            ],
+            "bat_state": [
+                "I",
+                141
+            ],
+            "bat_volt": [
+                "F",
+                389.3
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_pv_day": [
+                "F",
+                364.2
+            ],
+            "e_pv_total": [
+                "F",
+                203033700
+            ],
+            "grid_source": [
+                "I",
+                3375
+            ],
+            "meter_exp": [
+                "F",
+                7516439.64
+            ],
+            "meter_imp": [
+                "F",
+                7079963.22
+            ],
+            "meter_total": [
+                "F",
+                -9570
+            ],
+            "mppt1_e_day": [
+                "F",
+                182.1
+            ],
+            "mppt1_e_total": [
+                "F",
+                101516850
+            ],
+            "mppt1_power": [
+                "F",
+                200.6
+            ],
+            "mppt1_state": [
+                "I",
+                1488
+            ],
+            "mppt1_volt": [
+                "F",
+                15.25
+            ],
+            "mppt2_e_day": [
+                "F",
+                182.1
+            ],
+            "mppt2_e_total": [
+                "F",
+                101516850
+            ],
+            "mppt2_power": [
+                "F",
+                200.6
+            ],
+            "mppt2_state": [
+                "I",
+                1488
+            ],
+            "mppt2_volt": [
+                "F",
+                15.25
+            ],
+            "pv_ac": [
+                "F",
+                25713
+            ],
+            "pv_dc": [
+                "F",
+                363
+            ],
+            "pv_total": [
+                "F",
+                26076
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                808,
+                19,
+                100
+            ],
+            [
+                3,
+                850,
+                1,
+                100
+            ],
+            [
+                3,
+                840,
+                5,
+                100
+            ],
+            [
+                3,
+                789,
+                1,
+                223
+            ],
+            [
+                3,
+                776,
+                1,
+                223
+            ],
+            [
+                3,
+                775,
+                1,
+                223
+            ],
+            [
+                3,
+                789,
+                1,
+                224
+            ],
+            [
+                3,
+                776,
+                1,
+                224
+            ],
+            [
+                3,
+                775,
+                1,
+                224
+            ],
+            [
+                3,
+                2622,
+                2,
+                30
+            ],
+            [
+                3,
+                2624,
+                2,
+                30
+            ],
+            [
+                3,
+                2626,
+                2,
+                30
+            ],
+            [
+                3,
+                2628,
+                2,
+                30
+            ],
+            [
+                3,
+                2630,
+                2,
+                30
+            ],
+            [
+                3,
+                2632,
+                2,
+                30
+            ],
+            [
+                3,
+                3728,
+                2,
+                223
+            ],
+            [
+                3,
+                784,
+                1,
+                223
+            ],
+            [
+                3,
+                3728,
+                2,
+                224
+            ],
+            [
+                3,
+                784,
+                1,
+                224
+            ]
+        ],
+        "unitId": 100
+    },
+    "victron Reglerzugriffe wechseln die Unit-ID": {
+        "vars": {
+            "ac_power": [
+                "F",
+                9237
+            ],
+            "bat_curr": [
+                "F",
+                -393
+            ],
+            "bat_power": [
+                "F",
+                -3967
+            ],
+            "bat_soc": [
+                "I",
+                104
+            ],
+            "bat_state": [
+                "I",
+                141
+            ],
+            "bat_volt": [
+                "F",
+                389.3
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_pv_day": [
+                "F",
+                364.2
+            ],
+            "e_pv_total": [
+                "F",
+                203033700
+            ],
+            "grid_source": [
+                "I",
+                3375
+            ],
+            "meter_exp": [
+                "F",
+                7516439.64
+            ],
+            "meter_imp": [
+                "F",
+                7079963.22
+            ],
+            "meter_total": [
+                "F",
+                -9570
+            ],
+            "mppt1_e_day": [
+                "F",
+                182.1
+            ],
+            "mppt1_e_total": [
+                "F",
+                101516850
+            ],
+            "mppt1_power": [
+                "F",
+                200.6
+            ],
+            "mppt1_state": [
+                "I",
+                1488
+            ],
+            "mppt1_volt": [
+                "F",
+                15.25
+            ],
+            "mppt2_e_day": [
+                "F",
+                182.1
+            ],
+            "mppt2_e_total": [
+                "F",
+                101516850
+            ],
+            "mppt2_power": [
+                "F",
+                200.6
+            ],
+            "mppt2_state": [
+                "I",
+                1488
+            ],
+            "mppt2_volt": [
+                "F",
+                15.25
+            ],
+            "pv_ac": [
+                "F",
+                25713
+            ],
+            "pv_dc": [
+                "F",
+                363
+            ],
+            "pv_total": [
+                "F",
+                26076
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                808,
+                19,
+                100
+            ],
+            [
+                3,
+                850,
+                1,
+                100
+            ],
+            [
+                3,
+                840,
+                5,
+                100
+            ],
+            [
+                3,
+                789,
+                1,
+                223
+            ],
+            [
+                3,
+                776,
+                1,
+                223
+            ],
+            [
+                3,
+                775,
+                1,
+                223
+            ],
+            [
+                3,
+                789,
+                1,
+                224
+            ],
+            [
+                3,
+                776,
+                1,
+                224
+            ],
+            [
+                3,
+                775,
+                1,
+                224
+            ],
+            [
+                3,
+                2622,
+                2,
+                30
+            ],
+            [
+                3,
+                2624,
+                2,
+                30
+            ],
+            [
+                3,
+                2626,
+                2,
+                30
+            ],
+            [
+                3,
+                2628,
+                2,
+                30
+            ],
+            [
+                3,
+                2630,
+                2,
+                30
+            ],
+            [
+                3,
+                2632,
+                2,
+                30
+            ],
+            [
+                3,
+                3728,
+                2,
+                223
+            ],
+            [
+                3,
+                784,
+                1,
+                223
+            ],
+            [
+                3,
+                3728,
+                2,
+                224
+            ],
+            [
+                3,
+                784,
+                1,
+                224
+            ]
+        ],
+        "unitId": 100
+    },
+    "victron alles 0": {
+        "vars": {
+            "ac_power": [
+                "F",
+                0
+            ],
+            "bat_curr": [
+                "F",
+                0
+            ],
+            "bat_power": [
+                "F",
+                0
+            ],
+            "bat_soc": [
+                "I",
+                0
+            ],
+            "bat_state": [
+                "I",
+                0
+            ],
+            "bat_volt": [
+                "F",
+                0
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_pv_day": [
+                "F",
+                0
+            ],
+            "e_pv_total": [
+                "F",
+                0
+            ],
+            "grid_source": [
+                "I",
+                0
+            ],
+            "meter_exp": [
+                "F",
+                0
+            ],
+            "meter_imp": [
+                "F",
+                0
+            ],
+            "meter_total": [
+                "F",
+                0
+            ],
+            "mppt1_e_day": [
+                "F",
+                0
+            ],
+            "mppt1_e_total": [
+                "F",
+                0
+            ],
+            "mppt1_power": [
+                "F",
+                0
+            ],
+            "mppt1_state": [
+                "I",
+                0
+            ],
+            "mppt1_volt": [
+                "F",
+                0
+            ],
+            "mppt2_e_day": [
+                "F",
+                0
+            ],
+            "mppt2_e_total": [
+                "F",
+                0
+            ],
+            "mppt2_power": [
+                "F",
+                0
+            ],
+            "mppt2_state": [
+                "I",
+                0
+            ],
+            "mppt2_volt": [
+                "F",
+                0
+            ],
+            "pv_ac": [
+                "F",
+                0
+            ],
+            "pv_dc": [
+                "F",
+                0
+            ],
+            "pv_total": [
+                "F",
+                0
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                808,
+                19,
+                100
+            ],
+            [
+                3,
+                850,
+                1,
+                100
+            ],
+            [
+                3,
+                840,
+                5,
+                100
+            ],
+            [
+                3,
+                789,
+                1,
+                223
+            ],
+            [
+                3,
+                776,
+                1,
+                223
+            ],
+            [
+                3,
+                775,
+                1,
+                223
+            ],
+            [
+                3,
+                789,
+                1,
+                224
+            ],
+            [
+                3,
+                776,
+                1,
+                224
+            ],
+            [
+                3,
+                775,
+                1,
+                224
+            ],
+            [
+                3,
+                2622,
+                2,
+                30
+            ],
+            [
+                3,
+                2624,
+                2,
+                30
+            ],
+            [
+                3,
+                2626,
+                2,
+                30
+            ],
+            [
+                3,
+                2628,
+                2,
+                30
+            ],
+            [
+                3,
+                2630,
+                2,
+                30
+            ],
+            [
+                3,
+                2632,
+                2,
+                30
+            ],
+            [
+                3,
+                3728,
+                2,
+                223
+            ],
+            [
+                3,
+                784,
+                1,
+                223
+            ],
+            [
+                3,
+                3728,
+                2,
+                224
+            ],
+            [
+                3,
+                784,
+                1,
+                224
+            ]
+        ],
+        "unitId": 100
+    },
+    "victron alles 0xFFFF (nicht implementiert)": {
+        "vars": {
+            "ac_power": [
+                "F",
+                196605
+            ],
+            "bat_curr": [
+                "F",
+                0.1
+            ],
+            "bat_power": [
+                "F",
+                1
+            ],
+            "bat_soc": [
+                "I",
+                65535
+            ],
+            "bat_state": [
+                "I",
+                65535
+            ],
+            "bat_volt": [
+                "F",
+                6553.5
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_pv_day": [
+                "F",
+                13107
+            ],
+            "e_pv_total": [
+                "F",
+                8589934590.000001
+            ],
+            "grid_source": [
+                "I",
+                -1
+            ],
+            "meter_exp": [
+                "F",
+                128849018.85
+            ],
+            "meter_imp": [
+                "F",
+                128849018.85
+            ],
+            "meter_total": [
+                "F",
+                3
+            ],
+            "mppt1_e_day": [
+                "F",
+                6553.5
+            ],
+            "mppt1_e_total": [
+                "F",
+                4294967295
+            ],
+            "mppt1_power": [
+                "F",
+                6553.5
+            ],
+            "mppt1_state": [
+                "I",
+                65535
+            ],
+            "mppt1_volt": [
+                "F",
+                655.35
+            ],
+            "mppt2_e_day": [
+                "F",
+                6553.5
+            ],
+            "mppt2_e_total": [
+                "F",
+                4294967295
+            ],
+            "mppt2_power": [
+                "F",
+                6553.5
+            ],
+            "mppt2_state": [
+                "I",
+                65535
+            ],
+            "mppt2_volt": [
+                "F",
+                655.35
+            ],
+            "pv_ac": [
+                "F",
+                589815
+            ],
+            "pv_dc": [
+                "F",
+                65535
+            ],
+            "pv_total": [
+                "F",
+                655350
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                808,
+                19,
+                100
+            ],
+            [
+                3,
+                850,
+                1,
+                100
+            ],
+            [
+                3,
+                840,
+                5,
+                100
+            ],
+            [
+                3,
+                789,
+                1,
+                223
+            ],
+            [
+                3,
+                776,
+                1,
+                223
+            ],
+            [
+                3,
+                775,
+                1,
+                223
+            ],
+            [
+                3,
+                789,
+                1,
+                224
+            ],
+            [
+                3,
+                776,
+                1,
+                224
+            ],
+            [
+                3,
+                775,
+                1,
+                224
+            ],
+            [
+                3,
+                2622,
+                2,
+                30
+            ],
+            [
+                3,
+                2624,
+                2,
+                30
+            ],
+            [
+                3,
+                2626,
+                2,
+                30
+            ],
+            [
+                3,
+                2628,
+                2,
+                30
+            ],
+            [
+                3,
+                2630,
+                2,
+                30
+            ],
+            [
+                3,
+                2632,
+                2,
+                30
+            ],
+            [
+                3,
+                3728,
+                2,
+                223
+            ],
+            [
+                3,
+                784,
+                1,
+                223
+            ],
+            [
+                3,
+                3728,
+                2,
+                224
+            ],
+            [
+                3,
+                784,
+                1,
+                224
+            ]
+        ],
+        "unitId": 100
+    },
+    "victron keine Antwort": {
+        "vars": {
+            "connected": [
+                "B",
+                false
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": false,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                808,
+                19,
+                100
+            ],
+            [
+                3,
+                2622,
+                2,
+                30
+            ],
+            [
+                3,
+                2624,
+                2,
+                30
+            ],
+            [
+                3,
+                2626,
+                2,
+                30
+            ],
+            [
+                3,
+                2628,
+                2,
+                30
+            ],
+            [
+                3,
+                2630,
+                2,
+                30
+            ],
+            [
+                3,
+                2632,
+                2,
+                30
+            ],
+            [
+                3,
+                3728,
+                2,
+                223
+            ],
+            [
+                4,
+                3728,
+                2,
+                223
+            ],
+            [
+                3,
+                790,
+                1,
+                223
+            ],
+            [
+                3,
+                784,
+                1,
+                223
+            ],
+            [
+                3,
+                3728,
+                2,
+                224
+            ],
+            [
+                4,
+                3728,
+                2,
+                224
+            ],
+            [
+                3,
+                790,
+                1,
+                224
+            ],
+            [
+                3,
+                784,
+                1,
+                224
+            ]
+        ],
+        "unitId": 100
+    },
+    "victron ohne MPPT-Regler und ohne Netz-Unit": {
+        "vars": {
+            "ac_power": [
+                "F",
+                9237
+            ],
+            "bat_curr": [
+                "F",
+                -393
+            ],
+            "bat_power": [
+                "F",
+                -3967
+            ],
+            "bat_soc": [
+                "I",
+                104
+            ],
+            "bat_state": [
+                "I",
+                141
+            ],
+            "bat_volt": [
+                "F",
+                389.3
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "grid_source": [
+                "I",
+                3375
+            ],
+            "meter_total": [
+                "F",
+                -9570
+            ],
+            "pv_ac": [
+                "F",
+                25713
+            ],
+            "pv_dc": [
+                "F",
+                363
+            ],
+            "pv_total": [
+                "F",
+                26076
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "returns": {
+            "readDeviceInfo": null,
+            "readFast": true,
+            "readSlow": null
+        },
+        "reads": [
+            [
+                3,
+                808,
+                19,
+                100
+            ],
+            [
+                3,
+                850,
+                1,
+                100
+            ],
+            [
+                3,
+                840,
+                5,
+                100
+            ]
+        ],
+        "unitId": 100
+    }
+}

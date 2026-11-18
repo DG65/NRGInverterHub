@@ -1,0 +1,653 @@
+{
+    "Batterie-Temperatur/Spannung Sentinel": {
+        "vars": {
+            "ac_power": [
+                "F",
+                1370
+            ],
+            "bat_pwr": [
+                "F",
+                -600
+            ],
+            "bat_soc": [
+                "I",
+                55
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_total": [
+                "F",
+                123.456
+            ],
+            "grid_curr": [
+                "F",
+                0.57
+            ],
+            "grid_freq": [
+                "F",
+                50.01
+            ],
+            "grid_volt": [
+                "F",
+                239
+            ],
+            "meter_total": [
+                "F",
+                -820
+            ],
+            "mppt1_power": [
+                "F",
+                900
+            ],
+            "mppt2_power": [
+                "F",
+                480
+            ],
+            "pv_total": [
+                "F",
+                1380
+            ],
+            "riso": [
+                "F",
+                2500
+            ],
+            "status": [
+                "I",
+                4
+            ],
+            "temp_cab": [
+                "F",
+                35.5
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 126
+    },
+    "DC-Sentinel -> 0 W je Eingang, PV abgeleitet": {
+        "vars": {
+            "ac_power": [
+                "F",
+                1370
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_total": [
+                "F",
+                123.456
+            ],
+            "grid_curr": [
+                "F",
+                0.57
+            ],
+            "grid_freq": [
+                "F",
+                50.01
+            ],
+            "grid_volt": [
+                "F",
+                239
+            ],
+            "meter_total": [
+                "F",
+                -820
+            ],
+            "mppt1_power": [
+                "F",
+                0
+            ],
+            "mppt2_power": [
+                "F",
+                0
+            ],
+            "pv_total": [
+                "F",
+                1370
+            ],
+            "riso": [
+                "F",
+                2500
+            ],
+            "status": [
+                "I",
+                4
+            ],
+            "temp_cab": [
+                "F",
+                35.5
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 126
+    },
+    "Float-Modell 111, DCW aus SunSpec": {
+        "vars": {
+            "ac_power": [
+                "F",
+                2450
+            ],
+            "bat_pwr": [
+                "F",
+                -600
+            ],
+            "bat_soc": [
+                "I",
+                55
+            ],
+            "bat_temp": [
+                "F",
+                21.5
+            ],
+            "bat_volt": [
+                "F",
+                51.2
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_total": [
+                "F",
+                4321
+            ],
+            "grid_curr": [
+                "F",
+                12.5
+            ],
+            "grid_freq": [
+                "F",
+                50.009998
+            ],
+            "grid_volt": [
+                "F",
+                231.399994
+            ],
+            "pv_total": [
+                "F",
+                2600
+            ],
+            "riso": [
+                "F",
+                2500
+            ],
+            "status": [
+                "I",
+                4
+            ],
+            "temp_cab": [
+                "F",
+                41.5
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 126
+    },
+    "Int+SF Batterie laedt, PV = AC + Laden": {
+        "vars": {
+            "ac_power": [
+                "F",
+                1370
+            ],
+            "bat_pwr": [
+                "F",
+                300
+            ],
+            "bat_soc": [
+                "I",
+                55
+            ],
+            "bat_temp": [
+                "F",
+                21.5
+            ],
+            "bat_volt": [
+                "F",
+                51.2
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_total": [
+                "F",
+                123.456
+            ],
+            "grid_curr": [
+                "F",
+                0.57
+            ],
+            "grid_freq": [
+                "F",
+                50.01
+            ],
+            "grid_volt": [
+                "F",
+                239
+            ],
+            "meter_total": [
+                "F",
+                -820
+            ],
+            "pv_total": [
+                "F",
+                1670
+            ],
+            "riso": [
+                "F",
+                2500
+            ],
+            "status": [
+                "I",
+                4
+            ],
+            "temp_cab": [
+                "F",
+                35.5
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 126
+    },
+    "Int+SF Batterie ohne Leistung, PV 0": {
+        "vars": {
+            "ac_power": [
+                "F",
+                1370
+            ],
+            "bat_soc": [
+                "I",
+                55
+            ],
+            "bat_temp": [
+                "F",
+                21.5
+            ],
+            "bat_volt": [
+                "F",
+                51.2
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_total": [
+                "F",
+                123.456
+            ],
+            "grid_curr": [
+                "F",
+                0.57
+            ],
+            "grid_freq": [
+                "F",
+                50.01
+            ],
+            "grid_volt": [
+                "F",
+                239
+            ],
+            "meter_total": [
+                "F",
+                -820
+            ],
+            "pv_total": [
+                "F",
+                0
+            ],
+            "riso": [
+                "F",
+                2500
+            ],
+            "status": [
+                "I",
+                4
+            ],
+            "temp_cab": [
+                "F",
+                35.5
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 126
+    },
+    "Int+SF alle Gruppen aus": {
+        "vars": {
+            "ac_power": [
+                "F",
+                1370
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "pv_total": [
+                "F",
+                1380
+            ],
+            "riso": [
+                "F",
+                2500
+            ],
+            "status": [
+                "I",
+                4
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 126
+    },
+    "Int+SF nicht implementierte Felder": {
+        "vars": {
+            "bat_pwr": [
+                "F",
+                -600
+            ],
+            "bat_soc": [
+                "I",
+                55
+            ],
+            "bat_temp": [
+                "F",
+                21.5
+            ],
+            "bat_volt": [
+                "F",
+                51.2
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_total": [
+                "F",
+                123.456
+            ],
+            "meter_total": [
+                "F",
+                -820
+            ],
+            "pv_total": [
+                "F",
+                0
+            ],
+            "riso": [
+                "F",
+                2500
+            ],
+            "status": [
+                "I",
+                4
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 126
+    },
+    "Int+SF ohne Batterie, PV aus AC abgeleitet": {
+        "vars": {
+            "ac_power": [
+                "F",
+                1370
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_total": [
+                "F",
+                123.456
+            ],
+            "grid_curr": [
+                "F",
+                0.57
+            ],
+            "grid_freq": [
+                "F",
+                50.01
+            ],
+            "grid_volt": [
+                "F",
+                239
+            ],
+            "meter_total": [
+                "F",
+                -820
+            ],
+            "pv_total": [
+                "F",
+                1370
+            ],
+            "riso": [
+                "F",
+                2500
+            ],
+            "status": [
+                "I",
+                4
+            ],
+            "temp_cab": [
+                "F",
+                35.5
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 126
+    },
+    "Int+SF, Unit 126 direkt, Geraete-ID per Sondierung": {
+        "vars": {
+            "ac_power": [
+                "F",
+                1370
+            ],
+            "bat_pwr": [
+                "F",
+                -600
+            ],
+            "bat_soc": [
+                "I",
+                55
+            ],
+            "bat_temp": [
+                "F",
+                21.5
+            ],
+            "bat_volt": [
+                "F",
+                51.2
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_total": [
+                "F",
+                123.456
+            ],
+            "grid_curr": [
+                "F",
+                0.57
+            ],
+            "grid_freq": [
+                "F",
+                50.01
+            ],
+            "grid_volt": [
+                "F",
+                239
+            ],
+            "meter_total": [
+                "F",
+                -820
+            ],
+            "mppt1_power": [
+                "F",
+                900
+            ],
+            "mppt2_power": [
+                "F",
+                480
+            ],
+            "pv_total": [
+                "F",
+                1380
+            ],
+            "riso": [
+                "F",
+                2500
+            ],
+            "status": [
+                "I",
+                4
+            ],
+            "temp_cab": [
+                "F",
+                35.5
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 126
+    },
+    "Int+SF, Unit 3 mit Retry +123, Batterie": {
+        "vars": {
+            "ac_power": [
+                "F",
+                1370
+            ],
+            "bat_pwr": [
+                "F",
+                -600
+            ],
+            "bat_soc": [
+                "I",
+                55
+            ],
+            "bat_temp": [
+                "F",
+                21.5
+            ],
+            "bat_volt": [
+                "F",
+                51.2
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_total": [
+                "F",
+                123.456
+            ],
+            "grid_curr": [
+                "F",
+                0.57
+            ],
+            "grid_freq": [
+                "F",
+                50.01
+            ],
+            "grid_volt": [
+                "F",
+                239
+            ],
+            "meter_total": [
+                "F",
+                -820
+            ],
+            "mppt1_power": [
+                "F",
+                900
+            ],
+            "mppt2_power": [
+                "F",
+                480
+            ],
+            "pv_total": [
+                "F",
+                1380
+            ],
+            "riso": [
+                "F",
+                2500
+            ],
+            "status": [
+                "I",
+                4
+            ],
+            "temp_cab": [
+                "F",
+                35.5
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 126
+    },
+    "Inverterblock lauter 0xFFFF": {
+        "vars": {
+            "connected": [
+                "B",
+                false
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": false,
+        "unitId": 126
+    },
+    "keine SunSpec-Kette": {
+        "vars": {
+            "connected": [
+                "B",
+                false
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": false,
+        "unitId": 3
+    },
+    "readDeviceInfo mit Retry +123": {
+        "vars": {
+            "dev_model": [
+                "S",
+                "Sunny Tripower 6.0"
+            ],
+            "dev_sn": [
+                "S",
+                "3019999999"
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": null,
+        "unitId": 3
+    },
+    "readDeviceInfo ohne Common-Block": {
+        "vars": [],
+        "writes": [],
+        "warnings": 0,
+        "return": null,
+        "unitId": 3
+    }
+}

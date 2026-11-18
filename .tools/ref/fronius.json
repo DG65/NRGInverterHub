@@ -1,0 +1,628 @@
+{
+    "Float nur Kerngruppen (alle optionalen aus)": {
+        "vars": {
+            "ac_power": [
+                "F",
+                3650
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "status": [
+                "I",
+                4
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 1
+    },
+    "Float ohne MPPT-Modell und ohne Zaehler": {
+        "vars": {
+            "ac_power": [
+                "F",
+                3650
+            ],
+            "bat_soc": [
+                "F",
+                55
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_total": [
+                "F",
+                8765
+            ],
+            "grid_curr": [
+                "F",
+                8.2
+            ],
+            "grid_freq": [
+                "F",
+                49.98
+            ],
+            "grid_volt": [
+                "F",
+                230.199997
+            ],
+            "riso": [
+                "F",
+                8000
+            ],
+            "status": [
+                "I",
+                4
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 1
+    },
+    "Float-Modell 113, MPPT/Speicher/SOC/Riso/Zaehler (eigene Kette)": {
+        "vars": {
+            "ac_power": [
+                "F",
+                3650
+            ],
+            "bat_power": [
+                "F",
+                1200
+            ],
+            "bat_soc": [
+                "F",
+                55
+            ],
+            "bat_volt": [
+                "F",
+                410
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_total": [
+                "F",
+                8765
+            ],
+            "grid_curr": [
+                "F",
+                8.2
+            ],
+            "grid_freq": [
+                "F",
+                49.98
+            ],
+            "grid_volt": [
+                "F",
+                230.199997
+            ],
+            "meter_exp": [
+                "F",
+                120
+            ],
+            "meter_imp": [
+                "F",
+                340
+            ],
+            "meter_l1_curr": [
+                "F",
+                3.1
+            ],
+            "meter_l1_pwr": [
+                "F",
+                150
+            ],
+            "meter_l1_volt": [
+                "F",
+                230.1
+            ],
+            "meter_l2_curr": [
+                "F",
+                3.2
+            ],
+            "meter_l2_pwr": [
+                "F",
+                151
+            ],
+            "meter_l2_volt": [
+                "F",
+                230.2
+            ],
+            "meter_l3_curr": [
+                "F",
+                3.3
+            ],
+            "meter_l3_pwr": [
+                "F",
+                149
+            ],
+            "meter_l3_volt": [
+                "F",
+                230.3
+            ],
+            "meter_total": [
+                "F",
+                -450
+            ],
+            "mppt1_curr": [
+                "F",
+                5.2
+            ],
+            "mppt1_power": [
+                "F",
+                2041
+            ],
+            "mppt1_volt": [
+                "F",
+                392.1
+            ],
+            "mppt2_curr": [
+                "F",
+                4.1
+            ],
+            "mppt2_power": [
+                "F",
+                1558
+            ],
+            "mppt2_volt": [
+                "F",
+                380
+            ],
+            "pv_total": [
+                "F",
+                3599
+            ],
+            "riso": [
+                "F",
+                8000
+            ],
+            "status": [
+                "I",
+                4
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 1
+    },
+    "Float-Zaehler Modell 213": {
+        "vars": {
+            "ac_power": [
+                "F",
+                3650
+            ],
+            "bat_power": [
+                "F",
+                1200
+            ],
+            "bat_soc": [
+                "F",
+                55
+            ],
+            "bat_volt": [
+                "F",
+                410
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_total": [
+                "F",
+                8765
+            ],
+            "grid_curr": [
+                "F",
+                8.2
+            ],
+            "grid_freq": [
+                "F",
+                49.98
+            ],
+            "grid_volt": [
+                "F",
+                230.199997
+            ],
+            "meter_exp": [
+                "F",
+                5000
+            ],
+            "meter_imp": [
+                "F",
+                7000
+            ],
+            "meter_l1_curr": [
+                "F",
+                1.1
+            ],
+            "meter_l1_pwr": [
+                "F",
+                100
+            ],
+            "meter_l1_volt": [
+                "F",
+                230.5
+            ],
+            "meter_l2_curr": [
+                "F",
+                1.2
+            ],
+            "meter_l2_pwr": [
+                "F",
+                110
+            ],
+            "meter_l2_volt": [
+                "F",
+                231.5
+            ],
+            "meter_l3_curr": [
+                "F",
+                1.3
+            ],
+            "meter_l3_pwr": [
+                "F",
+                120
+            ],
+            "meter_l3_volt": [
+                "F",
+                232.5
+            ],
+            "meter_total": [
+                "F",
+                310
+            ],
+            "mppt1_curr": [
+                "F",
+                5.2
+            ],
+            "mppt1_power": [
+                "F",
+                2041
+            ],
+            "mppt1_volt": [
+                "F",
+                392.1
+            ],
+            "mppt2_curr": [
+                "F",
+                4.1
+            ],
+            "mppt2_power": [
+                "F",
+                1558
+            ],
+            "mppt2_volt": [
+                "F",
+                380
+            ],
+            "pv_total": [
+                "F",
+                3599
+            ],
+            "riso": [
+                "F",
+                8000
+            ],
+            "status": [
+                "I",
+                4
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 1
+    },
+    "Int+SF Modell 103": {
+        "vars": {
+            "ac_power": [
+                "F",
+                3650
+            ],
+            "bat_power": [
+                "F",
+                1200
+            ],
+            "bat_soc": [
+                "F",
+                55
+            ],
+            "bat_volt": [
+                "F",
+                410
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_total": [
+                "F",
+                8765
+            ],
+            "grid_curr": [
+                "F",
+                8.2
+            ],
+            "grid_freq": [
+                "F",
+                49.98
+            ],
+            "grid_volt": [
+                "F",
+                230.2
+            ],
+            "meter_exp": [
+                "F",
+                120
+            ],
+            "meter_imp": [
+                "F",
+                340
+            ],
+            "meter_l1_curr": [
+                "F",
+                3.1
+            ],
+            "meter_l1_pwr": [
+                "F",
+                150
+            ],
+            "meter_l1_volt": [
+                "F",
+                230.1
+            ],
+            "meter_l2_curr": [
+                "F",
+                3.2
+            ],
+            "meter_l2_pwr": [
+                "F",
+                151
+            ],
+            "meter_l2_volt": [
+                "F",
+                230.2
+            ],
+            "meter_l3_curr": [
+                "F",
+                3.3
+            ],
+            "meter_l3_pwr": [
+                "F",
+                149
+            ],
+            "meter_l3_volt": [
+                "F",
+                230.3
+            ],
+            "meter_total": [
+                "F",
+                -450
+            ],
+            "mppt1_curr": [
+                "F",
+                5.2
+            ],
+            "mppt1_power": [
+                "F",
+                2041
+            ],
+            "mppt1_volt": [
+                "F",
+                392.1
+            ],
+            "mppt2_curr": [
+                "F",
+                4.1
+            ],
+            "mppt2_power": [
+                "F",
+                1558
+            ],
+            "mppt2_volt": [
+                "F",
+                380
+            ],
+            "pv_total": [
+                "F",
+                3599
+            ],
+            "riso": [
+                "F",
+                8000
+            ],
+            "status": [
+                "I",
+                4
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 1
+    },
+    "Int+SF nicht implementierte Felder": {
+        "vars": {
+            "bat_power": [
+                "F",
+                1200
+            ],
+            "bat_soc": [
+                "F",
+                55
+            ],
+            "bat_volt": [
+                "F",
+                410
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "e_total": [
+                "F",
+                8765
+            ],
+            "meter_exp": [
+                "F",
+                120
+            ],
+            "meter_imp": [
+                "F",
+                340
+            ],
+            "meter_l1_curr": [
+                "F",
+                3.1
+            ],
+            "meter_l1_pwr": [
+                "F",
+                150
+            ],
+            "meter_l1_volt": [
+                "F",
+                230.1
+            ],
+            "meter_l2_curr": [
+                "F",
+                3.2
+            ],
+            "meter_l2_pwr": [
+                "F",
+                151
+            ],
+            "meter_l2_volt": [
+                "F",
+                230.2
+            ],
+            "meter_l3_curr": [
+                "F",
+                3.3
+            ],
+            "meter_l3_pwr": [
+                "F",
+                149
+            ],
+            "meter_l3_volt": [
+                "F",
+                230.3
+            ],
+            "meter_total": [
+                "F",
+                -450
+            ],
+            "mppt1_curr": [
+                "F",
+                5.2
+            ],
+            "mppt1_power": [
+                "F",
+                2041
+            ],
+            "mppt1_volt": [
+                "F",
+                392.1
+            ],
+            "mppt2_curr": [
+                "F",
+                4.1
+            ],
+            "mppt2_power": [
+                "F",
+                1558
+            ],
+            "mppt2_volt": [
+                "F",
+                380
+            ],
+            "pv_total": [
+                "F",
+                3599
+            ],
+            "riso": [
+                "F",
+                8000
+            ],
+            "status": [
+                "I",
+                4
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true,
+        "unitId": 1
+    },
+    "Inverterblock lauter 0xFFFF": {
+        "vars": {
+            "connected": [
+                "B",
+                false
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": false,
+        "unitId": 1
+    },
+    "keine SunSpec-Kette": {
+        "vars": {
+            "connected": [
+                "B",
+                false
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": false,
+        "unitId": 1
+    },
+    "readDeviceInfo": {
+        "vars": {
+            "dev_model": [
+                "S",
+                "Sunny Tripower 6.0"
+            ],
+            "dev_sn": [
+                "S",
+                "3019999999"
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": null,
+        "unitId": 1
+    },
+    "readSlow Isolationswiderstand": {
+        "vars": {
+            "riso": [
+                "F",
+                8000
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": null,
+        "unitId": 1
+    },
+    "readSlow Modell 122 zu kurz": {
+        "vars": [],
+        "writes": [],
+        "warnings": 0,
+        "return": null,
+        "unitId": 1
+    },
+    "readSlow ohne GroupDevice": {
+        "vars": [],
+        "writes": [],
+        "warnings": 0,
+        "return": null,
+        "unitId": 1
+    }
+}

@@ -1,0 +1,2611 @@
+{
+    "readDeviceInfo": {
+        "vars": {
+            "dev_fw_arm": [
+                "I",
+                34
+            ],
+            "dev_fw_dsp": [
+                "I",
+                12
+            ],
+            "dev_model": [
+                "S",
+                "GW10K-ET"
+            ],
+            "dev_rated_w": [
+                "I",
+                10000
+            ],
+            "dev_sn": [
+                "S",
+                "9010KETU22AR0018"
+            ]
+        },
+        "writes": [],
+        "warnings": 0
+    },
+    "readFast Fremdgeraet 0xFFFF": {
+        "vars": {
+            "connected": [
+                "B",
+                false
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": false
+    },
+    "readFast Totmann 255 beim Uebergang": {
+        "vars": {
+            "ac_power": [
+                "F",
+                4200
+            ],
+            "backup_active": [
+                "B",
+                true
+            ],
+            "backup_l1_curr": [
+                "F",
+                181.5
+            ],
+            "backup_l1_freq": [
+                "F",
+                18.52
+            ],
+            "backup_l1_pwr": [
+                "F",
+                126224299
+            ],
+            "backup_l1_volt": [
+                "F",
+                177.8
+            ],
+            "backup_l2_curr": [
+                "F",
+                203.7
+            ],
+            "backup_l2_freq": [
+                "F",
+                20.74
+            ],
+            "backup_l2_pwr": [
+                "F",
+                140773513
+            ],
+            "backup_l2_volt": [
+                "F",
+                200
+            ],
+            "backup_l3_curr": [
+                "F",
+                225.9
+            ],
+            "backup_l3_freq": [
+                "F",
+                22.96
+            ],
+            "backup_l3_pwr": [
+                "F",
+                155322727
+            ],
+            "backup_l3_volt": [
+                "F",
+                222.2
+            ],
+            "backup_total": [
+                "F",
+                174721679
+            ],
+            "bat1_bms_alarm": [
+                "I",
+                150341915
+            ],
+            "bat1_bms_curr": [
+                "F",
+                207.2
+            ],
+            "bat1_bms_volt": [
+                "F",
+                203.5
+            ],
+            "bat1_bms_warn": [
+                "I",
+                145492177
+            ],
+            "bat1_cell_tmax": [
+                "F",
+                95.3
+            ],
+            "bat1_cell_tmin": [
+                "F",
+                99
+            ],
+            "bat1_cell_vmax": [
+                "I",
+                1027
+            ],
+            "bat1_cell_vmin": [
+                "I",
+                1064
+            ],
+            "bat1_chg_max_a": [
+                "F",
+                192.4
+            ],
+            "bat1_curr": [
+                "F",
+                -12.5
+            ],
+            "bat1_dis_max_a": [
+                "F",
+                199.8
+            ],
+            "bat1_idx_tmax": [
+                "I",
+                805
+            ],
+            "bat1_idx_tmin": [
+                "I",
+                842
+            ],
+            "bat1_idx_vmax": [
+                "I",
+                879
+            ],
+            "bat1_idx_vmin": [
+                "I",
+                916
+            ],
+            "bat1_mode": [
+                "I",
+                2
+            ],
+            "bat1_pack_temp": [
+                "F",
+                32.4
+            ],
+            "bat1_pwr": [
+                "F",
+                -3500
+            ],
+            "bat1_soc": [
+                "I",
+                55
+            ],
+            "bat1_soh": [
+                "I",
+                2146
+            ],
+            "bat1_temp": [
+                "F",
+                -3.5
+            ],
+            "bat1_volt": [
+                "F",
+                307.3
+            ],
+            "bat2_bms_curr": [
+                "F",
+                273.8
+            ],
+            "bat2_bms_volt": [
+                "F",
+                270.1
+            ],
+            "bat2_cell_tmax": [
+                "F",
+                77.9
+            ],
+            "bat2_cell_tmin": [
+                "F",
+                81.6
+            ],
+            "bat2_cell_vmax": [
+                "I",
+                853
+            ],
+            "bat2_cell_vmin": [
+                "I",
+                890
+            ],
+            "bat2_curr": [
+                "F",
+                -12
+            ],
+            "bat2_idx_tmax": [
+                "I",
+                631
+            ],
+            "bat2_idx_tmin": [
+                "I",
+                668
+            ],
+            "bat2_idx_vmax": [
+                "I",
+                705
+            ],
+            "bat2_idx_vmin": [
+                "I",
+                742
+            ],
+            "bat2_mode": [
+                "I",
+                2355
+            ],
+            "bat2_pack_temp": [
+                "F",
+                15
+            ],
+            "bat2_pwr": [
+                "F",
+                -3400
+            ],
+            "bat2_soc": [
+                "I",
+                57
+            ],
+            "bat2_soh": [
+                "I",
+                2812
+            ],
+            "bat2_temp": [
+                "F",
+                284.9
+            ],
+            "bat2_volt": [
+                "F",
+                220.7
+            ],
+            "bat_charge_max_w": [
+                "F",
+                109109.3
+            ],
+            "bat_discharge_max_w": [
+                "F",
+                112613.94
+            ],
+            "bat_total_pwr": [
+                "F",
+                -6900
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "ctl_ems_mode": [
+                "I",
+                255
+            ],
+            "ctl_ems_power": [
+                "I",
+                0
+            ],
+            "derate_pct": [
+                "I",
+                100
+            ],
+            "grid_freq": [
+                "F",
+                50.02
+            ],
+            "grid_l1_curr": [
+                "F",
+                92.7
+            ],
+            "grid_l1_freq": [
+                "F",
+                9.64
+            ],
+            "grid_l1_pwr": [
+                "F",
+                -150
+            ],
+            "grid_l1_volt": [
+                "F",
+                89
+            ],
+            "grid_l2_curr": [
+                "F",
+                111.2
+            ],
+            "grid_l2_freq": [
+                "F",
+                11.49
+            ],
+            "grid_l2_pwr": [
+                "F",
+                77726919
+            ],
+            "grid_l2_volt": [
+                "F",
+                107.5
+            ],
+            "grid_l3_curr": [
+                "F",
+                129.7
+            ],
+            "grid_l3_freq": [
+                "F",
+                13.34
+            ],
+            "grid_l3_pwr": [
+                "F",
+                89851264
+            ],
+            "grid_l3_volt": [
+                "F",
+                126
+            ],
+            "grid_mode": [
+                "I",
+                1
+            ],
+            "inv_total": [
+                "F",
+                4300
+            ],
+            "island": [
+                "B",
+                false
+            ],
+            "meter_total": [
+                "F",
+                -2800
+            ],
+            "mppt1_current": [
+                "F",
+                1378
+            ],
+            "mppt1_power": [
+                "F",
+                1082
+            ],
+            "mppt2_current": [
+                "F",
+                1415
+            ],
+            "mppt2_power": [
+                "F",
+                1119
+            ],
+            "mppt3_current": [
+                "F",
+                1452
+            ],
+            "mppt3_power": [
+                "F",
+                1156
+            ],
+            "mt_l1_curr": [
+                "F",
+                34.8
+            ],
+            "mt_l1_pwr": [
+                "F",
+                -900
+            ],
+            "mt_l1_volt": [
+                "F",
+                23.7
+            ],
+            "mt_l2_curr": [
+                "F",
+                38.5
+            ],
+            "mt_l2_pwr": [
+                "F",
+                195955667
+            ],
+            "mt_l2_volt": [
+                "F",
+                27.4
+            ],
+            "mt_l3_curr": [
+                "F",
+                42.2
+            ],
+            "mt_l3_pwr": [
+                "F",
+                200805405
+            ],
+            "mt_l3_volt": [
+                "F",
+                31.1
+            ],
+            "pv1_current": [
+                "F",
+                26.1
+            ],
+            "pv1_voltage": [
+                "F",
+                22.4
+            ],
+            "pv2_current": [
+                "F",
+                40.9
+            ],
+            "pv2_voltage": [
+                "F",
+                37.2
+            ],
+            "pv3_current": [
+                "F",
+                55.7
+            ],
+            "pv3_voltage": [
+                "F",
+                52
+            ],
+            "pv4_current": [
+                "F",
+                70.5
+            ],
+            "pv4_voltage": [
+                "F",
+                66.8
+            ],
+            "pv5_current": [
+                "F",
+                379.8
+            ],
+            "pv5_voltage": [
+                "F",
+                376.1
+            ],
+            "pv6_current": [
+                "F",
+                390.9
+            ],
+            "pv6_voltage": [
+                "F",
+                387.2
+            ],
+            "pv_total": [
+                "F",
+                6840
+            ],
+            "riso": [
+                "F",
+                150
+            ],
+            "soc": [
+                "I",
+                56
+            ],
+            "temp_air": [
+                "F",
+                -4.5
+            ],
+            "temp_heatsink": [
+                "F",
+                292.5
+            ],
+            "temp_module": [
+                "F",
+                288.8
+            ],
+            "work_mode": [
+                "I",
+                0
+            ]
+        },
+        "writes": [],
+        "warnings": 1,
+        "return": true
+    },
+    "readFast alle Gruppen aus": {
+        "vars": {
+            "ac_power": [
+                "F",
+                4200
+            ],
+            "bat_charge_max_w": [
+                "F",
+                39153.4
+            ],
+            "bat_discharge_max_w": [
+                "F",
+                40659.3
+            ],
+            "bat_total_pwr": [
+                "F",
+                -6900
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "ctl_ems_mode": [
+                "I",
+                1
+            ],
+            "ctl_ems_power": [
+                "I",
+                0
+            ],
+            "derate_pct": [
+                "I",
+                100
+            ],
+            "grid_mode": [
+                "I",
+                1
+            ],
+            "island": [
+                "B",
+                false
+            ],
+            "meter_total": [
+                "F",
+                -2800
+            ],
+            "pv_total": [
+                "F",
+                6840
+            ],
+            "riso": [
+                "F",
+                150
+            ],
+            "soc": [
+                "I",
+                55
+            ],
+            "work_mode": [
+                "I",
+                0
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true
+    },
+    "readFast ohne Antwort": {
+        "vars": {
+            "connected": [
+                "B",
+                false
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": false
+    },
+    "readFast ohne BMS und Batterie 2": {
+        "vars": {
+            "ac_power": [
+                "F",
+                4200
+            ],
+            "backup_active": [
+                "B",
+                true
+            ],
+            "backup_l1_curr": [
+                "F",
+                181.5
+            ],
+            "backup_l1_freq": [
+                "F",
+                18.52
+            ],
+            "backup_l1_pwr": [
+                "F",
+                126224299
+            ],
+            "backup_l1_volt": [
+                "F",
+                177.8
+            ],
+            "backup_l2_curr": [
+                "F",
+                203.7
+            ],
+            "backup_l2_freq": [
+                "F",
+                20.74
+            ],
+            "backup_l2_pwr": [
+                "F",
+                140773513
+            ],
+            "backup_l2_volt": [
+                "F",
+                200
+            ],
+            "backup_l3_curr": [
+                "F",
+                225.9
+            ],
+            "backup_l3_freq": [
+                "F",
+                22.96
+            ],
+            "backup_l3_pwr": [
+                "F",
+                155322727
+            ],
+            "backup_l3_volt": [
+                "F",
+                222.2
+            ],
+            "backup_total": [
+                "F",
+                174721679
+            ],
+            "bat1_cell_tmax": [
+                "F",
+                95.3
+            ],
+            "bat1_cell_tmin": [
+                "F",
+                99
+            ],
+            "bat1_cell_vmax": [
+                "I",
+                1027
+            ],
+            "bat1_cell_vmin": [
+                "I",
+                1064
+            ],
+            "bat1_curr": [
+                "F",
+                -12.5
+            ],
+            "bat1_idx_tmax": [
+                "I",
+                805
+            ],
+            "bat1_idx_tmin": [
+                "I",
+                842
+            ],
+            "bat1_idx_vmax": [
+                "I",
+                879
+            ],
+            "bat1_idx_vmin": [
+                "I",
+                916
+            ],
+            "bat1_mode": [
+                "I",
+                2
+            ],
+            "bat1_pack_temp": [
+                "F",
+                32.4
+            ],
+            "bat1_pwr": [
+                "F",
+                -3500
+            ],
+            "bat1_soc": [
+                "I",
+                0
+            ],
+            "bat1_volt": [
+                "F",
+                307.3
+            ],
+            "bat_total_pwr": [
+                "F",
+                -3500
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "ctl_ems_mode": [
+                "I",
+                1
+            ],
+            "ctl_ems_power": [
+                "I",
+                0
+            ],
+            "derate_pct": [
+                "I",
+                100
+            ],
+            "grid_freq": [
+                "F",
+                50.02
+            ],
+            "grid_l1_curr": [
+                "F",
+                92.7
+            ],
+            "grid_l1_freq": [
+                "F",
+                9.64
+            ],
+            "grid_l1_pwr": [
+                "F",
+                -150
+            ],
+            "grid_l1_volt": [
+                "F",
+                89
+            ],
+            "grid_l2_curr": [
+                "F",
+                111.2
+            ],
+            "grid_l2_freq": [
+                "F",
+                11.49
+            ],
+            "grid_l2_pwr": [
+                "F",
+                77726919
+            ],
+            "grid_l2_volt": [
+                "F",
+                107.5
+            ],
+            "grid_l3_curr": [
+                "F",
+                129.7
+            ],
+            "grid_l3_freq": [
+                "F",
+                13.34
+            ],
+            "grid_l3_pwr": [
+                "F",
+                89851264
+            ],
+            "grid_l3_volt": [
+                "F",
+                126
+            ],
+            "grid_mode": [
+                "I",
+                1
+            ],
+            "inv_total": [
+                "F",
+                4300
+            ],
+            "island": [
+                "B",
+                false
+            ],
+            "meter_total": [
+                "F",
+                -2800
+            ],
+            "mppt1_current": [
+                "F",
+                1378
+            ],
+            "mppt1_power": [
+                "F",
+                1082
+            ],
+            "mppt2_current": [
+                "F",
+                1415
+            ],
+            "mppt2_power": [
+                "F",
+                1119
+            ],
+            "mppt3_current": [
+                "F",
+                1452
+            ],
+            "mppt3_power": [
+                "F",
+                1156
+            ],
+            "mt_l1_curr": [
+                "F",
+                34.8
+            ],
+            "mt_l1_pwr": [
+                "F",
+                -900
+            ],
+            "mt_l1_volt": [
+                "F",
+                23.7
+            ],
+            "mt_l2_curr": [
+                "F",
+                38.5
+            ],
+            "mt_l2_pwr": [
+                "F",
+                195955667
+            ],
+            "mt_l2_volt": [
+                "F",
+                27.4
+            ],
+            "mt_l3_curr": [
+                "F",
+                42.2
+            ],
+            "mt_l3_pwr": [
+                "F",
+                200805405
+            ],
+            "mt_l3_volt": [
+                "F",
+                31.1
+            ],
+            "pv1_current": [
+                "F",
+                26.1
+            ],
+            "pv1_voltage": [
+                "F",
+                22.4
+            ],
+            "pv2_current": [
+                "F",
+                40.9
+            ],
+            "pv2_voltage": [
+                "F",
+                37.2
+            ],
+            "pv3_current": [
+                "F",
+                55.7
+            ],
+            "pv3_voltage": [
+                "F",
+                52
+            ],
+            "pv4_current": [
+                "F",
+                70.5
+            ],
+            "pv4_voltage": [
+                "F",
+                66.8
+            ],
+            "pv5_current": [
+                "F",
+                379.8
+            ],
+            "pv5_voltage": [
+                "F",
+                376.1
+            ],
+            "pv6_current": [
+                "F",
+                390.9
+            ],
+            "pv6_voltage": [
+                "F",
+                387.2
+            ],
+            "pv_total": [
+                "F",
+                6840
+            ],
+            "riso": [
+                "F",
+                150
+            ],
+            "soc": [
+                "I",
+                0
+            ],
+            "temp_air": [
+                "F",
+                -4.5
+            ],
+            "temp_heatsink": [
+                "F",
+                292.5
+            ],
+            "temp_module": [
+                "F",
+                288.8
+            ],
+            "work_mode": [
+                "I",
+                0
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true
+    },
+    "readFast voll": {
+        "vars": {
+            "ac_power": [
+                "F",
+                4200
+            ],
+            "backup_active": [
+                "B",
+                true
+            ],
+            "backup_l1_curr": [
+                "F",
+                181.5
+            ],
+            "backup_l1_freq": [
+                "F",
+                18.52
+            ],
+            "backup_l1_pwr": [
+                "F",
+                126224299
+            ],
+            "backup_l1_volt": [
+                "F",
+                177.8
+            ],
+            "backup_l2_curr": [
+                "F",
+                203.7
+            ],
+            "backup_l2_freq": [
+                "F",
+                20.74
+            ],
+            "backup_l2_pwr": [
+                "F",
+                140773513
+            ],
+            "backup_l2_volt": [
+                "F",
+                200
+            ],
+            "backup_l3_curr": [
+                "F",
+                225.9
+            ],
+            "backup_l3_freq": [
+                "F",
+                22.96
+            ],
+            "backup_l3_pwr": [
+                "F",
+                155322727
+            ],
+            "backup_l3_volt": [
+                "F",
+                222.2
+            ],
+            "backup_total": [
+                "F",
+                174721679
+            ],
+            "bat1_bms_alarm": [
+                "I",
+                150341915
+            ],
+            "bat1_bms_curr": [
+                "F",
+                207.2
+            ],
+            "bat1_bms_volt": [
+                "F",
+                203.5
+            ],
+            "bat1_bms_warn": [
+                "I",
+                145492177
+            ],
+            "bat1_cell_tmax": [
+                "F",
+                95.3
+            ],
+            "bat1_cell_tmin": [
+                "F",
+                99
+            ],
+            "bat1_cell_vmax": [
+                "I",
+                1027
+            ],
+            "bat1_cell_vmin": [
+                "I",
+                1064
+            ],
+            "bat1_chg_max_a": [
+                "F",
+                192.4
+            ],
+            "bat1_curr": [
+                "F",
+                -12.5
+            ],
+            "bat1_dis_max_a": [
+                "F",
+                199.8
+            ],
+            "bat1_idx_tmax": [
+                "I",
+                805
+            ],
+            "bat1_idx_tmin": [
+                "I",
+                842
+            ],
+            "bat1_idx_vmax": [
+                "I",
+                879
+            ],
+            "bat1_idx_vmin": [
+                "I",
+                916
+            ],
+            "bat1_mode": [
+                "I",
+                2
+            ],
+            "bat1_pack_temp": [
+                "F",
+                32.4
+            ],
+            "bat1_pwr": [
+                "F",
+                -3500
+            ],
+            "bat1_soc": [
+                "I",
+                55
+            ],
+            "bat1_soh": [
+                "I",
+                2146
+            ],
+            "bat1_temp": [
+                "F",
+                -3.5
+            ],
+            "bat1_volt": [
+                "F",
+                307.3
+            ],
+            "bat2_bms_curr": [
+                "F",
+                273.8
+            ],
+            "bat2_bms_volt": [
+                "F",
+                270.1
+            ],
+            "bat2_cell_tmax": [
+                "F",
+                77.9
+            ],
+            "bat2_cell_tmin": [
+                "F",
+                81.6
+            ],
+            "bat2_cell_vmax": [
+                "I",
+                853
+            ],
+            "bat2_cell_vmin": [
+                "I",
+                890
+            ],
+            "bat2_curr": [
+                "F",
+                -12
+            ],
+            "bat2_idx_tmax": [
+                "I",
+                631
+            ],
+            "bat2_idx_tmin": [
+                "I",
+                668
+            ],
+            "bat2_idx_vmax": [
+                "I",
+                705
+            ],
+            "bat2_idx_vmin": [
+                "I",
+                742
+            ],
+            "bat2_mode": [
+                "I",
+                2355
+            ],
+            "bat2_pack_temp": [
+                "F",
+                15
+            ],
+            "bat2_pwr": [
+                "F",
+                -3400
+            ],
+            "bat2_soc": [
+                "I",
+                57
+            ],
+            "bat2_soh": [
+                "I",
+                2812
+            ],
+            "bat2_temp": [
+                "F",
+                284.9
+            ],
+            "bat2_volt": [
+                "F",
+                220.7
+            ],
+            "bat_charge_max_w": [
+                "F",
+                109109.3
+            ],
+            "bat_discharge_max_w": [
+                "F",
+                112613.94
+            ],
+            "bat_total_pwr": [
+                "F",
+                -6900
+            ],
+            "connected": [
+                "B",
+                true
+            ],
+            "ctl_ems_mode": [
+                "I",
+                1
+            ],
+            "ctl_ems_power": [
+                "I",
+                0
+            ],
+            "derate_pct": [
+                "I",
+                100
+            ],
+            "grid_freq": [
+                "F",
+                50.02
+            ],
+            "grid_l1_curr": [
+                "F",
+                92.7
+            ],
+            "grid_l1_freq": [
+                "F",
+                9.64
+            ],
+            "grid_l1_pwr": [
+                "F",
+                -150
+            ],
+            "grid_l1_volt": [
+                "F",
+                89
+            ],
+            "grid_l2_curr": [
+                "F",
+                111.2
+            ],
+            "grid_l2_freq": [
+                "F",
+                11.49
+            ],
+            "grid_l2_pwr": [
+                "F",
+                77726919
+            ],
+            "grid_l2_volt": [
+                "F",
+                107.5
+            ],
+            "grid_l3_curr": [
+                "F",
+                129.7
+            ],
+            "grid_l3_freq": [
+                "F",
+                13.34
+            ],
+            "grid_l3_pwr": [
+                "F",
+                89851264
+            ],
+            "grid_l3_volt": [
+                "F",
+                126
+            ],
+            "grid_mode": [
+                "I",
+                1
+            ],
+            "inv_total": [
+                "F",
+                4300
+            ],
+            "island": [
+                "B",
+                false
+            ],
+            "meter_total": [
+                "F",
+                -2800
+            ],
+            "mppt1_current": [
+                "F",
+                1378
+            ],
+            "mppt1_power": [
+                "F",
+                1082
+            ],
+            "mppt2_current": [
+                "F",
+                1415
+            ],
+            "mppt2_power": [
+                "F",
+                1119
+            ],
+            "mppt3_current": [
+                "F",
+                1452
+            ],
+            "mppt3_power": [
+                "F",
+                1156
+            ],
+            "mt_l1_curr": [
+                "F",
+                34.8
+            ],
+            "mt_l1_pwr": [
+                "F",
+                -900
+            ],
+            "mt_l1_volt": [
+                "F",
+                23.7
+            ],
+            "mt_l2_curr": [
+                "F",
+                38.5
+            ],
+            "mt_l2_pwr": [
+                "F",
+                195955667
+            ],
+            "mt_l2_volt": [
+                "F",
+                27.4
+            ],
+            "mt_l3_curr": [
+                "F",
+                42.2
+            ],
+            "mt_l3_pwr": [
+                "F",
+                200805405
+            ],
+            "mt_l3_volt": [
+                "F",
+                31.1
+            ],
+            "pv1_current": [
+                "F",
+                26.1
+            ],
+            "pv1_voltage": [
+                "F",
+                22.4
+            ],
+            "pv2_current": [
+                "F",
+                40.9
+            ],
+            "pv2_voltage": [
+                "F",
+                37.2
+            ],
+            "pv3_current": [
+                "F",
+                55.7
+            ],
+            "pv3_voltage": [
+                "F",
+                52
+            ],
+            "pv4_current": [
+                "F",
+                70.5
+            ],
+            "pv4_voltage": [
+                "F",
+                66.8
+            ],
+            "pv5_current": [
+                "F",
+                379.8
+            ],
+            "pv5_voltage": [
+                "F",
+                376.1
+            ],
+            "pv6_current": [
+                "F",
+                390.9
+            ],
+            "pv6_voltage": [
+                "F",
+                387.2
+            ],
+            "pv_total": [
+                "F",
+                6840
+            ],
+            "riso": [
+                "F",
+                150
+            ],
+            "soc": [
+                "I",
+                56
+            ],
+            "temp_air": [
+                "F",
+                -4.5
+            ],
+            "temp_heatsink": [
+                "F",
+                292.5
+            ],
+            "temp_module": [
+                "F",
+                288.8
+            ],
+            "work_mode": [
+                "I",
+                0
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "return": true
+    },
+    "readSlow Ungueltig-Marken 0xFFFF": {
+        "vars": {
+            "bms1_err_code": [
+                "I",
+                65794
+            ],
+            "bms1_warn_code": [
+                "I",
+                131844
+            ],
+            "bms_e_disch_total": [
+                "F",
+                8429.7
+            ],
+            "ctl_fastcharge_enable": [
+                "B",
+                true
+            ],
+            "ctl_fastcharge_pct": [
+                "I",
+                10
+            ],
+            "ctl_fastcharge_soc": [
+                "I",
+                80
+            ],
+            "diag_status_l": [
+                "I",
+                262152
+            ],
+            "e_buy_day": [
+                "F",
+                388.7
+            ],
+            "e_disch_day": [
+                "F",
+                32
+            ],
+            "e_disch_total": [
+                "F",
+                1612213.9
+            ],
+            "e_load_day": [
+                "F",
+                399.8
+            ],
+            "e_load_total": [
+                "F",
+                25716722.5
+            ],
+            "e_pv_day": [
+                "F",
+                23291853.5
+            ],
+            "e_pv_total": [
+                "F",
+                22806879.7
+            ],
+            "e_sell_day": [
+                "F",
+                377.6
+            ],
+            "err_detail": [
+                "S",
+                "Grid overvoltage, Grid overfrequency, System error 1"
+            ],
+            "err_msg": [
+                "I",
+                1
+            ],
+            "warn_code": [
+                "I",
+                5
+            ],
+            "work_hours": [
+                "F",
+                242618011
+            ]
+        },
+        "writes": [],
+        "warnings": 0
+    },
+    "readSlow alle Gruppen aus": {
+        "vars": [],
+        "writes": [],
+        "warnings": 0
+    },
+    "readSlow voll": {
+        "vars": {
+            "bms1_err_code": [
+                "I",
+                65794
+            ],
+            "bms1_warn_code": [
+                "I",
+                131844
+            ],
+            "bms_e_charge_total": [
+                "F",
+                8669.7
+            ],
+            "bms_e_disch_total": [
+                "F",
+                8429.7
+            ],
+            "ctl_fastcharge_enable": [
+                "B",
+                true
+            ],
+            "ctl_fastcharge_pct": [
+                "I",
+                10
+            ],
+            "ctl_fastcharge_soc": [
+                "I",
+                80
+            ],
+            "diag_status_l": [
+                "I",
+                262152
+            ],
+            "e_buy_day": [
+                "F",
+                388.7
+            ],
+            "e_charge_day": [
+                "F",
+                6.2
+            ],
+            "e_charge_total": [
+                "F",
+                10467.8
+            ],
+            "e_disch_day": [
+                "F",
+                32
+            ],
+            "e_disch_total": [
+                "F",
+                1612213.9
+            ],
+            "e_load_day": [
+                "F",
+                399.8
+            ],
+            "e_load_total": [
+                "F",
+                25716722.5
+            ],
+            "e_pv_day": [
+                "F",
+                23291853.5
+            ],
+            "e_pv_total": [
+                "F",
+                22806879.7
+            ],
+            "e_sell_day": [
+                "F",
+                377.6
+            ],
+            "err_detail": [
+                "S",
+                "Grid overvoltage, Grid overfrequency, System error 1"
+            ],
+            "err_msg": [
+                "I",
+                1
+            ],
+            "warn_code": [
+                "I",
+                5
+            ],
+            "work_hours": [
+                "F",
+                242618011
+            ]
+        },
+        "writes": [],
+        "warnings": 0
+    },
+    "write Enable-Schreiben scheitert": {
+        "vars": {
+            "ctl_ems_mode": [
+                "I",
+                3
+            ],
+            "ctl_ems_power": [
+                "I",
+                800
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47512,
+                0
+            ],
+            [
+                "single",
+                47511,
+                3
+            ],
+            [
+                "single",
+                47512,
+                800
+            ],
+            [
+                "single-failed",
+                47505,
+                0
+            ]
+        ],
+        "warnings": 1,
+        "lastError": "no connection (simuliert)"
+    },
+    "write Freigabe scheitert": {
+        "vars": {
+            "ctl_ems_enable": [
+                "B",
+                false
+            ],
+            "ctl_ems_power": [
+                "I",
+                0
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47512,
+                0
+            ],
+            [
+                "single-failed",
+                47511,
+                1
+            ],
+            [
+                "single",
+                47505,
+                0
+            ]
+        ],
+        "warnings": 1,
+        "lastError": ""
+    },
+    "write Modusschreiben scheitert": {
+        "vars": {
+            "ctl_ems_enable": [
+                "B",
+                false
+            ],
+            "ctl_ems_power": [
+                "I",
+                5000
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47512,
+                0
+            ],
+            [
+                "single-failed",
+                47511,
+                9
+            ],
+            [
+                "single",
+                47512,
+                5000
+            ],
+            [
+                "single",
+                47505,
+                0
+            ]
+        ],
+        "warnings": 1,
+        "lastError": ""
+    },
+    "write Null-Schritt scheitert (Abbruch vor dem Modus)": {
+        "vars": [],
+        "writes": [
+            [
+                "single-failed",
+                47512,
+                0
+            ]
+        ],
+        "warnings": 2,
+        "lastError": "no connection (simuliert)"
+    },
+    "write ctl_ems_enable an": {
+        "vars": {
+            "ctl_ems_enable": [
+                "B",
+                true
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47505,
+                1
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_ems_enable aus": {
+        "vars": {
+            "ctl_ems_enable": [
+                "B",
+                false
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47505,
+                0
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_ems_mode 13 (ausserhalb)": {
+        "vars": [],
+        "writes": [],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_ems_mode 9": {
+        "vars": {
+            "ctl_ems_mode": [
+                "I",
+                9
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47511,
+                9
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_ems_power -5 (Klemme)": {
+        "vars": {
+            "ctl_ems_power": [
+                "I",
+                0
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47512,
+                0
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_ems_power 5000": {
+        "vars": {
+            "ctl_ems_power": [
+                "I",
+                5000
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47512,
+                5000
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_ems_power 99999 (Klemme)": {
+        "vars": {
+            "ctl_ems_power": [
+                "I",
+                34500
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47512,
+                34500
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_export_enable an, Grenze 0 (Warnung)": {
+        "vars": {
+            "ctl_export_enable": [
+                "B",
+                true
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47509,
+                1
+            ]
+        ],
+        "warnings": 1,
+        "lastError": ""
+    },
+    "write ctl_export_enable an, Grenze 5000": {
+        "vars": {
+            "ctl_export_enable": [
+                "B",
+                true
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47509,
+                1
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_export_enable aus": {
+        "vars": {
+            "ctl_export_enable": [
+                "B",
+                false
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47509,
+                0
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_export_enable bereits gesetzt": {
+        "vars": {
+            "ctl_export_enable": [
+                "B",
+                true
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_export_limit Klemme": {
+        "vars": {
+            "ctl_export_limit": [
+                "I",
+                34500
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47510,
+                34500
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_export_limit bereits gesetzt": {
+        "vars": {
+            "ctl_export_limit": [
+                "I",
+                4000
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_export_limit neu": {
+        "vars": {
+            "ctl_export_limit": [
+                "I",
+                4000
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47510,
+                4000
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_fastcharge_enable": {
+        "vars": {
+            "ctl_fastcharge_enable": [
+                "B",
+                true
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47545,
+                1
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_fastcharge_pct 150 (Klemme 100)": {
+        "vars": {
+            "ctl_fastcharge_pct": [
+                "I",
+                100
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47603,
+                100
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_fastcharge_soc 0 (Klemme 1)": {
+        "vars": {
+            "ctl_fastcharge_soc": [
+                "I",
+                1
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47546,
+                1
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_fastcharge_soc 80": {
+        "vars": {
+            "ctl_fastcharge_soc": [
+                "I",
+                80
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47546,
+                80
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_internet an": {
+        "vars": {
+            "ctl_internet": [
+                "B",
+                true
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47017,
+                0
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_internet aus": {
+        "vars": {
+            "ctl_internet": [
+                "B",
+                false
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47017,
+                1
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_restart": {
+        "vars": {
+            "ctl_restart": [
+                "B",
+                false
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                45220,
+                1
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_restart false": {
+        "vars": [],
+        "writes": [],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_soc_max 97": {
+        "vars": {
+            "ctl_soc_max": [
+                "I",
+                97
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                45559,
+                97
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_soc_min bereits gesetzt": {
+        "vars": {
+            "ctl_soc_min": [
+                "I",
+                10
+            ]
+        },
+        "writes": [],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_soc_min neu": {
+        "vars": {
+            "ctl_soc_min": [
+                "I",
+                15
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                45356,
+                15
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_work_mode -1 (ausserhalb)": {
+        "vars": [],
+        "writes": [],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_work_mode 3": {
+        "vars": {
+            "ctl_work_mode": [
+                "I",
+                3
+            ],
+            "work_mode": [
+                "I",
+                3
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47000,
+                3
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_work_mode 6 (ausserhalb)": {
+        "vars": [],
+        "writes": [],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write ctl_work_mode scheitert": {
+        "vars": [],
+        "writes": [
+            [
+                "single-failed",
+                47000,
+                2
+            ]
+        ],
+        "warnings": 0,
+        "lastError": "no connection (simuliert)"
+    },
+    "write svc_charge_inhibit an aus Automatik": {
+        "vars": {
+            "ctl_ems_enable": [
+                "B",
+                false
+            ],
+            "ctl_ems_mode": [
+                "I",
+                3
+            ],
+            "ctl_ems_power": [
+                "I",
+                0
+            ],
+            "svc_charge_inhibit": [
+                "B",
+                true
+            ],
+            "svc_discharge_to_grid_w": [
+                "I",
+                0
+            ],
+            "svc_grid_charge_w": [
+                "I",
+                0
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47512,
+                0
+            ],
+            [
+                "single",
+                47511,
+                3
+            ],
+            [
+                "single",
+                47505,
+                0
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write svc_charge_inhibit an im gleichen Modus": {
+        "vars": {
+            "ctl_ems_enable": [
+                "B",
+                false
+            ],
+            "ctl_ems_power": [
+                "I",
+                0
+            ],
+            "svc_charge_inhibit": [
+                "B",
+                true
+            ],
+            "svc_discharge_to_grid_w": [
+                "I",
+                0
+            ],
+            "svc_grid_charge_w": [
+                "I",
+                0
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47512,
+                0
+            ],
+            [
+                "single",
+                47505,
+                0
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write svc_charge_inhibit aus = Freigabe": {
+        "vars": {
+            "ctl_ems_enable": [
+                "B",
+                false
+            ],
+            "ctl_ems_mode": [
+                "I",
+                1
+            ],
+            "ctl_ems_power": [
+                "I",
+                0
+            ],
+            "svc_charge_inhibit": [
+                "B",
+                false
+            ],
+            "svc_discharge_to_grid_w": [
+                "I",
+                0
+            ],
+            "svc_grid_charge_w": [
+                "I",
+                0
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47512,
+                0
+            ],
+            [
+                "single",
+                47511,
+                1
+            ],
+            [
+                "single",
+                47505,
+                0
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write svc_discharge_to_grid_w 0 = Freigabe": {
+        "vars": {
+            "ctl_ems_enable": [
+                "B",
+                false
+            ],
+            "ctl_ems_mode": [
+                "I",
+                1
+            ],
+            "ctl_ems_power": [
+                "I",
+                0
+            ],
+            "svc_charge_inhibit": [
+                "B",
+                false
+            ],
+            "svc_discharge_to_grid_w": [
+                "I",
+                0
+            ],
+            "svc_grid_charge_w": [
+                "I",
+                0
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47512,
+                0
+            ],
+            [
+                "single",
+                47511,
+                1
+            ],
+            [
+                "single",
+                47505,
+                0
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write svc_discharge_to_grid_w 800 aus Modus 9": {
+        "vars": {
+            "ctl_ems_enable": [
+                "B",
+                false
+            ],
+            "ctl_ems_mode": [
+                "I",
+                3
+            ],
+            "ctl_ems_power": [
+                "I",
+                800
+            ],
+            "svc_charge_inhibit": [
+                "B",
+                false
+            ],
+            "svc_discharge_to_grid_w": [
+                "I",
+                800
+            ],
+            "svc_grid_charge_w": [
+                "I",
+                0
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47512,
+                0
+            ],
+            [
+                "single",
+                47511,
+                3
+            ],
+            [
+                "single",
+                47512,
+                800
+            ],
+            [
+                "single",
+                47505,
+                0
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write svc_discharge_to_grid_w 900 im gleichen Modus": {
+        "vars": {
+            "ctl_ems_enable": [
+                "B",
+                false
+            ],
+            "ctl_ems_power": [
+                "I",
+                900
+            ],
+            "svc_charge_inhibit": [
+                "B",
+                false
+            ],
+            "svc_discharge_to_grid_w": [
+                "I",
+                900
+            ],
+            "svc_grid_charge_w": [
+                "I",
+                0
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47512,
+                900
+            ],
+            [
+                "single",
+                47505,
+                0
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write svc_grid_charge_w 0 = Freigabe": {
+        "vars": {
+            "ctl_ems_enable": [
+                "B",
+                false
+            ],
+            "ctl_ems_mode": [
+                "I",
+                1
+            ],
+            "ctl_ems_power": [
+                "I",
+                0
+            ],
+            "svc_charge_inhibit": [
+                "B",
+                false
+            ],
+            "svc_discharge_to_grid_w": [
+                "I",
+                0
+            ],
+            "svc_grid_charge_w": [
+                "I",
+                0
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47512,
+                0
+            ],
+            [
+                "single",
+                47511,
+                1
+            ],
+            [
+                "single",
+                47505,
+                0
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write svc_grid_charge_w 4000 im gleichen Modus": {
+        "vars": {
+            "ctl_ems_enable": [
+                "B",
+                false
+            ],
+            "ctl_ems_power": [
+                "I",
+                4000
+            ],
+            "svc_charge_inhibit": [
+                "B",
+                false
+            ],
+            "svc_discharge_to_grid_w": [
+                "I",
+                0
+            ],
+            "svc_grid_charge_w": [
+                "I",
+                4000
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47512,
+                4000
+            ],
+            [
+                "single",
+                47505,
+                0
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write svc_grid_charge_w 5000 aus Automatik": {
+        "vars": {
+            "ctl_ems_enable": [
+                "B",
+                false
+            ],
+            "ctl_ems_mode": [
+                "I",
+                9
+            ],
+            "ctl_ems_power": [
+                "I",
+                5000
+            ],
+            "svc_charge_inhibit": [
+                "B",
+                false
+            ],
+            "svc_discharge_to_grid_w": [
+                "I",
+                0
+            ],
+            "svc_grid_charge_w": [
+                "I",
+                5000
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47512,
+                0
+            ],
+            [
+                "single",
+                47511,
+                9
+            ],
+            [
+                "single",
+                47512,
+                5000
+            ],
+            [
+                "single",
+                47505,
+                0
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write svc_grid_charge_w 99999 (Klemme)": {
+        "vars": {
+            "ctl_ems_enable": [
+                "B",
+                false
+            ],
+            "ctl_ems_power": [
+                "I",
+                34500
+            ],
+            "svc_charge_inhibit": [
+                "B",
+                false
+            ],
+            "svc_discharge_to_grid_w": [
+                "I",
+                0
+            ],
+            "svc_grid_charge_w": [
+                "I",
+                34500
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47512,
+                34500
+            ],
+            [
+                "single",
+                47505,
+                0
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write svc_release aus Modus 3": {
+        "vars": {
+            "ctl_ems_enable": [
+                "B",
+                false
+            ],
+            "ctl_ems_mode": [
+                "I",
+                1
+            ],
+            "ctl_ems_power": [
+                "I",
+                0
+            ],
+            "svc_charge_inhibit": [
+                "B",
+                false
+            ],
+            "svc_discharge_to_grid_w": [
+                "I",
+                0
+            ],
+            "svc_grid_charge_w": [
+                "I",
+                0
+            ]
+        },
+        "writes": [
+            [
+                "single",
+                47512,
+                0
+            ],
+            [
+                "single",
+                47511,
+                1
+            ],
+            [
+                "single",
+                47505,
+                0
+            ]
+        ],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write svc_release false": {
+        "vars": [],
+        "writes": [],
+        "warnings": 0,
+        "lastError": ""
+    },
+    "write unbekannter Ident": {
+        "vars": [],
+        "writes": [],
+        "warnings": 0,
+        "lastError": ""
+    }
+}
