@@ -558,7 +558,7 @@ class InverterHubDiscovery extends IPSModule
     // ueber MigrationsHub an (Verbund-Absprache, 29.07.2026). Der eigentliche
     // Simulieren/Uebernehmen-Ablauf laeuft in MigrationsHub selbst - wir
     // legen nur an, befuellen vor und navigieren dorthin.
-    public function StartMigration($resultIndex, $legacyInstanceID)
+    public function StartMigration(int $resultIndex, int $legacyInstanceID)
     {
         // Neuer Praefix zuerst, alter als Rueckfall (Gerätetausch, vormals MigrationsHub,
         // 13.10.2026: MIGHUB_ -> GTAUSCH_, Parameter unveraendert).

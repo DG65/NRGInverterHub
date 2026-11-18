@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.90.1 (noch nicht veröffentlicht)
+
+- **Gerätesuche: Typangaben an der öffentlichen Funktion `IHUBD_StartMigration`.** Symcon meldet beim Laden der Bibliothek, dass die Parameter `resultIndex` und `legacyInstanceID` keinen Datentyp haben (Befund von EMS im Systemprotokoll nach dem Update auf 0.90.0, die Funktion ist seit 0.77.0 so). Beide sind jetzt `int`, der Aufruf der Schaltfläche übergibt schon Zahlen. Keine Änderung am Verhalten.
+- Neuer Prüfer `.tools/check-public-types.php` (alle öffentlichen Funktionen aller Modulklassen; Fehlprobe erkannt).
+
 ## 0.90.0 (2026-11-18)
 
 - **Interner Umbau: die beiden Modbus-Clients sitzen jetzt auf der gemeinsamen Bibliothek NRGModbus.** `IHUB_ModbusTcpClient` und `IHUB_ModbusGatewayClient` sind dünne Anpassungsklassen, die Übertragung, Batch, Prüfung der Transaktions-ID und Dekodierung kommen aus `libs/NRGModbus/` (unveränderte Kopie, Namensraum `IHUB\NRGModbus`). Die Treiber bleiben unverändert und sehen dieselben Methoden und Felder wie vorher.
