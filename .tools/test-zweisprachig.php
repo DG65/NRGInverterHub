@@ -108,6 +108,13 @@ foreach (['InverterHub', 'InverterHubDiscovery', 'InverterHubBridge', 'InverterH
         preg_match('/public function ApplyChanges\(\).*?\n    }\n/s', $src, $ap);
         ok(strpos($ap[0], 'AdoptDismissFromSibling') === false, 'Punkt 27: keine Geschwister-Abfrage in ApplyChanges');
     }
+    if ($mod === 'InverterHubDiscovery') {
+        // Gutachter-Hinweis zu 0.88.0: Geschwister-Abfrage erst im Formular, nicht in ApplyChanges
+        preg_match('/public function ApplyChanges\(\).*?\n    }\n/s', $src, $ap);
+        ok(strpos($ap[0], 'AdoptDismissFromSibling') === false, 'Punkt 27: Gerätesuche fragt in ApplyChanges keine Geschwister ab');
+        preg_match('/public function GetConfigurationForm\(\).*?\n        \$results = /s', $src, $gf);
+        ok(isset($gf[0]) && strpos($gf[0], '$this->AdoptDismissFromSibling();') !== false, 'Punkt 27: Gerätesuche gleicht das gemeinsame Ausblenden erst beim Öffnen des Formulars ab');
+    }
 }
 echo $fail ? "\n$fail FEHLER\n" : "\nALLE PRUEFUNGEN BESTANDEN\n";
 exit($fail ? 1 : 0);

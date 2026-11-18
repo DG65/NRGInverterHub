@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.89.1 (2026-11-18)
+
+- **Gerätesuche: Geschwister-Abfrage nicht mehr in `ApplyChanges`, sondern erst beim Öffnen des Formulars.** Hinweis des Store-Gutachters zu 0.88.0: Gibt es mehrere Instanzen der Gerätesuche, werden sie bei einem Update oder beim Neustart von Symcon nacheinander initialisiert. Fragte die zuerst initialisierte Instanz in `AdoptDismissFromSibling` die noch nicht initialisierte ab, scheiterte das mit einer Warnung, die der vorhandene `try/catch` nicht fängt, und die zuerst initialisierte Instanz blieb im falschen Zustand. Jetzt läuft der Abgleich des gemeinsamen Ausblendens (Einleitung, Review-Hinweis, „Was ist neu“) erst, wenn jemand das Formular öffnet; dann ist das System vollständig initialisiert. Das Hauptmodul macht es seit 0.77 genauso.
+- Wirkung für dich: Ausgeblendete Hinweise der Gerätesuche werden jetzt beim Öffnen des Formulars von einer Geschwisterinstanz übernommen und nicht schon beim Übernehmen. Sonst keine Änderung.
+- Prüfstand `.tools/test-zweisprachig.php` um zwei Prüfungen für die Gerätesuche erweitert (Mutationsprobe erkannt).
+
 ## 0.89.0 (2026-11-18)
 
 - **Neues Vertragsfeld `phaseCurrentIDs` in `IHUB_GetFunctions` (Vertrag 1.6 → 1.7, additiv).** Liste mit genau drei Variablen-IDs `[L1, L2, L3]` (Strom in A) am Netzanschlusspunkt, gemessen vom **Zähler**, nicht am Wechselrichter-Ausgang. Anlass ist der Phasenwächter im EMS (0.107.0) nach dem Ausfall vom 15.11.2026 (L1 mit 57,7 A an einem 50-A-Lasttrennschalter). Quellen: Solis (Register 33252/33254/33256, ÷100) und GoodWe (Register 36055-36057, ÷10) über die schon vorhandenen Variablen `mt_l1_curr` bis `mt_l3_curr`, Fronius über `meter_l1_curr` bis `meter_l3_curr` (SunSpec-Zähler). Die AC-Ströme des Wechselrichters (`grid_l1_curr` bei Solis 33076, Kostal, Deye, Solax) zählen bewusst nicht. Fehlt eine der drei Phasen oder die Zählergruppe, bleibt das Feld leer.

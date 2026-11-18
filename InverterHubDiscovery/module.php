@@ -152,7 +152,6 @@ class InverterHubDiscovery extends IPSModule
         // registriert, damit auch bestehende Instanzen sie nach dem Update haben.
         $this->RegisterVariableBoolean('ScanAbort', $this->T('Scan abort'), '', 100);
         IPS_SetHidden($this->GetIDForIdent('ScanAbort'), true);
-        $this->AdoptDismissFromSibling();
     }
 
     // true, wenn während eines laufenden Scans „Abbrechen" geklickt wurde.
@@ -172,6 +171,12 @@ class InverterHubDiscovery extends IPSModule
 
     public function GetConfigurationForm()
     {
+        // Geteiltes Ausblenden: nicht in ApplyChanges() (Gutachter-Hinweis zu 0.88.0, Store-Punkt 27: bei mehreren Instanzen
+        // werden diese bei Update oder Neustart nacheinander initialisiert, die Abfrage beim noch nicht initialisierten
+        // Geschwister schlaegt mit einer Warnung fehl, die try/catch nicht faengt, und die zuerst initialisierte Instanz bleibt
+        // im falschen Zustand), sondern erst, wenn jemand das Formular oeffnet - nur dort wird es gebraucht und das System
+        // ist dann vollstaendig initialisiert. Gleiches Muster wie im Hauptmodul.
+        $this->AdoptDismissFromSibling();
         $results = json_decode((string)$this->ReadAttributeString('ResultsJSON'), true);
         if (!is_array($results)) {
             $results = [];
