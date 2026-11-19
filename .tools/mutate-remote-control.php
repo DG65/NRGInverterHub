@@ -8,11 +8,11 @@ $B = 'libs/IHUB_RemoteControl.php'; $F = 'libs/IHUB_RemoteFoxEss.php'; $Y = 'lib
 $X = [
     // Basis
     [$B, [["if (\$steps === []) {", 'if (false) {']], 'leere Schrittliste wird nicht als erfüllt behandelt'],
-    [$B, [['$bad = $a->capabilityError($cap);', "$bad = '';"]], 'Fähigkeit wird nicht geprüft'],
-    [$B, [['$bad = $a->validate($req, $cap);', "$bad = '';"]], 'Anfrage wird nicht geprüft'],
+    [$B, [['$bad = $a->capabilityError($cap);', '$bad = "";']], 'Fähigkeit wird nicht geprüft'],
+    [$B, [['$bad = $a->validate($req, $cap);', '$bad = "";']], 'Anfrage wird nicht geprüft'],
     [$B, [['for ($try = 0; $try < 2; $try++) {', 'for ($try = 0; $try < 1; $try++) {']], 'kein zweiter Gesamtversuch'],
     [$B, [['continue 2;', 'continue;']], 'nach einem Schreibfehler geht die Reihenfolge weiter'],
-    [$B, [['$diff = $a->verify($back, $req, $cap);', "$diff = '';"]], 'Rücklesen wird nicht verglichen'],
+    [$B, [['$diff = $a->verify($back, $req, $cap);', '$diff = "";']], 'Rücklesen wird nicht verglichen'],
     [$B, [['max(-self::POWER_MAX_W, min(self::POWER_MAX_W, (float)$value))', '(float)$value']], 'Leistung nicht begrenzt'],
     [$B, [["(\$v !== 0 && !\$info['gridCharge'])", 'false']], 'Netzladen wird bei Geräten ohne Netzladen nicht abgelehnt'],
     [$B, [["if (\$window && !\$info['socWindow']) {", 'if (false) {']], 'SOC-Fenster wird bei Geräten ohne Fenster nicht abgelehnt'],
