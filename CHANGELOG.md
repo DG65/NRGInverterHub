@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.93.0 (noch nicht veröffentlicht)
+## 0.93.0 (noch nicht veröffentlicht, SolaX-Adapter wird NICHT veröffentlicht: kein belegter Totmann, siehe CLAUDE.md)
 
 - **SolaX: Fernsteuerung über die gemeinsame Schicht (ungetestet).** Neuer Adapter `IHUB_RemoteSolax` für SolaX Hybrid Gen4 und neuer (VPP-Modus 8, „PV&BAT Individual Setting“, Register 0x00A0-0x00A7, Rücklesen 0x01A0). Modi 0 (aus), 1 (halten = Akkuleistung 0 W, PV unbegrenzt) und 2 (Akku ±W, einheitliches Vorzeichen: + Laden). Kein Modus 3 (die Schnittstelle kennt keine Regelung am Netzanschlusspunkt), kein Netzladen, kein SOC-Fenster. Ein FC16-Block, 32-Bit-Werte mit niederwertigem Wort zuerst. Die Gruppe „Steuerung“ startet bei SolaX ausgeschaltet.
 - **Widerspruch Dokument gegen Community-Code, offen benannt:** Die offizielle Doku (V001.02, an der PDF-Seite gelesen) hat in Modus 8 kein Register für die Dauer, 0xA6 ist dort WaitTimeout und 0xA7 NextMotion; nach der Doku hätte der Modus keinen Totmann. Die HA-Integration schreibt 0xA6 = Dauer, 0xA7 = Timeout. Auf Dietmars Entscheidung (19.11.2026) nach dem Community-Code gebaut: 0xA6 = Dauer in s (= Totmann, 10 bis 60000 s, Vorgabe 60 s), 0xA7 = 0xA0. Dieser Wert ist in beiden Lesarten gültig (Timeout 160 s bzw. NextMotion „Arbeitsmodus des Nutzers“). Das Rücklesen kann die Lesarten nicht unterscheiden. `rc_failsafe_eff_sec` meldet Dauer + 160 s. Ob das Gerät nach der Dauer wirklich aussteigt, zeigt nur ein Test am Gerät.
