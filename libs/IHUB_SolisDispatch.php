@@ -125,93 +125,29 @@ class IHUB_SolisDispatch
     }
 
     /**
-     * Vorgaben ans Gerät bringen und zurücklesen. true = das Gerät hat sie. $err bekommt sonst den Grund.
-     * $known: Ergebnis von probe(), wenn der Aufrufer die Fähigkeit schon kennt (spart einen Lesezugriff).
-     * $status bekommt den gelesenen Wert von 34504.
+     * Vorgaben ans Gerät bringen und zurücklesen (alter Weg ctl_dispatch_*, seit 0.92.0 über die gemeinsame Fernsteuerung
+     * IHUB_RemoteControl mit dem Adapter IHUB_RemoteSolis, Verhalten unverändert). true = das Gerät hat sie.
+     * $err bekommt sonst den Grund, $status den gelesenen Wert von 34504. $known: Ergebnis von probe() oder null.
      */
     public static function apply($mb, array $p, ?array $known, &$err, &$status = null): bool
     {
-        $err = '';
-        $bad = self::validate($p);
-        if ($bad !== '') {
-            $err = $bad;
-            return false;
-        }
-        if ($known === null) {
-            $known = self::probe($mb);
-        }
-        if ($known === null) {
-            $err = IHUB_Text::t('Solis dispatch: the device did not answer the capability query (register 34502).');
-            return false;
-        }
-        if (!$known['available']) {
-            $err = IHUB_Text::t('Solis dispatch: this device does not offer remote dispatch (register 34502 is not 0xAA55).');
-            return false;
-        }
-        $mode = (int)$p['mode'];
-        for ($try = 0; $try < 2; $try++) {
-            if ($try > 0) {
-                usleep(self::$retryPauseUs);
-            }
-            $err = '';
-            if ($mode === self::MODE_OFF) {
-                if (!$mb->writeMultiple(self::REG_SYSTEM, [0])) {
-                    $err = self::writeError($mb);
-                    continue;
-                }
-                usleep(self::$readbackUs);
-                $back = self::readBack($mb, 1);
-                if ($back === null) {
-                    $err = IHUB_Text::t('read-back without answer');
-                    continue;
-                }
-                $status = $back['status'];
-                if ($back['regs'][0] !== 0) {
-                    $err = IHUB_Text::t('device acknowledged, but stored %s instead of %s', $back['regs'][0], 0);
-                    continue;
-                }
-                return true;
-            }
-            $system = self::systemBlock($p);
-            $real = self::realtimeBlock($p);
-            if (!$mb->writeMultiple(self::REG_SYSTEM, $system)) {
-                $err = self::writeError($mb);
-                continue;
-            }
-            usleep(self::$spacingUs);
-            if (!$mb->writeMultiple(self::REG_REALTIME, $real)) {
-                $err = self::writeError($mb);
-                continue;
-            }
-            usleep(self::$readbackUs);
-            $back = self::readBack($mb, 11);
-            if ($back === null) {
-                $err = IHUB_Text::t('read-back without answer');
-                continue;
-            }
-            $status = $back['status'];
-            $diff = self::compare($back['regs'], $system, $real);
-            if ($diff !== '') {
-                $err = $diff;
-                continue;
-            }
-            if ($back['status'] === 0) {
-                $err = IHUB_Text::t('Solis dispatch: the registers hold the values, but the device does not report dispatch as running (register 34504 = 0).');
-                continue;
-            }
-            return true;
-        }
-        return false;
-    }
-
-    private static function writeError($mb): string
-    {
-        $e = isset($mb->lastError) && $mb->lastError !== '' ? $mb->lastError : IHUB_Text::t('write failed');
-        return $e;
+        $req = [
+            'mode'        => (int)($p['mode'] ?? 0),
+            'watts'       => (int)($p['watts'] ?? 0),
+            'gridCharge'  => (int)($p['gridCharge'] ?? 0),
+            'socMin'      => (int)($p['socMin'] ?? 0),
+            'socMax'      => (int)($p['socMax'] ?? 0),
+            'failsafeSec' => max(0, (int)($p['failsafeMin'] ?? 0)) * 60,
+            'ext'         => ['pvShutdown' => (int)($p['pvShutdown'] ?? 0), 'importLimitW' => (int)($p['importLimitW'] ?? 0), 'exportLimitW' => (int)($p['exportLimitW'] ?? 0)],
+        ];
+        $back = null;
+        $ok = IHUB_RemoteControl::apply(new IHUB_RemoteSolis(), $mb, $req, $known, 0, $err, $back);
+        $status = $back !== null ? $back['status'] : null;
+        return $ok;
     }
 
     /** Liest 44100.. ($count Register) und 34504 über eine gemeinsame Verbindung. */
-    private static function readBack($mb, int $count): ?array
+    public static function readBack($mb, int $count): ?array
     {
         $mb->beginBatch();
         try {
@@ -227,7 +163,7 @@ class IHUB_SolisDispatch
     }
 
     /** Vergleicht die zurückgelesenen Register mit dem Gesendeten; '' = gleich, sonst Text der ersten Abweichung. */
-    private static function compare(array $back, array $system, array $real): string
+    public static function compare(array $back, array $system, array $real): string
     {
         foreach ($system as $i => $v) {
             if (($back[$i] ?? null) !== $v) {

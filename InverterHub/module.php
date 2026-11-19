@@ -17,7 +17,12 @@ require_once __DIR__ . '/../libs/IHUB_ModbusTcpClient.php';
 require_once __DIR__ . '/../libs/IHUB_InverterDriverInterface.php';
 require_once __DIR__ . '/../libs/IHUB_GoodweDriver.php';
 require_once __DIR__ . '/../libs/IHUB_SungrowDriver.php';
+require_once __DIR__ . '/../libs/IHUB_RemoteAdapter.php';
+require_once __DIR__ . '/../libs/IHUB_RemoteControl.php';
 require_once __DIR__ . '/../libs/IHUB_SolisDispatch.php';
+require_once __DIR__ . '/../libs/IHUB_RemoteSolis.php';
+require_once __DIR__ . '/../libs/IHUB_RemoteFoxEss.php';
+require_once __DIR__ . '/../libs/IHUB_RemoteDeye.php';
 require_once __DIR__ . '/../libs/IHUB_SolisDriver.php';
 require_once __DIR__ . '/../libs/IHUB_GrowattDriver.php';
 require_once __DIR__ . '/../libs/IHUB_SolaxDriver.php';
@@ -244,7 +249,8 @@ class InverterHub extends IPSModule
             }
             foreach ($drv->getOptionalGroups() as $propName => $group) {
                 if (!array_key_exists($propName, $allProps)) {
-                    $allProps[$propName] = true;
+                    // Vorgabe: Gruppe an. Eine Gruppe kann mit 'default' => false ausgeschaltet starten (Fernsteuerung FoxESS, ungetestet).
+                    $allProps[$propName] = $group['default'] ?? true;
                 }
             }
         }
@@ -920,7 +926,20 @@ class InverterHub extends IPSModule
                 'importLimitID' => $find('ctl_dispatch_import_limit_w'), 'exportLimitID' => $find('ctl_dispatch_export_limit_w'),
             ];
         }
+        // Gemeinsame Fernsteuerung (Vertrag 1.9, 0.92.0): IDs der ctl_rc_*/rc_*-Variablen, 0 = fehlt, leeres Feld ohne Fernsteuerung.
+        // Die Fähigkeit steht in rc_available, die Kennzeichnung (Hersteller/Dokument, getestet ja/nein, Modi) in rc_vendor, rc_tested, rc_modes.
+        $remoteControl = [];
+        if ($find('ctl_rc_mode') > 0) {
+            $remoteControl = [
+                'availableID' => $find('rc_available'), 'versionID' => $find('rc_version'), 'statusID' => $find('rc_status'),
+                'activeID' => $find('rc_active'), 'vendorID' => $find('rc_vendor'), 'testedID' => $find('rc_tested'), 'modesID' => $find('rc_modes'),
+                'modeID' => $find('ctl_rc_mode'), 'powerID' => $find('ctl_rc_w'), 'gridChargeID' => $find('ctl_rc_grid_charge'),
+                'socMinID' => $find('ctl_rc_soc_min'), 'socMaxID' => $find('ctl_rc_soc_max'), 'failsafeSecID' => $find('ctl_rc_failsafe_sec'),
+                'failsafeEffID' => $find('rc_failsafe_eff_sec'), 'ratedWID' => $find('rc_rated_w'),
+            ];
+        }
         return [
+            // 1.8 -> 1.9: remoteControl (gemeinsame Fernsteuerung aller Hersteller, EMS-Auftrag 19.11.2026; leer ohne Fernsteuerung)
             // 1.7 -> 1.8: dispatch (Solis Remote Dispatch, EMS-Auftrag 19.11.2026; leeres Array bei Treibern ohne Dispatch).
             // 1.0 -> 1.1: batteryTempIDs/batterySocIDs/batterySohIDs/
             // batteryCapacityID. 1.1 -> 1.2: mpptPowerIDs/mpptCurrentIDs/
@@ -933,7 +952,7 @@ class InverterHub extends IPSModule
             // leer ohne Zaehlerphasen).
             // 1.5 -> 1.6: batteryChargeEnergyID/batteryDischargeEnergyID (EMS-Wunsch 17.11.2026,
             // belastbare Batterie-Gesamtzaehler kWh, bisher nur GoodWe: bms_e_*_total; sonst 0).
-            'contractVersion'  => '1.8',
+            'contractVersion'  => '1.9',
             'houseLoadID'      => $find('house_load_total'),
             'gridServiceCapabilities' => $gridServiceCapabilities,
             'instanceID'       => $this->InstanceID,
@@ -969,6 +988,7 @@ class InverterHub extends IPSModule
             'mpptVoltageIDs'   => $mpptVoltageIDs,
             'phaseCurrentIDs'  => $phaseCurrentIDs,
             'dispatch'         => $dispatch,
+            'remoteControl'    => $remoteControl,
         ];
     }
 

@@ -66,9 +66,9 @@ class IHUB_DeyeDriver implements IHUB_InverterDriverInterface
                 ['e_pv_day',        'PV today',            'F', '~Electricity', true, 'energy', 'RO 529'],
                 ['e_pv_total',      'PV total',           'F', '~Electricity', true, 'energy', 'RO 534'],
             ]],
-            'GroupControl' => ['caption' => 'Control', 'vars' => [
+            'GroupControl' => ['caption' => 'Control', 'vars' => array_merge([
                 ['ctl_onoff', 'Inverter on/off', 'B', '~Switch', false, 'control', 'RW 80'],
-            ]],
+            ], IHUB_RemoteControl::vars())],
         ];
     }
 
@@ -84,12 +84,12 @@ class IHUB_DeyeDriver implements IHUB_InverterDriverInterface
             'DYE.Volt'   => [VARIABLETYPE_FLOAT, ' V',       0.0,  1000.0, 0.1,  1],
             'DYE.Ampere' => [VARIABLETYPE_FLOAT, ' A',    -200.0,   200.0, 0.1,  1],
             'DYE.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',     45.0,    65.0, 0.01, 2],
-        ];
+        ] + IHUB_RemoteControl::profiles();
     }
 
     public function getEnumProfiles()
     {
-        return [];
+        return IHUB_RemoteControl::enumProfiles();
     }
 
     public function readFast($mb, $hub)
@@ -163,6 +163,9 @@ class IHUB_DeyeDriver implements IHUB_InverterDriverInterface
 
     public function readSlow($mb, $hub)
     {
+        if ($hub->GetPropBool('GroupControl')) {
+            IHUB_RemoteControl::refresh(new IHUB_RemoteDeye(), $mb, $hub);   // Fernsteuerung 1100 ff.: Fähigkeit und Kennzeichnung
+        }
         if (!$hub->GetPropBool('GroupEnergy')) {
             return;
         }
@@ -193,6 +196,9 @@ class IHUB_DeyeDriver implements IHUB_InverterDriverInterface
 
     public function writeControl($mb, $hub, $ident, $value)
     {
+        if (strpos($ident, 'ctl_rc_') === 0 && IHUB_RemoteControl::control(new IHUB_RemoteDeye(), $mb, $hub, $ident, $value)) {
+            return;
+        }
         if ($ident === 'ctl_onoff') {
             $val = (bool)$value ? 1 : 0;
             if ($mb->writeSingle(80, $val)) {

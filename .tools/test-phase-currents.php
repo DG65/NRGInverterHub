@@ -30,7 +30,7 @@ function idOf(string $ident): int { return $GLOBALS['TREE'][$ident][0]; }
 
 echo "GetFunctions: phaseCurrentIDs\n";
 $r = fn_ids('solis', ['mt_l1_curr', 'mt_l2_curr', 'mt_l3_curr', 'grid_l1_curr', 'grid_l2_curr', 'grid_l3_curr']);
-ref_ok($r['contractVersion'] === '1.8', 'Vertragsversion 1.8');
+ref_ok($r['contractVersion'] === '1.9', 'Vertragsversion 1.9');
 ref_ok($r['phaseCurrentIDs'] === [idOf('mt_l1_curr'), idOf('mt_l2_curr'), idOf('mt_l3_curr')], 'Solis: Zaehlerstroeme mt_l1..3_curr, nicht die AC-Stroeme grid_l1..3_curr des Wechselrichters');
 $r = fn_ids('solis', ['grid_l1_curr', 'grid_l2_curr', 'grid_l3_curr']);
 ref_ok($r['phaseCurrentIDs'] === [], 'Solis ohne Zaehlergruppe: leer (AC-Stroeme des Wechselrichters zaehlen nicht)');

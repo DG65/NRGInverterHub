@@ -48,7 +48,7 @@ class IHUB_FoxEssSmartDriver implements IHUB_InverterDriverInterface
 
     public function getOptionalGroups()
     {
-        return [
+        $groups = [
             'GroupPV' => ['caption' => 'PV details (string 1-4)', 'vars' => [
                 ['pv1_volt', 'PV1 voltage', 'F', 'FOXS.Volt',   false, 'pv', 'HR 39070 (÷10)'],
                 ['pv1_curr', 'PV1 current',    'F', 'FOXS.Ampere', false, 'pv', 'HR 39071 (÷10)'],
@@ -89,6 +89,9 @@ class IHUB_FoxEssSmartDriver implements IHUB_InverterDriverInterface
                 ['e_load_day',     'House consumption today',   'F', '~Electricity', true, 'energy', 'HR 39631+39632 (U32, ÷100)'],
             ]],
         ];
+        // Fernsteuerung 46001 ff. (H3-Pro, H3-Smart), UNGETESTET: nur in dieser Gruppe, Vorgabe aus, gemeinsame Schicht IHUB_RemoteControl
+        $groups['GroupControl'] = ['caption' => 'Remote control (untested: built from the manufacturer document only, off by default)', 'default' => false, 'vars' => IHUB_RemoteControl::vars()];
+        return $groups;
     }
 
     public function getExtraBooleanProperties()
@@ -103,7 +106,7 @@ class IHUB_FoxEssSmartDriver implements IHUB_InverterDriverInterface
             'FOXS.Volt'   => [VARIABLETYPE_FLOAT, ' V',        0.0,   1500.0, 0.1,  1],
             'FOXS.Ampere' => [VARIABLETYPE_FLOAT, ' A',     -500.0,    500.0, 0.1,  1],
             'FOXS.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',      45.0,     65.0, 0.01, 2],
-        ];
+        ] + IHUB_RemoteControl::profiles();
     }
 
     public function getEnumProfiles()
@@ -112,7 +115,7 @@ class IHUB_FoxEssSmartDriver implements IHUB_InverterDriverInterface
         foreach (self::STATUS as $k => $label) {
             $status[$k] = [$label, $k === 4 ? 0xC0392B : 0x7A8A99];
         }
-        return ['FOXS.Status' => $status];
+        return ['FOXS.Status' => $status] + IHUB_RemoteControl::enumProfiles();
     }
 
     // Liest einen zusammenhaengenden Holding-Block. Lehnt das Geraet den
@@ -252,6 +255,9 @@ class IHUB_FoxEssSmartDriver implements IHUB_InverterDriverInterface
 
     public function readSlow($mb, $hub)
     {
+        if ($hub->GetPropBool('GroupControl')) {
+            IHUB_RemoteControl::refresh(new IHUB_RemoteFoxEss(), $mb, $hub);   // Fernsteuerung 46001 ff.: Fähigkeit und Kennzeichnung
+        }
         // Batterie-Gesundheit (SOH) aendert sich langsam; HA liest 37624 einzeln.
         if ($hub->GetPropBool('GroupBat')) {
             $h = $mb->readHolding(37624, 1);
@@ -269,6 +275,9 @@ class IHUB_FoxEssSmartDriver implements IHUB_InverterDriverInterface
 
     public function writeControl($mb, $hub, $ident, $value)
     {
-        // Read-Only: Steuerregister (46xxx) erst nach Bestaetigung am echten Geraet.
+        // Nur die gemeinsame Fernsteuerung (46001 ff.), UNGETESTET (rc_tested = false); keine weiteren Schreibwege.
+        if (strpos($ident, 'ctl_rc_') === 0) {
+            IHUB_RemoteControl::control(new IHUB_RemoteFoxEss(), $mb, $hub, $ident, $value);
+        }
     }
 }

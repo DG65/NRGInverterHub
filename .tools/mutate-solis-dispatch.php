@@ -4,24 +4,23 @@
  * .tools/) ein; .tools/test-solis-dispatch.php muss anschlagen.   php .tools/mutate-solis-dispatch.php   (0 = alle erkannt)
  */
 $root = dirname(__DIR__);
-$D = 'libs/IHUB_SolisDispatch.php'; $S = 'libs/IHUB_SolisDriver.php'; $M = 'InverterHub/module.php';
+$D = 'libs/IHUB_SolisDispatch.php'; $R = 'libs/IHUB_RemoteSolis.php'; $S = 'libs/IHUB_SolisDriver.php'; $M = 'InverterHub/module.php';
 $X = [
     [$D, [['public static $spacingUs = 750000;', 'public static $spacingUs = 100000;']], 'Abstand zwischen Schreibbefehlen unter 700 ms'],
-    [$D, [['if (!$mb->writeMultiple(self::REG_SYSTEM, $system)) {', 'if (!$mb->writeMultiple(self::REG_REALTIME, $real)) {'], ["usleep(self::\$spacingUs);\n            if (!\$mb->writeMultiple(self::REG_REALTIME, \$real)) {", "usleep(self::\$spacingUs);\n            if (!\$mb->writeMultiple(self::REG_SYSTEM, \$system)) {"]], 'Echtzeitblock vor dem Systemblock'],
+    [$R, [["['fc' => 16, 'addr' => IHUB_SolisDispatch::REG_SYSTEM, 'words' => IHUB_SolisDispatch::systemBlock(\$p), 'afterUs' => IHUB_SolisDispatch::\$spacingUs],", "['fc' => 16, 'addr' => IHUB_SolisDispatch::REG_REALTIME, 'words' => IHUB_SolisDispatch::realtimeBlock(\$p), 'afterUs' => IHUB_SolisDispatch::\$spacingUs],"], ["['fc' => 16, 'addr' => IHUB_SolisDispatch::REG_REALTIME, 'words' => IHUB_SolisDispatch::realtimeBlock(\$p), 'afterUs' => 0],", "['fc' => 16, 'addr' => IHUB_SolisDispatch::REG_SYSTEM, 'words' => IHUB_SolisDispatch::systemBlock(\$p), 'afterUs' => 0],"]], 'Echtzeitblock vor dem Systemblock'],
     [$D, [['return [1, self::failsafe($p), $bits, (int)round($imp / 100), (int)round($exp / 100)];', 'return [1, self::failsafe($p), $bits, $imp > 0 ? (int)round($imp / 100) : 0xFFFF, $exp > 0 ? (int)round($exp / 100) : 0xFFFF];']], 'Grenzen aus als 0xFFFF geschrieben'],
     [$D, [['$u = $v < 0 ? $v + 4294967296 : $v;', '$u = abs($v);']], 'Vorzeichen der Leistung geht verloren'],
     [$D, [['return $max === 0 ? 100 : $max;', 'return $max;']], 'obere SOC-Grenze 0 bleibt 0'],
     [$D, [["\$w = (\$mode === self::MODE_STANDBY) ? 0 : (int)(\$p['watts'] ?? 0);", "\$w = (int)(\$p['watts'] ?? 0);"]], 'Standby schreibt die gemerkte Leistung'],
     [$D, [['$pv | ($gc << 4)', '$pv | ($gc << 2)']], 'Netzladen-Bits an der falschen Stelle'],
-    [$D, [["if (!\$known['available']) {", 'if (false) {']], 'Fähigkeit wird nicht geprüft'],
-    [$D, [["\$diff = self::compare(\$back['regs'], \$system, \$real);", "\$diff = '';"]], 'Rücklesen vergleicht nichts'],
-    [$D, [["if (\$back['status'] === 0) {", 'if (false) {']], 'Status 34504 = 0 wird ignoriert'],
-    [$D, [['for ($try = 0; $try < 2; $try++) {', 'for ($try = 0; $try < 1; $try++) {']], 'kein zweiter Gesamtversuch'],
-    [$D, [['$mb->writeMultiple(self::REG_SYSTEM, [0])', '$mb->writeMultiple(self::REG_SYSTEM, [1])']], 'Aus schreibt 1 statt 0'],
+    [$R, [["if (!\$cap['available']) {", 'if (false) {']], 'Fähigkeit wird nicht geprüft'],
+    [$R, [["\$diff = IHUB_SolisDispatch::compare(\$back['regs'], IHUB_SolisDispatch::systemBlock(\$p), IHUB_SolisDispatch::realtimeBlock(\$p));", "\$diff = '';"]], 'Rücklesen vergleicht nichts'],
+    [$R, [["if (\$back['status'] === 0) {", 'if (false) {']], 'Status 34504 = 0 wird ignoriert'],
+    [$R, [["'words' => [0], 'afterUs' => 0]", "'words' => [1], 'afterUs' => 0]"]], 'Aus schreibt 1 statt 0'],
     [$D, [['const FAILSAFE_DEFAULT_MIN = 5;', 'const FAILSAFE_DEFAULT_MIN = 10;']], 'Totmann-Vorgabe geändert'],
     [$D, [['min(self::FAILSAFE_MAX_MIN, $f)', '$f']], 'Totmann nicht begrenzt'],
     [$D, [['|| $min > $max) {', ') {']], 'SOC-Bereich mit Untergrenze über Obergrenze akzeptiert'],
-    [$D, [['usleep(self::$spacingUs);', '']], 'kein Abstand zwischen den Blöcken'],
+    [$R, [["'afterUs' => IHUB_SolisDispatch::\$spacingUs],", "'afterUs' => 0],"]], 'kein Abstand zwischen den Blöcken'],
     [$D, [['$mb->beginBatch();', '']], 'Rücklesen ohne gemeinsame Verbindung (Batch)'],
     [$S, [["\$hub->SetVarInt('ctl_dispatch_mode', (int)\$value);\n                return;", "return;"]], 'Modus wird nach Erfolg nicht gemerkt'],
     [$S, [['$known = $ver > 0 ?', '$known = $ver > 99 ?']], 'Fähigkeit wird nie aus dem Zyklus übernommen'],
@@ -31,7 +30,7 @@ $X = [
     [$S, [['max(-IHUB_SolisDispatch::POWER_MAX_W, min(IHUB_SolisDispatch::POWER_MAX_W, (float)$value))', '(float)$value']], 'Leistungsvorgabe nicht begrenzt'],
     [$S, [['(int)(round(max(0, min(IHUB_SolisDispatch::POWER_MAX_W, (float)$value)) / 100) * 100)', '(int)(round(max(0, min(IHUB_SolisDispatch::POWER_MAX_W, (float)$value)) / 10) * 10)']], 'Grenze nicht auf 100 W gerundet'],
     [$M, [["'modeID' => \$find('ctl_dispatch_mode')", "'modeID' => 0"]], 'Vertrag: modeID fehlt'],
-    [$M, [["'contractVersion'  => '1.8'", "'contractVersion'  => '1.7'"]], 'Vertragsversion nicht erhöht'],
+    [$M, [["'contractVersion'  => '1.9'", "'contractVersion'  => '1.8'"]], 'Vertragsversion nicht erhöht'],
     [$M, [["if (\$find('ctl_dispatch_mode') > 0) {", 'if (true) {']], 'Vertrag: dispatch auch ohne Variablen gefüllt'],
 ];
 // die letzte Probe in $S mit Platzhaltertext 'x' entfällt, wenn der Suchtext nicht existiert

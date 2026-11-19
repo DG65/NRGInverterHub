@@ -29,7 +29,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
 
     public function getOptionalGroups()
     {
-        return [
+        $groups = [
             'GroupPV' => ['caption' => 'PV details (up to 4 strings)', 'vars' => [
                 ['pv1_volt', 'PV1 voltage', 'F', 'SLS.Volt',   false, 'pv', 'RO 33049'],
                 ['pv1_curr', 'PV1 current',    'F', 'SLS.Ampere', false, 'pv', 'RO 33050'],
@@ -176,6 +176,9 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 ['dev_fw_hmi', 'Firmware HMI', 'I', '', false, 'device', 'RO 33002'],
             ]],
         ];
+        // Gemeinsame Fernsteuerung (ctl_rc_*, rc_*) neben dem alten Weg ctl_dispatch_* (seit 0.92.0)
+        $groups['GroupControl']['vars'] = array_merge($groups['GroupControl']['vars'], IHUB_RemoteControl::vars());
+        return $groups;
     }
 
     public function getExtraBooleanProperties()
@@ -194,7 +197,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             'SLS.WattSigned' => [VARIABLETYPE_INTEGER, ' W', -40000, 40000, 10, 0],
             'SLS.Minutes' => [VARIABLETYPE_INTEGER, ' min',      0,   1440,  1,  0],
             'SLS.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',     45.0,    65.0, 0.01, 2],
-        ];
+        ] + IHUB_RemoteControl::profiles();
     }
 
     // Speicherbetrieb laut Register 43110 (Bitfeld, Werte aus dem wills106-Plugin und der Solis-Doku).
@@ -223,7 +226,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             'SLS.OpStatus'    => [0 => ['Stop', 0x7A8A99], 1 => ['Idle', 0x7A8A99], 2 => ['Soft start', 0xE08A2B], 3 => ['Grid operation', 0x3BA55D],
                                   4 => ['Island mode', 0xE08A2B], 5 => ['Transition island → grid', 0xE08A2B], 6 => ['Backup bypass', 0xE08A2B], 7 => ['Generator operation', 0xE08A2B]],
             'SLS.BmsStatus'   => [0 => ['Normal', 0x3BA55D], 1 => ['Communication disturbed', 0xC0392B], 2 => ['Warning', 0xE08A2B]],
-        ];
+        ] + IHUB_RemoteControl::enumProfiles();
     }
 
     // Eine wiederverwendete Verbindung fuer den ganzen Lesezyklus statt vier bis fuenf frisch geoeffneter
@@ -538,6 +541,7 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 $hub->SetVarBool('dispatch_available', $d['available']);
                 $hub->SetVarInt('dispatch_version', $d['available'] ? $d['version'] : 0);
                 $hub->SetVarInt('dispatch_status', $d['available'] ? $d['status'] : 0);
+                IHUB_RemoteControl::refresh(new IHUB_RemoteSolis(), $mb, $hub, $d);   // gemeinsame Fernsteuerung, dieselbe Fähigkeit
             }
         }
         if ($hub->GetPropBool('GroupEnergy')) {
@@ -688,6 +692,9 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
     // Dauerhalten und Rueckfall liegen beim Aufrufer (EMS).
     public function writeControl($mb, $hub, $ident, $value)
     {
+        if (strpos($ident, 'ctl_rc_') === 0 && IHUB_RemoteControl::control(new IHUB_RemoteSolis(), $mb, $hub, $ident, $value)) {
+            return;
+        }
         switch ($ident) {
             case 'ctl_force_w':
                 $w = (int)(round(max(0, min(self::FORCE_MAX_W, (float)$value)) / 10) * 10);
