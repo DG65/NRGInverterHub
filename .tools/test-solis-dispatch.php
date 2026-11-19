@@ -5,7 +5,7 @@
  *
  * Ein nachgebildetes Gerät (DispMb) nimmt Schreibzugriffe nach den Regeln, die Pauls Solis am 19.11.2026 gezeigt hat:
  * der Echtzeitblock gilt nur, wenn der Hauptschalter 44100 bereits an ist; 0xFFFF im Systemblock wird nicht übernommen;
- * 34504 meldet 0 aus, 1 Standby, 2 Echtzeit. Die Registerwerte des Prüfstands sind aus der Doku abgeleitet, nicht am Gerät gemessen.
+ * 34504 meldet 0 aus, 1 Standby und Modus 3 (bei Pauls Solis am 19.11.2026 gemessen: Status 1 trotz wirksamem Modus 3), 2 sonst. Die Registerwerte des Prüfstands sind aus der Doku abgeleitet, nicht am Gerät gemessen.
  */
 require_once __DIR__ . '/ref/harness.php';
 IHUB_SolisDispatch::$spacingUs = 0; IHUB_SolisDispatch::$readbackUs = 0; IHUB_SolisDispatch::$retryPauseUs = 0;
@@ -24,7 +24,7 @@ class DispMb extends RefMb
         $on = ($this->regs[3][44100] ?? 0) === 1;
         $this->regs[4][34502] = $this->available ? 0xAA55 : 0x0000;
         $this->regs[4][34503] = $this->available ? 1 : 0;
-        $this->regs[4][34504] = ($on && !$this->statusZero) ? (($this->regs[3][44105] ?? 1) === 1 ? 1 : 2) : 0;
+        $this->regs[4][34504] = ($on && !$this->statusZero) ? (in_array(($this->regs[3][44105] ?? 1), [1, 3], true) ? 1 : 2) : 0;
     }
     public function writeMultiple($start, $values)
     {
@@ -113,6 +113,9 @@ $drv->writeControl($mb, $hub, 'ctl_dispatch_mode', 1);
 ref_ok($hub->vars['dispatch_status'][1] === 1 && $hub->vars['ctl_dispatch_mode'][1] === 1 && $hub->warn === [], 'Standby: Status 1');
 $drv->writeControl($mb, $hub, 'ctl_dispatch_mode', 0);
 ref_ok(array_slice($codes($mb), -1) === ['44100:[0]'] && $hub->vars['ctl_dispatch_mode'][1] === 0 && $hub->vars['dispatch_status'][1] === 0 && $hub->warn === [], 'Aus: nur 44100 := 0, Status 0');
+$mb = new DispMb(); $hub = newHub(['dispatch_version' => 1, 'ctl_dispatch_w' => -2100]);
+$drv->writeControl($mb, $hub, 'ctl_dispatch_mode', 3);
+ref_ok($hub->warn === [] && $hub->vars['ctl_dispatch_mode'][1] === 3 && $hub->vars['dispatch_status'][1] === 1 && in_array('44105:[3,65535,65326,0,0,100]', $codes($mb), true), 'Modus 3: Status 1 (wie am Gerät gemessen) gilt nicht als Fehlschlag, −2100 W = S32 −210');
 $mb = new DispMb(); $hub = newHub(['dispatch_version' => 1, 'ctl_dispatch_w' => -4000]);
 $drv->writeControl($mb, $hub, 'ctl_dispatch_mode', 1);
 ref_ok(in_array('44105:[1,0,0,0,0,100]', $codes($mb), true), 'Standby schreibt 0 W, auch wenn −4000 W gemerkt sind');
