@@ -975,7 +975,17 @@
       "Hold battery": "Batterie halten",
       "SolaX remote control: the device did not answer the VPP registers 0x01A0-0x01A7 (only Gen4 and newer offer it).": "SolaX-Fernsteuerung: Das Gerät hat die VPP-Register 0x01A0-0x01A7 nicht beantwortet (nur Gen4 und neuer bieten sie an).",
       "SolaX remote control: mode %s is not offered (0 off, 1 hold, 2 battery).": "SolaX-Fernsteuerung: Modus %s wird nicht angeboten (0 aus, 1 Halten, 2 Batterie).",
-      "Remote control (untested: built from the manufacturer document and community code, off by default)": "Fernsteuerung (ungetestet: nach Herstellerdokument und Community-Code gebaut, standardmäßig aus)"
+      "Remote control (untested: built from the manufacturer document and community code, off by default)": "Fernsteuerung (ungetestet: nach Herstellerdokument und Community-Code gebaut, standardmäßig aus)",
+      "SMA remote control: the device did not answer register 40210.": "SMA-Fernsteuerung: Das Gerät hat das Register 40210 nicht beantwortet.",
+      "SMA remote control: this device does not offer the external setpoint (register 40210 is not valid).": "SMA-Fernsteuerung: Dieses Gerät bietet den externen Sollwert nicht an (Register 40210 ist nicht gültig).",
+      "SMA remote control: mode %s is not offered (0 off, 1 hold, 2 battery).": "SMA-Fernsteuerung: Modus %s wird nicht angeboten (0 aus, 1 Halten, 2 Batterie).",
+      "SMA remote control: register 40210 is %s, it must be 1079 (external setpoint). The Sunny Island needs the Grid Guard code for that: set it in the device user interface.": "SMA-Fernsteuerung: Register 40210 steht auf %s, es muss 1079 (externer Sollwert) sein. Dafür braucht der Sunny Island den Grid-Guard-Code: bitte in der Geräteoberfläche einstellen.",
+      "SMA remote control: the rated power (register 33019) is unknown, the power cannot be converted to a percentage.": "SMA-Fernsteuerung: Die Nennleistung (Register 33019) ist unbekannt, die Leistung lässt sich nicht in Prozent umrechnen.",
+      "Remote control of the battery (untested: built from SMA documents and forum reports, off by default)": "Fernsteuerung des Speichers (ungetestet: nach SMA-Dokumenten und Forenberichten gebaut, standardmäßig aus)",
+      "Battery remote control: device type (only used when the group \"Remote control\" is switched on)": "Fernsteuerung des Speichers: Gerätetyp (wird nur genutzt, wenn die Gruppe „Fernsteuerung“ eingeschaltet ist)",
+      "Sunny Tripower Smart Energy / Sunny Boy Storage (STP SE, SBS)": "Sunny Tripower Smart Energy / Sunny Boy Storage (STP SE, SBS)",
+      "Sunny Island 4.4M / 6.0H / 8.0H (parallel grid operation)": "Sunny Island 4.4M / 6.0H / 8.0H (Parallelbetrieb am Netz)",
+      "Sunny Tripower Storage X / Sunny Island X (STPS X, SI X)": "Sunny Tripower Storage X / Sunny Island X (STPS X, SI X)"
     },
     "en": {}
   }

@@ -120,6 +120,9 @@ class IHUB_SmaDriver implements IHUB_InverterDriverInterface
                 ['dev_model', 'Model', 'S', '', false, 'device', 'SunSpec Common Block'],
                 ['dev_sn',    'Serial number', 'S', '', false, 'device', 'SunSpec Common Block'],
             ]],
+        ] + [
+            // Fernsteuerung des Speichers (STP SE/SBS, Sunny Island, STPS X), UNGETESTET: Vorgabe aus, gemeinsame Schicht IHUB_RemoteControl
+            'GroupControl' => ['caption' => 'Remote control of the battery (untested: built from SMA documents and forum reports, off by default)', 'default' => false, 'vars' => IHUB_RemoteControl::vars()],
         ];
     }
 
@@ -136,7 +139,7 @@ class IHUB_SmaDriver implements IHUB_InverterDriverInterface
             'SMA.Ampere' => [VARIABLETYPE_FLOAT, ' A',       0.0,   200.0, 0.1,  1],
             'SMA.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',     45.0,    65.0, 0.01, 2],
             'SMA.KOhm'   => [VARIABLETYPE_FLOAT, ' kΩ',      0.0, 65535.0, 1.0,  0],
-        ];
+        ] + IHUB_RemoteControl::profiles();
     }
 
     public function getEnumProfiles()
@@ -145,7 +148,7 @@ class IHUB_SmaDriver implements IHUB_InverterDriverInterface
         foreach (self::STATUS as $k => $label) {
             $status[$k] = [$label, 0x7A8A99];
         }
-        return ['SMA.Status' => $status];
+        return ['SMA.Status' => $status] + IHUB_RemoteControl::enumProfiles();
     }
 
     public function readFast($mb, $hub)
@@ -460,6 +463,48 @@ class IHUB_SmaDriver implements IHUB_InverterDriverInterface
     public function readSlow($mb, $hub)
     {
         // Energie wird bereits im Inverter-Model in readFast() mitgelesen.
+        if ($hub->GetPropBool('GroupControl')) {
+            $this->onDeviceUnit($mb, function () use ($mb, $hub) {
+                IHUB_RemoteControl::refresh($this->remoteAdapter($hub), $mb, $hub);   // Fernsteuerung: Fähigkeit und Kennzeichnung
+            });
+        }
+    }
+
+    /** Adapter der Fernsteuerung für die gewählte Geräteklasse (SmaControlType: 0 STP SE/SBS, 1 Sunny Island, 2 STPS X/SI X). */
+    protected function remoteAdapter($hub): IHUB_RemoteSma
+    {
+        return new IHUB_RemoteSma(IHUB_RemoteSma::familyOf((int)$hub->GetPropInt('SmaControlType')));
+    }
+
+    /**
+     * Die Steuerregister (40000er) liegen auf der Geräte-Unit-ID (SMA-Werksvorgabe 3), nicht auf der SunSpec-Kennung (+123).
+     * Wie in readFast() wird die Unit-ID anhand von Register 40210 sondiert; danach geht die Einstellung zurück.
+     */
+    private function onDeviceUnit($mb, callable $fn)
+    {
+        $keep = $mb->unitId;
+        $cands = [$keep];
+        if ($keep > 123) {
+            $cands[] = $keep - 123;
+        }
+        if (!in_array(3, $cands, true)) {
+            $cands[] = 3;
+        }
+        $use = $keep;
+        foreach ($cands as $c) {
+            $mb->unitId = $c;
+            $probe = $mb->readInput(40210, 2);
+            if ($probe !== null && $mb->u32($probe, 0) !== 0xFFFFFFFF) {
+                $use = $c;
+                break;
+            }
+        }
+        $mb->unitId = $use;
+        try {
+            return $fn();
+        } finally {
+            $mb->unitId = $keep;
+        }
     }
 
     public function readDeviceInfo($mb, $hub)
@@ -490,6 +535,11 @@ class IHUB_SmaDriver implements IHUB_InverterDriverInterface
 
     public function writeControl($mb, $hub, $ident, $value)
     {
-        // Kein Steuerregister in der ersten Ausbaustufe implementiert.
+        // Nur die gemeinsame Fernsteuerung, UNGETESTET (rc_tested = false); keine weiteren Schreibwege.
+        if (strpos($ident, 'ctl_rc_') === 0) {
+            $this->onDeviceUnit($mb, function () use ($mb, $hub, $ident, $value) {
+                IHUB_RemoteControl::control($this->remoteAdapter($hub), $mb, $hub, $ident, $value);
+            });
+        }
     }
 }

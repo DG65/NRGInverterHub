@@ -60,3 +60,13 @@ interface IHUB_RemoteAdapter
     /** Totmann in Sekunden, wie er ans Gerät geht (nach Begrenzung und Rundung). */
     public function effectiveFailsafeSec(array $req): int;
 }
+
+/**
+ * Optional (seit 0.94.0): Adapter, die vor dem Planen Konfigurationsregister des Geräts lesen müssen, weil diese im Flash liegen und nur bei
+ * Abweichung geschrieben werden dürfen (SMA). prepare() gibt die Fähigkeit um herstellerspezifische Angaben ergänzt zurück (z. B. 'cfg').
+ * Die Basis ruft es nach capabilityError() und vor validate()/plan() auf.
+ */
+interface IHUB_RemotePreparing
+{
+    public function prepare($mb, array $cap): array;
+}

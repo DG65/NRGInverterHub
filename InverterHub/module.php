@@ -24,6 +24,7 @@ require_once __DIR__ . '/../libs/IHUB_RemoteSolis.php';
 require_once __DIR__ . '/../libs/IHUB_RemoteFoxEss.php';
 require_once __DIR__ . '/../libs/IHUB_RemoteDeye.php';
 require_once __DIR__ . '/../libs/IHUB_RemoteSolax.php';
+require_once __DIR__ . '/../libs/IHUB_RemoteSma.php';
 require_once __DIR__ . '/../libs/IHUB_SolisDriver.php';
 require_once __DIR__ . '/../libs/IHUB_GrowattDriver.php';
 require_once __DIR__ . '/../libs/IHUB_SolaxDriver.php';
@@ -197,6 +198,7 @@ class InverterHub extends IPSModule
         // Modbus", Werkseinstellung Plenticore), 1 = ABCD (big-endian/SunSpec).
         // Falsche Wahl liefert unbrauchbare Werte (riesige/negative Zahlen).
         $this->RegisterPropertyInteger('KostalByteOrder', 0);
+        $this->RegisterPropertyInteger('SmaControlType', 0);   // Fernsteuerung SMA: 0 STP SE/SBS, 1 Sunny Island, 2 STPS X / SI X
         $this->RegisterPropertyString('KostalHttpUser', 'user');
         $this->RegisterPropertyBoolean('KostalPv3Battery', false);
         // Victron: Unit-IDs der einzelnen Solarladeregler (MPPT), kommagetrennt.
@@ -1169,6 +1171,20 @@ class InverterHub extends IPSModule
                 'options' => [
                     ['caption' => 'little-endian (CDAB) — standard Modbus (factory setting)', 'value' => 0],
                     ['caption' => 'big-endian (ABCD) — SunSpec', 'value' => 1],
+                ],
+            ];
+        }
+
+        // SMA: Geräteklasse für die Fernsteuerung des Speichers (jede Klasse hat einen anderen Registerweg).
+        if ($this->ReadPropertyString('Manufacturer') === 'sma') {
+            $groupItems[] = [
+                'type'    => 'Select',
+                'name'    => 'SmaControlType',
+                'caption' => 'Battery remote control: device type (only used when the group "Remote control" is switched on)',
+                'options' => [
+                    ['caption' => 'Sunny Tripower Smart Energy / Sunny Boy Storage (STP SE, SBS)', 'value' => 0],
+                    ['caption' => 'Sunny Island 4.4M / 6.0H / 8.0H (parallel grid operation)', 'value' => 1],
+                    ['caption' => 'Sunny Tripower Storage X / Sunny Island X (STPS X, SI X)', 'value' => 2],
                 ],
             ];
         }
@@ -2807,6 +2823,12 @@ This KOSTAL HTTP API does not provide a battery temperature, so it is not read i
     public function GetPropBool(string $name)
     {
         return $this->ReadPropertyBoolean($name);
+    }
+
+    // Wie GetPropBool, für Ganzzahl-Eigenschaften (z. B. SmaControlType).
+    public function GetPropInt(string $name)
+    {
+        return $this->ReadPropertyInteger($name);
     }
 
     // Aktueller Wert einer eigenen Integer-Variable (rekursive Ident-Suche) -

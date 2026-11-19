@@ -113,6 +113,9 @@ class IHUB_RemoteControl
             $err = $bad;
             return false;
         }
+        if ($a instanceof IHUB_RemotePreparing) {
+            $cap = $a->prepare($mb, $cap);
+        }
         $bad = $a->validate($req, $cap);
         if ($bad !== '') {
             $err = $bad;

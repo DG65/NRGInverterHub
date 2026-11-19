@@ -1,10 +1,10 @@
 <?php
 /**
- * Mutationsproben für die gemeinsame Fernsteuerung (Basis und Adapter Solis, FoxESS, Deye): jede Mutation baut einen Fehler in eine Kopie des Moduls (InverterHub/, libs/,
+ * Mutationsproben für die gemeinsame Fernsteuerung (Basis und Adapter Solis, FoxESS, Deye, SolaX, SMA): jede Mutation baut einen Fehler in eine Kopie des Moduls (InverterHub/, libs/,
  * .tools/) ein; .tools/test-remote-control.php muss anschlagen.   php .tools/mutate-remote-control.php   (0 = alle erkannt)
  */
 $root = dirname(__DIR__);
-$B = 'libs/IHUB_RemoteControl.php'; $F = 'libs/IHUB_RemoteFoxEss.php'; $Y = 'libs/IHUB_RemoteDeye.php'; $X1 = 'libs/IHUB_RemoteSolax.php'; $S = 'libs/IHUB_RemoteSolis.php'; $M = 'InverterHub/module.php';
+$B = 'libs/IHUB_RemoteControl.php'; $F = 'libs/IHUB_RemoteFoxEss.php'; $Y = 'libs/IHUB_RemoteDeye.php'; $X1 = 'libs/IHUB_RemoteSolax.php'; $S = 'libs/IHUB_RemoteSolis.php'; $SM = 'libs/IHUB_RemoteSma.php'; $SD = 'libs/IHUB_SmaDriver.php'; $M = 'InverterHub/module.php';
 $X = [
     // Basis
     [$B, [["if (\$steps === []) {", 'if (false) {']], 'leere Schrittliste wird nicht als erfüllt behandelt'],
@@ -53,7 +53,29 @@ $X = [
     [$X1, [['if ($got !== $want) {', 'if (false) {']], 'SolaX: Rücklesen vergleicht nichts'],
     [$X1, [["if (!in_array(\$mode, [0, 1, 2], true)) {", 'if (false) {']], 'SolaX: Modus 3 wird nicht abgelehnt'],
     [$X1, [['const PV_UNLIMITED_W = 100000;', 'const PV_UNLIMITED_W = 1000;']], 'SolaX: PV-Grenze zu klein (drosselt die PV)'],
-    [$X1, [['return $this->duration($req) + self::NEXT_USER_MODE;', 'return $this->duration($req);']], 'SolaX: Totmann im Gerät falsch gemeldet'],
+    [$X1, [['return $this->duration($req);', 'return $this->duration($req) + 1;']], 'SolaX: Totmann im Gerät falsch gemeldet'],
+    // SMA
+    [$SM, [['const FALLBACK_APPLY = 2507;', 'const FALLBACK_APPLY = 2506;']], 'SMA: Ausfallverhalten bleibt auf "Werte halten" (kein Totmann)'],
+    [$SM, [['return $mode === 2 ? -$watts : 0;', 'return $mode === 2 ? $watts : 0;']], 'SMA STP SE: Vorzeichen des Sollwerts nicht gedreht'],
+    [$SM, [['(int)round(-$watts / $ratedW * self::PCT_FULL)', '(int)round($watts / $ratedW * self::PCT_FULL)']], 'SMA: Vorzeichen des Prozentfensters nicht gedreht'],
+    [$SM, [['return $this->family === self::FAMILY_STPSX ? 44449 : 44039;', 'return $this->family === self::FAMILY_STPSX ? 44039 : 44449;']], 'SMA: Fensterregister der Geräteklassen vertauscht'],
+    [$SM, [["'words' => array_merge(self::words(\$p), self::words(\$p)), 'afterUs' => 0]", "'words' => self::words(\$p), 'afterUs' => 0]"]], 'SMA: nur eine Fenstergrenze geschrieben'],
+    [$SM, [["if ((\$have['fallback'] ?? null) !== \$want['fallback'] || (\$have['timeout'] ?? null) !== \$want['timeout']) {", 'if (true) {']], 'SMA: 41193/41195 (Flash) werden bei jedem Zyklus geschrieben'],
+    [$SM, [['if ($cfg === null && $last > 0) {', 'if (false) {']], 'SMA: unbekannte Konfiguration wird bei laufender Fernsteuerung erneut geschrieben'],
+    [$SM, [['if ($this->family !== self::FAMILY_SI) {', 'if (true) {']], 'SMA Sunny Island: 40210 (Grid Guard) wird geschrieben'],
+    [$SM, [["(\$cfg === null || \$cfg['self'] !== self::SELF_ON)", 'false']], 'SMA Sunny Island: Modus 0 schaltet den Eigenverbrauch nicht wieder ein'],
+    [$SM, [['max(self::TIMEOUT_MIN_S, min(self::TIMEOUT_MAX_S, $s))', '$s']], 'SMA: Timeout nicht begrenzt'],
+    [$SM, [["\$cap['cfg']['mode'] !== self::MODE_EXTERNAL", 'false']], 'SMA Sunny Island: fehlende Betriebsart 1079 wird nicht gemeldet'],
+    [$SM, [["(int)(\$cap['ratedW'] ?? 0) <= 0", 'false']], 'SMA: unbekannte Nennleistung wird nicht abgelehnt'],
+    [$SM, [["if (\$got !== \$want) {\n                return \$this->diff", "if (false) {\n                return \$this->diff"]], 'SMA: Rücklesen der Konfiguration vergleicht nichts'],
+    [$SM, [['[0, self::SP_INACTIVE], \'afterUs\' => 0]]];', '[0, self::SP_ACTIVE], \'afterUs\' => 0]]];']], 'SMA STP SE: Modus 0 schreibt nicht 803'],
+    [$SM, [["[self::REG_SELF, \$c['self'] ?? 0, self::SELF_OFF]", "[self::REG_SELF, self::SELF_OFF, self::SELF_OFF]"]], 'SMA Sunny Island: 40075 wird nicht geprüft'],
+    [$SM, [["array_merge(self::words(\$w), [0, self::SP_ACTIVE])", "array_merge(self::words(\$w), [0, self::SP_INACTIVE])"]], 'SMA STP SE: Sollwert wird mit 803 statt 802 geschrieben'],
+    [$SM, [["if (\$this->window()) {\n            \$want['ramp']", "if (false) {\n            \$want['ramp']"]], 'SMA: Rampenbegrenzung 44029 wird nicht ausgeschaltet'],
+    [$SM, [['[0 => self::FAMILY_SE, 1 => self::FAMILY_SI, 2 => self::FAMILY_STPSX]', '[0 => self::FAMILY_SE, 1 => self::FAMILY_STPSX, 2 => self::FAMILY_SI]']], 'SMA: SmaControlType auf die falsche Geräteklasse'],
+    [$B, [['$cap = $a->prepare($mb, $cap);', '']], 'Basis: prepare() wird nicht aufgerufen'],
+    [$SD, [['$mb->unitId = $keep;' . "\n" . '        }', '$mb->unitId = $use;' . "\n" . '        }']], 'SMA-Treiber: Unit-ID wird nach der Steuerung nicht zurückgesetzt'],
+    [$SD, [["'default' => false, 'vars' => IHUB_RemoteControl::vars()", "'default' => true, 'vars' => IHUB_RemoteControl::vars()"]], 'SMA-Treiber: Gruppe Steuerung startet an'],
     // Solis-Adapter
     [$S, [["IHUB_SolisDispatch::failsafe(\$this->legacy(\$req)) * 60", "IHUB_SolisDispatch::failsafe(\$this->legacy(\$req))"]], 'Solis: Totmann in Minuten statt Sekunden gemeldet'],
     [$S, [["(int)ceil(\$sec / 60)", "(int)floor(\$sec / 60)"]], 'Solis: Totmann wird abgerundet'],

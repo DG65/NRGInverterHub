@@ -5,15 +5,20 @@
 // V001.02, Abschnitt 3.5.8, Modus 8 "PV&BAT Individual Setting - Duration Mode") als Adapter der gemeinsamen Fernsteuerung.
 // UNGETESTET: an keinem Gerät geprüft (rc_tested = false).
 //
-// WIDERSPRUCH Dokument gegen Community-Code, offen benannt, nicht geraten (Entscheidung Dietmar 19.11.2026: nach dem Community-Code bauen):
-//  - Dokument (V001.02, S. 70 f., an der PDF-Seite gelesen): 0xA0 Modus, 0xA1 ExecMode, 0xA2/A3 PvW (U32), 0xA4/A5 BatW (S32), 0xA6 WaitTimeout,
-//    0xA7 NextMotion. Es gibt in Modus 8 KEIN Register für die Dauer (ExecDuration): WaitTimeout beginnt laut Beschreibung erst nach Ablauf der
-//    Dauer oder bei Erreichen eines Ziels, beides hat Modus 8 nicht. Nach dem Dokument hätte der Modus also KEINEN Totmann.
-//  - homeassistant-solax-modbus (plugin_solax.py): 0xA6 = Dauer (bei Modus 8), 0xA7 = Timeout. Dort gibt es einen Totmann.
-// Wir schreiben nach dem Community-Code: 0xA6 = Dauer in s (= Totmann), 0xA7 = 0xA0. Der Wert 0xA0 (160) ist in BEIDEN Lesarten gültig: als
-// Timeout 160 s (Community) und als NextMotion „zurück in den Arbeitsmodus des Nutzers“ (Dokument). Das Gerät lässt sich so nicht über das
-// Rücklesen unterscheiden (es liefert genau das Geschriebene); ob nach der Dauer wirklich ausgestiegen wird, zeigt nur ein Test am Gerät.
-// Totmann im Gerät laut Community-Lesart = Dauer + 160 s (rc_failsafe_eff_sec).
+// LAYOUT von Modus 8 (Stand der Recherche 19.11.2026, Belege):
+//  - Offizielle Doku V001.02 (S. 70 f., an der PDF-Seite gelesen): 0xA0 Modus, 0xA1 ExecMode, 0xA2/A3 PvW (U32), 0xA4/A5 BatW (S32), 0xA6 WaitTimeout,
+//    0xA7 NextMotion. Ein eigenes Register für die Dauer gibt es dort nicht.
+//  - Die HA-Integration (homeassistant-solax-modbus) beschriftet dieselben Register 0xA6/0xA7 beim Schreiben als „Dauer“ und „Timeout“; ihre
+//    Rücklese-Sensoren 0x01A0-0x01A7 heißen aber WaitTimeout und NextMotion wie in der Doku. Ihre Doku sagt, die „Dauer“ werde von der Firmware
+//    offenbar ignoriert. Das passt zum Layout der Doku: es gibt kein Dauer-Register, der Wert in 0xA6 ist die WaitTimeout.
+//  - Beobachtung am Gerät (HA-Issue 2340, X3 Gen4, DSP 1.59 / ARM 1.57, ein kommerzielles Energiemanagement im LAN, Modus 8): Rücklesen
+//    WaitTimeout 66 s, NextMotion „zurück in den Arbeitsmodus des Nutzers“; nach dem Abschalten des Energiemanagements fiel das Gerät nach etwa
+//    einer Minute (der 66 s) in den normalen Betrieb zurück. Das ist die einzige Beobachtung eines Totmanns in Modus 8, eine einzelne Meldung.
+//  - Ebenfalls gemeldet, nicht für Modus 8 belegt: Zurückfallen in Modus 6 nach genau 10 Minuten bei den Modi 3, 4, 7 und 9 (drei Berichte).
+// Wir schreiben nach der Doku: 0xA6 = WaitTimeout = Totmann in s, 0xA7 = NextMotion = 0xA0 (Arbeitsmodus des Nutzers). Bleibt ungetestet.
+// Die SolaX-Wissensdatenbank („SolaX_VPP function Definition of ESS“) soll laut einer Suchzusammenfassung 0xA6 als „Time of Duration“ und 0xA7 als
+// „RemoteControlTimeOut“ führen; die Seite war nicht abrufbar, ungeprüft. Sollte das Gerät nach der WaitTimeout nicht aussteigen, ist der Adapter
+// nicht brauchbar.
 //
 //  - 32-Bit-Werte: niederwertiges Wort zuerst (Doku: LSB-Register zuerst). Vorzeichen BatW: + = Entladen, − = Laden (Doku). Einheitlich + = Laden,
 //    deshalb BatW = −einheitlich.
@@ -37,7 +42,7 @@ class IHUB_RemoteSolax implements IHUB_RemoteAdapter
     const EXEC_INTERRUPT = 1;
     const NEXT_USER_MODE = 0xA0;        // 160: NextMotion „Arbeitsmodus des Nutzers“ bzw. Timeout 160 s
     const PV_UNLIMITED_W = 100000;
-    const DURATION_DEFAULT_S = 60;
+    const DURATION_DEFAULT_S = 60;       // = WaitTimeout (0xA6), der Totmann
     const DURATION_MIN_S = 10;
     const DURATION_MAX_S = 60000;
     const POWER_MAX_W = 50000;
@@ -54,8 +59,8 @@ class IHUB_RemoteSolax implements IHUB_RemoteAdapter
             'failsafeMinSec' => self::DURATION_MIN_S, 'failsafeMaxSec' => self::DURATION_MAX_S, 'failsafeDefaultSec' => self::DURATION_DEFAULT_S,
             'pitfalls' => [
                 'untested: not checked on any device',
-                'the document has no duration register in mode 8 (so no failsafe by the document); built like the community code: 0xA6 = duration, 0xA7 = timeout',
-                'the written values are valid in both readings, but the read-back cannot tell them apart',
+                'official layout: 0xA6 = WaitTimeout (the failsafe), 0xA7 = NextMotion 0xA0; one report of a commercial EMS shows the device leaving mode 8 about 66 s after the last command',
+                'the HA integration labels 0xA6/0xA7 as duration and timeout and says the duration is ignored by the firmware; the fallback to mode 6 after 10 minutes is reported for other modes',
                 'battery sign in the document: + discharging, - charging (opposite to the uniform sign)',
                 'no grid connection point mode and no SOC window',
                 'PV limit is set to 100000 W (unlimited) and not compared',
@@ -181,9 +186,9 @@ class IHUB_RemoteSolax implements IHUB_RemoteAdapter
         return $status === self::VPP_BATTERY;
     }
 
-    /** Totmann im Gerät laut Community-Lesart: Dauer + Timeout 160 s. */
+    /** Totmann im Gerät: die WaitTimeout (0xA6) in s. */
     public function effectiveFailsafeSec(array $req): int
     {
-        return $this->duration($req) + self::NEXT_USER_MODE;
+        return $this->duration($req);
     }
 }

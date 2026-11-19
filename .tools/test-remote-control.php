@@ -16,6 +16,7 @@ IHUB_SolisDispatch::$spacingUs = 0; IHUB_SolisDispatch::$readbackUs = 0; IHUB_So
 IHUB_RemoteFoxEss::$gapUs = 0; IHUB_RemoteFoxEss::$readbackUs = 0; IHUB_RemoteFoxEss::$retryPauseUs = 0;
 IHUB_RemoteDeye::$gapUs = 0; IHUB_RemoteDeye::$readbackUs = 0; IHUB_RemoteDeye::$retryPauseUs = 0;
 IHUB_RemoteSolax::$gapUs = 0; IHUB_RemoteSolax::$readbackUs = 0; IHUB_RemoteSolax::$retryPauseUs = 0;
+IHUB_RemoteSma::$gapUs = 0; IHUB_RemoteSma::$readbackUs = 0; IHUB_RemoteSma::$retryPauseUs = 0;
 
 /** Gemeinsame Grundlage der nachgebildeten Geräte: Schreiben speichert, einstellbare Fehler. */
 class SimBase extends RefMb
@@ -103,15 +104,47 @@ class SimSolax extends SimBase
     }
 }
 
+/** SMA: Konfiguration (RW) liegt in den Eingangsregistern, die Sollwerte (WO) lesen sich als NaN; je Geräteklasse andere Vorgaben. */
+class SimSma extends SimBase
+{
+    public $setpoints = [];
+    public function __construct(string $family = 'se', bool $nominal = true)
+    {
+        parent::__construct();
+        $ext = ($family === 'si') ? 1079 : 303;          // Sunny Island: vom Installateur vorbelegt (Grid Guard)
+        foreach ([40210 => $ext, 41193 => 2506, 41195 => 600, 44029 => 308, 40075 => 1129] as $a => $v) { $this->regs[4][$a] = 0; $this->regs[4][$a + 1] = $v; }
+        if ($nominal) { $this->regs[4][33019] = 0xFFFF; $this->regs[4][33020] = 0xD8F0; }   // −10000 W
+    }
+    public function readInput($start, $count) { if (!$this->available && (int)$start === 40210) { $this->reads[] = [4, 40210, (int)$count, (int)$this->unitId]; return null; } return parent::readInput($start, $count); }
+    protected function store(int $start, array $values, int $fc): void
+    {
+        $values = array_values($values);
+        if (in_array($start, [40149, 44039, 44449], true)) { $this->setpoints[$start] = $values; return; }
+        foreach ($values as $i => $v) { $this->regs[4][$start + $i] = $v & 0xFFFF; }
+    }
+    public function cfg(int $a): int { return (($this->regs[4][$a] ?? 0) << 16) | ($this->regs[4][$a + 1] ?? 0); }
+}
+
+/** Treiber mit fest gewählter Geräteklasse (für die Vertragstests; SmaControlType wird gesondert geprüft). */
+class SmaDrvFamily extends IHUB_SmaDriver
+{
+    public $fam = 'se';
+    protected function remoteAdapter($hub): IHUB_RemoteSma { return new IHUB_RemoteSma($this->fam); }
+}
+
 function hubFor(array $seed = [], bool $control = true) { $h = new RefHub(['GroupControl' => $control]); $h->seed = $seed; return $h; }
 function u32w(int $v): array { $u = $v < 0 ? $v + 4294967296 : $v; return [($u >> 16) & 0xFFFF, $u & 0xFFFF]; }
 
 $solis = new IHUB_SolisDriver(); $fox = new IHUB_FoxEssSmartDriver(); $deye = new IHUB_DeyeDriver(); $solax = new IHUB_SolaxDriver();
+$smaSe = new SmaDrvFamily(); $smaSi = new SmaDrvFamily(); $smaSi->fam = 'si'; $smaSx = new SmaDrvFamily(); $smaSx->fam = 'stpsx';
 $adapters = [
     'Solis' => ['drv' => $solis, 'sim' => fn() => new SimSolis(), 'adapter' => new IHUB_RemoteSolis(), 'modes' => [0, 1, 2, 3], 'tested' => true, 'rated' => 0],
     'FoxESS' => ['drv' => $fox, 'sim' => fn() => new SimFox(), 'adapter' => new IHUB_RemoteFoxEss(), 'modes' => [0, 2, 3], 'tested' => false, 'rated' => 0],
     'Deye' => ['drv' => $deye, 'sim' => fn() => new SimDeye(), 'adapter' => new IHUB_RemoteDeye(), 'modes' => [0, 1, 2], 'tested' => false, 'rated' => 10000],
     'SolaX' => ['drv' => $solax, 'sim' => fn() => new SimSolax(), 'adapter' => new IHUB_RemoteSolax(), 'modes' => [0, 1, 2], 'tested' => false, 'rated' => 0],
+    'SMA STP SE' => ['drv' => $smaSe, 'sim' => fn() => new SimSma('se'), 'adapter' => new IHUB_RemoteSma('se'), 'modes' => [0, 1, 2], 'tested' => false, 'rated' => 0],
+    'SMA Sunny Island' => ['drv' => $smaSi, 'sim' => fn() => new SimSma('si'), 'adapter' => new IHUB_RemoteSma('si'), 'modes' => [0, 1, 2], 'tested' => false, 'rated' => 10000],
+    'SMA STPS X' => ['drv' => $smaSx, 'sim' => fn() => new SimSma('stpsx'), 'adapter' => new IHUB_RemoteSma('stpsx'), 'modes' => [0, 1, 2], 'tested' => false, 'rated' => 10000],
 ];
 $all = [0, 1, 2, 3];
 
@@ -170,7 +203,7 @@ foreach ($adapters as $name => $A) {
 }
 
 echo "\n== Adapter: Prüfung der Anfragen ==\n";
-foreach ([['Solis', new IHUB_RemoteSolis(), 7, 1], ['FoxESS', new IHUB_RemoteFoxEss(), 1, 3], ['Deye', new IHUB_RemoteDeye(), 3, 3], ['SolaX', new IHUB_RemoteSolax(), 3, 3]] as [$n, $a, $badMode, $x]) {
+foreach ([['Solis', new IHUB_RemoteSolis(), 7, 1], ['FoxESS', new IHUB_RemoteFoxEss(), 1, 3], ['Deye', new IHUB_RemoteDeye(), 3, 3], ['SolaX', new IHUB_RemoteSolax(), 3, 3], ['SMA', new IHUB_RemoteSma('se'), 3, 3], ['SMA Sunny Island', new IHUB_RemoteSma('si'), 3, 3], ['SMA STPS X', new IHUB_RemoteSma('stpsx'), 3, 3]] as [$n, $a, $badMode, $x]) {
     $cap = ['available' => true, 'version' => 1, 'status' => 0, 'ratedW' => 10000];
     ref_ok($a->validate(['mode' => $badMode, 'watts' => 0, 'socMin' => 0, 'socMax' => 0, 'failsafeSec' => 0, 'ext' => []], $cap) !== '', "$n: Adapter lehnt Modus $badMode selbst ab");
     ref_ok($a->validate(['mode' => 2, 'watts' => 0, 'socMin' => 0, 'socMax' => 0, 'failsafeSec' => 0, 'ext' => []], $cap) === '', "$n: Modus 2 wird angenommen");
@@ -264,17 +297,17 @@ echo "\n== SolaX: Register, Vorzeichen, Totmann ==\n";
 $mb = new SimSolax(); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 2000, 'ctl_rc_failsafe_sec' => 90]);
 $solax->writeControl($mb, $hub, 'ctl_rc_mode', 2);
 $bat = IHUB_RemoteSolax::encodeS32(-2000); $pv = IHUB_RemoteSolax::encodeS32(100000);
-ref_ok($mb->writes === [['multi', 0xA0, [8, 1, $pv[0], $pv[1], $bat[0], $bat[1], 90, 0xA0]]], 'SolaX: ein FC16-Block 0xA0-0xA7: Modus 8, ExecMode 1, PV-Grenze 100000 W, Akku +2000 W Laden = −2000 (Entladen +), Dauer 90 s, 0xA7 = 0xA0');
-ref_ok($hub->warn === [] && $hub->vars['rc_failsafe_eff_sec'][1] === 250 && $hub->vars['rc_active'][1] === true && $hub->vars['rc_status'][1] === 8, 'SolaX: übernommen, Totmann im Gerät = Dauer 90 + Timeout 160 = 250 s, aktiv (Rohstatus 8)');
+ref_ok($mb->writes === [['multi', 0xA0, [8, 1, $pv[0], $pv[1], $bat[0], $bat[1], 90, 0xA0]]], 'SolaX: ein FC16-Block 0xA0-0xA7: Modus 8, ExecMode 1, PV-Grenze 100000 W, Akku +2000 W Laden = −2000 (Entladen +), WaitTimeout 90 s (0xA6), NextMotion 0xA0 (0xA7)');
+ref_ok($hub->warn === [] && $hub->vars['rc_failsafe_eff_sec'][1] === 90 && $hub->vars['rc_active'][1] === true && $hub->vars['rc_status'][1] === 8, 'SolaX: übernommen, Totmann im Gerät = WaitTimeout 90 s (0xA6), aktiv (Rohstatus 8)');
 ref_ok($bat === [0xF830, 0xFFFF] && IHUB_RemoteSolax::decodeS32(0xF830, 0xFFFF) === -2000, 'SolaX: S32 niederwertiges Wort zuerst (−2000 = 0xFFFFF830)');
 $mb = new SimSolax(); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => -1500]); $solax->writeControl($mb, $hub, 'ctl_rc_mode', 2);
-ref_ok($mb->writes[0][2][4] === 1500 && $mb->writes[0][2][5] === 0 && $mb->writes[0][2][6] === 60, 'SolaX: −1500 W (Entladen) = +1500 fürs Gerät; Dauer 0 = Vorgabe 60 s');
+ref_ok($mb->writes[0][2][4] === 1500 && $mb->writes[0][2][5] === 0 && $mb->writes[0][2][6] === 60, 'SolaX: −1500 W (Entladen) = +1500 fürs Gerät; WaitTimeout 0 = Vorgabe 60 s');
 $mb = new SimSolax(); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 4000]); $solax->writeControl($mb, $hub, 'ctl_rc_mode', 1);
 ref_ok($mb->writes[0][2][4] === 0 && $mb->writes[0][2][5] === 0 && $hub->warn === [], 'SolaX: Halten schreibt Akkuleistung 0, auch bei gemerkter Leistung');
 $mb = new SimSolax(); $hub = hubFor(['rc_version' => 1, 'ctl_rc_failsafe_sec' => 3]); $solax->writeControl($mb, $hub, 'ctl_rc_mode', 1);
-ref_ok($mb->writes[0][2][6] === 10, 'SolaX: Dauer 3 s auf 10 s angehoben');
+ref_ok($mb->writes[0][2][6] === 10, 'SolaX: WaitTimeout 3 s auf 10 s angehoben');
 $mb = new SimSolax(); $hub = hubFor(['rc_version' => 1, 'ctl_rc_failsafe_sec' => 65535]); $solax->writeControl($mb, $hub, 'ctl_rc_mode', 1);
-ref_ok($mb->writes[0][2][6] === 60000, 'SolaX: Dauer auf 60000 s begrenzt');
+ref_ok($mb->writes[0][2][6] === 60000, 'SolaX: WaitTimeout auf 60000 s begrenzt');
 $mb = new SimSolax(); $hub = hubFor(['rc_version' => 1, 'ctl_rc_mode' => 2]); $solax->writeControl($mb, $hub, 'ctl_rc_mode', 0);
 ref_ok($mb->order === [0xA0, 0x7C] && $mb->writes[0][2] === [0] && $mb->writes[1][2] === array_fill(0, 13, 0) && $hub->vars['ctl_rc_mode'][1] === 0 && $hub->vars['rc_failsafe_eff_sec'][1] === 0, 'SolaX: Modus 0 schreibt 0xA0 := 0 und 13 Nullen ab 0x7C');
 $mb = new SimSolax(); $mb->ignoreRegs = [0xA0]; $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 1000]); $solax->writeControl($mb, $hub, 'ctl_rc_mode', 2);
@@ -285,6 +318,82 @@ $mb = new SimSolax(); $mb->available = false; $hub = hubFor(); $solax->readSlow(
 ref_ok(!isset($hub->vars['rc_available']), 'SolaX: ohne Antwort auf 0x01A0 (Gen2/Gen3, ältere Firmware) bleiben die Variablen unverändert');
 $sg = $solax->getOptionalGroups();
 ref_ok(isset($sg['GroupControl']) && ($sg['GroupControl']['default'] ?? true) === false, 'SolaX: Gruppe Steuerung startet aus (ungetestet)');
+
+
+echo "\n== SMA: Register, Vorzeichen, Totmann, Flash-Schutz ==\n";
+$neg = fn(int $pct) => IHUB_RemoteSma::words($pct);
+// STP SE: Konfiguration (Gerät steht auf 40210 = 303, 41193 = 2506) wird gesetzt, dann der Sollwert 40149 + 40151
+$mb = new SimSma('se'); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 2000, 'ctl_rc_failsafe_sec' => 90]); $smaSe->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->order === [40210, 41193, 40149], 'SMA STP SE: Reihenfolge Betriebsart 40210, Ausfallverhalten und Timeout 41193, Sollwert 40149 zuletzt');
+ref_ok($mb->writes[0][2] === [0, 1079] && $mb->writes[1][2] === [0, 2507, 0, 90] && $mb->writes[2][2] === array_merge(IHUB_RemoteSma::words(-2000), [0, 802]), 'SMA STP SE: 40210 = 1079, 41193 = 2507 mit Timeout 41195 = 90 s in einem Block, Sollwert +2000 W (Laden) = −2000 und 40151 = 802');
+ref_ok($hub->warn === [] && $hub->vars['rc_failsafe_eff_sec'][1] === 90 && $hub->vars['rc_active'][1] === true && $mb->cfg(41193) === 2507 && $mb->cfg(41195) === 90, 'SMA STP SE: übernommen, Totmann 90 s, Werksvorgabe 2506 (Werte halten) auf 2507 umgestellt und zurückgelesen');
+// zweiter Aufruf: Konfiguration steht bereits, nur noch der Sollwert (kein zyklisches Schreiben ins Flash)
+$n = count($mb->writes); $hub->SetVarInt('ctl_rc_w', 500); $smaSe->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok(count($mb->writes) === $n + 1 && $mb->writes[$n][1] === 40149 && $mb->writes[$n][2] === array_merge(IHUB_RemoteSma::words(-500), [0, 802]), 'SMA STP SE: zweiter Zyklus schreibt nur den Sollwert, die Konfiguration (Flash) wird nicht erneut geschrieben');
+$mb = new SimSma('se'); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => -1500]); $smaSe->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->writes[2][2] === array_merge(IHUB_RemoteSma::words(1500), [0, 802]) && $mb->writes[1][2][3] === 60, 'SMA STP SE: −1500 W (Entladen) = +1500; Totmann 0 = Vorgabe 60 s');
+$mb = new SimSma('se'); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 3000]); $smaSe->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->writes[2][2] === [0, 0, 0, 802], 'SMA STP SE: Halten = 0 W mit 802, auch bei gemerkter Leistung');
+$mb = new SimSma('se'); $hub = hubFor(['rc_version' => 1, 'ctl_rc_failsafe_sec' => 2]); $smaSe->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->writes[1][2][3] === 5, 'SMA STP SE: Timeout 2 s auf 5 s angehoben');
+$mb = new SimSma('se'); $hub = hubFor(['rc_version' => 1, 'ctl_rc_failsafe_sec' => 60000]); $smaSe->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->writes[1][2][3] === 1800, 'SMA STP SE: Timeout auf 1800 s begrenzt');
+$mb = new SimSma('se'); $hub = hubFor(['rc_version' => 1, 'ctl_rc_mode' => 2]); $smaSe->writeControl($mb, $hub, 'ctl_rc_mode', 0);
+ref_ok($mb->writes === [['multi', 40151, [0, 803]]] && $hub->vars['ctl_rc_mode'][1] === 0 && $hub->vars['rc_failsafe_eff_sec'][1] === 0, 'SMA STP SE: Modus 0 schreibt nur 40151 := 803 (inaktiv), die Konfiguration bleibt unberührt');
+$mb = new SimSma('se'); $mb->ignoreRegs = [41193]; $hub = hubFor(['rc_version' => 1]); $smaSe->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok(count($hub->warn) === 1 && strpos($hub->warn[0], '41193') !== false && !isset($hub->vars['ctl_rc_mode']), 'SMA STP SE: Gerät übernimmt 41193 nicht (Totmann bliebe aus): Warnung nennt Register 41193, Modus bleibt');
+$mb = new SimSma('se'); $mb->ignoreRegs = [40149]; $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 100]); $smaSe->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($hub->warn === [] && $hub->vars['ctl_rc_mode'][1] === 2, 'SMA STP SE: der Sollwert selbst lässt sich nicht zurücklesen (WO, NaN): nur die Konfiguration wird geprüft');
+$mb = new SimSma('se'); $mb->noRead = [41193]; $hub = hubFor(['rc_version' => 1]); $smaSe->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->order[0] === 40210 && in_array(41193, $mb->order, true) && count($hub->warn) === 1, 'SMA STP SE: Konfiguration nicht lesbar: sie wird (erster Zyklus) vollständig geschrieben, die Prüfung scheitert ehrlich mit Warnung');
+$mb = new SimSma('se'); $mb->noRead = [41193]; $hub = hubFor(['rc_version' => 1, 'ctl_rc_mode' => 1]); $smaSe->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok(!in_array(40210, $mb->order, true) && !in_array(41193, $mb->order, true) && in_array(40149, $mb->order, true), 'SMA STP SE: Konfiguration nicht lesbar, Fernsteuerung läuft schon: nur der Sollwert (kein Flash-Schreiben auf Verdacht)');
+
+// STPS X: Fenster 44449/44451, beide zusammen, Prozent der Nennleistung 33019, Entladen positiv
+$mb = new SimSma('stpsx'); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 10000, 'ctl_rc_w' => 2000, 'ctl_rc_failsafe_sec' => 10]); $smaSx->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->order === [40210, 41193, 44029, 44449], 'SMA STPS X: Reihenfolge 40210, 41193/41195, Rampen 44029, Fenster 44449 zuletzt');
+ref_ok($mb->writes[2][2] === [0, 303] && $mb->writes[3][2] === array_merge($neg(-2000), $neg(-2000)) && $mb->writes[1][2] === [0, 2507, 0, 10], 'SMA STPS X: 44029 = 303, +2000 W an 10 kW = 20 % Laden = −2000 (FIX2) in 44449 UND 44451 in einem Telegramm, Timeout 10 s');
+$mb = new SimSma('stpsx'); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 10000, 'ctl_rc_w' => -3500]); $smaSx->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->writes[3][2] === array_merge($neg(3500), $neg(3500)), 'SMA STPS X: −3500 W (Entladen) = +35 % = 3500 (Beispiel der SMA-Doku)');
+$mb = new SimSma('stpsx'); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_w' => 40000]); $smaSx->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->writes[3][2] === array_merge($neg(-10000), $neg(-10000)), 'SMA STPS X: Leistung über der Nennleistung auf −100 % begrenzt');
+$mb = new SimSma('stpsx'); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 10000, 'ctl_rc_w' => 4000]); $smaSx->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->writes[3][2] === [0, 0, 0, 0] && $hub->warn === [], 'SMA STPS X: Halten = beide Grenzen 0 %');
+$mb = new SimSma('stpsx'); $hub = hubFor(['rc_version' => 1, 'ctl_rc_mode' => 2]); $smaSx->writeControl($mb, $hub, 'ctl_rc_mode', 0);
+ref_ok($mb->writes === [['multi', 44449, array_merge($neg(10000), $neg(-10000))]] && $hub->vars['ctl_rc_mode'][1] === 0, 'SMA STPS X: Modus 0 öffnet das Fenster auf +100 % / −100 %');
+$mb = new SimSma('stpsx', false); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 1000]); $smaSx->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->writes === [] && count($hub->warn) === 1 && strpos($hub->warn[0], '33019') !== false, 'SMA STPS X: Nennleistung 33019 unbekannt: Modus 2 nicht geschrieben, Warnung nennt das Register');
+$mb = new SimSma('stpsx', false); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 1000]); $smaSx->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($hub->warn === [] && $hub->vars['ctl_rc_mode'][1] === 1, 'SMA STPS X: Halten braucht keine Nennleistung');
+
+// Sunny Island: 40210 ist durch den Grid-Guard-Code geschützt und wird nie geschrieben
+$mb = new SimSma('si'); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 10000, 'ctl_rc_w' => -2500]); $smaSi->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->order === [41193, 44029, 40075, 44039] && !in_array(40210, $mb->order, true), 'SMA Sunny Island: 40210 wird nie geschrieben (Grid Guard); Reihenfolge 41193/41195, 44029, Eigenverbrauch 40075, Fenster 44039');
+ref_ok($mb->writes[2][2] === [0, 1130] && $mb->writes[3][2] === array_merge($neg(2500), $neg(2500)) && $hub->warn === [], 'SMA Sunny Island: 40075 = 1130 (Eigenverbrauchserhöhung aus), −2500 W (Entladen) = +25 % in 44039 und 44041');
+$mb = new SimSma('si'); $mb->regs[4][40211] = 303; $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 10000]); $smaSi->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->writes === [] && count($hub->warn) === 1 && strpos($hub->warn[0], '1079') !== false && strpos($hub->warn[0], 'Grid Guard') !== false, 'SMA Sunny Island: 40210 steht nicht auf 1079: nichts geschrieben, Warnung nennt Grid Guard');
+$mb = new SimSma('si'); $mb->regs[4][40076] = 1130; $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 10000, 'ctl_rc_mode' => 2]); $smaSi->writeControl($mb, $hub, 'ctl_rc_mode', 0);
+ref_ok($mb->order === [44039, 40075] && $mb->writes[0][2] === array_merge($neg(10000), $neg(-10000)) && $mb->writes[1][2] === [0, 1129], 'SMA Sunny Island: Modus 0 öffnet das Fenster und schaltet die Eigenverbrauchserhöhung wieder ein (sonst lädt er nach dem Timeout voll)');
+$mb = new SimSma('si'); $mb->regs[4][40211] = 303; $mb->regs[4][40076] = 1129; $hub = hubFor(['rc_version' => 1, 'ctl_rc_mode' => 2]); $smaSi->writeControl($mb, $hub, 'ctl_rc_mode', 0);
+ref_ok($hub->warn === [] && $mb->order === [44039], 'SMA Sunny Island: Modus 0 mit Eigenverbrauch schon an: 40075 wird nicht erneut geschrieben');
+
+$p = (new IHUB_RemoteSma('si'))->plan(['mode' => 1, 'watts' => 0, 'failsafeSec' => 60], ['available' => true, 'ratedW' => 10000, 'cfg' => ['mode' => 303, 'fallback' => 2506, 'timeout' => 600, 'ramp' => 308, 'self' => 1129]], 0);
+ref_ok(!in_array(40210, array_column($p['steps'], 'addr'), true) && in_array(41193, array_column($p['steps'], 'addr'), true), 'SMA Sunny Island: auch im Plan wird 40210 nie geschrieben (Grid Guard), selbst wenn es abweicht');
+$mb = new SimSma('si'); $mb->ignoreRegs = [40075]; $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 10000]); $smaSi->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok(count($hub->warn) === 1 && strpos($hub->warn[0], '40075') !== false && !isset($hub->vars['ctl_rc_mode']), 'SMA Sunny Island: Gerät übernimmt 40075 (Eigenverbrauch aus) nicht: Warnung nennt Register 40075');
+
+// Geräteklasse aus der Instanzeigenschaft, Unit-ID des Geräts, Kennzeichnung
+ref_ok(IHUB_RemoteSma::familyOf(0) === 'se' && IHUB_RemoteSma::familyOf(1) === 'si' && IHUB_RemoteSma::familyOf(2) === 'stpsx' && IHUB_RemoteSma::familyOf(9) === 'se', 'SMA: SmaControlType 0/1/2 = STP SE / Sunny Island / STPS X, unbekannt = STP SE');
+$real = new IHUB_SmaDriver(); $mb = new SimSma('se'); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 100]); $hub->props['SmaControlType'] = 2; $real->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok(in_array(44449, $mb->order, true) && !in_array(40149, $mb->order, true), 'SMA: der Treiber wählt die Geräteklasse aus SmaControlType (2 = STPS X: Fenster 44449)');
+$mb = new SimSma('se'); $mb->unitId = 126; $mb->regsByUnit = [3 => [4 => $mb->regs[4]], 126 => [4 => []]]; $hub = hubFor(); $real->readSlow($mb, $hub);
+ref_ok($mb->unitId === 126 && ($hub->vars['rc_available'][1] ?? null) === true && in_array(3, array_column($mb->reads, 3), true), 'SMA: Steuerregister liegen auf der Geräte-Unit-ID 3, nicht auf der SunSpec-Kennung 126; die Einstellung wird zurückgesetzt');
+$sg = $real->getOptionalGroups();
+ref_ok(isset($sg['GroupControl']) && ($sg['GroupControl']['default'] ?? true) === false && count($sg) > 1 && ($sg['GroupBat']['default'] ?? true) === true, 'SMA: Gruppe Steuerung startet aus, die übrigen Gruppen bleiben an');
+foreach (['se', 'si', 'stpsx'] as $f) {
+    $i = (new IHUB_RemoteSma($f))->info();
+    ref_ok($i['tested'] === false && count($i['pitfalls']) >= 6 && array_filter($i['pitfalls'], fn($s) => strpos($s, '41193') !== false), "SMA $f: Kennzeichnung ungetestet, Fallen nennen den Totmann (41193)");
+}
 
 echo "\n== Vertrag IHUB_GetFunctions 1.9: remoteControl ==\n";
 $GLOBALS['TREE'] = [];
@@ -299,7 +408,7 @@ class RcHub extends InverterHub
     public function ReadPropertyBoolean($n) { return false; }
     public function ReadPropertyInteger($n) { return 0; }
 }
-foreach (['solis' => $solis, 'foxess_smart' => $fox, 'deye' => $deye, 'solax' => $solax] as $maker => $drv) {
+foreach (['solis' => $solis, 'foxess_smart' => $fox, 'deye' => $deye, 'solax' => $solax, 'sma' => $real] as $maker => $drv) {
     $idents = array_column($drv->getOptionalGroups()['GroupControl']['vars'], 0);
     $GLOBALS['TREE'] = []; $i = 100; foreach (IHUB_RemoteControl::vars() as $v) { if (in_array($v[0], $idents, true)) { $GLOBALS['TREE'][$v[0]] = [$i++]; } }
     $h = new RcHub(); $h->maker = $maker; $f = $h->GetFunctions();
@@ -309,7 +418,7 @@ foreach (['solis' => $solis, 'foxess_smart' => $fox, 'deye' => $deye, 'solax' =>
 $GLOBALS['TREE'] = ['pv_total' => [101]]; $h = new RcHub(); $f = $h->GetFunctions();
 ref_ok($f['remoteControl'] === [], 'Treiber ohne Fernsteuerung: leeres Feld');
 $missing = [];
-foreach (['solis' => $solis, 'foxess_smart' => $fox, 'deye' => $deye, 'solax' => $solax] as $maker => $drv) {
+foreach (['solis' => $solis, 'foxess_smart' => $fox, 'deye' => $deye, 'solax' => $solax, 'sma' => $real] as $maker => $drv) {
     $prof = array_merge(array_keys($drv->getProfiles()), array_keys($drv->getEnumProfiles()));
     foreach ($drv->getOptionalGroups()['GroupControl']['vars'] as $v) { if ($v[3] !== '' && $v[3][0] !== '~' && !in_array($v[3], $prof, true)) { $missing[] = "$maker:" . $v[0] . '=' . $v[3]; } }
 }
