@@ -19,6 +19,7 @@ interface IHUB_InverterDriverInterface {}
 $GLOBALS['solisSrc'] = $m[1];
 $GLOBALS['coreSrc'] = $src;
 eval($m[1]);
+require_once dirname(__DIR__) . '/libs/IHUB_SolisDispatch.php';   // seit 0.91.0 liest der langsame Zyklus die Dispatch-Fähigkeit
 
 class MockMb
 {
@@ -313,7 +314,7 @@ echo "Gesamtverbrauch und Vertrag 1.4\n";
 $r = $base; $r[33147] = 700; $r[33148] = 3500;
 $v = run($r);
 ok($v['household_load'] === 700.0 && $v['backup_load'] === 3500.0 && $v['house_load_total'] === 4200.0, 'Last gesamt = Netzanschluss 700 W + Backup 3500 W = 4200 W');
-ok(strpos($GLOBALS['coreSrc'], "'contractVersion'  => '1.7'") !== false && strpos($GLOBALS['coreSrc'], "'houseLoadID'      => \$find('house_load_total')") !== false, 'IHUB_GetFunctions: Vertrag 1.7 mit houseLoadID');
+ok(strpos($GLOBALS['coreSrc'], "'contractVersion'  => '1.8'") !== false && strpos($GLOBALS['coreSrc'], "'houseLoadID'      => \$find('house_load_total')") !== false, 'IHUB_GetFunctions: Vertrag 1.8 mit houseLoadID');
 ok(strpos($GLOBALS['coreSrc'], "\$gridServiceCapabilities[] = 'dischargeInhibit'") !== false, 'IHUB_GetFunctions: Fähigkeit dischargeInhibit wird über svc_discharge_inhibit erkannt');
 
 echo "Energiezaehler\n";

@@ -94,6 +94,21 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 ['svc_prev_grid_storage', 'Remembered storage mode (before grid charging)', 'I', '', false, 'control', 'display only; svc_grid_charge_w writes 43110 with bit 5 (grid charging allowed), svc_release restores'],
                 ['ctl_max_charge_a', 'Max. charge current (A)',    'F', 'SLS.AmpereSet',   false, 'control', 'RW 43012 (÷10), fest gespeichert'],
                 ['ctl_max_disch_a',  'Max. discharge current (A)', 'F', 'SLS.AmpereSet',   false, 'control', 'RW 43013 (÷10), fest gespeichert'],
+                // Remote Dispatch (Solis Smart Control V1.0, Register 44100-44110, Fähigkeit 34502). Die Vorgaben werden nur
+                // gemerkt; erst das Schreiben von ctl_dispatch_mode sendet alles ans Gerät (und muss vor Ablauf des
+                // Totmanns wiederholt werden). Siehe IHUB_SolisDispatch.
+                ['ctl_dispatch_mode', 'Dispatch: mode (writing sends everything)', 'I', 'SLS.DispatchMode', false, 'control', 'RW 44100/44105: 0 off, 1 standby, 2 battery, 3 grid connection point, 4 AC grid port. Set the other dispatch values first, the mode last; write again before the failsafe time runs out'],
+                ['ctl_dispatch_w', 'Dispatch: power (W)', 'I', 'SLS.WattSigned', false, 'control', 'RW 44106-44107 (S32, 10 W). Mode 2: + charging / − discharging; modes 3 and 4: − import / + feed-in. Only stored until the mode is written'],
+                ['ctl_dispatch_grid_charge', 'Dispatch: grid charging', 'I', 'SLS.GridChargeSwitch', false, 'control', 'RW 44108 bits 4-5: 0 unchanged, 1 allowed, 2 not allowed'],
+                ['ctl_dispatch_pv_shutdown', 'Dispatch: PV shutdown', 'I', 'SLS.PvShutdown', false, 'control', 'RW 44108 bits 0-1: 0 unchanged, 1 off, 2 on (for negative prices)'],
+                ['ctl_dispatch_soc_min', 'Dispatch: SOC lower limit (%)', 'I', '~Intensity.100', false, 'control', 'RW 44109'],
+                ['ctl_dispatch_soc_max', 'Dispatch: SOC upper limit (%, 0 = 100)', 'I', '~Intensity.100', false, 'control', 'RW 44110'],
+                ['ctl_dispatch_failsafe_min', 'Dispatch: failsafe time (min, 0 = 5)', 'I', 'SLS.Minutes', false, 'control', 'RW 44101 (1-1440): without a new command the device leaves the dispatch after this time'],
+                ['ctl_dispatch_import_limit_w', 'Dispatch: import limit (W, 0 = none)', 'I', 'SLS.WattInt', false, 'control', 'RW 44102 bit 0 + 44103 (100 W)'],
+                ['ctl_dispatch_export_limit_w', 'Dispatch: feed-in limit (W, 0 = none)', 'I', 'SLS.WattInt', false, 'control', 'RW 44102 bit 1 + 44104 (100 W)'],
+                ['dispatch_available', 'Dispatch: device offers remote dispatch', 'B', '~Switch', false, 'device', 'RO 34502 = 0xAA55'],
+                ['dispatch_version', 'Dispatch: register version', 'I', '', false, 'device', 'RO 34503 (1 = V01), 0 without dispatch'],
+                ['dispatch_status', 'Dispatch: status', 'I', 'SLS.DispatchStatus', false, 'device', 'RO 34504'],
             ]],
             'GroupSettings' => ['caption' => 'Inverter settings (read only, preview)', 'vars' => [
                 ['cfg_storage_mode',     'Storage mode (setting)',        'I', 'SLS.StorageMode', false, 'settings', 'HR 43110'],
@@ -176,6 +191,8 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
             'SLS.Volt'   => [VARIABLETYPE_FLOAT, ' V',       0.0,  1000.0, 0.1,  1],
             'SLS.Ampere' => [VARIABLETYPE_FLOAT, ' A',    -200.0,   200.0, 0.1,  1],
             'SLS.AmpereSet' => [VARIABLETYPE_FLOAT, ' A',     0.0,   200.0, 0.1,  1],
+            'SLS.WattSigned' => [VARIABLETYPE_INTEGER, ' W', -40000, 40000, 10, 0],
+            'SLS.Minutes' => [VARIABLETYPE_INTEGER, ' min',      0,   1440,  1,  0],
             'SLS.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',     45.0,    65.0, 0.01, 2],
         ];
     }
@@ -197,6 +214,10 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
         return [
             'SLS.StorageMode' => $modes,
             'SLS.ForceMode'   => [0 => ['Off', 0x7A8A99], 1 => ['Charge', 0x3BA55D], 2 => ['Discharge', 0xE08A2B]],
+            'SLS.DispatchMode'   => [0 => ['Off', 0x7A8A99], 1 => ['Standby', 0xE08A2B], 2 => ['Battery', 0x3BA55D], 3 => ['Grid connection point', 0x3BA55D], 4 => ['AC grid port', 0x3BA55D]],
+            'SLS.DispatchStatus' => [0 => ['Not running', 0x7A8A99], 1 => ['Standby', 0xE08A2B], 2 => ['Real-time control', 0x3BA55D], 3 => ['Time-of-use control', 0x3BA55D]],
+            'SLS.GridChargeSwitch' => [0 => ['Unchanged', 0x7A8A99], 1 => ['Allowed', 0x3BA55D], 2 => ['Not allowed', 0xE08A2B]],
+            'SLS.PvShutdown'  => [0 => ['Unchanged', 0x7A8A99], 1 => ['PV on', 0x3BA55D], 2 => ['PV shut down', 0xE08A2B]],
             'SLS.BatMode'     => [0 => ['Standby', 0x7A8A99], 1 => ['Charge', 0x3BA55D], 2 => ['Discharge', 0xE08A2B]],
             'SLS.GridMode'    => [0 => ['Balanced', 0x7A8A99], 1 => ['Feed-in', 0x3BA55D], 2 => ['Import', 0xE08A2B]],
             'SLS.OpStatus'    => [0 => ['Stop', 0x7A8A99], 1 => ['Idle', 0x7A8A99], 2 => ['Soft start', 0xE08A2B], 3 => ['Grid operation', 0x3BA55D],
@@ -511,6 +532,14 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                 $hub->SetVarInt('cfg_rc_timeout_min', $mb->u16($r, 0));
             }
         }
+        if ($hub->GetPropBool('GroupControl')) {
+            $d = IHUB_SolisDispatch::probe($mb);   // 34502-34504: Faehigkeit, Version, Status
+            if ($d !== null) {
+                $hub->SetVarBool('dispatch_available', $d['available']);
+                $hub->SetVarInt('dispatch_version', $d['available'] ? $d['version'] : 0);
+                $hub->SetVarInt('dispatch_status', $d['available'] ? $d['status'] : 0);
+            }
+        }
         if ($hub->GetPropBool('GroupEnergy')) {
             // Gesamtstaende (U32) haben 1 kWh Aufloesung, nur die Tageswerte (U16) 0,1 kWh
             // (evcc: "register has 1 kWh resolution"; openHAB/HA: Faktor 1). Bis 0.77.0-beta.27 fehlerhaft durch 10 geteilt.
@@ -790,6 +819,60 @@ class IHUB_SolisDriver implements IHUB_InverterDriverInterface
                     }
                 }
                 $hub->SetVarFloat($ident, $amps);
+                return;
+
+            case 'ctl_dispatch_w':
+                $hub->SetVarInt('ctl_dispatch_w', (int)(round(max(-IHUB_SolisDispatch::POWER_MAX_W, min(IHUB_SolisDispatch::POWER_MAX_W, (float)$value)) / 10) * 10));
+                return;
+
+            case 'ctl_dispatch_grid_charge':
+            case 'ctl_dispatch_pv_shutdown':
+                if ((int)$value < 0 || (int)$value > 2) {
+                    $hub->WarnUser(IHUB_Text::t('Solis dispatch: %s is invalid for %s (0 unchanged, 1, 2).', (int)$value, $ident));
+                    return;
+                }
+                $hub->SetVarInt($ident, (int)$value);
+                return;
+
+            case 'ctl_dispatch_soc_min':
+            case 'ctl_dispatch_soc_max':
+                $hub->SetVarInt($ident, max(0, min(100, (int)$value)));
+                return;
+
+            case 'ctl_dispatch_failsafe_min':
+                $hub->SetVarInt($ident, max(0, min(IHUB_SolisDispatch::FAILSAFE_MAX_MIN, (int)$value)));
+                return;
+
+            case 'ctl_dispatch_import_limit_w':
+            case 'ctl_dispatch_export_limit_w':
+                $hub->SetVarInt($ident, (int)(round(max(0, min(IHUB_SolisDispatch::POWER_MAX_W, (float)$value)) / 100) * 100));
+                return;
+
+            case 'ctl_dispatch_mode':
+                $p = [
+                    'mode'         => (int)$value,
+                    'watts'        => $hub->GetVarInt('ctl_dispatch_w'),
+                    'gridCharge'   => $hub->GetVarInt('ctl_dispatch_grid_charge'),
+                    'pvShutdown'   => $hub->GetVarInt('ctl_dispatch_pv_shutdown'),
+                    'socMin'       => $hub->GetVarInt('ctl_dispatch_soc_min'),
+                    'socMax'       => $hub->GetVarInt('ctl_dispatch_soc_max'),
+                    'failsafeMin'  => $hub->GetVarInt('ctl_dispatch_failsafe_min'),
+                    'importLimitW' => $hub->GetVarInt('ctl_dispatch_import_limit_w'),
+                    'exportLimitW' => $hub->GetVarInt('ctl_dispatch_export_limit_w'),
+                ];
+                // Faehigkeit aus dem letzten langsamen Zyklus (Version > 0 nur bei 0xAA55), sonst einmal nachfragen.
+                $ver = $hub->GetVarInt('dispatch_version');
+                $known = $ver > 0 ? ['available' => true, 'version' => $ver, 'status' => $hub->GetVarInt('dispatch_status')] : null;
+                $status = null;
+                if (!IHUB_SolisDispatch::apply($mb, $p, $known, $err, $status)) {
+                    $hub->WarnUser(IHUB_Text::t('Solis dispatch could not be applied: %s', $err));
+                    return;
+                }
+                $hub->SetVarBool('dispatch_available', true);
+                if ($status !== null) {
+                    $hub->SetVarInt('dispatch_status', (int)$status);
+                }
+                $hub->SetVarInt('ctl_dispatch_mode', (int)$value);
                 return;
 
             case 'ctl_storage_mode':

@@ -17,6 +17,7 @@ require_once __DIR__ . '/../libs/IHUB_ModbusTcpClient.php';
 require_once __DIR__ . '/../libs/IHUB_InverterDriverInterface.php';
 require_once __DIR__ . '/../libs/IHUB_GoodweDriver.php';
 require_once __DIR__ . '/../libs/IHUB_SungrowDriver.php';
+require_once __DIR__ . '/../libs/IHUB_SolisDispatch.php';
 require_once __DIR__ . '/../libs/IHUB_SolisDriver.php';
 require_once __DIR__ . '/../libs/IHUB_GrowattDriver.php';
 require_once __DIR__ . '/../libs/IHUB_SolaxDriver.php';
@@ -905,7 +906,22 @@ class InverterHub extends IPSModule
         if ($find('svc_release') > 0) {
             $gridServiceCapabilities[] = 'release';
         }
+        // Remote Dispatch (Solis Smart Control, Vertrag 1.8): IDs der Dispatch-Variablen, alle 0 ohne die jeweilige Variable.
+        // "available" ist die Faehigkeit des GERAETS (34502 = 0xAA55, Variable dispatch_available); ohne Antwort oder bei
+        // false bleibt der Konsument bei den bisherigen Wegen (Zwangsmodus, Speicherbetrieb).
+        $dispatch = [];
+        if ($find('ctl_dispatch_mode') > 0) {
+            $dispatch = [
+                'availableID' => $find('dispatch_available'), 'versionID' => $find('dispatch_version'), 'statusID' => $find('dispatch_status'),
+                'modeID' => $find('ctl_dispatch_mode'), 'powerID' => $find('ctl_dispatch_w'),
+                'gridChargeID' => $find('ctl_dispatch_grid_charge'), 'pvShutdownID' => $find('ctl_dispatch_pv_shutdown'),
+                'socMinID' => $find('ctl_dispatch_soc_min'), 'socMaxID' => $find('ctl_dispatch_soc_max'),
+                'failsafeMinID' => $find('ctl_dispatch_failsafe_min'),
+                'importLimitID' => $find('ctl_dispatch_import_limit_w'), 'exportLimitID' => $find('ctl_dispatch_export_limit_w'),
+            ];
+        }
         return [
+            // 1.7 -> 1.8: dispatch (Solis Remote Dispatch, EMS-Auftrag 19.11.2026; leeres Array bei Treibern ohne Dispatch).
             // 1.0 -> 1.1: batteryTempIDs/batterySocIDs/batterySohIDs/
             // batteryCapacityID. 1.1 -> 1.2: mpptPowerIDs/mpptCurrentIDs/
             // mpptVoltageIDs. 1.2 -> 1.3: gridServiceCapabilities (EMS-Vertrag,
@@ -917,7 +933,7 @@ class InverterHub extends IPSModule
             // leer ohne Zaehlerphasen).
             // 1.5 -> 1.6: batteryChargeEnergyID/batteryDischargeEnergyID (EMS-Wunsch 17.11.2026,
             // belastbare Batterie-Gesamtzaehler kWh, bisher nur GoodWe: bms_e_*_total; sonst 0).
-            'contractVersion'  => '1.7',
+            'contractVersion'  => '1.8',
             'houseLoadID'      => $find('house_load_total'),
             'gridServiceCapabilities' => $gridServiceCapabilities,
             'instanceID'       => $this->InstanceID,
@@ -952,6 +968,7 @@ class InverterHub extends IPSModule
             'mpptCurrentIDs'   => $mpptCurrentIDs,
             'mpptVoltageIDs'   => $mpptVoltageIDs,
             'phaseCurrentIDs'  => $phaseCurrentIDs,
+            'dispatch'         => $dispatch,
         ];
     }
 
