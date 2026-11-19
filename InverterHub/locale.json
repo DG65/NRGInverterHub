@@ -972,7 +972,10 @@
       "Remote control: supported modes": "Fernsteuerung: unterstützte Modi",
       "Remote control: failsafe time in the device (s)": "Fernsteuerung: Totmannzeit im Gerät (s)",
       "Remote control: rated power (W)": "Fernsteuerung: Nennleistung (W)",
-      "Hold battery": "Batterie halten"
+      "Hold battery": "Batterie halten",
+      "SolaX remote control: the device did not answer the VPP registers 0x01A0-0x01A7 (only Gen4 and newer offer it).": "SolaX-Fernsteuerung: Das Gerät hat die VPP-Register 0x01A0-0x01A7 nicht beantwortet (nur Gen4 und neuer bieten sie an).",
+      "SolaX remote control: mode %s is not offered (0 off, 1 hold, 2 battery).": "SolaX-Fernsteuerung: Modus %s wird nicht angeboten (0 aus, 1 Halten, 2 Batterie).",
+      "Remote control (untested: built from the manufacturer document and community code, off by default)": "Fernsteuerung (ungetestet: nach Herstellerdokument und Community-Code gebaut, standardmäßig aus)"
     },
     "en": {}
   }

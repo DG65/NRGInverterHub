@@ -3487,6 +3487,38 @@
             "pv_total": [
                 "F",
                 4155242448
+            ],
+            "rc_active": [
+                "B",
+                false
+            ],
+            "rc_available": [
+                "B",
+                true
+            ],
+            "rc_modes": [
+                "S",
+                "0,1,2"
+            ],
+            "rc_rated_w": [
+                "I",
+                0
+            ],
+            "rc_status": [
+                "I",
+                65245
+            ],
+            "rc_tested": [
+                "B",
+                false
+            ],
+            "rc_vendor": [
+                "S",
+                "SolaX - SolaX ESS Inverter MODBUS Protocol V001.02, section 3.5.8, VPP mode 8, registers 0xA0-0xA7"
+            ],
+            "rc_version": [
+                "I",
+                1
             ]
         },
         "writes": [],
@@ -3543,6 +3575,12 @@
                 4,
                 70,
                 64,
+                1
+            ],
+            [
+                3,
+                416,
+                8,
                 1
             ]
         ],
@@ -3729,6 +3767,38 @@
             "pv_total": [
                 "F",
                 128649168
+            ],
+            "rc_active": [
+                "B",
+                false
+            ],
+            "rc_available": [
+                "B",
+                true
+            ],
+            "rc_modes": [
+                "S",
+                "0,1,2"
+            ],
+            "rc_rated_w": [
+                "I",
+                0
+            ],
+            "rc_status": [
+                "I",
+                3805
+            ],
+            "rc_tested": [
+                "B",
+                false
+            ],
+            "rc_vendor": [
+                "S",
+                "SolaX - SolaX ESS Inverter MODBUS Protocol V001.02, section 3.5.8, VPP mode 8, registers 0xA0-0xA7"
+            ],
+            "rc_version": [
+                "I",
+                1
             ]
         },
         "writes": [],
@@ -3785,6 +3855,12 @@
                 4,
                 70,
                 64,
+                1
+            ],
+            [
+                3,
+                416,
+                8,
                 1
             ]
         ],
@@ -3971,6 +4047,38 @@
             "pv_total": [
                 "F",
                 0
+            ],
+            "rc_active": [
+                "B",
+                false
+            ],
+            "rc_available": [
+                "B",
+                true
+            ],
+            "rc_modes": [
+                "S",
+                "0,1,2"
+            ],
+            "rc_rated_w": [
+                "I",
+                0
+            ],
+            "rc_status": [
+                "I",
+                0
+            ],
+            "rc_tested": [
+                "B",
+                false
+            ],
+            "rc_vendor": [
+                "S",
+                "SolaX - SolaX ESS Inverter MODBUS Protocol V001.02, section 3.5.8, VPP mode 8, registers 0xA0-0xA7"
+            ],
+            "rc_version": [
+                "I",
+                1
             ]
         },
         "writes": [],
@@ -4027,6 +4135,12 @@
                 4,
                 70,
                 64,
+                1
+            ],
+            [
+                3,
+                416,
+                8,
                 1
             ]
         ],
@@ -4213,6 +4327,38 @@
             "pv_total": [
                 "F",
                 4294967295
+            ],
+            "rc_active": [
+                "B",
+                false
+            ],
+            "rc_available": [
+                "B",
+                true
+            ],
+            "rc_modes": [
+                "S",
+                "0,1,2"
+            ],
+            "rc_rated_w": [
+                "I",
+                0
+            ],
+            "rc_status": [
+                "I",
+                65535
+            ],
+            "rc_tested": [
+                "B",
+                false
+            ],
+            "rc_vendor": [
+                "S",
+                "SolaX - SolaX ESS Inverter MODBUS Protocol V001.02, section 3.5.8, VPP mode 8, registers 0xA0-0xA7"
+            ],
+            "rc_version": [
+                "I",
+                1
             ]
         },
         "writes": [],
@@ -4270,6 +4416,12 @@
                 70,
                 64,
                 1
+            ],
+            [
+                3,
+                416,
+                8,
+                1
             ]
         ],
         "unitId": 1
@@ -4323,6 +4475,12 @@
                 4,
                 290,
                 3,
+                1
+            ],
+            [
+                3,
+                416,
+                8,
                 1
             ]
         ],

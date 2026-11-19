@@ -4,7 +4,7 @@
  * .tools/) ein; .tools/test-remote-control.php muss anschlagen.   php .tools/mutate-remote-control.php   (0 = alle erkannt)
  */
 $root = dirname(__DIR__);
-$B = 'libs/IHUB_RemoteControl.php'; $F = 'libs/IHUB_RemoteFoxEss.php'; $Y = 'libs/IHUB_RemoteDeye.php'; $S = 'libs/IHUB_RemoteSolis.php'; $M = 'InverterHub/module.php';
+$B = 'libs/IHUB_RemoteControl.php'; $F = 'libs/IHUB_RemoteFoxEss.php'; $Y = 'libs/IHUB_RemoteDeye.php'; $X1 = 'libs/IHUB_RemoteSolax.php'; $S = 'libs/IHUB_RemoteSolis.php'; $M = 'InverterHub/module.php';
 $X = [
     // Basis
     [$B, [["if (\$steps === []) {", 'if (false) {']], 'leere Schrittliste wird nicht als erfüllt behandelt'],
@@ -43,6 +43,17 @@ $X = [
     [$Y, [["['fc' => 16, 'addr' => self::REG_WATCHDOG,", "['fc' => 6, 'addr' => self::REG_WATCHDOG,"]], 'Deye: FC06 statt FC16'],
     [$Y, [['if ($got !== $want) {', 'if (false) {']], 'Deye: Rücklesen vergleicht nichts'],
     [$Y, [["if (!in_array(\$mode, [0, 1, 2], true)) {", 'if (false) {']], 'Deye: Modus 3 wird nicht abgelehnt'],
+    // SolaX
+    [$X1, [['return -max(-self::POWER_MAX_W, min(self::POWER_MAX_W, $watts));', 'return max(-self::POWER_MAX_W, min(self::POWER_MAX_W, $watts));']], 'SolaX: Vorzeichen der Akkuleistung nicht gedreht'],
+    [$X1, [['return [$u & 0xFFFF, ($u >> 16) & 0xFFFF];', 'return [($u >> 16) & 0xFFFF, $u & 0xFFFF];']], 'SolaX: S32 hochwertiges Wort zuerst'],
+    [$X1, [["if (\$mode !== 2) {\n            return 0;", "if (false) {\n            return 0;"]], 'SolaX: Halten schreibt die gemerkte Leistung'],
+    [$X1, [['max(self::DURATION_MIN_S, min(self::DURATION_MAX_S, $s))', '$s']], 'SolaX: Dauer nicht begrenzt'],
+    [$X1, [['const NEXT_USER_MODE = 0xA0;', 'const NEXT_USER_MODE = 0xA1;']], 'SolaX: 0xA7 / Timeout geändert'],
+    [$X1, [["['fc' => 16, 'addr' => self::REG_OLD, 'words' => array_fill(0, 13, 0), 'afterUs' => 0],", '']], 'SolaX: Modus 0 schreibt die alte Schnittstelle nicht'],
+    [$X1, [['if ($got !== $want) {', 'if (false) {']], 'SolaX: Rücklesen vergleicht nichts'],
+    [$X1, [["if (!in_array(\$mode, [0, 1, 2], true)) {", 'if (false) {']], 'SolaX: Modus 3 wird nicht abgelehnt'],
+    [$X1, [['const PV_UNLIMITED_W = 100000;', 'const PV_UNLIMITED_W = 1000;']], 'SolaX: PV-Grenze zu klein (drosselt die PV)'],
+    [$X1, [['return $this->duration($req) + self::NEXT_USER_MODE;', 'return $this->duration($req);']], 'SolaX: Totmann im Gerät falsch gemeldet'],
     // Solis-Adapter
     [$S, [["IHUB_SolisDispatch::failsafe(\$this->legacy(\$req)) * 60", "IHUB_SolisDispatch::failsafe(\$this->legacy(\$req))"]], 'Solis: Totmann in Minuten statt Sekunden gemeldet'],
     [$S, [["(int)ceil(\$sec / 60)", "(int)floor(\$sec / 60)"]], 'Solis: Totmann wird abgerundet'],

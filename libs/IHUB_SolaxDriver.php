@@ -23,7 +23,7 @@ class IHUB_SolaxDriver implements IHUB_InverterDriverInterface
 
     public function getOptionalGroups()
     {
-        return [
+        $groups = [
             'GroupPV' => ['caption' => 'PV details (up to 6 strings)', 'vars' => [
                 ['pv1_volt', 'PV1 voltage', 'F', 'SLX.Volt',   false, 'pv', 'RO 0x0003'],
                 ['pv1_curr', 'PV1 current',    'F', 'SLX.Ampere', false, 'pv', 'RO 0x0005'],
@@ -78,7 +78,11 @@ class IHUB_SolaxDriver implements IHUB_InverterDriverInterface
                 ['dev_sn',   'Module serial number', 'S', '', false, 'device', 'RO 0x00AA-0x00AE'],
             ]],
         ];
+        // Fernsteuerung (VPP-Modus 8, neue Schnittstelle 0xA0 ff.), UNGETESTET: Vorgabe aus, gemeinsame Schicht IHUB_RemoteControl
+        $groups['GroupControl'] = ['caption' => 'Remote control (untested: built from the manufacturer document and community code, off by default)', 'default' => false, 'vars' => IHUB_RemoteControl::vars()];
+        return $groups;
     }
+
 
     public function getExtraBooleanProperties()
     {
@@ -92,7 +96,7 @@ class IHUB_SolaxDriver implements IHUB_InverterDriverInterface
             'SLX.Volt'   => [VARIABLETYPE_FLOAT, ' V',       0.0,  1000.0, 0.1,  1],
             'SLX.Ampere' => [VARIABLETYPE_FLOAT, ' A',    -200.0,   200.0, 0.1,  1],
             'SLX.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',     45.0,    65.0, 0.01, 2],
-        ];
+        ] + IHUB_RemoteControl::profiles();
     }
 
     public function getEnumProfiles()
@@ -102,7 +106,7 @@ class IHUB_SolaxDriver implements IHUB_InverterDriverInterface
                 0 => ['On-grid', 0x27D07F],
                 1 => ['Off-grid', 0xE74C3C],
             ],
-        ];
+        ] + IHUB_RemoteControl::enumProfiles();
     }
 
     public function readFast($mb, $hub)
@@ -194,7 +198,9 @@ class IHUB_SolaxDriver implements IHUB_InverterDriverInterface
 
     public function readSlow($mb, $hub)
     {
-        // Keine zusätzlichen langsamen Werte in der ersten Ausbaustufe.
+        if ($hub->GetPropBool('GroupControl')) {
+            IHUB_RemoteControl::refresh(new IHUB_RemoteSolax(), $mb, $hub);   // Fernsteuerung (VPP 0xA0 ff.): Fähigkeit und Kennzeichnung
+        }
     }
 
     public function readDeviceInfo($mb, $hub)
@@ -211,6 +217,9 @@ class IHUB_SolaxDriver implements IHUB_InverterDriverInterface
 
     public function writeControl($mb, $hub, $ident, $value)
     {
-        // Kein Steuerregister in der ersten Ausbaustufe implementiert.
+        // Nur die gemeinsame Fernsteuerung (VPP-Modus 8), UNGETESTET (rc_tested = false); keine weiteren Schreibwege.
+        if (strpos($ident, 'ctl_rc_') === 0) {
+            IHUB_RemoteControl::control(new IHUB_RemoteSolax(), $mb, $hub, $ident, $value);
+        }
     }
 }

@@ -23,6 +23,7 @@ require_once __DIR__ . '/../libs/IHUB_SolisDispatch.php';
 require_once __DIR__ . '/../libs/IHUB_RemoteSolis.php';
 require_once __DIR__ . '/../libs/IHUB_RemoteFoxEss.php';
 require_once __DIR__ . '/../libs/IHUB_RemoteDeye.php';
+require_once __DIR__ . '/../libs/IHUB_RemoteSolax.php';
 require_once __DIR__ . '/../libs/IHUB_SolisDriver.php';
 require_once __DIR__ . '/../libs/IHUB_GrowattDriver.php';
 require_once __DIR__ . '/../libs/IHUB_SolaxDriver.php';

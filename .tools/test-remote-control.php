@@ -15,6 +15,7 @@ IHUB_RemoteControl::$noWait = true;
 IHUB_SolisDispatch::$spacingUs = 0; IHUB_SolisDispatch::$readbackUs = 0; IHUB_SolisDispatch::$retryPauseUs = 0;
 IHUB_RemoteFoxEss::$gapUs = 0; IHUB_RemoteFoxEss::$readbackUs = 0; IHUB_RemoteFoxEss::$retryPauseUs = 0;
 IHUB_RemoteDeye::$gapUs = 0; IHUB_RemoteDeye::$readbackUs = 0; IHUB_RemoteDeye::$retryPauseUs = 0;
+IHUB_RemoteSolax::$gapUs = 0; IHUB_RemoteSolax::$readbackUs = 0; IHUB_RemoteSolax::$retryPauseUs = 0;
 
 /** Gemeinsame Grundlage der nachgebildeten Geräte: Schreiben speichert, einstellbare Fehler. */
 class SimBase extends RefMb
@@ -90,14 +91,27 @@ class SimDeye extends SimBase
     }
 }
 
+class SimSolax extends SimBase
+{
+    public function __construct() { parent::__construct(); for ($a = 0x1A0; $a <= 0x1A7; $a++) { $this->regs[3][$a] = 0; } }
+    public function readHolding($start, $count) { if (!$this->available && (int)$start === 0x1A0) { $this->reads[] = [3, 0x1A0, (int)$count, 1]; return null; } return parent::readHolding($start, $count); }
+    protected function store(int $start, array $values, int $fc): void
+    {
+        $values = array_values($values);
+        if ($start === 0xA0) { foreach ($values as $i => $v) { $this->regs[3][0x1A0 + $i] = $v & 0xFFFF; } return; }   // Schreiben 0xA0 ff. erscheint als Rücklesen 0x1A0 ff.
+        parent::store($start, $values, $fc);   // 0x7C ff. (alte Schnittstelle) nur speichern
+    }
+}
+
 function hubFor(array $seed = [], bool $control = true) { $h = new RefHub(['GroupControl' => $control]); $h->seed = $seed; return $h; }
 function u32w(int $v): array { $u = $v < 0 ? $v + 4294967296 : $v; return [($u >> 16) & 0xFFFF, $u & 0xFFFF]; }
 
-$solis = new IHUB_SolisDriver(); $fox = new IHUB_FoxEssSmartDriver(); $deye = new IHUB_DeyeDriver();
+$solis = new IHUB_SolisDriver(); $fox = new IHUB_FoxEssSmartDriver(); $deye = new IHUB_DeyeDriver(); $solax = new IHUB_SolaxDriver();
 $adapters = [
     'Solis' => ['drv' => $solis, 'sim' => fn() => new SimSolis(), 'adapter' => new IHUB_RemoteSolis(), 'modes' => [0, 1, 2, 3], 'tested' => true, 'rated' => 0],
     'FoxESS' => ['drv' => $fox, 'sim' => fn() => new SimFox(), 'adapter' => new IHUB_RemoteFoxEss(), 'modes' => [0, 2, 3], 'tested' => false, 'rated' => 0],
     'Deye' => ['drv' => $deye, 'sim' => fn() => new SimDeye(), 'adapter' => new IHUB_RemoteDeye(), 'modes' => [0, 1, 2], 'tested' => false, 'rated' => 10000],
+    'SolaX' => ['drv' => $solax, 'sim' => fn() => new SimSolax(), 'adapter' => new IHUB_RemoteSolax(), 'modes' => [0, 1, 2], 'tested' => false, 'rated' => 0],
 ];
 $all = [0, 1, 2, 3];
 
@@ -156,7 +170,7 @@ foreach ($adapters as $name => $A) {
 }
 
 echo "\n== Adapter: Prüfung der Anfragen ==\n";
-foreach ([['Solis', new IHUB_RemoteSolis(), 7, 1], ['FoxESS', new IHUB_RemoteFoxEss(), 1, 3], ['Deye', new IHUB_RemoteDeye(), 3, 3]] as [$n, $a, $badMode, $x]) {
+foreach ([['Solis', new IHUB_RemoteSolis(), 7, 1], ['FoxESS', new IHUB_RemoteFoxEss(), 1, 3], ['Deye', new IHUB_RemoteDeye(), 3, 3], ['SolaX', new IHUB_RemoteSolax(), 3, 3]] as [$n, $a, $badMode, $x]) {
     $cap = ['available' => true, 'version' => 1, 'status' => 0, 'ratedW' => 10000];
     ref_ok($a->validate(['mode' => $badMode, 'watts' => 0, 'socMin' => 0, 'socMax' => 0, 'failsafeSec' => 0, 'ext' => []], $cap) !== '', "$n: Adapter lehnt Modus $badMode selbst ab");
     ref_ok($a->validate(['mode' => 2, 'watts' => 0, 'socMin' => 0, 'socMax' => 0, 'failsafeSec' => 0, 'ext' => []], $cap) === '', "$n: Modus 2 wird angenommen");
@@ -246,6 +260,32 @@ ref_ok(count($hub->warn) === 1 && !in_array(1100, $mb->order, true), 'Deye: Rege
 $mb = new SimDeye(); $hub = hubFor(['rc_version' => 1]); $deye->writeControl($mb, $hub, 'ctl_rc_mode', 1);
 ref_ok(($mb->regs[3][1101] ?? 0xFFFF) === 60, 'Deye: der Watchdog 1101 steht im Gerät (nicht mehr 0xFFFF = aus) und wird zurückgelesen');
 
+echo "\n== SolaX: Register, Vorzeichen, Totmann ==\n";
+$mb = new SimSolax(); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 2000, 'ctl_rc_failsafe_sec' => 90]);
+$solax->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+$bat = IHUB_RemoteSolax::encodeS32(-2000); $pv = IHUB_RemoteSolax::encodeS32(100000);
+ref_ok($mb->writes === [['multi', 0xA0, [8, 1, $pv[0], $pv[1], $bat[0], $bat[1], 90, 0xA0]]], 'SolaX: ein FC16-Block 0xA0-0xA7: Modus 8, ExecMode 1, PV-Grenze 100000 W, Akku +2000 W Laden = −2000 (Entladen +), Dauer 90 s, 0xA7 = 0xA0');
+ref_ok($hub->warn === [] && $hub->vars['rc_failsafe_eff_sec'][1] === 250 && $hub->vars['rc_active'][1] === true && $hub->vars['rc_status'][1] === 8, 'SolaX: übernommen, Totmann im Gerät = Dauer 90 + Timeout 160 = 250 s, aktiv (Rohstatus 8)');
+ref_ok($bat === [0xF830, 0xFFFF] && IHUB_RemoteSolax::decodeS32(0xF830, 0xFFFF) === -2000, 'SolaX: S32 niederwertiges Wort zuerst (−2000 = 0xFFFFF830)');
+$mb = new SimSolax(); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => -1500]); $solax->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->writes[0][2][4] === 1500 && $mb->writes[0][2][5] === 0 && $mb->writes[0][2][6] === 60, 'SolaX: −1500 W (Entladen) = +1500 fürs Gerät; Dauer 0 = Vorgabe 60 s');
+$mb = new SimSolax(); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 4000]); $solax->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->writes[0][2][4] === 0 && $mb->writes[0][2][5] === 0 && $hub->warn === [], 'SolaX: Halten schreibt Akkuleistung 0, auch bei gemerkter Leistung');
+$mb = new SimSolax(); $hub = hubFor(['rc_version' => 1, 'ctl_rc_failsafe_sec' => 3]); $solax->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->writes[0][2][6] === 10, 'SolaX: Dauer 3 s auf 10 s angehoben');
+$mb = new SimSolax(); $hub = hubFor(['rc_version' => 1, 'ctl_rc_failsafe_sec' => 65535]); $solax->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->writes[0][2][6] === 60000, 'SolaX: Dauer auf 60000 s begrenzt');
+$mb = new SimSolax(); $hub = hubFor(['rc_version' => 1, 'ctl_rc_mode' => 2]); $solax->writeControl($mb, $hub, 'ctl_rc_mode', 0);
+ref_ok($mb->order === [0xA0, 0x7C] && $mb->writes[0][2] === [0] && $mb->writes[1][2] === array_fill(0, 13, 0) && $hub->vars['ctl_rc_mode'][1] === 0 && $hub->vars['rc_failsafe_eff_sec'][1] === 0, 'SolaX: Modus 0 schreibt 0xA0 := 0 und 13 Nullen ab 0x7C');
+$mb = new SimSolax(); $mb->ignoreRegs = [0xA0]; $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 1000]); $solax->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok(count($hub->warn) === 1 && !isset($hub->vars['ctl_rc_mode']) && count($mb->writes) === 2, 'SolaX: Gerät übernimmt den Block nicht: zweiter Versuch, Warnung, Modus bleibt');
+$mb = new SimSolax(); $hub = hubFor(['rc_version' => 1]); $solax->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok(!in_array('single', array_column($mb->writes, 0), true), 'SolaX: nur FC16-Blöcke');
+$mb = new SimSolax(); $mb->available = false; $hub = hubFor(); $solax->readSlow($mb, $hub);
+ref_ok(!isset($hub->vars['rc_available']), 'SolaX: ohne Antwort auf 0x01A0 (Gen2/Gen3, ältere Firmware) bleiben die Variablen unverändert');
+$sg = $solax->getOptionalGroups();
+ref_ok(isset($sg['GroupControl']) && ($sg['GroupControl']['default'] ?? true) === false, 'SolaX: Gruppe Steuerung startet aus (ungetestet)');
+
 echo "\n== Vertrag IHUB_GetFunctions 1.9: remoteControl ==\n";
 $GLOBALS['TREE'] = [];
 function IPS_GetChildrenIDs($p) { return $p === 1 ? array_values(array_map(function ($v) { return $v[0]; }, $GLOBALS['TREE'])) : []; }
@@ -259,7 +299,7 @@ class RcHub extends InverterHub
     public function ReadPropertyBoolean($n) { return false; }
     public function ReadPropertyInteger($n) { return 0; }
 }
-foreach (['solis' => $solis, 'foxess_smart' => $fox, 'deye' => $deye] as $maker => $drv) {
+foreach (['solis' => $solis, 'foxess_smart' => $fox, 'deye' => $deye, 'solax' => $solax] as $maker => $drv) {
     $idents = array_column($drv->getOptionalGroups()['GroupControl']['vars'], 0);
     $GLOBALS['TREE'] = []; $i = 100; foreach (IHUB_RemoteControl::vars() as $v) { if (in_array($v[0], $idents, true)) { $GLOBALS['TREE'][$v[0]] = [$i++]; } }
     $h = new RcHub(); $h->maker = $maker; $f = $h->GetFunctions();
@@ -269,7 +309,7 @@ foreach (['solis' => $solis, 'foxess_smart' => $fox, 'deye' => $deye] as $maker 
 $GLOBALS['TREE'] = ['pv_total' => [101]]; $h = new RcHub(); $f = $h->GetFunctions();
 ref_ok($f['remoteControl'] === [], 'Treiber ohne Fernsteuerung: leeres Feld');
 $missing = [];
-foreach (['solis' => $solis, 'foxess_smart' => $fox, 'deye' => $deye] as $maker => $drv) {
+foreach (['solis' => $solis, 'foxess_smart' => $fox, 'deye' => $deye, 'solax' => $solax] as $maker => $drv) {
     $prof = array_merge(array_keys($drv->getProfiles()), array_keys($drv->getEnumProfiles()));
     foreach ($drv->getOptionalGroups()['GroupControl']['vars'] as $v) { if ($v[3] !== '' && $v[3][0] !== '~' && !in_array($v[3], $prof, true)) { $missing[] = "$maker:" . $v[0] . '=' . $v[3]; } }
 }
