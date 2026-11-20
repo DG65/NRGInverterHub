@@ -145,13 +145,13 @@ $c = new StubKostalClient('wr.local', 'user', 'geheim', false, function () { ret
 $c->handler = function ($m, $p, $pl, $s) { return $p === 'auth/start' ? [500, null] : [401, null]; };
 $threw = '';
 try { $c->beginBatch(); } catch (RuntimeException $e) { $threw = $e->getMessage(); }
-ok($threw === 'Kostal auth/start failed' && $saved === [''], 'abgelaufene Sitzung (401): wird verworfen und neu angemeldet');
+ok($threw === 'Kostal auth/start failed (HTTP 500)' && $saved === [''], 'abgelaufene Sitzung (401): wird verworfen und neu angemeldet');
 $saved = [];
 $c = new StubKostalClient('wr.local', 'user', 'geheim', false, function () { return 'ALT'; }, function ($s) use (&$saved) { $saved[] = $s; });
 $c->handler = function ($m, $p, $pl, $s) { return $p === 'auth/start' ? [500, null] : [400, null]; };
 $threw = '';
 try { $c->beginBatch(); } catch (RuntimeException $e) { $threw = $e->getMessage(); }
-ok($threw === 'Kostal auth/start failed' && $saved === [''], 'Sitzung mit HTTP 400 (Dirk 20.11.): wird verworfen und neu angemeldet, nicht dauerhaft wiederverwendet');
+ok($threw === 'Kostal auth/start failed (HTTP 500)' && $saved === [''], 'Sitzung mit HTTP 400 (Dirk 20.11.): wird verworfen und neu angemeldet, nicht dauerhaft wiederverwendet');
 $c = new StubKostalClient('wr.local', 'user', 'geheim', false, function () { return 'ALT'; }, function ($s) use (&$saved) { $saved[] = $s; });
 $saved = []; $c->handler = function ($m, $p, $pl, $s) { return [503, null]; };
 $threw = '';

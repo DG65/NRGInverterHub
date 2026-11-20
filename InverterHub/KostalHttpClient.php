@@ -336,11 +336,23 @@ class IHUB_KostalHttpClient
         return $result;
     }
 
+    /** Status und kurze Geräte-Meldung an die Fehlermeldung hängen (Dirk Allard, 20.11.2026: "auth/start failed" ohne Grund). */
+    private function failDetail(int $status, $body): string
+    {
+        $msg = '';
+        if (is_array($body)) {
+            foreach (['message', 'error', 'detail'] as $k) {
+                if (isset($body[$k]) && is_scalar($body[$k])) { $msg = ': ' . substr(preg_replace('/[^\x20-\x7E]/', '', (string)$body[$k]), 0, 80); break; }
+            }
+        }
+        return ' (HTTP ' . $status . $msg . ')';
+    }
+
     private function login(): void
     {
         $nonce = base64_encode(random_bytes(12));
         [$status, $start] = $this->request('POST', 'auth/start', ['username' => $this->username, 'nonce' => $nonce]);
-        if ($status !== 200 || !isset($start['nonce'], $start['salt'], $start['rounds'], $start['transactionId'])) throw new RuntimeException('Kostal auth/start failed');
+        if ($status !== 200 || !isset($start['nonce'], $start['salt'], $start['rounds'], $start['transactionId'])) throw new RuntimeException('Kostal auth/start failed' . $this->failDetail($status, $start));
         $salt = base64_decode($start['salt'], true);
         if ($salt === false || (int)$start['rounds'] <= 0) throw new RuntimeException('Kostal auth parameters invalid');
         $salted = hash_pbkdf2('sha256', $this->password, $salt, (int)$start['rounds'], 32, true);
@@ -350,7 +362,7 @@ class IHUB_KostalHttpClient
         $signature = hash_hmac('sha256', $message, $stored, true);
         $proof = $clientKey ^ $signature;
         [$status, $finish] = $this->request('POST', 'auth/finish', ['transactionId' => $start['transactionId'], 'proof' => base64_encode($proof)]);
-        if ($status !== 200 || !isset($finish['signature'], $finish['token'])) throw new RuntimeException('Kostal auth/finish failed');
+        if ($status !== 200 || !isset($finish['signature'], $finish['token'])) throw new RuntimeException('Kostal auth/finish failed' . $this->failDetail($status, $finish));
         $serverKey = hash_hmac('sha256', 'Server Key', $salted, true);
         $expected = base64_encode(hash_hmac('sha256', $message, $serverKey, true));
         if (!hash_equals($expected, $finish['signature'])) throw new RuntimeException('Kostal server signature mismatch');
@@ -362,7 +374,7 @@ class IHUB_KostalHttpClient
             'transactionId' => $start['transactionId'],
             'iv' => base64_encode($iv), 'tag' => base64_encode($tag), 'payload' => base64_encode($cipher)
         ]);
-        if ($status !== 200 || empty($session['sessionId'])) throw new RuntimeException('Kostal create_session failed');
+        if ($status !== 200 || empty($session['sessionId'])) throw new RuntimeException('Kostal create_session failed' . $this->failDetail($status, $session));
         $this->session = $session['sessionId'];
         $this->saveSession();
     }
