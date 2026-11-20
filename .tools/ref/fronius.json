@@ -1472,7 +1472,40 @@
         "unitId": 1
     },
     "readSlow Modell 122 zu kurz": {
-        "vars": [],
+        "vars": {
+            "rc_active": [
+                "B",
+                false
+            ],
+            "rc_available": [
+                "B",
+                false
+            ],
+            "rc_modes": [
+                "S",
+                "0,1,2"
+            ],
+            "rc_rated_w": [
+                "I",
+                0
+            ],
+            "rc_status": [
+                "I",
+                0
+            ],
+            "rc_tested": [
+                "B",
+                false
+            ],
+            "rc_vendor": [
+                "S",
+                "Fronius - Fronius GEN24 Modbus TCP/RTU 42,0410,2649 (28.09.2026), SunSpec Model 124"
+            ],
+            "rc_version": [
+                "I",
+                0
+            ]
+        },
         "writes": [],
         "warnings": 0,
         "return": null,

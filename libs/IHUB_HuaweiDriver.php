@@ -66,6 +66,9 @@ class IHUB_HuaweiDriver implements IHUB_InverterDriverInterface
             'GroupDevice' => ['caption' => 'Device information', 'vars' => [
                 ['dev_model', 'Model', 'S', '', false, 'device', 'RO 30000 (String)'],
             ]],
+        ] + [
+            // Fernsteuerung des Speichers (Zwangsladen/-entladen, Register 47100 ff.), UNGETESTET: Vorgabe aus, gemeinsame Schicht IHUB_RemoteControl
+            'GroupControl' => ['caption' => 'Remote control of the battery (untested: built from the Huawei document and other projects, off by default)', 'default' => false, 'vars' => IHUB_RemoteControl::vars()],
         ];
     }
 
@@ -82,7 +85,7 @@ class IHUB_HuaweiDriver implements IHUB_InverterDriverInterface
             'HUA.Ampere' => [VARIABLETYPE_FLOAT, ' A',    -1000.0,   1000.0, 0.1,  1],
             'HUA.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',      45.0,     65.0, 0.01, 2],
             'HUA.MOhm'   => [VARIABLETYPE_FLOAT, ' MΩ',       0.0,    100.0, 0.001, 3],
-        ];
+        ] + IHUB_RemoteControl::profiles();
     }
 
     public function getEnumProfiles()
@@ -95,7 +98,7 @@ class IHUB_HuaweiDriver implements IHUB_InverterDriverInterface
         foreach (self::BAT_STATUS as $k => $label) {
             $bs[$k] = [$label, 0x7A8A99];
         }
-        return ['HUA.Status' => $st, 'HUA.BatStatus' => $bs];
+        return ['HUA.Status' => $st, 'HUA.BatStatus' => $bs] + IHUB_RemoteControl::enumProfiles();
     }
 
     public function readFast($mb, $hub)
@@ -151,6 +154,9 @@ class IHUB_HuaweiDriver implements IHUB_InverterDriverInterface
 
     public function readSlow($mb, $hub)
     {
+        if ($hub->GetPropBool('GroupControl')) {
+            IHUB_RemoteControl::refresh(new IHUB_RemoteHuawei(), $mb, $hub);   // Fernsteuerung: Fähigkeit (Register 47000) und Kennzeichnung
+        }
         if (!$hub->GetPropBool('GroupEnergy')) {
             return;
         }
@@ -171,6 +177,9 @@ class IHUB_HuaweiDriver implements IHUB_InverterDriverInterface
 
     public function writeControl($mb, $hub, $ident, $value)
     {
-        // Keine Steuerregister in der ersten Ausbaustufe.
+        // Nur die gemeinsame Fernsteuerung (Zwangsladen/-entladen), UNGETESTET (rc_tested = false); keine weiteren Schreibwege.
+        if (strpos($ident, 'ctl_rc_') === 0) {
+            IHUB_RemoteControl::control(new IHUB_RemoteHuawei(), $mb, $hub, $ident, $value);
+        }
     }
 }

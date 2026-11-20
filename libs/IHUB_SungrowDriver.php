@@ -99,6 +99,9 @@ class IHUB_SungrowDriver implements IHUB_InverterDriverInterface
             'GroupControl' => ['caption' => 'Control (start/stop)', 'vars' => [
                 ['ctl_run', 'Inverter on/off', 'B', '~Switch', false, 'control', 'RW 13000'],
             ]],
+            // Fernsteuerung des Speichers (externer EMS-Modus 13050 = 3 mit Heartbeat 13080), UNGETESTET: Vorgabe aus, gemeinsame Schicht IHUB_RemoteControl.
+            // Eigene Gruppe, weil 'GroupControl' hier schon Start/Stopp (13000) enthaelt und standardmaessig an ist.
+            'GroupRemote' => ['caption' => 'Remote control of the battery (untested: built from the Sungrow document and other projects, off by default)', 'default' => false, 'vars' => IHUB_RemoteControl::vars()],
         ];
     }
 
@@ -117,7 +120,7 @@ class IHUB_SungrowDriver implements IHUB_InverterDriverInterface
             'SGW.WattReactive'  => [VARIABLETYPE_FLOAT,   ' var', -40000.0, 40000.0, 1.0,  0],
             'SGW.PowerFactor'   => [VARIABLETYPE_FLOAT,   '',        -1.0,     1.0, 0.001, 3],
             'SGW.KOhm'          => [VARIABLETYPE_FLOAT,   ' kΩ',       0.0, 65535.0, 1.0,  0],
-        ];
+        ] + IHUB_RemoteControl::profiles();
     }
 
     public function getEnumProfiles()
@@ -126,7 +129,7 @@ class IHUB_SungrowDriver implements IHUB_InverterDriverInterface
         foreach (self::RUN_STATES as $k => $label) {
             $runState[$k] = [$label, 0x7A8A99];
         }
-        return ['SGW.RunState' => $runState];
+        return ['SGW.RunState' => $runState] + IHUB_RemoteControl::enumProfiles();
     }
 
     public function readFast($mb, $hub)
@@ -310,6 +313,9 @@ class IHUB_SungrowDriver implements IHUB_InverterDriverInterface
 
     public function readSlow($mb, $hub)
     {
+        if ($hub->GetPropBool('GroupRemote')) {
+            IHUB_RemoteControl::refresh(new IHUB_RemoteSungrow(), $mb, $hub);   // Fernsteuerung: Gerätetyp, Adressversatz, Kennzeichnung
+        }
         if ($mb->readInput(13000, 1) === null) {
             return; // String-WR: Energie kommt aus readFastString (5000er-Block)
         }
@@ -355,6 +361,11 @@ class IHUB_SungrowDriver implements IHUB_InverterDriverInterface
 
     public function writeControl($mb, $hub, $ident, $value)
     {
+        if (strpos($ident, 'ctl_rc_') === 0) {
+            // gemeinsame Fernsteuerung (externer EMS-Modus), UNGETESTET (rc_tested = false)
+            IHUB_RemoteControl::control(new IHUB_RemoteSungrow(), $mb, $hub, $ident, $value);
+            return;
+        }
         if ($ident === 'ctl_run') {
             $val = (bool)$value ? 0xCF : 0xCE;
             if ($mb->writeSingle(IHUB_SungrowDriver::REG_START_STOP, $val)) {

@@ -96,6 +96,9 @@ class IHUB_FroniusDriver implements IHUB_InverterDriverInterface
                 ['dev_sn',    'Serial number', 'S', '', false, 'device', 'SunSpec Common Block'],
                 ['riso',      'Insulation resistance', 'F', 'FRO.KOhm', true, 'device', 'SunSpec Ris (Model 122)'],
             ]],
+        ] + [
+            // Fernsteuerung des Speichers (SunSpec Model 124), UNGETESTET: Vorgabe aus, gemeinsame Schicht IHUB_RemoteControl
+            'GroupControl' => ['caption' => 'Remote control of the battery (untested: built from the Fronius document and other projects, off by default)', 'default' => false, 'vars' => IHUB_RemoteControl::vars()],
         ];
     }
 
@@ -144,7 +147,7 @@ class IHUB_FroniusDriver implements IHUB_InverterDriverInterface
             'FRO.KOhm'   => [VARIABLETYPE_FLOAT, ' kΩ', 0.0, 100000.0, 1.0, 0],
             'FRO.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',     45.0,    65.0, 0.01, 2],
             'FRO.Soc'    => [VARIABLETYPE_FLOAT, ' %',        0.0,   100.0, 0.1,  1],
-        ];
+        ] + IHUB_RemoteControl::profiles();
     }
 
     public function getEnumProfiles()
@@ -153,7 +156,7 @@ class IHUB_FroniusDriver implements IHUB_InverterDriverInterface
         foreach (self::STATUS as $k => $label) {
             $status[$k] = [$label, 0x7A8A99];
         }
-        return ['FRO.Status' => $status];
+        return ['FRO.Status' => $status] + IHUB_RemoteControl::enumProfiles();
     }
 
     public function readFast($mb, $hub)
@@ -502,6 +505,9 @@ class IHUB_FroniusDriver implements IHUB_InverterDriverInterface
         // Isolationswiderstand hier als Auffrischung waehrend des Betriebs;
         // steht der Wechselrichter, holt ihn readFast() in jedem Zyklus.
         $this->readRiso($mb, $hub);
+        if ($hub->GetPropBool('GroupControl')) {
+            IHUB_RemoteControl::refresh(new IHUB_RemoteFronius(), $mb, $hub);   // Fernsteuerung (Model 124): Fähigkeit und Kennzeichnung
+        }
     }
 
     /**
@@ -572,6 +578,9 @@ class IHUB_FroniusDriver implements IHUB_InverterDriverInterface
 
     public function writeControl($mb, $hub, $ident, $value)
     {
-        // Kein Steuerregister in der ersten Ausbaustufe implementiert.
+        // Nur die gemeinsame Fernsteuerung (SunSpec Model 124), UNGETESTET (rc_tested = false); keine weiteren Schreibwege.
+        if (strpos($ident, 'ctl_rc_') === 0) {
+            IHUB_RemoteControl::control(new IHUB_RemoteFronius(), $mb, $hub, $ident, $value);
+        }
     }
 }

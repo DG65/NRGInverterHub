@@ -84,6 +84,9 @@ class IHUB_VictronDriver implements IHUB_InverterDriverInterface
                 ['mppt4_volt',  'MPPT 4 voltage', 'F', 'VIC.Volt', false, 'pv', 'Reg 776 (÷100)'],
                 ['mppt4_state', 'MPPT 4 state',  'I', 'VIC.ChgState', true, 'pv', 'Reg 775'],
             ]],
+        ] + [
+            // Fernsteuerung (Netzsollwert-Override 2716, nur Modus 3 und 0), UNGETESTET: Vorgabe aus, gemeinsame Schicht IHUB_RemoteControl
+            'GroupRemote' => ['caption' => 'Remote control of the grid setpoint (untested: built from the Victron register list and community reports, off by default)', 'default' => false, 'vars' => IHUB_RemoteControl::vars()],
         ];
     }
 
@@ -98,7 +101,7 @@ class IHUB_VictronDriver implements IHUB_InverterDriverInterface
             'VIC.Watt'   => [VARIABLETYPE_FLOAT, ' W',  -100000.0, 100000.0, 1.0, 0],
             'VIC.Volt'   => [VARIABLETYPE_FLOAT, ' V',        0.0,   1000.0, 0.1, 1],
             'VIC.Ampere' => [VARIABLETYPE_FLOAT, ' A',    -1000.0,   1000.0, 0.1, 1],
-        ];
+        ] + IHUB_RemoteControl::profiles();
     }
 
     public function getEnumProfiles()
@@ -116,7 +119,7 @@ class IHUB_VictronDriver implements IHUB_InverterDriverInterface
             4 => ['Absorption', 0x3BA55D], 5 => ['Float', 0x3BA55D], 6 => ['Storage', 0x7A8A99],
             7 => ['Equalization', 0xE08A2B], 11 => ['Hub-1', 0x7A8A99], 252 => ['Hub-1', 0x7A8A99],
         ];
-        return ['VIC.BatState' => $bat, 'VIC.GridSrc' => $src, 'VIC.ChgState' => $chg];
+        return ['VIC.BatState' => $bat, 'VIC.GridSrc' => $src, 'VIC.ChgState' => $chg] + IHUB_RemoteControl::enumProfiles();
     }
 
     public function readFast($mb, $hub)
@@ -204,6 +207,12 @@ class IHUB_VictronDriver implements IHUB_InverterDriverInterface
 
     public function readSlow($mb, $hub)
     {
+        if ($hub->GetPropBool('GroupRemote')) {
+            $keep = $mb->unitId;
+            $mb->unitId = self::UNIT_SYSTEM;
+            IHUB_RemoteControl::refresh(new IHUB_RemoteVictron(), $mb, $hub);   // Fernsteuerung: Fähigkeit (Register 2716) und Kennzeichnung
+            $mb->unitId = $keep;
+        }
         // Zählerstände. Der Systemdienst (Unit 100) führt KEINE Energiezähler -
         // nur Momentanleistungen. Die Zähler liegen auf eigenen Diensten:
         //   com.victronenergy.grid          -> eigene Unit-ID (Netzzähler)
@@ -299,6 +308,15 @@ class IHUB_VictronDriver implements IHUB_InverterDriverInterface
 
     public function writeControl($mb, $hub, $ident, $value)
     {
-        // Keine Steuerregister in der ersten Ausbaustufe.
+        // Nur die gemeinsame Fernsteuerung (Netzsollwert-Override 2716 auf dem Systemdienst, Unit 100), UNGETESTET; keine weiteren Schreibwege.
+        if (strpos($ident, 'ctl_rc_') === 0) {
+            $keep = $mb->unitId;
+            $mb->unitId = self::UNIT_SYSTEM;
+            try {
+                IHUB_RemoteControl::control(new IHUB_RemoteVictron(), $mb, $hub, $ident, $value);
+            } finally {
+                $mb->unitId = $keep;
+            }
+        }
     }
 }

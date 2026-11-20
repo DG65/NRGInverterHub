@@ -16,6 +16,11 @@ IHUB_SolisDispatch::$spacingUs = 0; IHUB_SolisDispatch::$readbackUs = 0; IHUB_So
 IHUB_RemoteFoxEss::$gapUs = 0; IHUB_RemoteFoxEss::$readbackUs = 0; IHUB_RemoteFoxEss::$retryPauseUs = 0;
 IHUB_RemoteDeye::$gapUs = 0; IHUB_RemoteDeye::$readbackUs = 0; IHUB_RemoteDeye::$retryPauseUs = 0;
 IHUB_RemoteSolax::$gapUs = 0; IHUB_RemoteSolax::$readbackUs = 0; IHUB_RemoteSolax::$retryPauseUs = 0;
+IHUB_RemoteFronius::$gapUs = 0; IHUB_RemoteFronius::$readbackUs = 0; IHUB_RemoteFronius::$retryPauseUs = 0;
+IHUB_RemoteKostal::$gapUs = 0; IHUB_RemoteKostal::$readbackUs = 0; IHUB_RemoteKostal::$retryPauseUs = 0;
+IHUB_RemoteHuawei::$gapUs = 0; IHUB_RemoteHuawei::$dirPauseUs = 0; IHUB_RemoteHuawei::$readbackUs = 0; IHUB_RemoteHuawei::$retryPauseUs = 0;
+IHUB_RemoteSungrow::$gapUs = 0; IHUB_RemoteSungrow::$readbackUs = 0; IHUB_RemoteSungrow::$retryPauseUs = 0;
+IHUB_RemoteVictron::$readbackUs = 0; IHUB_RemoteVictron::$retryPauseUs = 0;
 IHUB_RemoteSma::$gapUs = 0; IHUB_RemoteSma::$readbackUs = 0; IHUB_RemoteSma::$retryPauseUs = 0;
 
 /** Gemeinsame Grundlage der nachgebildeten Geräte: Schreiben speichert, einstellbare Fehler. */
@@ -132,16 +137,115 @@ class SmaDrvFamily extends IHUB_SmaDriver
     protected function remoteAdapter($hub): IHUB_RemoteSma { return new IHUB_RemoteSma($this->fam); }
 }
 
+/** Fronius: SunSpec-Kette ab 40000 (SunS, Model 1, 101, 124 mit Länge 24, Ende); Model 124 ab 40014. Werte wie ein GEN24 mit 3300 W Speicherleistung. */
+class SimFronius extends SimBase
+{
+    const BASE = 40014;
+    public $modelPresent = true;
+    public function __construct(int $wchamax = 3300, int $wsf = 0, int $rsf = -2)
+    {
+        parent::__construct();
+        $r = &$this->regs[3];
+        $r[40000] = 0x5375; $r[40001] = 0x6E53;
+        $r[40002] = 1; $r[40003] = 4; for ($a = 40004; $a <= 40007; $a++) { $r[$a] = 0; }
+        $r[40008] = 101; $r[40009] = 2; $r[40010] = 0; $r[40011] = 0;
+        if ($this->modelPresent) {
+            $r[40012] = 124; $r[40013] = 24;
+            for ($i = 0; $i < 24; $i++) { $r[self::BASE + $i] = 0; }
+            $r[self::BASE] = $wchamax; $r[self::BASE + 16] = $wsf & 0xFFFF; $r[self::BASE + 23] = $rsf & 0xFFFF;
+            $r[self::BASE + 10] = 10000; $r[self::BASE + 11] = 10000;     // Werkzustand: 100 % beide Richtungen, keine Grenze aktiv
+            $r[40038] = 0xFFFF; $r[40039] = 0;
+        } else {
+            $r[40012] = 0xFFFF; $r[40013] = 0;
+        }
+    }
+    public function readHolding($start, $count) { if (!$this->available) { $this->reads[] = [3, (int)$start, (int)$count, 1]; return null; } return parent::readHolding($start, $count); }
+    public function reg(int $idx): int { return $this->regs[3][self::BASE + $idx] ?? 0; }
+}
+
+/** Kostal: Register 1080 = 2 (externes Batteriemanagement über Modbus), Akkugrenzen 1076/1078 und Sollwert 1034 als Float32; Wortreihenfolge einstellbar. */
+class SimKostal extends SimBase
+{
+    public $swap = false;
+    public function __construct(int $mode = 2, float $maxCharge = 5000.0, float $maxDischarge = 5000.0, bool $swap = false)
+    {
+        parent::__construct();
+        $this->swap = $swap;
+        $this->regs[3][1080] = $mode;
+        foreach ([1076 => $maxCharge, 1078 => $maxDischarge, 1034 => 0.0] as $a => $v) { $w = \IHUB\NRGModbus\ModbusDecode::packFloat32($v, $swap); $this->regs[3][$a] = $w[0]; $this->regs[3][$a + 1] = $w[1]; }
+    }
+    public function readHolding($start, $count) { if (!$this->available && (int)$start === 1080) { $this->reads[] = [3, 1080, (int)$count, 1]; return null; } return parent::readHolding($start, $count); }
+    public function sp(): float { return \IHUB\NRGModbus\ModbusDecode::float32([$this->regs[3][1034], $this->regs[3][1035]], 0, $this->swap); }
+}
+
+/** Huawei: SUN2000 mit LUNA2000 (47000 = 2, Zustand 2, Systemmaximum 5000 W); 47100 schaltet den Arbeitsmodus 37006 (1 = Zwangsmodus läuft). */
+class SimHuawei extends SimBase
+{
+    public function __construct(int $model = 2, int $maxC = 5000, int $maxD = 5000)
+    {
+        parent::__construct();
+        $r = &$this->regs[3];
+        $r[47000] = $model; $r[37000] = 2; $r[37006] = 4; $r[37025] = 0;
+        foreach ([37046 => $maxC, 37048 => $maxD, 47075 => 3500, 47077 => 3500, 47242 => 0, 47244 => 2000, 47247 => 0, 47249 => 0] as $a => $v) { $r[$a] = ($v >> 16) & 0xFFFF; $r[$a + 1] = $v & 0xFFFF; }
+        foreach ([47083, 47087, 47100, 47246] as $a) { $r[$a] = 0; }
+    }
+    public function readHolding($start, $count) { if (!$this->available && (int)$start === 47000) { $this->reads[] = [3, 47000, (int)$count, 1]; return null; } return parent::readHolding($start, $count); }
+    protected function after(): void { $this->regs[3][37006] = (($this->regs[3][47100] ?? 0) !== 0) ? 1 : 4; }
+    public function v32(int $a): int { return (($this->regs[3][$a] ?? 0) << 16) | ($this->regs[3][$a + 1] ?? 0); }
+}
+
+/** Sungrow: Gerätetypcode bei Dokumentnummer 5000 (Wire 5000 + Versatz), BDC-Nennleistung 5628 (100 = 10 kW), Laufstatus 13000 (0x4000 bei externem EMS), EMS-Register 13050 ff. */
+class SimSungrow extends SimBase
+{
+    public $off;
+    public function __construct(int $off = 0, int $type = 0xE03, int $rated = 100)
+    {
+        parent::__construct();
+        $this->off = $off;
+        $this->regs[4][4999] = 0; $this->regs[4][5000] = 100; $this->regs[4][5001] = 100;
+        $this->regs[4][5000 + $off] = $type;
+        $this->regs[4][5628 + $off] = $rated; $this->regs[4][13000 + $off] = 0;
+        $this->regs[3][13050 + $off] = 0; $this->regs[3][13051 + $off] = 0xCC; $this->regs[3][13052 + $off] = 0; $this->regs[3][13080 + $off] = 20;
+    }
+    public function readInput($start, $count) { if (!$this->available && (int)$start === 4999) { $this->reads[] = [4, 4999, (int)$count, 1]; return null; } return parent::readInput($start, $count); }
+    protected function after(): void { $this->regs[4][13000 + $this->off] = (($this->regs[3][13050 + $this->off] ?? 0) === 3) ? 0x4000 : 0; }
+    public function h(int $doc): int { return $this->regs[3][$doc + $this->off] ?? 0; }
+}
+
+/** Victron GX: Unit 100, Override 2716/2717 (int32, 0 = keiner), Hub4-Modus 2902, Dynamic ESS 5400; Schreiben auf 2716 nur auf Unit 100. */
+class SimVictron extends SimBase
+{
+    public function __construct(int $hub4 = 2, int $dess = 0)
+    {
+        parent::__construct();
+        $this->unitId = 1;
+        $this->regs[3][2716] = 0; $this->regs[3][2717] = 0; $this->regs[3][2902] = $hub4; $this->regs[3][5400] = $dess; $this->regs[3][2700] = 50;
+        for ($a = 808; $a <= 826; $a++) { $this->regs[3][$a] = 0; }
+        $this->flow(0, 1000, 1000, 0, 0);
+    }
+    public function readHolding($start, $count) { if (!$this->available && (int)$start === 2716) { $this->reads[] = [3, 2716, (int)$count, (int)$this->unitId]; return null; } return parent::readHolding($start, $count); }
+    public function writeMultiple($start, $values) { $this->units[] = $this->unitId; return parent::writeMultiple($start, $values); }
+    public $units = [];
+    /** Messwerte: AC-PV (808), Verbrauch (817), Netz (820, + = Bezug), Akkuleistung (842, + = Laden), DC-PV (850). */
+    public function flow(int $pvAc, int $load, int $grid, int $bat, int $pvDc): void { $this->regs[3][808] = $pvAc & 0xFFFF; $this->regs[3][817] = $load & 0xFFFF; $this->regs[3][820] = $grid & 0xFFFF; $this->regs[3][842] = $bat & 0xFFFF; $this->regs[3][850] = $pvDc & 0xFFFF; }
+    public function ov(): int { $u = (($this->regs[3][2716] ?? 0) << 16) | ($this->regs[3][2717] ?? 0); return $u >= 0x80000000 ? $u - 0x100000000 : $u; }
+}
+
 function hubFor(array $seed = [], bool $control = true) { $h = new RefHub(['GroupControl' => $control]); $h->seed = $seed; return $h; }
 function u32w(int $v): array { $u = $v < 0 ? $v + 4294967296 : $v; return [($u >> 16) & 0xFFFF, $u & 0xFFFF]; }
 
 $solis = new IHUB_SolisDriver(); $fox = new IHUB_FoxEssSmartDriver(); $deye = new IHUB_DeyeDriver(); $solax = new IHUB_SolaxDriver();
-$smaSe = new SmaDrvFamily(); $smaSi = new SmaDrvFamily(); $smaSi->fam = 'si'; $smaSx = new SmaDrvFamily(); $smaSx->fam = 'stpsx';
+$fronius = new IHUB_FroniusDriver(); $kostal = new IHUB_KostalDriver(); $huawei = new IHUB_HuaweiDriver(); $sungrow = new IHUB_SungrowDriver(); $victron = new IHUB_VictronDriver(); $smaSe = new SmaDrvFamily(); $smaSi = new SmaDrvFamily(); $smaSi->fam = 'si'; $smaSx = new SmaDrvFamily(); $smaSx->fam = 'stpsx';
 $adapters = [
     'Solis' => ['drv' => $solis, 'sim' => fn() => new SimSolis(), 'adapter' => new IHUB_RemoteSolis(), 'modes' => [0, 1, 2, 3], 'tested' => true, 'rated' => 0],
     'FoxESS' => ['drv' => $fox, 'sim' => fn() => new SimFox(), 'adapter' => new IHUB_RemoteFoxEss(), 'modes' => [0, 2, 3], 'tested' => false, 'rated' => 0],
     'Deye' => ['drv' => $deye, 'sim' => fn() => new SimDeye(), 'adapter' => new IHUB_RemoteDeye(), 'modes' => [0, 1, 2], 'tested' => false, 'rated' => 10000],
     'SolaX' => ['drv' => $solax, 'sim' => fn() => new SimSolax(), 'adapter' => new IHUB_RemoteSolax(), 'modes' => [0, 1, 2], 'tested' => false, 'rated' => 0],
+    'Victron' => ['drv' => $victron, 'sim' => fn() => new SimVictron(), 'adapter' => new IHUB_RemoteVictron(), 'modes' => [0, 1, 2, 3], 'tested' => false, 'rated' => 0],
+    'Sungrow' => ['drv' => $sungrow, 'sim' => fn() => new SimSungrow(), 'adapter' => new IHUB_RemoteSungrow(), 'modes' => [0, 1, 2], 'tested' => false, 'rated' => 10000],
+    'Huawei' => ['drv' => $huawei, 'sim' => fn() => new SimHuawei(), 'adapter' => new IHUB_RemoteHuawei(), 'modes' => [0, 1, 2], 'tested' => false, 'rated' => 5000],
+    'Kostal' => ['drv' => $kostal, 'sim' => fn() => new SimKostal(), 'adapter' => new IHUB_RemoteKostal(), 'modes' => [0, 1, 2], 'tested' => false, 'rated' => 5000],
+    'Fronius' => ['drv' => $fronius, 'sim' => fn() => new SimFronius(), 'adapter' => new IHUB_RemoteFronius(), 'modes' => [0, 1, 2], 'tested' => false, 'rated' => 3300],
     'SMA STP SE' => ['drv' => $smaSe, 'sim' => fn() => new SimSma('se'), 'adapter' => new IHUB_RemoteSma('se'), 'modes' => [0, 1, 2], 'tested' => false, 'rated' => 0],
     'SMA Sunny Island' => ['drv' => $smaSi, 'sim' => fn() => new SimSma('si'), 'adapter' => new IHUB_RemoteSma('si'), 'modes' => [0, 1, 2], 'tested' => false, 'rated' => 10000],
     'SMA STPS X' => ['drv' => $smaSx, 'sim' => fn() => new SimSma('stpsx'), 'adapter' => new IHUB_RemoteSma('stpsx'), 'modes' => [0, 1, 2], 'tested' => false, 'rated' => 10000],
@@ -163,10 +267,10 @@ foreach ($adapters as $name => $A) {
     // Fähigkeit fehlt
     $mb = $mk(); $mb->available = false; if ($name === 'Deye') { $mb->notAvailable = true; } if ($name === 'Solis') { $mb->regs[4][34502] = 0; }
     $hub = hubFor();
-    $drv->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+    $drv->writeControl($mb, $hub, 'ctl_rc_mode', in_array(2, $A['modes'], true) ? 2 : 3);
     ref_ok($mb->writes === [] && count($hub->warn) === 1 && !isset($hub->vars['ctl_rc_mode']), "$name: ohne Fähigkeit nichts geschrieben, Warnung, Modus bleibt");
     $mb = $mk(); $mb->silent = true; $hub = hubFor();
-    $drv->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+    $drv->writeControl($mb, $hub, 'ctl_rc_mode', in_array(2, $A['modes'], true) ? 2 : 3);
     ref_ok($mb->writes === [] && count($hub->warn) === 1, "$name: Fähigkeitsabfrage ohne Antwort: nichts geschrieben, Warnung");
 
     // nicht angebotene Modi
@@ -183,6 +287,8 @@ foreach ($adapters as $name => $A) {
     $drv->writeControl($mb, $hub, 'ctl_rc_grid_charge', 1); $drv->writeControl($mb, $hub, 'ctl_rc_soc_max', 80); $drv->writeControl($mb, $hub, 'ctl_rc_soc_min', 20);
     if ($info['gridCharge'] && $info['socWindow']) {
         ref_ok($hub->warn === [] && $hub->vars['ctl_rc_grid_charge'][1] === 1 && $hub->vars['ctl_rc_soc_max'][1] === 80 && $hub->vars['ctl_rc_soc_min'][1] === 20, "$name: Netzladen und SOC-Fenster werden gemerkt");
+    } elseif ($info['gridCharge'] && !$info['socWindow']) {
+        ref_ok(count($hub->warn) === 2 && $hub->vars['ctl_rc_grid_charge'][1] === 1 && !isset($hub->vars['ctl_rc_soc_max']), "$name: Netzladen wird gemerkt, SOC-Fenster abgelehnt statt still ignoriert (2 Warnungen)");
     } else {
         ref_ok(count($hub->warn) === 3 && !isset($hub->vars['ctl_rc_grid_charge']) && !isset($hub->vars['ctl_rc_soc_max']), "$name: Netzladen und SOC-Fenster nicht unterstützt: abgelehnt statt still ignoriert (3 Warnungen)");
         $hub = hubFor($seedOn); $drv->writeControl($mb, $hub, 'ctl_rc_soc_max', 100); $drv->writeControl($mb, $hub, 'ctl_rc_soc_min', 0); $drv->writeControl($mb, $hub, 'ctl_rc_grid_charge', 0);
@@ -198,8 +304,9 @@ foreach ($adapters as $name => $A) {
 
     // Fähigkeit wird vor dem ersten Zyklus selbst abgefragt
     $mb = $mk(); $hub = hubFor(['rc_rated_w' => $A['rated'], 'ctl_rc_w' => 0]);
-    $drv->writeControl($mb, $hub, 'ctl_rc_mode', 2);
-    ref_ok($hub->warn === [] && ($hub->vars['ctl_rc_mode'][1] ?? null) === 2, "$name: Fähigkeit noch unbekannt (Version 0): wird beim Schreiben einmal abgefragt, Modus 2 angenommen");
+    $firstMode = in_array(2, $A['modes'], true) ? 2 : 3;      // Victron bietet nur 0 und 3
+    $drv->writeControl($mb, $hub, 'ctl_rc_mode', $firstMode);
+    ref_ok($hub->warn === [] && ($hub->vars['ctl_rc_mode'][1] ?? null) === $firstMode, "$name: Fähigkeit noch unbekannt (Version 0): wird beim Schreiben einmal abgefragt, Modus $firstMode angenommen");
 }
 
 echo "\n== Adapter: Prüfung der Anfragen ==\n";
@@ -320,6 +427,261 @@ $sg = $solax->getOptionalGroups();
 ref_ok(isset($sg['GroupControl']) && ($sg['GroupControl']['default'] ?? true) === false, 'SolaX: Gruppe Steuerung startet aus (ungetestet)');
 
 
+
+
+
+
+
+
+echo "\n== Victron: Netzsollwert-Override 2716, nur Modus 0 und 3 ==\n";
+$mb = new SimVictron(); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 2500]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 3);
+ref_ok($mb->writes === [['multi', 2716, IHUB_RemoteVictron::words(-2500)]] && $mb->ov() === -2500, 'Victron: Modus 3 +2500 W (Einspeisung) = Override −2500 W (int32, hohes Wort zuerst) in 2716');
+ref_ok($hub->warn === [] && $hub->vars['rc_failsafe_eff_sec'][1] === 180 && $hub->vars['rc_active'][1] === true && $mb->units === [100] && $mb->unitId === 1, 'Victron: übernommen, Totmann 180 s (Zeitgeber von hub4control, die kleinere Messung), aktiv; geschrieben auf Unit 100, die Unit-ID der Instanz wird zurückgesetzt');
+$mb = new SimVictron(); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => -1800]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 3);
+ref_ok($mb->ov() === 1800, 'Victron: −1800 W (Bezug) = Override +1800 W');
+$mb = new SimVictron(); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 0]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 3);
+ref_ok($mb->writes === [['multi', 2716, [0, 0]]] && $hub->warn === [], 'Victron: 0 W ist ein echter Override (Netzbezug 0 W) und wird als 0 gesendet, kein Freigeben');
+$mb = new SimVictron(); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 40000]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 3);
+ref_ok($mb->ov() === -40000, 'Victron: Leistung auf ±40000 W begrenzt');
+$mb = new SimVictron(); $mb->regs[3][2716] = 0xFFFF; $mb->regs[3][2717] = 0xF63C; $hub = hubFor(['rc_version' => 1, 'ctl_rc_mode' => 3]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 0);
+ref_ok($mb->writes === [['multi', 2716, [0, 50]]] && $mb->ov() === 50 && $hub->vars['ctl_rc_mode'][1] === 0 && $hub->vars['rc_failsafe_eff_sec'][1] === 0, 'Victron: Modus 0 hat per Modbus keine Freigabe: der Netzsollwert 2700 (50 W) wird einmal gespiegelt, 0 wird NIE als Freigabe geschrieben');
+$n = count($mb->writes); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 0);
+ref_ok(count($mb->writes) === $n && $hub->warn === [], 'Victron: Modus 0 erneut: der Override steht schon auf dem Netzsollwert, es wird geschwiegen (hub4control nimmt ihn nach seinem Zeitgeber zurück)');
+$mb = new SimVictron(); $mb->noRead = [2700]; $mb->regs[3][2717] = 700; $hub = hubFor(['rc_version' => 1, 'ctl_rc_mode' => 3]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 0);
+ref_ok($mb->writes === [] && $hub->warn === [], 'Victron: Modus 0 ohne lesbaren Netzsollwert 2700: nichts geschrieben (nie 0 raten)');
+$mb = new SimVictron(2, 1); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 1000]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 3);
+ref_ok($mb->writes === [] && count($hub->warn) === 1 && strpos($hub->warn[0], '5400') !== false && !isset($hub->vars['ctl_rc_mode']), 'Victron: Dynamic ESS aktiv (5400 = 1): nichts geschrieben, Warnung nennt Register 5400');
+$mb = new SimVictron(3, 0); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 1000]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 3);
+ref_ok($mb->writes === [] && count($hub->warn) === 1 && strpos($hub->warn[0], '2902') !== false, 'Victron: ESS-Modus 3 (externe Steuerung, 2902 = 3): der Override gilt nicht, nichts geschrieben, Warnung nennt Register 2902');
+$mb = new SimVictron(); $mb->noRead = [2902, 5400]; $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 1000]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 3);
+ref_ok($hub->warn === [] && $mb->ov() === -1000, 'Victron: fehlen 2902 und 5400 (ältere Version, kein Settings-Dienst), wird trotzdem geschrieben');
+$mb = new SimVictron(); $mb->ignoreRegs = [2716]; $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 1000]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 3);
+ref_ok(count($hub->warn) === 1 && strpos($hub->warn[0], '2716') !== false && !isset($hub->vars['ctl_rc_mode']) && count($mb->writes) === 2, 'Victron: Override wird nicht übernommen: zweiter Versuch, Warnung nennt Register 2716');
+$mb = new SimVictron(); $mb->failWrite = [2716]; $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 1000]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 3);
+ref_ok(count($hub->warn) === 1 && !isset($hub->vars['ctl_rc_mode']) && $mb->unitId === 1, 'Victron: Schreibfehler: Warnung, Modus bleibt, Unit-ID zurückgesetzt');
+$mb = new SimVictron(); $mb->available = false; $hub = hubFor(); $victron->readSlow($mb, $hub);
+ref_ok(!isset($hub->vars['rc_available']) && $mb->unitId === 1, 'Victron: ohne Antwort auf 2716 (Venus OS älter als 3.50) bleiben die Variablen unverändert');
+$mb = new SimVictron(); $hub = hubFor(); $victron->readSlow($mb, $hub);
+ref_ok($hub->vars['rc_available'][1] === true && $hub->vars['rc_modes'][1] === '0,1,2,3' && $hub->vars['rc_tested'][1] === false, 'Victron: langsamer Zyklus meldet Fähigkeit und die Modi 0,1,2,3');
+$mb = new SimVictron(); $mb->flow(0, 1000, 1000, 0, 0); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 4000]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->writes === [['multi', 2716, [0, 1000]]] && $hub->warn === [] && $hub->vars['rc_failsafe_eff_sec'][1] === 180, 'Victron: Halten (Last 1000 W, keine PV): Netzsollwert = Last = 1000 W Bezug (Akku 0 W), auch bei gemerkter Leistung; Totmann 180 s');
+$mb = new SimVictron(); $mb->flow(0, 1000, 400, 0, 600); $hub = hubFor(['rc_version' => 1]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->ov() === 400, 'Victron: Halten mit DC-gekoppelter PV (600 W, Register 850) und Last 1000 W: Sollwert 400 W Bezug');
+$mb = new SimVictron(); $mb->flow(0, 1000, -500, 0, 1500); $hub = hubFor(['rc_version' => 1]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->ov() === -500, 'Victron: Halten mit DC-PV 1500 W über der Last: der Überschuss geht ins Netz, Sollwert −500 W (die DC-PV zählt in die Bilanz)');
+$mb = new SimVictron(); $mb->flow(0, 1000, 1300, 300, 0); $hub = hubFor(['rc_version' => 1]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->ov() === 1000, 'Victron: Halten, der Akku lädt ungewollt mit 300 W: die Rückführung bleibt auf 1000 W Bezug (Vorsteuerung und Rückführung stimmen überein)');
+$mb = new SimVictron(); $mb->flow(0, 1000, 1000, 0, 0); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 2000]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->ov() === 3000 && $hub->warn === [], 'Victron: Akku +2000 W Laden bei Last 1000 W: Netzsollwert +3000 W Bezug');
+$mb = new SimVictron(); $mb->flow(0, 1000, 1000, 0, 0); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => -1500]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->ov() === -500, 'Victron: Akku −1500 W Entladen bei Last 1000 W: Netzsollwert −500 W (Einspeisung)');
+$mb = new SimVictron(); $mb->flow(0, 1000, 3500, 0, 0); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 2000]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->ov() === 3800, 'Victron: der Akku folgt nicht (Netz 3500 W, Akku 0 W): der Sollwert wird auf die Vorsteuerung ± 800 W begrenzt (3800 W), kein Aufschaukeln');
+$mb = new SimVictron(); $mb->flow(0, 1000, -2000, 0, 0); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 2000]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->ov() === 2200, 'Victron: Rückführung nach unten ebenfalls begrenzt (Vorsteuerung 3000 W − 800 W)');
+$mb = new SimVictron(); $mb->noRead = [850]; $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 500]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->writes === [] && count($hub->warn) === 1 && strpos($hub->warn[0], '842') !== false, 'Victron: Messwerte (850) nicht lesbar: Halten und Akku ±W werden nicht geschrieben, Warnung nennt die Register');
+$mb = new SimVictron(); $mb->noRead = [850]; $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 500]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 3);
+ref_ok($hub->warn === [] && $mb->ov() === -500, 'Victron: Modus 3 braucht die Messwerte nicht');
+$mb = new SimVictron(2, 1); $hub = hubFor(['rc_version' => 1]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->writes === [] && count($hub->warn) === 1 && strpos($hub->warn[0], '5400') !== false, 'Victron: Dynamic ESS aktiv: auch Halten wird nicht geschrieben');
+ref_ok(IHUB_RemoteVictron::loopSetpoint(0, ['pv' => 0, 'load' => 1000, 'grid' => 1000, 'bat' => 0]) === 1000 && IHUB_RemoteVictron::loopSetpoint(2000, ['pv' => 500, 'load' => 1000, 'grid' => 500, 'bat' => 0]) === 2500 && IHUB_RemoteVictron::loopSetpoint(-1000, ['pv' => 0, 'load' => 1000, 'grid' => 1000, 'bat' => 0]) === 0, 'Victron: loopSetpoint() rechnet Vorsteuerung und Rückführung');
+$mb = new SimVictron(); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 500]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 3); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 0);
+ref_ok(array_unique($mb->order) === [2716], 'Victron: es wird nur Register 2716 geschrieben, nie 2700, 2704, 2705, 2720, 2901 oder 2902 (auch Halten und Akku ±W nicht)');
+ref_ok(IHUB_RemoteVictron::devicePower(3, 2500) === -2500 && IHUB_RemoteVictron::devicePower(3, -1230) === 1230 && IHUB_RemoteVictron::devicePower(3, 0) === 0 && IHUB_RemoteVictron::devicePower(0, 2500) === 0 && IHUB_RemoteVictron::devicePower(3, 1234) === -1230, 'Victron: devicePower je Modus, Vorzeichen, 0 W als echter Override und 10-W-Rundung');
+ref_ok(IHUB_RemoteVictron::words(-2500) === [0xFFFF, 0xF63C] && IHUB_RemoteVictron::words(70000) === [1, 4464], 'Victron: int32 hohes Wort zuerst (Zweierkomplement)');
+$a = new IHUB_RemoteVictron();
+ref_ok($a->validate(['mode' => 4, 'watts' => 0, 'failsafeSec' => 0, 'ext' => []], ['flow' => []]) !== '' && $a->validate(['mode' => 1, 'watts' => 0, 'failsafeSec' => 0, 'ext' => []], []) !== '' && $a->validate(['mode' => 1, 'watts' => 0, 'failsafeSec' => 0, 'ext' => []], ['flow' => ['pv' => 0, 'load' => 0, 'grid' => 0, 'bat' => 0]]) === '' && $a->validate(['mode' => 3, 'watts' => 0, 'failsafeSec' => 0, 'ext' => []], []) === '', 'Victron: Modus 4 und Halten ohne Messwerte werden vom Adapter selbst abgelehnt, Modus 3 braucht keine Messwerte');
+ref_ok($a->isActive(-500) && $a->isActive(1) && !$a->isActive(0), 'Victron: aktiv, solange ein Override gesetzt ist');
+$vg = $victron->getOptionalGroups();
+ref_ok(isset($vg['GroupRemote']) && ($vg['GroupRemote']['default'] ?? true) === false && ($vg['GroupPV']['default'] ?? true) === true, 'Victron: Gruppe Fernsteuerung startet aus, die übrigen Gruppen bleiben an');
+$i = $a->info();
+ref_ok($i['tested'] === false && $i['modes'] === [0, 1, 2, 3] && count($i['pitfalls']) >= 10 && array_filter($i['pitfalls'], fn($s) => strpos($s, 'does NOT release') !== false) && array_filter($i['pitfalls'], fn($s) => strpos($s, 'deliberate timer') !== false), 'Victron: Kennzeichnung, Modi 0 bis 3, Fallen nennen den absichtlichen Zeitgeber und dass 0 nicht freigibt');
+
+echo "\n== Sungrow: externer EMS-Modus, Heartbeat, Adressversatz ==\n";
+$mb = new SimSungrow(0); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 10000, 'ctl_rc_w' => 2000, 'ctl_rc_failsafe_sec' => 90]); $sungrow->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->order === [13050, 13051, 13080], 'Sungrow: Reihenfolge EMS-Modus 13050, Befehl und Leistung 13051/13052, Heartbeat 13080 zuletzt');
+ref_ok($mb->writes[0][2] === [3] && $mb->writes[1][2] === [0xAA, 2000] && $mb->writes[2][2] === [90], 'Sungrow: +2000 W Laden: 13050 = 3 (externes EMS), 0xAA mit 2000 W, Heartbeat 90 s');
+ref_ok($hub->warn === [] && $hub->vars['rc_failsafe_eff_sec'][1] === 90 && $hub->vars['rc_active'][1] === true && $hub->vars['rc_status'][1] === 0x4000, 'Sungrow: übernommen, Totmann 90 s, aktiv (Laufstatus 0x4000)');
+$n = count($mb->writes); $hub->SetVarInt('ctl_rc_w', 500); $sungrow->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok(array_slice($mb->order, $n) === [13051, 13080] && $mb->h(13052) === 500, 'Sungrow: zweiter Zyklus schreibt nur Befehl/Leistung und Heartbeat, 13050 (dauerhaft gespeichert) nicht erneut');
+$mb = new SimSungrow(0); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 10000, 'ctl_rc_w' => -1500]); $sungrow->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->writes[1][2] === [0xBB, 1500] && $mb->writes[2][2] === [60], 'Sungrow: −1500 W Entladen: 0xBB mit 1500 W; Heartbeat 0 = Vorgabe 60 s');
+$mb = new SimSungrow(0); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 10000, 'ctl_rc_w' => 3000]); $sungrow->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->writes[1][2] === [0xCC, 0] && $mb->writes[2][2] === [60], 'Sungrow: Halten = 0xCC mit 0 W im externen Modus, der Heartbeat läuft (Totmann auch beim Halten)');
+$mb = new SimSungrow(0, 0xE03, 50); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_w' => 9000]); $sungrow->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->h(13052) === 5000, 'Sungrow: Leistung auf die BDC-Nennleistung 5628 (50 = 5 kW) begrenzt');
+foreach ([[5, 10], [99999, 1000]] as [$in, $outv]) {
+    $mb = new SimSungrow(0); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 10000, 'ctl_rc_failsafe_sec' => $in]); $sungrow->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+    ref_ok($mb->h(13080) === $outv, "Sungrow: Heartbeat $in s wird auf $outv s begrenzt");
+}
+$mb = new SimSungrow(-1); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 10000, 'ctl_rc_w' => 2000]); $sungrow->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->order === [13049, 13050, 13079] && $hub->warn === [] && $mb->h(13051) === 0xAA, 'Sungrow: Versatz −1 (Dokument: Nummer minus eins) wird am Gerätetypcode bei 4999 erkannt, alle Adressen um eins kleiner');
+$mb = new SimSungrow(0, 0x1234); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 10000]); $sungrow->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->writes === [] && count($hub->warn) === 1 && !isset($hub->vars['ctl_rc_mode']), 'Sungrow: unbekannter Gerätetypcode: nichts geschrieben, Warnung');
+$mb = new SimSungrow(0); $mb->noRead = [13050]; $hub = hubFor(['rc_version' => 1]); $sungrow->readSlow($mb, $hub);
+ref_ok($hub->vars['rc_available'][1] === false, 'Sungrow: ohne EMS-Register 13050 (String-Wechselrichter): nicht verfügbar');
+$mb = new SimSungrow(0); $mb->regs[3][13050] = 3; $mb->regs[3][13051] = 0xAA; $mb->regs[3][13052] = 700; $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 10000, 'ctl_rc_mode' => 2]); $sungrow->writeControl($mb, $hub, 'ctl_rc_mode', 0);
+ref_ok($mb->writes === [['multi', 13050, [0, 0xCC, 0]]] && $hub->vars['ctl_rc_mode'][1] === 0, 'Sungrow: Modus 0 schreibt 13050 := 0, Befehl 0xCC, Leistung 0 in einem Block');
+$mb = new SimSungrow(0); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 10000, 'ctl_rc_mode' => 0]); $sungrow->writeControl($mb, $hub, 'ctl_rc_mode', 0);
+ref_ok($mb->writes === [] && $hub->warn === [], 'Sungrow: Modus 0 bei schon hergestelltem Eigenverbrauch: nichts geschrieben');
+$mb = new SimSungrow(0); $mb->ignoreRegs = [13080]; $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 10000, 'ctl_rc_w' => 100]); $sungrow->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok(count($hub->warn) === 1 && strpos($hub->warn[0], '13080') !== false && !isset($hub->vars['ctl_rc_mode']), 'Sungrow: Heartbeat nicht übernommen (Totmann bliebe bei 20 s): Warnung nennt Register 13080');
+$mb = new SimSungrow(0); $mb->ignoreRegs = [13051]; $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 10000, 'ctl_rc_w' => 100]); $sungrow->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok(count($hub->warn) === 1 && strpos($hub->warn[0], '13051') !== false, 'Sungrow: Befehl nicht übernommen: Warnung nennt Register 13051');
+$mb = new SimSungrow(0); $mb->failWrite = [13050]; $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 10000, 'ctl_rc_w' => 100]); $sungrow->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok(count($hub->warn) === 1 && !in_array(13080, $mb->order, true), 'Sungrow: Schreiben des EMS-Modus scheitert: Befehl und Heartbeat werden nicht mehr geschrieben');
+$mb = new SimSungrow(0); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 10000, 'ctl_rc_w' => 100]); $sungrow->writeControl($mb, $hub, 'ctl_rc_mode', 2); $sungrow->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok(array_diff($mb->order, [13050, 13051, 13080]) === [] && !in_array(33047, $mb->order, true) && !in_array(13058, $mb->order, true) && !in_array(13074, $mb->order, true) && !in_array(13100, $mb->order, true), 'Sungrow: nie 33047/33048, SOC-Grenzen 13058/13059, Einspeisegrenze 13074 oder 13100');
+$a = new IHUB_RemoteSungrow();
+ref_ok($a->validate(['mode' => 3, 'watts' => 0, 'failsafeSec' => 0, 'ext' => []], ['off' => 0, 'ratedW' => 10000]) !== '' && $a->validate(['mode' => 2, 'watts' => 500, 'failsafeSec' => 0, 'ext' => []], ['off' => 0]) !== '' && $a->validate(['mode' => 2, 'watts' => 500, 'failsafeSec' => 0, 'ext' => []], ['ratedW' => 10000]) !== '' && $a->validate(['mode' => 2, 'watts' => 500, 'failsafeSec' => 0, 'ext' => []], ['off' => 0, 'ratedW' => 10000]) === '', 'Sungrow: Modus 3, unbekannte Nennleistung und fehlender Versatz werden vom Adapter abgelehnt');
+ref_ok(IHUB_RemoteSungrow::command(2, 2000, 10000) === [0xAA, 2000] && IHUB_RemoteSungrow::command(2, -2000, 10000) === [0xBB, 2000] && IHUB_RemoteSungrow::command(2, 0, 10000) === [0xCC, 0] && IHUB_RemoteSungrow::command(1, 2000, 10000) === [0xCC, 0], 'Sungrow: command() je Modus und Vorzeichen');
+ref_ok(IHUB_RemoteSungrow::isType(0xE03) && IHUB_RemoteSungrow::isType(0xE20) && IHUB_RemoteSungrow::isType(0xD0D) && !IHUB_RemoteSungrow::isType(100) && !IHUB_RemoteSungrow::isType(0), 'Sungrow: Gerätetypcodes aus dem Anhang erkannt, Leistungswerte nicht');
+ref_ok($a->isActive(0x4000) && $a->isActive(0x0800) && !$a->isActive(0), 'Sungrow: aktiv bei externem EMS (0x4000) oder Zwangsbetrieb (0x0800)');
+$sg = $sungrow->getOptionalGroups();
+ref_ok(isset($sg['GroupRemote']) && ($sg['GroupRemote']['default'] ?? true) === false && isset($sg['GroupControl']) && ($sg['GroupControl']['default'] ?? true) === true && count(array_column($sg['GroupControl']['vars'], 0)) === 1, 'Sungrow: eigene Gruppe Fernsteuerung startet aus, die Gruppe Start/Stopp bleibt unverändert und an');
+$i = $a->info();
+ref_ok($i['tested'] === false && count($i['pitfalls']) >= 10 && array_filter($i['pitfalls'], fn($s) => strpos($s, '33047') !== false) && array_filter($i['pitfalls'], fn($s) => strpos($s, 'offset') !== false), 'Sungrow: Kennzeichnung ungetestet, Fallen nennen 33047 und den Adressversatz');
+
+echo "\n== Huawei: Zwangsladen/-entladen, Minuten, Hold ohne Totmann ==\n";
+$u = fn(int $v) => [($v >> 16) & 0xFFFF, $v & 0xFFFF];
+$mb = new SimHuawei(); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_w' => 2000, 'ctl_rc_failsafe_sec' => 90]); $huawei->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->order === [47247, 47083, 47100], 'Huawei: Reihenfolge Leistung 47247, Dauer 47083, Zwangsmodus 47100 zuletzt (47075 reicht schon, Rest steht)');
+ref_ok($mb->writes[0] === ['multi', 47247, $u(2000)] && $mb->writes[1] === ['multi', 47083, [2]] && $mb->writes[2] === ['multi', 47100, [1]], 'Huawei: +2000 W Laden: 47247 = 2000 (U32, FC 16), Dauer 90 s = 2 Minuten (aufgerundet), 47100 = 1');
+ref_ok($hub->warn === [] && $hub->vars['rc_failsafe_eff_sec'][1] === 120 && $hub->vars['rc_active'][1] === true && $mb->regs[3][37006] === 1, 'Huawei: übernommen, Totmann 120 s (2 min), aktiv (37006 = 1)');
+$n = count($mb->writes); $hub->SetVarInt('ctl_rc_w', 1500); $huawei->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok(array_slice($mb->order, $n) === [47247, 47083, 47100] && $mb->v32(47247) === 1500, 'Huawei: neuer Sollwert 1500 W: Leistung, dann Dauer und Zwangsmodus');
+$n = count($mb->writes); $huawei->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok(array_slice($mb->order, $n) === [47083, 47100], 'Huawei: unveränderter Zyklus schreibt nur Dauer 47083 und Zwangsmodus 47100');
+$mb = new SimHuawei(); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_w' => -1200]); $huawei->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->writes[0] === ['multi', 47249, $u(1200)] && $mb->writes[2] === ['multi', 47100, [2]] && $mb->writes[1][2] === [2], 'Huawei: −1200 W Entladen: 47249 = 1200, 47100 = 2; Dauer 0 = Vorgabe 120 s = 2 Minuten');
+$mb = new SimHuawei(); $mb->regs[3][47075] = 0; $mb->regs[3][47076] = 0; $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_w' => 3000]); $huawei->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->order[0] === 47075 && $mb->writes[0][2] === $u(5000), 'Huawei: Ladegrenze 47075 steht auf 0 (Hold-Rest): sie wird zuerst auf das Systemmaximum 37046 angehoben');
+$mb = new SimHuawei(2, 3000, 3000); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 3000, 'ctl_rc_w' => 9000]); $huawei->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->v32(47247) === 3000, 'Huawei: Leistung über dem Systemmaximum 37046 auf 3000 W begrenzt');
+$mb = new SimHuawei(); $mb->regs[3][47100] = 1; $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_w' => -800]); $huawei->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->order[0] === 47100 && $mb->writes[0][2] === [0] && $mb->order[count($mb->order) - 1] === 47100 && end($mb->writes)[2] === [2], 'Huawei: Richtungswechsel Laden → Entladen: erst 47100 = 0, danach die neue Richtung');
+$mb = new SimHuawei(); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_w' => 2000, 'ctl_rc_grid_charge' => 1]); $huawei->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok(in_array(47087, $mb->order, true) && $mb->regs[3][47087] === 1 && $mb->v32(47242) === 2000 && $mb->v32(47244) === 2000 && array_search(47087, $mb->order) < array_search(47247, $mb->order), 'Huawei: Netzladen erlaubt: 47087 = 1, Netzladeleistung 47242 = 2000 und Maximum 47244 vor der Zwangsleistung');
+$mb = new SimHuawei(); $mb->regs[3][47087] = 1; $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_w' => 2000, 'ctl_rc_grid_charge' => 2]); $huawei->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->regs[3][47087] === 0, 'Huawei: Netzladen nicht erlaubt: 47087 = 0');
+$mb = new SimHuawei(); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_w' => 2000]); $huawei->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->writes === [['multi', 47075, [0, 0]], ['multi', 47077, [0, 0]]] && $hub->vars['rc_failsafe_eff_sec'][1] === 0 && $hub->warn === [], 'Huawei: Halten sperrt 47075 und 47077 auf 0, ohne Totmann (rc_failsafe_eff_sec = 0)');
+$mb = new SimHuawei(); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_w' => 0]); $huawei->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->v32(47075) === 0 && $mb->v32(47077) === 0 && $hub->vars['rc_failsafe_eff_sec'][1] === 0, 'Huawei: Modus 2 mit 0 W ist Halten');
+$mb = new SimHuawei(); $mb->regs[3][47100] = 2; $mb->regs[3][47083] = 5; $mb->regs[3][47250] = 900; $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_mode' => 2]); $huawei->writeControl($mb, $hub, 'ctl_rc_mode', 0);
+ref_ok($mb->regs[3][47100] === 0 && $mb->v32(47249) === 0 && $mb->regs[3][47083] === 0 && $mb->v32(47075) === 3500 && $hub->warn === [] && $hub->vars['ctl_rc_mode'][1] === 0, 'Huawei: Modus 0 stoppt, löscht Leistung und Dauer, eigene Grenzwerte bleiben');
+$mb = new SimHuawei(); $mb->regs[3][47076] = 0; $mb->regs[3][47078] = 0; $mb->regs[3][47075] = 0; $mb->regs[3][47077] = 0; $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_mode' => 1]); $huawei->writeControl($mb, $hub, 'ctl_rc_mode', 0);
+ref_ok($mb->v32(47075) === 5000 && $mb->v32(47077) === 5000, 'Huawei: Modus 0 hebt die Hold-Sperre (0) auf das Systemmaximum an');
+$mb = new SimHuawei(); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_mode' => 2]); $huawei->writeControl($mb, $hub, 'ctl_rc_mode', 0);
+ref_ok($mb->writes === [] && $mb->v32(47075) === 3500, 'Huawei: Modus 0 ohne Rest: nichts geschrieben, eigene Grenzwerte (3500) bleiben');
+$mb = new SimHuawei(0); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000]); $huawei->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->writes === [] && count($hub->warn) === 1, 'Huawei: Speichermodell 47000 = 0 (keine Batterie): nichts geschrieben, Warnung');
+$mb = new SimHuawei(); $mb->ignoreRegs = [47100]; $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_w' => 500]); $huawei->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok(count($hub->warn) === 1 && strpos($hub->warn[0], '47100') !== false && !isset($hub->vars['ctl_rc_mode']), 'Huawei: Zwangsmodus wird nicht übernommen: Warnung nennt Register 47100');
+$mb = new SimHuawei(); $mb->ignoreRegs = [47083]; $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_w' => 500]); $huawei->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok(count($hub->warn) === 1 && strpos($hub->warn[0], '47083') !== false, 'Huawei: Dauer (Totmann) nicht übernommen: Warnung nennt Register 47083');
+$mb = new SimHuawei(); $mb->failWrite = [47247]; $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_w' => 500]); $huawei->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok(count($hub->warn) === 1 && !in_array(47100, $mb->order, true), 'Huawei: Schreiben der Leistung scheitert: der Zwangsmodus wird nicht gestartet');
+$mb = new SimHuawei(); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_w' => 500, 'ctl_rc_failsafe_sec' => 999999]); $huawei->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->regs[3][47083] === 1440, 'Huawei: Dauer auf 1440 Minuten begrenzt');
+$mb = new SimHuawei(); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_w' => 500]); $huawei->writeControl($mb, $hub, 'ctl_rc_mode', 2); $huawei->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok(array_diff($mb->order, [47100, 47247, 47083, 47075, 47077, 47246]) === [] && !in_array(47081, $mb->order, true) && !in_array(47082, $mb->order, true) && !in_array(47321, $mb->order, true) && !in_array(47589, $mb->order, true), 'Huawei: nie SOC-Grenzen 47081/47082 und nie die Drittanbieter-Register 47321/47589');
+$a = new IHUB_RemoteHuawei();
+ref_ok($a->validate(['mode' => 3, 'watts' => 0, 'failsafeSec' => 0, 'ext' => []], ['ratedW' => 5000]) !== '' && $a->validate(['mode' => 2, 'watts' => 0, 'failsafeSec' => 0, 'ext' => []], ['ratedW' => 5000]) === '' && $a->validate(['mode' => 2, 'watts' => 0, 'failsafeSec' => 0, 'ext' => []], []) !== '', 'Huawei: Modus 3 und unbekanntes Systemmaximum werden vom Adapter abgelehnt');
+ref_ok(IHUB_RemoteHuawei::power(2000, 5000, 4000) === 2000 && IHUB_RemoteHuawei::power(9000, 5000, 4000) === 5000 && IHUB_RemoteHuawei::power(-9000, 5000, 4000) === 4000, 'Huawei: power() begrenzt je Richtung auf das Systemmaximum');
+$sg = $huawei->getOptionalGroups();
+ref_ok(isset($sg['GroupControl']) && ($sg['GroupControl']['default'] ?? true) === false && ($sg['GroupGrid']['default'] ?? true) === true, 'Huawei: Gruppe Steuerung startet aus, die übrigen Gruppen bleiben an');
+$i = $a->info();
+ref_ok($i['tested'] === false && count($i['pitfalls']) >= 10 && array_filter($i['pitfalls'], fn($s) => strpos($s, 'NO failsafe') !== false) && array_filter($i['pitfalls'], fn($s) => strpos($s, 'MINUTES') !== false), 'Huawei: Kennzeichnung ungetestet, Fallen nennen Hold ohne Totmann und die Minuten');
+
+echo "\n== Kostal: Sollwert 1034, Vorzeichen, Grenzen, Freischaltung ==\n";
+$pk = fn(float $v, bool $s = false) => \IHUB\NRGModbus\ModbusDecode::packFloat32($v, $s);
+$mb = new SimKostal(); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_w' => 2000]); $kostal->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->writes === [['multi', 1034, $pk(-2000.0)]], 'Kostal: +2000 W (Laden) = −2000 W in Register 1034 (Float32), genau ein Schreibbefehl');
+ref_ok($hub->warn === [] && $hub->vars['rc_failsafe_eff_sec'][1] === 0 && $hub->vars['rc_active'][1] === true && $hub->vars['rc_status'][1] === 2, 'Kostal: übernommen, Totmann im Gerät unbekannt (0, er steht in der Weboberfläche), aktiv (1080 = 2)');
+$mb = new SimKostal(); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_w' => -1500]); $kostal->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->writes === [['multi', 1034, $pk(1500.0)]], 'Kostal: −1500 W (Entladen) = +1500 W');
+$mb = new SimKostal(); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_w' => 3000]); $kostal->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->writes === [['multi', 1034, $pk(0.0)]] && $hub->warn === [], 'Kostal: Halten schreibt 0 W, auch bei gemerkter Leistung');
+$mb = new SimKostal(2, 3000.0, 2000.0); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 3000, 'ctl_rc_w' => 9000]); $kostal->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->writes === [['multi', 1034, $pk(-3000.0)]], 'Kostal: Laden über der Akkugrenze 1076 auf −3000 W begrenzt');
+$mb = new SimKostal(2, 3000.0, 2000.0); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 3000, 'ctl_rc_w' => -9000]); $kostal->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->writes === [['multi', 1034, $pk(2000.0)]], 'Kostal: Entladen über der Akkugrenze 1078 auf +2000 W begrenzt');
+$mb = new SimKostal(2, 5000.0, 5000.0, true); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_w' => 1234, '_kostalSwap' => true]); $hub->props['_kostalSwap'] = true; $kostal->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->writes === [['multi', 1034, $pk(-1234.0, true)]] && $hub->warn === [], 'Kostal: Byte-Reihenfolge CDAB (Wort-Swap) der Instanz wird beim Schreiben und Lesen beachtet');
+$mb = new SimKostal(); $hub = hubFor(['rc_version' => 1, 'ctl_rc_mode' => 2]); $kostal->writeControl($mb, $hub, 'ctl_rc_mode', 0);
+ref_ok($mb->writes === [] && $hub->warn === [] && $hub->vars['ctl_rc_mode'][1] === 0 && $hub->vars['rc_failsafe_eff_sec'][1] === 0, 'Kostal: Modus 0 schreibt nichts (das Gerät übernimmt nach dem Zeitgeber der Weboberfläche)');
+foreach ([0, 1] as $m) {
+    $mb = new SimKostal($m); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000]); $kostal->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+    ref_ok($mb->writes === [] && count($hub->warn) === 1 && strpos($hub->warn[0], '1080') !== false && !isset($hub->vars['ctl_rc_mode']), "Kostal: 1080 = $m (externes Batteriemanagement nicht über Modbus): nichts geschrieben, Warnung nennt Register 1080");
+}
+$mb = new SimKostal(0); $hub = hubFor(); $kostal->readSlow($mb, $hub);
+ref_ok($hub->vars['rc_available'][1] === false && $hub->vars['rc_version'][1] === 0, 'Kostal: langsamer Zyklus meldet bei 1080 = 0 „nicht verfügbar“');
+$mb = new SimKostal(); $mb->ignoreRegs = [1034]; $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_w' => 1000]); $kostal->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok(count($hub->warn) === 1 && strpos($hub->warn[0], '1034') !== false && !isset($hub->vars['ctl_rc_mode']) && count($mb->writes) === 2, 'Kostal: Gerät übernimmt den Sollwert nicht: zweiter Versuch, Warnung nennt Register 1034');
+$mb = new SimKostal(); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 5000, 'ctl_rc_w' => 100]); $kostal->writeControl($mb, $hub, 'ctl_rc_mode', 2); $kostal->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok(array_unique($mb->order) === [1034] && !in_array(1042, $mb->order, true) && !in_array(1280, $mb->order, true) && !in_array(1038, $mb->order, true) && !in_array(1040, $mb->order, true), 'Kostal: es wird nur Register 1034 geschrieben, nie Minimum-SOC 1042, Grenzen 1038/1040 oder die Batteriebegrenzung 1280 ff.');
+$a = new IHUB_RemoteKostal();
+ref_ok($a->verify(['regs' => [0, 0], 'status' => 0, 'sp' => -1000.0], ['mode' => 2, 'watts' => 1000], ['maxCharge' => 5000.0]) !== '' && $a->verify(['regs' => [2, -10000], 'status' => 2, 'sp' => -1000.0], ['mode' => 2, 'watts' => 1000], ['maxCharge' => 5000.0]) === '' && $a->verify(['regs' => [2, 0], 'status' => 2, 'sp' => 0.0], ['mode' => 2, 'watts' => 1000], []) !== '', 'Kostal: verify erkennt verlorenes externes Management (1080) und falschen Sollwert');
+ref_ok($a->isActive(2) === true && $a->isActive(0) === false && $a->isActive(1) === false, 'Kostal: aktiv nur bei 1080 = 2');
+ref_ok($a->validate(['mode' => 3, 'watts' => 0, 'failsafeSec' => 0, 'ext' => []], ['available' => true, 'mode' => 2]) !== '' && $a->validate(['mode' => 2, 'watts' => 0, 'failsafeSec' => 0, 'ext' => []], ['available' => true, 'mode' => 2]) === '', 'Kostal: Modus 3 wird vom Adapter selbst abgelehnt, Modus 2 angenommen');
+ref_ok(IHUB_RemoteKostal::devicePower(2, 2000, null, null) === -2000.0 && IHUB_RemoteKostal::devicePower(2, -2000, null, null) === 2000.0 && IHUB_RemoteKostal::devicePower(1, 2000, 5000.0, 5000.0) === 0.0 && IHUB_RemoteKostal::devicePower(0, 2000, 5000.0, 5000.0) === 0.0, 'Kostal: devicePower je Modus (Vorzeichen gedreht, Halten und Aus 0)');
+$sg = $kostal->getOptionalGroups();
+ref_ok(isset($sg['GroupControl']) && ($sg['GroupControl']['default'] ?? true) === false && ($sg['GroupPV']['default'] ?? true) === true, 'Kostal: Gruppe Steuerung startet aus, die übrigen Gruppen bleiben an');
+$i = $a->info();
+ref_ok($i['tested'] === false && count($i['pitfalls']) >= 10 && array_filter($i['pitfalls'], fn($s) => strpos($s, '1042') !== false) && array_filter($i['pitfalls'], fn($s) => strpos($s, '1280') !== false), 'Kostal: Kennzeichnung ungetestet, Fallen nennen Minimum-SOC 1042 und Batteriebegrenzung 1280');
+
+echo "\n== Fronius: Model 124, Fenster, Totmann ==\n";
+$B = SimFronius::BASE;
+$mb = new SimFronius(); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 3300, 'ctl_rc_w' => 1650, 'ctl_rc_failsafe_sec' => 90]); $fronius->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->order === [$B + 13, $B + 10, $B + 3], 'Fronius: Reihenfolge Rückfallzeit (RvrtTms), beide Grenzen in einem Block (OutWRte/InWRte), StorCtl_Mod zuletzt');
+ref_ok($mb->writes[0] === ['multi', $B + 13, [90]] && $mb->writes[1] === ['multi', $B + 10, [(-5000) & 0xFFFF, 5000]] && $mb->writes[2] === ['multi', $B + 3, [3]], 'Fronius: +1650 W an 3300 W = 50 % Laden: OutWRte −5000, InWRte +5000 (SF −2), Mod = 3, Rückfallzeit 90 s');
+ref_ok($hub->warn === [] && $hub->vars['rc_failsafe_eff_sec'][1] === 90 && $hub->vars['rc_active'][1] === true && $mb->reg(13) === 90, 'Fronius: übernommen, Rückfallzeit im Gerät 90 s, aktiv');
+$n = count($mb->writes); $hub->SetVarInt('ctl_rc_w', 330); $fronius->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok(count($mb->writes) === $n + 1 && $mb->writes[$n] === ['multi', $B + 10, [(-1000) & 0xFFFF, 1000]], 'Fronius: zweiter Zyklus schreibt nur den Grenzenblock (hält den Zeitgeber wach), Rückfallzeit und Mod stehen schon');
+$mb = new SimFronius(); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 3300, 'ctl_rc_w' => -3300]); $fronius->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->writes[1][2] === [10000, (-10000) & 0xFFFF] && $mb->writes[0][2] === [120], 'Fronius: −3300 W (Entladen, 100 %): OutWRte +10000, InWRte −10000; Rückfallzeit 0 = Vorgabe 120 s');
+$mb = new SimFronius(); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 3300, 'ctl_rc_w' => 2000]); $fronius->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->writes[1][2] === [0, 0] && $mb->writes[2][2] === [3] && $hub->warn === [], 'Fronius: Halten = beide Grenzen 0 % mit Mod 3, auch bei gemerkter Leistung');
+$mb = new SimFronius(); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 3300, 'ctl_rc_w' => 40000]); $fronius->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->writes[1][2] === [(-10000) & 0xFFFF, 10000], 'Fronius: Leistung über WChaMax auf 100 % begrenzt');
+$mb = new SimFronius(3300, 0, -1); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 3300, 'ctl_rc_w' => 1650]); $fronius->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->writes[1][2] === [(-500) & 0xFFFF, 500], 'Fronius: Skalierung InOutWRte_SF −1 wird gelesen: 50 % = 500');
+$mb = new SimFronius(330, 1, -2); $hub = hubFor(['ctl_rc_w' => 1650]); $fronius->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($hub->warn === [] && $mb->writes[1][2] === [(-5000) & 0xFFFF, 5000], 'Fronius: WChaMax 330 mit SF 1 = 3300 W (Skalierung gelesen), 50 % Laden');
+foreach ([[5, 10], [99999, 28800]] as [$in, $outv]) {
+    $mb = new SimFronius(); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 3300, 'ctl_rc_failsafe_sec' => $in]); $fronius->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+    ref_ok($mb->writes[0] === ['multi', $B + 13, [$outv]], "Fronius: Rückfallzeit $in s wird auf $outv s begrenzt");
+}
+$mb = new SimFronius(); $mb->regs[3][$B + 3] = 3; $mb->regs[3][$B + 13] = 120; $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 3300, 'ctl_rc_mode' => 1]); $fronius->writeControl($mb, $hub, 'ctl_rc_mode', 0);
+ref_ok($mb->order === [$B + 10, $B + 3] && $mb->writes[0][2] === [10000, 10000] && $mb->writes[1][2] === [0] && $hub->vars['ctl_rc_mode'][1] === 0 && $hub->vars['rc_active'][1] === false, 'Fronius: Modus 0 stellt beide Grenzen auf 100 % und Mod auf 0 (Automatik), nicht mehr aktiv');
+$mb = new SimFronius(); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 3300]); $fronius->writeControl($mb, $hub, 'ctl_rc_mode', 0);
+ref_ok($mb->writes === [] && $hub->warn === [] && $hub->vars['ctl_rc_mode'][1] === 0, 'Fronius: Modus 0 bei schon hergestellter Automatik: nichts geschrieben');
+$mb = new SimFronius(0); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 3300]); $fronius->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->writes === [] && count($hub->warn) === 1 && !isset($hub->vars['ctl_rc_mode']), 'Fronius: WChaMax 0 (kein Speicher): nichts geschrieben, Warnung');
+$mb = new SimFronius(); $mb->modelPresent = false; $mb = new SimFronius(); $mb->regs[3][40012] = 0xFFFF; $mb->regs[3][40013] = 0; $hub = hubFor(['rc_version' => 1]); $fronius->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->writes === [] && count($hub->warn) === 1, 'Fronius: Model 124 nicht in der Kette: nichts geschrieben, Warnung');
+$mb = new SimFronius(); $mb->ignoreRegs = [$B + 10]; $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 3300, 'ctl_rc_w' => 1000]); $fronius->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok(count($hub->warn) === 1 && strpos($hub->warn[0], (string)($B + 10)) !== false && !isset($hub->vars['ctl_rc_mode']), 'Fronius: Gerät übernimmt die Grenzen nicht (Empfehlung, Priorität): Warnung nennt das Register');
+$mb = new SimFronius(); $mb->ignoreRegs = [$B + 13]; $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 3300]); $fronius->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok(count($hub->warn) === 1 && strpos($hub->warn[0], (string)($B + 13)) !== false, 'Fronius: Rückfallzeit nicht übernommen (Totmann bliebe aus): Warnung nennt das Register');
+$mb = new SimFronius(); $mb->failWrite = [$B + 10]; $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 3300]); $fronius->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok(count($hub->warn) === 1 && !in_array($B + 3, $mb->order, true), 'Fronius: Schreiben der Grenzen scheitert (z. B. Steuerung über Modbus aus): Mod wird nicht mehr geschrieben, Warnung');
+$mb = new SimFronius(); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 3300, 'ctl_rc_w' => 500]); $fronius->writeControl($mb, $hub, 'ctl_rc_mode', 2); $fronius->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok(array_diff($mb->order, [$B + 3, $B + 10, $B + 13]) === [] && !in_array($B + 15, $mb->order, true) && !in_array($B + 7, $mb->order, true), 'Fronius: nur RvrtTms, OutWRte/InWRte und StorCtl_Mod werden geschrieben, nie ChaGriSet oder MinRsvPct');
+$mb = new SimFronius(3300, -32768, -2); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 3300]); $fronius->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok($mb->writes === [] && count($hub->warn) === 1 && !isset($hub->vars['ctl_rc_mode']), 'Fronius: unplausibler Skalierungsfaktor (0x8000): Modell nicht benutzt, nichts geschrieben, Warnung');
+$mb = new SimFronius(3300, 0, -32768); $hub = hubFor(['rc_version' => 1, 'rc_rated_w' => 3300, 'ctl_rc_w' => 100]); $fronius->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok($mb->writes === [] && count($hub->warn) === 1, 'Fronius: unplausibler Skalierungsfaktor der Grenzen (0x8000): nichts geschrieben, Warnung');
+$a = new IHUB_RemoteFronius();
+ref_ok($a->validate(['mode' => 2, 'watts' => 0, 'failsafeSec' => 0, 'ext' => []], ['available' => true, 'ratedW' => 3300]) !== '' && $a->validate(['mode' => 3, 'watts' => 0, 'failsafeSec' => 0, 'ext' => []], ['available' => true, 'base' => 1, 'sf' => -2, 'ratedW' => 3300]) !== '' && $a->validate(['mode' => 2, 'watts' => 0, 'failsafeSec' => 0, 'ext' => []], ['available' => true, 'base' => 1, 'sf' => -2, 'ratedW' => 3300]) === '', 'Fronius: ohne gelesene Adresse oder mit Modus 3 abgelehnt, sonst angenommen');
+ref_ok(IHUB_RemoteFronius::limits(2, 825, 3300, -2) === [-2500, 2500] && IHUB_RemoteFronius::limits(2, -825, 3300, -2) === [2500, -2500] && IHUB_RemoteFronius::limits(1, 5000, 3300, -2) === [0, 0] && IHUB_RemoteFronius::limits(0, 5000, 3300, -2) === [10000, 10000], 'Fronius: limits() je Modus und Vorzeichen (Laden Out negativ/In positiv, Entladen umgekehrt, Halten 0, Aus 100 %)');
+$sg = $fronius->getOptionalGroups();
+ref_ok(isset($sg['GroupControl']) && ($sg['GroupControl']['default'] ?? true) === false && ($sg['GroupPV']['default'] ?? true) === true, 'Fronius: Gruppe Steuerung startet aus, die übrigen Gruppen bleiben an');
+$i = $a->info();
+ref_ok($i['tested'] === false && count($i['pitfalls']) >= 8 && array_filter($i['pitfalls'], fn($s) => strpos($s, 'RvrtTms') !== false), 'Fronius: Kennzeichnung ungetestet, Fallen nennen die Rückfallzeit');
+
 echo "\n== SMA: Register, Vorzeichen, Totmann, Flash-Schutz ==\n";
 $neg = fn(int $pct) => IHUB_RemoteSma::words($pct);
 // STP SE: Konfiguration (Gerät steht auf 40210 = 303, 41193 = 2506) wird gesetzt, dann der Sollwert 40149 + 40151
@@ -408,8 +770,8 @@ class RcHub extends InverterHub
     public function ReadPropertyBoolean($n) { return false; }
     public function ReadPropertyInteger($n) { return 0; }
 }
-foreach (['solis' => $solis, 'foxess_smart' => $fox, 'deye' => $deye, 'solax' => $solax, 'sma' => $real] as $maker => $drv) {
-    $idents = array_column($drv->getOptionalGroups()['GroupControl']['vars'], 0);
+foreach (['solis' => $solis, 'foxess_smart' => $fox, 'deye' => $deye, 'solax' => $solax, 'sma' => $real, 'fronius' => $fronius, 'kostal' => $kostal, 'huawei' => $huawei, 'sungrow' => $sungrow, 'victron' => $victron] as $maker => $drv) {
+    $gg = $drv->getOptionalGroups(); $idents = array_column(array_merge($gg['GroupControl']['vars'] ?? [], $gg['GroupRemote']['vars'] ?? []), 0);
     $GLOBALS['TREE'] = []; $i = 100; foreach (IHUB_RemoteControl::vars() as $v) { if (in_array($v[0], $idents, true)) { $GLOBALS['TREE'][$v[0]] = [$i++]; } }
     $h = new RcHub(); $h->maker = $maker; $f = $h->GetFunctions();
     $rc = $f['remoteControl'];
@@ -418,9 +780,9 @@ foreach (['solis' => $solis, 'foxess_smart' => $fox, 'deye' => $deye, 'solax' =>
 $GLOBALS['TREE'] = ['pv_total' => [101]]; $h = new RcHub(); $f = $h->GetFunctions();
 ref_ok($f['remoteControl'] === [], 'Treiber ohne Fernsteuerung: leeres Feld');
 $missing = [];
-foreach (['solis' => $solis, 'foxess_smart' => $fox, 'deye' => $deye, 'solax' => $solax, 'sma' => $real] as $maker => $drv) {
+foreach (['solis' => $solis, 'foxess_smart' => $fox, 'deye' => $deye, 'solax' => $solax, 'sma' => $real, 'fronius' => $fronius, 'kostal' => $kostal, 'huawei' => $huawei, 'sungrow' => $sungrow, 'victron' => $victron] as $maker => $drv) {
     $prof = array_merge(array_keys($drv->getProfiles()), array_keys($drv->getEnumProfiles()));
-    foreach ($drv->getOptionalGroups()['GroupControl']['vars'] as $v) { if ($v[3] !== '' && $v[3][0] !== '~' && !in_array($v[3], $prof, true)) { $missing[] = "$maker:" . $v[0] . '=' . $v[3]; } }
+    foreach (array_merge($drv->getOptionalGroups()['GroupControl']['vars'] ?? [], $drv->getOptionalGroups()['GroupRemote']['vars'] ?? []) as $v) { if ($v[3] !== '' && $v[3][0] !== '~' && !in_array($v[3], $prof, true)) { $missing[] = "$maker:" . $v[0] . '=' . $v[3]; } }
 }
 ref_ok($missing === [], 'jedes benutzte Profil der Fernsteuerung ist je Treiber definiert' . ($missing ? ': ' . implode(',', $missing) : ''));
 $fox2 = (new IHUB_FoxEssSmartDriver())->getOptionalGroups();

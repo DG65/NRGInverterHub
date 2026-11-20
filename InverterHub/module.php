@@ -25,6 +25,11 @@ require_once __DIR__ . '/../libs/IHUB_RemoteFoxEss.php';
 require_once __DIR__ . '/../libs/IHUB_RemoteDeye.php';
 require_once __DIR__ . '/../libs/IHUB_RemoteSolax.php';
 require_once __DIR__ . '/../libs/IHUB_RemoteSma.php';
+require_once __DIR__ . '/../libs/IHUB_RemoteFronius.php';
+require_once __DIR__ . '/../libs/IHUB_RemoteKostal.php';
+require_once __DIR__ . '/../libs/IHUB_RemoteHuawei.php';
+require_once __DIR__ . '/../libs/IHUB_RemoteSungrow.php';
+require_once __DIR__ . '/../libs/IHUB_RemoteVictron.php';
 require_once __DIR__ . '/../libs/IHUB_SolisDriver.php';
 require_once __DIR__ . '/../libs/IHUB_GrowattDriver.php';
 require_once __DIR__ . '/../libs/IHUB_SolaxDriver.php';
@@ -813,7 +818,8 @@ class InverterHub extends IPSModule
     public function GetFunctions(): array
     {
         $driver = $this->GetDriver();
-        $hasControl = array_key_exists('GroupControl', $driver->getOptionalGroups());
+        $ctlGroups = $driver->getOptionalGroups();
+        $hasControl = array_key_exists('GroupControl', $ctlGroups) || array_key_exists('GroupRemote', $ctlGroups);   // GroupRemote: eigene Fernsteuerungs-Gruppe (Victron, Sungrow)
         $find = function (string $ident): int {
             $vid = $this->FindVarByIdent($ident);
             return $vid ?: 0;
@@ -1013,7 +1019,7 @@ class InverterHub extends IPSModule
             // dieser Treiber ueberhaupt Steuerregister hat (GroupControl-Gruppe
             // existiert). Reine Lesetreiber bekommen das Feld nicht - es waere
             // dort wirkungslos und nur Ballast im Formular.
-            if ($propName === 'GroupControl') {
+            if ($propName === 'GroupControl' || ($propName === 'GroupRemote' && !array_key_exists('GroupControl', $driver->getOptionalGroups()))) {
                 // Erklaerungsbeduerftiges Feld - Symcon kennt kein Hover-Tooltip
                 // (Verbund-Konvention, EMS 27.07.2026), deshalb PopupButton statt
                 // Mouseover fuer den Hintergrund (Situation A/B, Prioritaetsregel).

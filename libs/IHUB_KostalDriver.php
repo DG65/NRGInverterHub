@@ -75,6 +75,9 @@ class IHUB_KostalDriver implements IHUB_InverterDriverInterface
             'GroupDevice' => ['caption' => 'Device information', 'vars' => [
                 ['dev_name', 'Product name', 'S', '', false, 'device', 'RO 768 (String)'],
             ]],
+        ] + [
+            // Fernsteuerung des Speichers (externes Batteriemanagement, Register 1034), UNGETESTET: Vorgabe aus, gemeinsame Schicht IHUB_RemoteControl
+            'GroupControl' => ['caption' => 'Remote control of the battery (untested: built from the Kostal document and other projects, off by default)', 'default' => false, 'vars' => IHUB_RemoteControl::vars()],
         ];
     }
 
@@ -91,7 +94,7 @@ class IHUB_KostalDriver implements IHUB_InverterDriverInterface
             'KST.Ampere' => [VARIABLETYPE_FLOAT, ' A',    -200.0,   200.0, 0.1,  1],
             'KST.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',     45.0,    65.0, 0.01, 2],
             'KST.KOhm'   => [VARIABLETYPE_FLOAT, ' kΩ',      0.0, 100000.0, 1.0, 0],
-        ];
+        ] + IHUB_RemoteControl::profiles();
     }
 
     public function getEnumProfiles()
@@ -102,7 +105,7 @@ class IHUB_KostalDriver implements IHUB_InverterDriverInterface
                 1 => ['Charge',    0x3BA55D],
                 2 => ['Discharge', 0xE08A2B],
             ],
-        ];
+        ] + IHUB_RemoteControl::enumProfiles();
     }
 
     public function readFast($mb, $hub)
@@ -221,6 +224,9 @@ class IHUB_KostalDriver implements IHUB_InverterDriverInterface
     public function readSlow($mb, $hub)
     {
         $mb->setFloatWordSwap($hub->GetKostalWordSwap());
+        if ($hub->GetPropBool('GroupControl')) {
+            IHUB_RemoteControl::refresh(new IHUB_RemoteKostal(), $mb, $hub);   // Fernsteuerung: Fähigkeit (Register 1080) und Kennzeichnung
+        }
         if (!$hub->GetPropBool('GroupEnergy')) {
             return;
         }
@@ -255,6 +261,10 @@ class IHUB_KostalDriver implements IHUB_InverterDriverInterface
 
     public function writeControl($mb, $hub, $ident, $value)
     {
-        // Kein Steuerregister in der ersten Ausbaustufe implementiert.
+        // Nur die gemeinsame Fernsteuerung (externes Batteriemanagement, Register 1034), UNGETESTET (rc_tested = false); keine weiteren Schreibwege.
+        if (strpos($ident, 'ctl_rc_') === 0) {
+            $mb->setFloatWordSwap($hub->GetKostalWordSwap());
+            IHUB_RemoteControl::control(new IHUB_RemoteKostal(), $mb, $hub, $ident, $value);
+        }
     }
 }
