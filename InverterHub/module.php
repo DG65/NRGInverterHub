@@ -405,7 +405,17 @@ class InverterHub extends IPSModule
             $fast = max($fast, 30);
         }
         $this->SetTimerInterval('FastTimer', $fast * 1000);
-        $this->SetTimerInterval('SlowTimer', $this->ReadPropertyInteger('IntervalSlow') * 1000);
+        // Erster langsamer Zyklus kurz nach dem Anwenden (Update, Neustart, Übernehmen): sonst bleiben Werte wie die
+        // Totmannzeit für das Energiemanagement (Vertrag 1.10, rc_failsafe_decl_sec) bis zu IntervalSlow auf dem Anfangswert.
+        // ReadSlowUnlocked() stellt danach das eingestellte Intervall wieder her (Pauls Befund, 20.11.2026).
+        $slowMs = $this->ReadPropertyInteger('IntervalSlow') * 1000;
+        if ($slowMs > self::SLOW_FIRST_MS) {
+            $this->SetBuffer('SlowNormalMs', (string)$slowMs);
+            $this->SetTimerInterval('SlowTimer', self::SLOW_FIRST_MS);
+        } else {
+            $this->SetBuffer('SlowNormalMs', '');
+            $this->SetTimerInterval('SlowTimer', $slowMs);
+        }
         $this->SetTimerInterval('EnableActionsTimer', 200);
         $this->WriteAttributeBoolean('DeviceInfoRead', false);
         if ($mqttMode) {
@@ -485,6 +495,8 @@ class InverterHub extends IPSModule
     // haengender Lesezyklus nie dauerhaft blockiert. Haelt ein Lauf die Sperre laenger als
     // LOCK_STALE_SEC, gilt sie als verwaist und wird ignoriert.
     const LOCK_WAIT_READ_MS  = 8000;
+    // Erster langsamer Zyklus nach ApplyChanges() nach so vielen ms (danach das eingestellte Intervall).
+    const SLOW_FIRST_MS = 8000;
     const LOCK_WAIT_WRITE_MS = 20000;
     const LOCK_STALE_SEC     = 45;
     private $ihubLockDepth = 0;
@@ -679,6 +691,13 @@ class InverterHub extends IPSModule
         } catch (Throwable $e) {
             $this->LogReadProblem(IHUB_Text::t('⚠️ Slow read failed: %s', $e->getMessage()));
             if ($this->ReadPropertyString('ConnectionType') === 'kostal_http') { $this->SetStatus(201); }
+        }
+        // Kurzes erstes Intervall nach ApplyChanges() wieder auf das eingestellte setzen (auch nach einem Fehler, sonst
+        // liefe der langsame Zyklus dauerhaft alle paar Sekunden).
+        $normal = $this->GetBuffer('SlowNormalMs');
+        if ($normal !== '') {
+            $this->SetBuffer('SlowNormalMs', '');
+            $this->SetTimerInterval('SlowTimer', (int)$normal);
         }
     }
 

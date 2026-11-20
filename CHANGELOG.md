@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.96.2 (2026-11-20)
+
+- **Erster langsamer Zyklus kurz nach dem Anwenden der Instanz.** Nach einem Update, einem Neustart oder „Änderungen übernehmen“ kam der langsame Zyklus erst nach dem eingestellten Intervall (Vorgabe 5 Minuten). Bis dahin standen Werte, die nur dort gesetzt werden, auf dem Anfangswert, zum Beispiel die neue Totmannzeit `rc_failsafe_decl_sec` (Vertrag 1.10): Das Energiemanagement sperrte die Fernsteuerung (Befund Paul, Solis, 20.11.2026, EMS 0.111.0). Jetzt läuft der erste langsame Zyklus nach etwa 8 Sekunden, danach gilt wieder das eingestellte Intervall (auch wenn der erste Lauf scheitert). Neuer Prüfstand `.tools/test-slow-first.php`.
+
 ## 0.96.1 (2026-11-20)
 
 - **Kostal-HTTP: Anmeldefehler nennen jetzt Status und Geräte-Meldung.** „Kostal auth/start failed“ sagte nicht, warum das Gerät die Anmeldung ablehnt (Rückmeldung Dirk Allard, 20.11.2026, nach 0.96.0). Die Meldungen von `auth/start`, `auth/finish` und `create_session` hängen jetzt „(HTTP <Status>: <kurze Meldung des Geräts>)“ an; die Meldung wird auf druckbare Zeichen und 80 Zeichen begrenzt. Das Verhalten ist sonst unverändert (Sitzung nach 4xx verwerfen und neu anmelden bleibt aus 0.96.0).
