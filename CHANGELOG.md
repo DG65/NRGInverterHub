@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.96.0 (2026-11-20)
+
+- **Fremdanbindung: Vertrag `IHUB_GetFunctions` 1.10 (EMS-Rundschreiben 20.11.2026, Dietmar: „Wir machen die Fremdanbindung komplett für alle Elemente“).** Neu und rein additiv: `contractType` = `'inverter'`, `failsafeSec` (Sekunden, 0 = kein Totmann bekannt) und `failsafeMode` = `'deadman'`, ebenso in `remoteControl`. Der Wert kommt aus dem Adapter (neue Variable `rc_failsafe_decl_sec`, im langsamen Zyklus gesetzt, das, was der Adapter für den ersten angebotenen Modus ins Gerät schreibt): Solis, FoxESS, Deye, SolaX, Fronius, Huawei (Zwangsladen), Sungrow, Victron und SMA mit Totmann; **Kostal meldet 0** (Zeitgeber nur in der Weboberfläche, über Modbus weder les- noch setzbar), das EMS gibt ohne bekannten Totmann nichts frei. Kein Feld entfernt oder umgedeutet.
+- **Öffentliche Anleitung:** `EIGENES_WECHSELRICHTER_MODUL.md` und `.en.md` in der Repo-Wurzel (Pflichtfelder, Vorzeichen, Totmann, Reihenfolge der Steuerpunkte).
+- **Kostal-HTTP: Sitzung nach HTTP 400 verworfen (Rückmeldung Dirk Allard, 20.11.2026).** Dauerhaft „Kostal HTTP 400 for processdata“ mit Status „Fehler“, bis „Änderungen übernehmen“: Eine gespeicherte Sitzung wurde nur bei 401/403 verworfen, jeder andere 4xx-Fehler ließ sie im Attribut und jeder Takt benutzte sie erneut. Jetzt verwirft jeder 4xx-Fehler die Sitzung und der Client meldet sich neu an; 5xx bleibt ein Fehler ohne Neuanmeldung. Zwei neue Prüfungen (400 und 503), die Probe mit dem alten Code schlägt an.
+- Referenzen `.tools/ref/treiber.json` und `fronius.json` nur erweitert (die neue Variable), keine Zeile entfernt.
+
 ## 0.95.0 (2026-11-20)
 
 - **Fronius: Fernsteuerung des Speichers über die gemeinsame Schicht (ungetestet).** Neuer Adapter `IHUB_RemoteFronius` für GEN24 und Tauro mit Speicher, SunSpec „Basic Storage Control“ (Model 124, Länge 24), Quelle Fronius-Dokument 42,0410,2649 (28.09.2026) und die Projekte evcc, nilseckert/gen24_battery_control (Symo GEN24 10.0, Firmware 1.41.11-1) und knackerbrot/fronius-modbus-control (Firmware 1.39.5-1). Modi 0 (aus = Automatik), 1 (halten) und 2 (Akku ±W, einheitliches Vorzeichen: + Laden); kein Modus 3 (Model 124 kennt keinen Netzsollwert). Die Gruppe „Fernsteuerung“ startet aus, `rc_tested` = false.

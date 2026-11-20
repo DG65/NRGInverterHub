@@ -971,6 +971,8 @@
       "Remote control: confirmed on a device": "Fernsteuerung: am Gerät bestätigt",
       "Remote control: supported modes": "Fernsteuerung: unterstützte Modi",
       "Remote control: failsafe time in the device (s)": "Fernsteuerung: Totmannzeit im Gerät (s)",
+      "Remote control: failsafe time the adapter declares (s)": "Fernsteuerung: Totmannzeit, die der Adapter meldet (s)",
+      "Contract field failsafeSec: 0 = no failsafe known or none in the device, then no write release for the energy manager": "Vertragsfeld failsafeSec: 0 = kein Totmann bekannt oder keiner im Gerät, dann gibt das Energiemanagement das Schreiben nicht frei",
       "Remote control: rated power (W)": "Fernsteuerung: Nennleistung (W)",
       "Hold battery": "Batterie halten",
       "SolaX remote control: the device did not answer the VPP registers 0x01A0-0x01A7 (only Gen4 and newer offer it).": "SolaX-Fernsteuerung: Das Gerät hat die VPP-Register 0x01A0-0x01A7 nicht beantwortet (nur Gen4 und neuer bieten sie an).",

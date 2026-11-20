@@ -30,7 +30,7 @@ $X = [
     [$S, [['max(-IHUB_SolisDispatch::POWER_MAX_W, min(IHUB_SolisDispatch::POWER_MAX_W, (float)$value))', '(float)$value']], 'Leistungsvorgabe nicht begrenzt'],
     [$S, [['(int)(round(max(0, min(IHUB_SolisDispatch::POWER_MAX_W, (float)$value)) / 100) * 100)', '(int)(round(max(0, min(IHUB_SolisDispatch::POWER_MAX_W, (float)$value)) / 10) * 10)']], 'Grenze nicht auf 100 W gerundet'],
     [$M, [["'modeID' => \$find('ctl_dispatch_mode')", "'modeID' => 0"]], 'Vertrag: modeID fehlt'],
-    [$M, [["'contractVersion'  => '1.9'", "'contractVersion'  => '1.8'"]], 'Vertragsversion nicht erhöht'],
+    [$M, [["'contractVersion'  => '1.10'", "'contractVersion'  => '1.9'"]], 'Vertragsversion nicht erhöht'],
     [$M, [["if (\$find('ctl_dispatch_mode') > 0) {", 'if (true) {']], 'Vertrag: dispatch auch ohne Variablen gefüllt'],
 ];
 // die letzte Probe in $S mit Platzhaltertext 'x' entfällt, wenn der Suchtext nicht existiert

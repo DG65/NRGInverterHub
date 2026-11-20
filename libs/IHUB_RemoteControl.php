@@ -49,6 +49,7 @@ class IHUB_RemoteControl
             ['rc_tested', 'Remote control: confirmed on a device', 'B', '~Switch', false, 'device', 'false = built from the manufacturer document only, not yet confirmed on a device'],
             ['rc_modes', 'Remote control: supported modes', 'S', '', false, 'device', 'For example 0,1,2,3'],
             ['rc_failsafe_eff_sec', 'Remote control: failsafe time in the device (s)', 'I', '', false, 'device', 'After limiting and rounding'],
+            ['rc_failsafe_decl_sec', 'Remote control: failsafe time the adapter declares (s)', 'I', '', false, 'device', 'Contract field failsafeSec: 0 = no failsafe known or none in the device, then no write release for the energy manager'],
             ['rc_rated_w', 'Remote control: rated power (W)', 'I', '', false, 'device', '0 = unknown'],
         ];
     }
@@ -232,6 +233,13 @@ class IHUB_RemoteControl
         $hub->SetVarStr('rc_vendor', $info['vendor'] . ' - ' . $info['source']);
         $hub->SetVarBool('rc_tested', (bool)$info['tested']);
         $hub->SetVarStr('rc_modes', implode(',', $info['modes']));
+        // Vertragsfeld failsafeSec (1.10): Totmann, den der Adapter beim Schreiben im Gerät einstellt; 0 = keiner bekannt.
+        $decl = 0;
+        if ($on) {
+            $modes = array_values(array_filter(array_map('intval', $info['modes']), fn($m) => $m > 0));
+            $decl = $modes === [] ? 0 : max(0, $a->effectiveFailsafeSec(self::requestFromHub($hub, $modes[0])));
+        }
+        $hub->SetVarInt('rc_failsafe_decl_sec', $decl);
         $hub->SetVarInt('rc_rated_w', $on ? (int)($cap['ratedW'] ?? 0) : 0);
     }
 }

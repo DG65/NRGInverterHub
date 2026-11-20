@@ -263,6 +263,9 @@ foreach ($adapters as $name => $A) {
     $drv->readSlow($mb, $hub);
     ref_ok(($hub->vars['rc_available'][1] ?? null) === true && ($hub->vars['rc_version'][1] ?? 0) >= 1 && ($hub->vars['rc_tested'][1] ?? null) === $A['tested'] && ($hub->vars['rc_modes'][1] ?? '') === implode(',', $A['modes']) && strpos($hub->vars['rc_vendor'][1] ?? '', $name) === 0, "$name: langsamer Zyklus meldet Fähigkeit, Version, tested, Modi, Hersteller");
     if ($name === 'Deye') { ref_ok(($hub->vars['rc_rated_w'][1] ?? 0) === 10000, 'Deye: Nennleistung aus Register 20/21 (0,1 W) = 10000 W'); }
+    $declMode = array_values(array_filter($A['modes'], fn($m) => $m > 0))[0];
+    $declWant = max(0, $ad->effectiveFailsafeSec(IHUB_RemoteControl::requestFromHub($hub, $declMode)));
+    ref_ok(array_key_exists('rc_failsafe_decl_sec', $hub->vars) && $hub->vars['rc_failsafe_decl_sec'][1] === $declWant, "$name: langsamer Zyklus meldet das Vertragsfeld failsafeSec (rc_failsafe_decl_sec = $declWant s, aus dem Adapter)");
 
     // Fähigkeit fehlt
     $mb = $mk(); $mb->available = false; if ($name === 'Deye') { $mb->notAvailable = true; } if ($name === 'Solis') { $mb->regs[4][34502] = 0; }
@@ -757,11 +760,12 @@ foreach (['se', 'si', 'stpsx'] as $f) {
     ref_ok($i['tested'] === false && count($i['pitfalls']) >= 6 && array_filter($i['pitfalls'], fn($s) => strpos($s, '41193') !== false), "SMA $f: Kennzeichnung ungetestet, Fallen nennen den Totmann (41193)");
 }
 
-echo "\n== Vertrag IHUB_GetFunctions 1.9: remoteControl ==\n";
+echo "\n== Vertrag IHUB_GetFunctions 1.10: remoteControl ==\n";
 $GLOBALS['TREE'] = [];
 function IPS_GetChildrenIDs($p) { return $p === 1 ? array_values(array_map(function ($v) { return $v[0]; }, $GLOBALS['TREE'])) : []; }
 function IPS_GetObject($id) { foreach ($GLOBALS['TREE'] as $ident => $v) { if ($v[0] === $id) { return ['ObjectIdent' => $ident, 'ObjectType' => 2]; } } return ['ObjectIdent' => '', 'ObjectType' => 2]; }
 function IPS_ObjectExists($id) { return true; }
+function GetValueInteger($id) { return $GLOBALS['TESTVAL'][$id] ?? 0; }
 class RcHub extends InverterHub
 {
     public $maker = 'solis';
@@ -773,9 +777,11 @@ class RcHub extends InverterHub
 foreach (['solis' => $solis, 'foxess_smart' => $fox, 'deye' => $deye, 'solax' => $solax, 'sma' => $real, 'fronius' => $fronius, 'kostal' => $kostal, 'huawei' => $huawei, 'sungrow' => $sungrow, 'victron' => $victron] as $maker => $drv) {
     $gg = $drv->getOptionalGroups(); $idents = array_column(array_merge($gg['GroupControl']['vars'] ?? [], $gg['GroupRemote']['vars'] ?? []), 0);
     $GLOBALS['TREE'] = []; $i = 100; foreach (IHUB_RemoteControl::vars() as $v) { if (in_array($v[0], $idents, true)) { $GLOBALS['TREE'][$v[0]] = [$i++]; } }
+    $GLOBALS['TESTVAL'] = [$GLOBALS['TREE']['rc_failsafe_decl_sec'][0] => 90];
     $h = new RcHub(); $h->maker = $maker; $f = $h->GetFunctions();
     $rc = $f['remoteControl'];
-    ref_ok($f['contractVersion'] === '1.9' && $rc['modeID'] === $GLOBALS['TREE']['ctl_rc_mode'][0] && $rc['powerID'] === $GLOBALS['TREE']['ctl_rc_w'][0] && $rc['availableID'] === $GLOBALS['TREE']['rc_available'][0] && $rc['testedID'] === $GLOBALS['TREE']['rc_tested'][0] && $rc['vendorID'] === $GLOBALS['TREE']['rc_vendor'][0] && $rc['modesID'] === $GLOBALS['TREE']['rc_modes'][0] && $rc['failsafeSecID'] === $GLOBALS['TREE']['ctl_rc_failsafe_sec'][0] && $f['controllable'] === true, "$maker: remoteControl mit allen IDs, Vertrag 1.9, controllable");
+    ref_ok($f['contractType'] === 'inverter' && $rc['failsafeSec'] === 90 && $f['failsafeSec'] === 90 && $f['failsafeMode'] === 'deadman' && $rc['failsafeMode'] === 'deadman', "$maker: contractType inverter, failsafeSec 90 (Eintrag und remoteControl) und failsafeMode deadman");
+    ref_ok($f['contractVersion'] === '1.10' && $rc['modeID'] === $GLOBALS['TREE']['ctl_rc_mode'][0] && $rc['powerID'] === $GLOBALS['TREE']['ctl_rc_w'][0] && $rc['availableID'] === $GLOBALS['TREE']['rc_available'][0] && $rc['testedID'] === $GLOBALS['TREE']['rc_tested'][0] && $rc['vendorID'] === $GLOBALS['TREE']['rc_vendor'][0] && $rc['modesID'] === $GLOBALS['TREE']['rc_modes'][0] && $rc['failsafeSecID'] === $GLOBALS['TREE']['ctl_rc_failsafe_sec'][0] && $f['controllable'] === true, "$maker: remoteControl mit allen IDs, Vertrag 1.10, controllable");
 }
 $GLOBALS['TREE'] = ['pv_total' => [101]]; $h = new RcHub(); $f = $h->GetFunctions();
 ref_ok($f['remoteControl'] === [], 'Treiber ohne Fernsteuerung: leeres Feld');

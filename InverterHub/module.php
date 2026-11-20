@@ -945,9 +945,17 @@ class InverterHub extends IPSModule
                 'modeID' => $find('ctl_rc_mode'), 'powerID' => $find('ctl_rc_w'), 'gridChargeID' => $find('ctl_rc_grid_charge'),
                 'socMinID' => $find('ctl_rc_soc_min'), 'socMaxID' => $find('ctl_rc_soc_max'), 'failsafeSecID' => $find('ctl_rc_failsafe_sec'),
                 'failsafeEffID' => $find('rc_failsafe_eff_sec'), 'ratedWID' => $find('rc_rated_w'),
+                'failsafeSec' => max(0, $this->GetVarInt('rc_failsafe_decl_sec')),
             ];
         }
+        // Fremdanbindung (1.10): Totmann auch auf Eintragsebene, damit Konsumenten ihn ohne Blick in remoteControl finden.
+        // 0 = kein Totmann bekannt: dann gibt das Energiemanagement Fremdmodulen nichts frei (eigene Module bleiben ausgenommen).
+        $failsafeSec = (int)($remoteControl['failsafeSec'] ?? 0);
+        if ($remoteControl !== [] && $failsafeSec > 0) {
+            $remoteControl['failsafeMode'] = 'deadman';
+        }
         return [
+            // 1.9 -> 1.10: contractType 'inverter' und remoteControl.failsafeSec (Fremdanbindung, EMS-Rundschreiben 20.11.2026; 0 = kein Totmann bekannt)
             // 1.8 -> 1.9: remoteControl (gemeinsame Fernsteuerung aller Hersteller, EMS-Auftrag 19.11.2026; leer ohne Fernsteuerung)
             // 1.7 -> 1.8: dispatch (Solis Remote Dispatch, EMS-Auftrag 19.11.2026; leeres Array bei Treibern ohne Dispatch).
             // 1.0 -> 1.1: batteryTempIDs/batterySocIDs/batterySohIDs/
@@ -961,7 +969,10 @@ class InverterHub extends IPSModule
             // leer ohne Zaehlerphasen).
             // 1.5 -> 1.6: batteryChargeEnergyID/batteryDischargeEnergyID (EMS-Wunsch 17.11.2026,
             // belastbare Batterie-Gesamtzaehler kWh, bisher nur GoodWe: bms_e_*_total; sonst 0).
-            'contractVersion'  => '1.9',
+            'contractVersion'  => '1.10',
+            'contractType'     => 'inverter',
+            'failsafeSec'      => $failsafeSec,
+            'failsafeMode'     => 'deadman',   // Konsument erneuert den Befehl innerhalb failsafeSec/2; ohne failsafeSec > 0 keine Freigabe
             'houseLoadID'      => $find('house_load_total'),
             'gridServiceCapabilities' => $gridServiceCapabilities,
             'instanceID'       => $this->InstanceID,

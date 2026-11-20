@@ -1481,6 +1481,10 @@
                 "B",
                 false
             ],
+            "rc_failsafe_decl_sec": [
+                "I",
+                0
+            ],
             "rc_modes": [
                 "S",
                 "0,1,2"

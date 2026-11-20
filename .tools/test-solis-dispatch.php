@@ -209,7 +209,7 @@ class DspHub extends InverterHub
 }
 $GLOBALS['TREE'] = ['ctl_dispatch_mode' => [101], 'ctl_dispatch_w' => [102], 'dispatch_available' => [103], 'dispatch_version' => [104], 'dispatch_status' => [105], 'ctl_dispatch_grid_charge' => [106], 'ctl_dispatch_soc_max' => [107]];
 $f = (new DspHub())->GetFunctions();
-ref_ok($f['contractVersion'] === '1.9', 'Vertrag 1.9');
+ref_ok($f['contractVersion'] === '1.10', 'Vertrag 1.10');
 ref_ok(is_array($f['dispatch']) && $f['dispatch']['modeID'] === 101 && $f['dispatch']['powerID'] === 102 && $f['dispatch']['availableID'] === 103 && $f['dispatch']['versionID'] === 104 && $f['dispatch']['statusID'] === 105 && $f['dispatch']['gridChargeID'] === 106 && $f['dispatch']['socMaxID'] === 107, 'dispatch: IDs von Modus, Leistung, Fähigkeit, Version, Status, Netzladen, SOC-Obergrenze');
 ref_ok($f['dispatch']['socMinID'] === 0 && $f['dispatch']['failsafeMinID'] === 0 && $f['dispatch']['importLimitID'] === 0, 'fehlende Variablen: ID 0');
 $GLOBALS['TREE'] = ['pv_total' => [101]];

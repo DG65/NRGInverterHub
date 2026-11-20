@@ -146,6 +146,17 @@ $c->handler = function ($m, $p, $pl, $s) { return $p === 'auth/start' ? [500, nu
 $threw = '';
 try { $c->beginBatch(); } catch (RuntimeException $e) { $threw = $e->getMessage(); }
 ok($threw === 'Kostal auth/start failed' && $saved === [''], 'abgelaufene Sitzung (401): wird verworfen und neu angemeldet');
+$saved = [];
+$c = new StubKostalClient('wr.local', 'user', 'geheim', false, function () { return 'ALT'; }, function ($s) use (&$saved) { $saved[] = $s; });
+$c->handler = function ($m, $p, $pl, $s) { return $p === 'auth/start' ? [500, null] : [400, null]; };
+$threw = '';
+try { $c->beginBatch(); } catch (RuntimeException $e) { $threw = $e->getMessage(); }
+ok($threw === 'Kostal auth/start failed' && $saved === [''], 'Sitzung mit HTTP 400 (Dirk 20.11.): wird verworfen und neu angemeldet, nicht dauerhaft wiederverwendet');
+$c = new StubKostalClient('wr.local', 'user', 'geheim', false, function () { return 'ALT'; }, function ($s) use (&$saved) { $saved[] = $s; });
+$saved = []; $c->handler = function ($m, $p, $pl, $s) { return [503, null]; };
+$threw = '';
+try { $c->beginBatch(); } catch (RuntimeException $e) { $threw = $e->getMessage(); }
+ok($threw === 'Kostal HTTP 503 for processdata' && $saved === [], 'HTTP 503: Sitzung bleibt erhalten, keine Neuanmeldung');
 $c = new StubKostalClient('wr.local', 'user', 'geheim', false, function () { return 'GUT'; }, function ($s) {});
 $c->handler = handler(fixture()); $c->beginBatch();
 ok(count(array_filter($c->log, fn($e) => $e[1] === 'auth/start')) === 0 && $c->log[0][2] === 'GUT', 'gültige Sitzung wird wiederverwendet, keine neue Anmeldung');

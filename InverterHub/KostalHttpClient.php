@@ -324,7 +324,9 @@ class IHUB_KostalHttpClient
         if ($this->session !== '') {
             [$status, $result] = $this->request($method, $path, $payload, $this->session);
             if ($status >= 200 && $status < 300) return $result;
-            if (!in_array($status, [401, 403], true)) throw new RuntimeException('Kostal HTTP ' . $status . ' for ' . $path);
+            // Jeder 4xx-Fehler mit gespeicherter Sitzung heisst: die Sitzung ist unbrauchbar (Dirk Allard, 20.11.2026:
+            // dauerhaft "HTTP 400 for processdata"). Verwerfen und neu anmelden. Nur 5xx/Sonstiges bleibt ein Fehler.
+            if ($status < 400 || $status >= 500) throw new RuntimeException('Kostal HTTP ' . $status . ' for ' . $path);
             $this->session = '';
             $this->saveSession();
         }
