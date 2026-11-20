@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.96.1 (2026-11-20)
+
+- **Kostal-HTTP: Anmeldefehler nennen jetzt Status und Geräte-Meldung.** „Kostal auth/start failed“ sagte nicht, warum das Gerät die Anmeldung ablehnt (Rückmeldung Dirk Allard, 20.11.2026, nach 0.96.0). Die Meldungen von `auth/start`, `auth/finish` und `create_session` hängen jetzt „(HTTP <Status>: <kurze Meldung des Geräts>)“ an; die Meldung wird auf druckbare Zeichen und 80 Zeichen begrenzt. Das Verhalten ist sonst unverändert (Sitzung nach 4xx verwerfen und neu anmelden bleibt aus 0.96.0).
+
 ## 0.96.0 (2026-11-20)
 
 - **Fremdanbindung: Vertrag `IHUB_GetFunctions` 1.10 (EMS-Rundschreiben 20.11.2026, Dietmar: „Wir machen die Fremdanbindung komplett für alle Elemente“).** Neu und rein additiv: `contractType` = `'inverter'`, `failsafeSec` (Sekunden, 0 = kein Totmann bekannt) und `failsafeMode` = `'deadman'`, ebenso in `remoteControl`. Der Wert kommt aus dem Adapter (neue Variable `rc_failsafe_decl_sec`, im langsamen Zyklus gesetzt, das, was der Adapter für den ersten angebotenen Modus ins Gerät schreibt): Solis, FoxESS, Deye, SolaX, Fronius, Huawei (Zwangsladen), Sungrow, Victron und SMA mit Totmann; **Kostal meldet 0** (Zeitgeber nur in der Weboberfläche, über Modbus weder les- noch setzbar), das EMS gibt ohne bekannten Totmann nichts frei. Kein Feld entfernt oder umgedeutet.
