@@ -164,6 +164,10 @@ class RefHub
     public function SetVarBool(string $i, bool $v) { $this->vars[$i] = ['B', $v]; }
     public function SetVarStr(string $i, string $v) { $this->vars[$i] = ['S', $v]; }
     public function GetPropInt(string $n) { return (int)($this->props[$n] ?? 0); }
+    public function GetPropStr(string $n) { return (string)($this->props[$n] ?? ''); }
+    public $published = [];
+    public $publishOk = true;
+    public function VictronMqttPublish(string $t, string $p) { $this->published[] = [$t, $p]; return $this->publishOk; }
     public function GetPropBool(string $n) { return array_key_exists($n, $this->props) ? (bool)$this->props[$n] : $this->defaultProp; }
     public function GetVarInt(string $i) { return isset($this->vars[$i]) ? (int)$this->vars[$i][1] : (int)($this->seed[$i] ?? 0); }
     public function GetVarFloat(string $i) { return isset($this->vars[$i]) ? (float)$this->vars[$i][1] : (float)($this->seed[$i] ?? 0.0); }

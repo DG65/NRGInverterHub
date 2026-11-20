@@ -210,7 +210,7 @@ class IHUB_VictronDriver implements IHUB_InverterDriverInterface
         if ($hub->GetPropBool('GroupRemote')) {
             $keep = $mb->unitId;
             $mb->unitId = self::UNIT_SYSTEM;
-            IHUB_RemoteControl::refresh(new IHUB_RemoteVictron(), $mb, $hub);   // Fernsteuerung: Fähigkeit (Register 2716) und Kennzeichnung
+            IHUB_RemoteControl::refresh($this->remoteAdapter($hub), $mb, $hub);   // Fernsteuerung: Fähigkeit (Register 2716) und Kennzeichnung
             $mb->unitId = $keep;
         }
         // Zählerstände. Der Systemdienst (Unit 100) führt KEINE Energiezähler -
@@ -301,6 +301,18 @@ class IHUB_VictronDriver implements IHUB_InverterDriverInterface
         $mb->unitId = $restore;
     }
 
+    /** Adapter der Fernsteuerung; mit Brücke und Portal-ID an der Instanz laufen die Overrides über MQTT (seit 0.97.0). */
+    protected function remoteAdapter($hub): IHUB_RemoteVictron
+    {
+        $a = new IHUB_RemoteVictron();
+        $portal = trim((string)$hub->GetPropStr('VictronPortalID'));
+        if ($portal !== '' && (int)$hub->GetPropInt('VictronMqttBridgeID') > 0) {
+            $a->portal = $portal;
+            $a->publisher = function (string $topic, string $payload) use ($hub): bool { return (bool)$hub->VictronMqttPublish($topic, $payload); };
+        }
+        return $a;
+    }
+
     public function readDeviceInfo($mb, $hub)
     {
         // Seriennummer/Modell optional - Systemdienst hat keinen Klarnamen.
@@ -313,7 +325,7 @@ class IHUB_VictronDriver implements IHUB_InverterDriverInterface
             $keep = $mb->unitId;
             $mb->unitId = self::UNIT_SYSTEM;
             try {
-                IHUB_RemoteControl::control(new IHUB_RemoteVictron(), $mb, $hub, $ident, $value);
+                IHUB_RemoteControl::control($this->remoteAdapter($hub), $mb, $hub, $ident, $value);
             } finally {
                 $mb->unitId = $keep;
             }

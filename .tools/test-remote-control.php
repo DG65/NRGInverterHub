@@ -496,6 +496,32 @@ ref_ok(IHUB_RemoteVictron::words(-2500) === [0xFFFF, 0xF63C] && IHUB_RemoteVictr
 $a = new IHUB_RemoteVictron();
 ref_ok($a->validate(['mode' => 4, 'watts' => 0, 'failsafeSec' => 0, 'ext' => []], ['flow' => []]) !== '' && $a->validate(['mode' => 1, 'watts' => 0, 'failsafeSec' => 0, 'ext' => []], []) !== '' && $a->validate(['mode' => 1, 'watts' => 0, 'failsafeSec' => 0, 'ext' => []], ['flow' => ['pv' => 0, 'load' => 0, 'grid' => 0, 'bat' => 0]]) === '' && $a->validate(['mode' => 3, 'watts' => 0, 'failsafeSec' => 0, 'ext' => []], []) === '', 'Victron: Modus 4 und Halten ohne Messwerte werden vom Adapter selbst abgelehnt, Modus 3 braucht keine Messwerte');
 ref_ok($a->isActive(-500) && $a->isActive(1) && !$a->isActive(0), 'Victron: aktiv, solange ein Override gesetzt ist');
+echo "\n== Victron: Overrides über MQTT (Brücke und Portal-ID an der Instanz) ==\n";
+function mqttHub(array $seed) { $h = hubFor($seed); $h->props['VictronPortalID'] = 'c0619ab12345'; $h->props['VictronMqttBridgeID'] = 7; return $h; }
+function mqttVals(RefHub $h): array { $o = []; foreach ($h->published as [$t, $p]) { $o[substr($t, strlen('W/c0619ab12345/hub4/0/Overrides/'))] = json_decode($p, true)['value']; } return $o; }
+$mb = new SimVictron(); $mb->regs[3][2716] = 0xFFFF; $mb->regs[3][2717] = 0xF63C;   // das GX hat den Override übernommen (−2500)
+$hub = mqttHub(['rc_version' => 1, 'ctl_rc_w' => 2500]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 3);
+ref_ok($mb->writes === [] && array_column($hub->published, 0) === array_map(fn($n) => 'W/c0619ab12345/hub4/0/Overrides/' . $n, ['ForceCharge', 'MaxChargePower', 'MaxDischargePower', 'FeedInExcess', 'Setpoint']) && mqttVals($hub) === ['ForceCharge' => 0, 'MaxChargePower' => -1, 'MaxDischargePower' => -1, 'FeedInExcess' => 0, 'Setpoint' => -2500] && $hub->warn === [], 'Victron MQTT: Modus 3 +2500 W = Setpoint −2500, Setpoint zuletzt, die anderen Overrides frei, kein Modbus-Schreiben');
+$mb = new SimVictron(); $hub = mqttHub(['rc_version' => 1, 'ctl_rc_mode' => 3]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 0);
+ref_ok($mb->writes === [] && mqttVals($hub) === ['ForceCharge' => 0, 'MaxChargePower' => -1, 'MaxDischargePower' => -1, 'FeedInExcess' => 0, 'Setpoint' => null] && strpos($hub->published[4][1], 'null') !== false && $hub->warn === [], 'Victron MQTT: Modus 0 löscht den Setpoint mit JSON null und gibt alle Overrides frei (echte Freigabe, kein Spiegeln von 2700)');
+$mb = new SimVictron(); $mb->flow(0, 1000, 1000, 0, 600); $hub = mqttHub(['rc_version' => 1, 'ctl_rc_w' => 2000]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok(mqttVals($hub) === ['ForceCharge' => 1, 'MaxChargePower' => (int)round(2000 / 0.95 - 600 * 0.98), 'MaxDischargePower' => -1, 'Setpoint' => null] && $hub->warn === [], 'Victron MQTT: Akku +2000 W (Laden) = ForceCharge 1, MaxChargePower = P/0,95 − 0,98·PV_DC, Setpoint frei');
+$mb = new SimVictron(); $mb->flow(0, 1000, 1000, 0, 600); $mb->regs[3][2716] = 0xFFFF; $mb->regs[3][2717] = (65536 - 40000 / 10 * 10) & 0xFFFF;
+$mb->regs[3][2716] = (int)((-40000 >> 16) & 0xFFFF); $mb->regs[3][2717] = (int)(-40000 & 0xFFFF);
+$hub = mqttHub(['rc_version' => 1, 'ctl_rc_w' => -1500]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 2);
+ref_ok(mqttVals($hub) === ['ForceCharge' => 0, 'MaxChargePower' => -1, 'MaxDischargePower' => (int)round((1500 + 600) * 0.95), 'Setpoint' => -40000] && $hub->warn === [], 'Victron MQTT: Akku −1500 W (Entladen) = MaxDischargePower (D + PV_DC)·0,95 und Setpoint −40000 (das Netz darf aufnehmen, die Akkugrenze regelt)');
+$mb = new SimVictron(); $mb->flow(0, 1000, 1000, 0, 600); $mb->regs[3][2716] = (int)((-40000 >> 16) & 0xFFFF); $mb->regs[3][2717] = (int)(-40000 & 0xFFFF);
+$hub = mqttHub(['rc_version' => 1]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok(mqttVals($hub) === ['ForceCharge' => 0, 'MaxChargePower' => -1, 'MaxDischargePower' => 600, 'Setpoint' => -40000] && $hub->warn === [], 'Victron MQTT: Halten = MaxDischargePower auf die DC-PV begrenzt (kein Entladen ins Haus über die PV hinaus), kein Regelkreis');
+$mb = new SimVictron(); $mb->flow(0, 1000, 1000, 0, 0); $hub = mqttHub(['rc_version' => 1]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok(mqttVals($hub)['MaxDischargePower'] === 1, 'Victron MQTT: Halten ohne PV: MaxDischargePower mindestens 1 W (0 würde als "aus" gelesen)');
+$mb = new SimVictron(); $hub = mqttHub(['rc_version' => 1, 'ctl_rc_w' => 1000]); $hub->publishOk = false; $victron->writeControl($mb, $hub, 'ctl_rc_mode', 3);
+ref_ok($hub->warn !== [] && $mb->writes === [] && count($hub->published) === 2, 'Victron MQTT: Veröffentlichen schlägt fehl (Brücke weg): Warnung, nichts über Modbus nachgeschoben, je Versuch nur der erste Schritt (zwei Versuche), kein Weiterschreiben');
+$mb = new SimVictron(2, 1); $mb->flow(0, 1000, 1000, 0, 0); $hub = mqttHub(['rc_version' => 1, 'ctl_rc_w' => 1000]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 3);
+ref_ok($hub->published === [] && $hub->warn !== [], 'Victron MQTT: Dynamic ESS aktiv wird auch über MQTT abgelehnt (der Override würde verworfen)');
+$mb = new SimVictron(); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 1000]); $hub->props['VictronPortalID'] = 'c0619ab12345'; $victron->writeControl($mb, $hub, 'ctl_rc_mode', 3);
+ref_ok($hub->published === [] && $mb->ov() === -1000, 'Victron: Portal-ID ohne Brücke bleibt beim Modbus-Weg 2716');
+
 $vg = $victron->getOptionalGroups();
 ref_ok(isset($vg['GroupRemote']) && ($vg['GroupRemote']['default'] ?? true) === false && ($vg['GroupPV']['default'] ?? true) === true, 'Victron: Gruppe Fernsteuerung startet aus, die übrigen Gruppen bleiben an');
 $i = $a->info();

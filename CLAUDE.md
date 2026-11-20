@@ -1856,3 +1856,5 @@ Remote. Frühere Kopien dieses Dokuments wurden zusätzlich aus der Historie
 aller Modul-Repos entfernt (`git filter-repo` + Force-Push). Kein
 Fallback-Link mehr — ohne lokalen Zugriff auf Dietmars Maschine ist SUITE.md
 nicht einsehbar.
+
+**Victron über MQTT (0.97.0, ungetestet):** Eigenschaften `VictronMqttBridgeID` (InverterHubMqttBridge, Parent = MQTT-Client zum GX) und `VictronPortalID`; beide gesetzt = `IHUB_RemoteVictron` schreibt die Overrides `W/<Portal>/hub4/0/Overrides/*` (Schritte mit Schlüssel `mqtt` in `plan()`, ausgeführt von `IHUB_RemoteControl::apply()` über `$a->publish()`), sonst Modbus 2716 wie bisher. Rücklesen nur Setpoint (2716). Formeln und Grenzen: CHANGELOG 0.97.0 und `Hersteller-Doku/Recherche-Victron-Fernsteuerung-Runde4.md`.

@@ -203,6 +203,8 @@ class InverterHub extends IPSModule
         // Modbus", Werkseinstellung Plenticore), 1 = ABCD (big-endian/SunSpec).
         // Falsche Wahl liefert unbrauchbare Werte (riesige/negative Zahlen).
         $this->RegisterPropertyInteger('KostalByteOrder', 0);
+        $this->RegisterPropertyInteger('VictronMqttBridgeID', 0);   // Victron: MQTT-Brücke zum GX für die Overrides (Halten, Akku ±W)
+        $this->RegisterPropertyString('VictronPortalID', '');      // Victron: Portal-ID des GX (Topics W/<Portal-ID>/...)
         $this->RegisterPropertyInteger('SmaControlType', 0);   // Fernsteuerung SMA: 0 STP SE/SBS, 1 Sunny Island, 2 STPS X / SI X
         $this->RegisterPropertyString('KostalHttpUser', 'user');
         $this->RegisterPropertyBoolean('KostalPv3Battery', false);
@@ -1236,6 +1238,21 @@ class InverterHub extends IPSModule
         // Victron: Unit-IDs der einzelnen Solarladeregler (MPPT). Für die
         // optionale Gruppe „PV je Solarladeregler / MPPT".
         if ($this->ReadPropertyString('Manufacturer') === 'victron') {
+            $groupItems[] = [
+                'type'    => 'Label',
+                'caption' => 'Remote control over MQTT (optional, only used when the group "Remote control" is switched on): with a bridge and the portal ID the overrides ForceCharge, MaxChargePower, MaxDischargePower and Setpoint are written as Victron Dynamic ESS does it (hold, charge, discharge without the control loop). Without them the setpoint 2716 is used over Modbus. The GX needs "MQTT on LAN"; connect the MQTT client IO of Symcon to the GX and subscribe to N/<portal ID>/#.',
+            ];
+            $groupItems[] = [
+                'type'    => 'SelectInstance',
+                'name'    => 'VictronMqttBridgeID',
+                'caption' => 'MQTT bridge to the GX (InverterHubMqttBridge, parent: MQTT client of the GX)',
+                'validModules' => ['{B8E699DE-22E4-4DF3-926B-8F4C118852B7}'],
+            ];
+            $groupItems[] = [
+                'type'    => 'ValidationTextBox',
+                'name'    => 'VictronPortalID',
+                'caption' => 'Portal ID of the GX (Settings → VRM online portal → VRM portal ID, 12 characters)',
+            ];
             $groupItems[] = [
                 'type'    => 'ValidationTextBox',
                 'name'    => 'VictronMpptUnitIds',
@@ -2859,6 +2876,22 @@ This KOSTAL HTTP API does not provide a battery temperature, so it is not read i
     public function GetPropBool(string $name)
     {
         return $this->ReadPropertyBoolean($name);
+    }
+
+    // Wie GetPropInt, für Text-Eigenschaften (z. B. VictronPortalID).
+    public function GetPropStr(string $name)
+    {
+        return $this->ReadPropertyString($name);
+    }
+
+    // Victron: Override über die MQTT-Brücke zum GX veröffentlichen (Topic W/<Portal-ID>/hub4/0/Overrides/...). false ohne Brücke oder bei Fehler.
+    public function VictronMqttPublish(string $topic, string $payload): bool
+    {
+        $bridge = $this->ReadPropertyInteger('VictronMqttBridgeID');
+        if ($bridge <= 0 || !IPS_InstanceExists($bridge) || !function_exists('IHUBM_Publish')) {
+            return false;
+        }
+        return (bool)@IHUBM_Publish($bridge, $topic, $payload);
     }
 
     // Wie GetPropBool, für Ganzzahl-Eigenschaften (z. B. SmaControlType).

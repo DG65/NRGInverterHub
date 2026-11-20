@@ -134,6 +134,14 @@ class IHUB_RemoteControl
             }
             $err = '';
             foreach ($steps as $s) {
+                if (isset($s['mqtt'])) {   // Schritt über MQTT statt Modbus (Victron-Overrides)
+                    if (!$a->publish($s['mqtt'])) {
+                        $err = IHUB_Text::t('write failed');
+                        continue 2;
+                    }
+                    self::wait((int)$s['afterUs']);
+                    continue;
+                }
                 $ok = ((int)$s['fc'] === 6) ? $mb->writeSingle($s['addr'], $s['words'][0]) : $mb->writeMultiple($s['addr'], $s['words']);
                 if (!$ok) {
                     $err = isset($mb->lastError) && $mb->lastError !== '' ? $mb->lastError : IHUB_Text::t('write failed');

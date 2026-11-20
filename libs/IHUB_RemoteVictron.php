@@ -49,6 +49,18 @@ class IHUB_RemoteVictron implements IHUB_RemoteAdapter, IHUB_RemotePreparing
     const REG_BATTERY_POWER = 842;      // int16, + = Laden
     const REG_PV_DC = 850;              // uint16
 
+    const ETA = 0.95;                   // Näherung für Wandler- und Akkuverluste in den MQTT-Formeln (Victron-Dynamic-ESS-Technik)
+    const MQTT_BASE = 'hub4/0/Overrides/';
+
+    /** MQTT-Weg (seit 0.97.0): $publisher(string $topic, string $payload): bool und die Portal-ID des GX; beides gesetzt = Overrides per MQTT statt 2716. */
+    public $publisher = null;
+    public $portal = '';
+
+    public function mqttEnabled(): bool
+    {
+        return $this->publisher !== null && trim($this->portal) !== '';
+    }
+
     public static $readbackUs = 1500000;
     public static $retryPauseUs = 2000000;
 
@@ -69,7 +81,7 @@ class IHUB_RemoteVictron implements IHUB_RemoteAdapter, IHUB_RemotePreparing
                 'on a newly set up GX, Modbus TCP is read-only by default (Venus OS 3.90 beta resets it to read-only at every switch-on): without write permission every write ends with an exception',
                 'hold (mode 1) and battery power (mode 2) have no Modbus register: they are an approximation by a control loop on 2716 (feed-forward from load and PV, feedback from grid and battery power, limited to a band of 800 W around the feed-forward), untested, losses and the settling time of 30 to 60 s are not modelled',
                 'the control loop needs the measured values 808 to 822, 842 and 850; the battery only follows within its limits (minimum SOC, BMS, Sustain): then the setpoint stays near the feed-forward value instead of running away',
-                'ForceCharge, MaxChargePower, MaxDischargePower and FeedInExcess (used by Victron Dynamic ESS) have no Modbus register, only D-Bus and MQTT; an MQTT access would give a proven hold and battery power',
+                'ForceCharge, MaxChargePower, MaxDischargePower and FeedInExcess (used by Victron Dynamic ESS) have no Modbus register, only D-Bus and MQTT; with an MQTT access (bridge and portal ID set on the instance) the module writes W/<portal>/hub4/0/Overrides/... like Victron Dynamic ESS does: hold, charge and discharge without the control loop, mode 0 clears the overrides with JSON null; only the setpoint can be read back (register 2716), the other overrides cannot; the GX needs MQTT on LAN and a broker connection (the MQTT client IO of Symcon, topic filter N/<portal>/#), the efficiency of 95 % in the formulas is an approximation; untested',
                 'not built: the ESS mode 3 path (registers 37, 38, 39 of the VE.Bus service) with its failsafe (60 s in the wiki, about 10 s in a 2026 report) and fall back to passthru (battery unused), needs the ESS mode in flash and a VE.Bus unit ID; and the Multi RS path',
                 'the unit of the system and settings service is 100; the battery limits of a managed battery (BMS, DVCC) always apply; settling takes 30 to 60 s, the ramp is limited to 400 W/s',
                 'the setpoint is a total over all phases; ESS with phase compensation (2902 = 1) works on the sum; the power is rounded to 10 W; Sustain (battery nearly empty) overrides every setpoint',
@@ -151,7 +163,7 @@ class IHUB_RemoteVictron implements IHUB_RemoteAdapter, IHUB_RemotePreparing
                     $pvAc += (int)$mb->u16($fl, $o);
                 }
                 $cap['flow'] = [
-                    'pv' => $pvAc + (int)$mb->u16($pd, 0), 'load' => (int)$mb->u16($fl, 9) + (int)$mb->u16($fl, 10) + (int)$mb->u16($fl, 11),
+                    'pv' => $pvAc + (int)$mb->u16($pd, 0), 'pvdc' => (int)$mb->u16($pd, 0), 'load' => (int)$mb->u16($fl, 9) + (int)$mb->u16($fl, 10) + (int)$mb->u16($fl, 11),
                     'grid' => (int)$mb->s16($fl, 12) + (int)$mb->s16($fl, 13) + (int)$mb->s16($fl, 14), 'bat' => (int)$mb->s16($bp, 0),
                 ];
             }
@@ -222,9 +234,58 @@ class IHUB_RemoteVictron implements IHUB_RemoteAdapter, IHUB_RemotePreparing
         return self::loopSetpoint($mode === 2 ? (int)($req['watts'] ?? 0) : 0, $cap['flow']);
     }
 
+    /**
+     * Die fünf Overrides für diese Anfrage (MQTT-Weg): [Name => Wert|null]; null löscht den Override (JSON null), -1 bei MaxCharge/MaxDischarge = unbegrenzt.
+     * Nach Victrons Dynamic-ESS-Technik (Recherche Runde 4, Weg B-MQTT): Halten, Laden und Entladen über ForceCharge/MaxCharge/MaxDischarge plus Setpoint.
+     */
+    public function overrides(array $req, array $cap): array
+    {
+        $mode = (int)$req['mode'];
+        $pvdc = max(0, (int)($cap['flow']['pvdc'] ?? 0));
+        $o = ['ForceCharge' => 0, 'MaxChargePower' => -1, 'MaxDischargePower' => -1, 'Setpoint' => null, 'FeedInExcess' => 0];
+        if ($mode === 0) {
+            return $o;
+        }
+        if ($mode === 3) {
+            $o['Setpoint'] = self::devicePower(3, (int)($req['watts'] ?? 0));
+            return $o;
+        }
+        $t = $mode === 2 ? (int)($req['watts'] ?? 0) : 0;            // Zielleistung des Akkus, + = Laden
+        unset($o['FeedInExcess']);
+        if ($t > 0) {
+            $o['ForceCharge'] = 1;
+            $o['MaxChargePower'] = max(50, (int)round($t / self::ETA - $pvdc * 0.98));
+            return $o;
+        }
+        $o['Setpoint'] = -self::POWER_LIMIT_W;
+        $o['MaxDischargePower'] = $t < 0 ? (int)round((-$t + $pvdc) * self::ETA) : max(1, $pvdc);
+        return $o;
+    }
+
+    /** Ein Schritt des MQTT-Wegs ausführen: Topic und Payload veröffentlichen. */
+    public function publish(array $mqtt): bool
+    {
+        return $this->publisher !== null && (bool)call_user_func($this->publisher, $mqtt['topic'], $mqtt['payload']);
+    }
+
+    private function mqttSteps(array $req, array $cap): array
+    {
+        $steps = [];
+        $o = $this->overrides($req, $cap);
+        foreach (['ForceCharge', 'MaxChargePower', 'MaxDischargePower', 'FeedInExcess', 'Setpoint'] as $name) {   // Setpoint zuletzt
+            if (array_key_exists($name, $o)) {
+                $steps[] = ['mqtt' => ['topic' => 'W/' . trim($this->portal) . '/' . self::MQTT_BASE . $name, 'payload' => json_encode(['value' => $o[$name]])], 'afterUs' => 0];
+            }
+        }
+        return ['steps' => $steps];
+    }
+
     public function plan(array $req, array $cap, int $last): array
     {
         $mode = (int)$req['mode'];
+        if ($this->mqttEnabled()) {
+            return $this->mqttSteps($req, $cap);
+        }
         if ($mode === 0) {
             // keine Freigabe per Modbus: den Netzsollwert 2700 spiegeln, einmalig, dann schweigen
             if (!isset($cap['grid']) || ($cap['override'] ?? null) === $cap['grid']) {
@@ -246,6 +307,14 @@ class IHUB_RemoteVictron implements IHUB_RemoteAdapter, IHUB_RemotePreparing
     public function verify(array $back, array $req, array $cap): string
     {
         $mode = (int)$req['mode'];
+        if ($this->mqttEnabled()) {
+            // Per Modbus ist nur der Setpoint rücklesbar (2716); null (Freigabe) liest sich als 0 und ist nicht prüfbar.
+            $sp = $this->overrides($req, $cap)['Setpoint'];
+            if ($sp !== null && abs($back['override'] - $sp) > 1) {
+                return IHUB_Text::t('device acknowledged, but stored %s instead of %s (register %s)', $back['override'], $sp, self::REG_OVERRIDE);
+            }
+            return '';
+        }
         if ($mode === 0 && !isset($cap['grid'])) {
             return '';
         }
