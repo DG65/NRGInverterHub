@@ -1858,3 +1858,5 @@ Fallback-Link mehr — ohne lokalen Zugriff auf Dietmars Maschine ist SUITE.md
 nicht einsehbar.
 
 **Victron über MQTT (0.97.0, ungetestet):** Eigenschaften `VictronMqttBridgeID` (InverterHubMqttBridge, Parent = MQTT-Client zum GX) und `VictronPortalID`; beide gesetzt = `IHUB_RemoteVictron` schreibt die Overrides `W/<Portal>/hub4/0/Overrides/*` (Schritte mit Schlüssel `mqtt` in `plan()`, ausgeführt von `IHUB_RemoteControl::apply()` über `$a->publish()`), sonst Modbus 2716 wie bisher. Rücklesen nur Setpoint (2716). Formeln und Grenzen: CHANGELOG 0.97.0 und `Hersteller-Doku/Recherche-Victron-Fernsteuerung-Runde4.md`.
+
+**Victron-Regelkreis in der Instanz (0.97.1):** `IHUB_VictronDriver::regulate()` im schnellen Zyklus: Modus 1/2 über Modbus (nicht MQTT), alle `LOOP_PERIOD_S` = 10 s, nur bis `LOOP_MAX_AGE_S` = 90 s nach dem letzten Modus-Befehl von außen (Zeitstempel `RcStamp('cmd')`, gesetzt in `writeControl()`); der Regelkreis ruft `IHUB_RemoteControl::control()` selbst auf und setzt den Befehlsstempel NICHT, sonst wäre der Totmann ausgehebelt. Gemeldeter Totmann dort 270 s.

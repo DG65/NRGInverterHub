@@ -344,6 +344,12 @@ class IHUB_RemoteVictron implements IHUB_RemoteAdapter, IHUB_RemotePreparing
     /** Zeitgeber von hub4control (absichtlich, undokumentierte Dauer): 180 s sind die kleinere Messung; Modus 0 hat keinen. */
     public function effectiveFailsafeSec(array $req): int
     {
-        return (int)$req['mode'] !== 0 ? self::FAILSAFE_S : 0;
+        $mode = (int)$req['mode'];
+        if ($mode === 0) {
+            return 0;
+        }
+        // Halten und Akku ±W über Modbus: die Instanz führt den Regelkreis selbst bis IHUB_VictronDriver::LOOP_MAX_AGE_S nach dem letzten Befehl nach,
+        // erst danach beginnt der Zeitgeber von hub4control zu laufen.
+        return ($mode === 1 || $mode === 2) && !$this->mqttEnabled() ? self::FAILSAFE_S + IHUB_VictronDriver::LOOP_MAX_AGE_S : self::FAILSAFE_S;
     }
 }

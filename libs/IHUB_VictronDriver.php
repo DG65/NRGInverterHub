@@ -12,6 +12,49 @@
 class IHUB_VictronDriver implements IHUB_InverterDriverInterface
 {
     const UNIT_SYSTEM = 100;
+    const LOOP_PERIOD_S = 10;      // Regelkreis (Halten, Akku ±W über Modbus): so oft wird der Netzsollwert neu gerechnet und geschrieben
+    const LOOP_MAX_AGE_S = 90;     // ... höchstens so lange nach dem letzten Modus-Befehl des Energiemanagements (sonst Totmann)
+    /** @var callable|null Zeitquelle für Tests */
+    public static $clock = null;
+
+    private function now(): int
+    {
+        return self::$clock !== null ? (int)call_user_func(self::$clock) : time();
+    }
+
+    /**
+     * Regelkreis für Halten (1) und Akku ±W (2) über Modbus: Der Adapter rechnet den Netzsollwert nur beim Schreiben. Damit er nicht nur bei jedem
+     * Befehl des Energiemanagements (30 bis 60 s) nachgeführt wird, rechnet und schreibt die Instanz selbst alle LOOP_PERIOD_S Sekunden mit den
+     * gemerkten Vorgaben. Nur bis LOOP_MAX_AGE_S nach dem letzten Modus-Befehl von außen: bleibt der aus, endet auch der Regelkreis und der
+     * hub4control-Zeitgeber der Overrides (180 bis 300 s) holt Victron zurück (der Totmann bleibt beim Gerät). Mit MQTT-Weg unnötig (feste Overrides).
+     */
+    private function regulate($mb, $hub): void
+    {
+        if (!$hub->GetPropBool('GroupRemote')) {
+            return;
+        }
+        $mode = $hub->GetVarInt('ctl_rc_mode');
+        if ($mode !== 1 && $mode !== 2) {
+            return;
+        }
+        $a = $this->remoteAdapter($hub);
+        if ($a->mqttEnabled()) {
+            return;
+        }
+        $now = $this->now();
+        $cmd = $hub->RcStamp('cmd');
+        if ($cmd <= 0 || $now - $cmd > self::LOOP_MAX_AGE_S || $now - $hub->RcStamp('loop') < self::LOOP_PERIOD_S) {
+            return;
+        }
+        $hub->SetRcStamp('loop', $now);
+        $keep = $mb->unitId;
+        $mb->unitId = self::UNIT_SYSTEM;
+        try {
+            IHUB_RemoteControl::control($a, $mb, $hub, 'ctl_rc_mode', $mode);
+        } finally {
+            $mb->unitId = $keep;
+        }
+    }
 
     const BAT_STATE = [
         0 => 'Sleep', 1 => 'Charge', 2 => 'Discharge',
@@ -202,6 +245,7 @@ class IHUB_VictronDriver implements IHUB_InverterDriverInterface
             $mb->unitId = self::UNIT_SYSTEM;
         }
 
+        $this->regulate($mb, $hub);
         return true;
     }
 
@@ -325,6 +369,10 @@ class IHUB_VictronDriver implements IHUB_InverterDriverInterface
             $keep = $mb->unitId;
             $mb->unitId = self::UNIT_SYSTEM;
             try {
+                if ($ident === 'ctl_rc_mode') {
+                    $hub->SetRcStamp('cmd', $this->now());   // Befehl von außen: setzt die Frist des Regelkreises zurück
+                    $hub->SetRcStamp('loop', $this->now());
+                }
                 IHUB_RemoteControl::control($this->remoteAdapter($hub), $mb, $hub, $ident, $value);
             } finally {
                 $mb->unitId = $keep;

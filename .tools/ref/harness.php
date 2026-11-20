@@ -165,6 +165,9 @@ class RefHub
     public function SetVarStr(string $i, string $v) { $this->vars[$i] = ['S', $v]; }
     public function GetPropInt(string $n) { return (int)($this->props[$n] ?? 0); }
     public function GetPropStr(string $n) { return (string)($this->props[$n] ?? ''); }
+    public $stamps = [];
+    public function RcStamp(string $k) { return (int)($this->stamps[$k] ?? 0); }
+    public function SetRcStamp(string $k, int $t) { $this->stamps[$k] = $t; }
     public $published = [];
     public $publishOk = true;
     public function VictronMqttPublish(string $t, string $p) { $this->published[] = [$t, $p]; return $this->publishOk; }

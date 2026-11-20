@@ -4,7 +4,7 @@
  * .tools/) ein; .tools/test-remote-control.php muss anschlagen.   php .tools/mutate-remote-control.php   (0 = alle erkannt)
  */
 $root = dirname(__DIR__);
-$B = 'libs/IHUB_RemoteControl.php'; $F = 'libs/IHUB_RemoteFoxEss.php'; $Y = 'libs/IHUB_RemoteDeye.php'; $X1 = 'libs/IHUB_RemoteSolax.php'; $S = 'libs/IHUB_RemoteSolis.php'; $SM = 'libs/IHUB_RemoteSma.php'; $FR = 'libs/IHUB_RemoteFronius.php'; $KO = 'libs/IHUB_RemoteKostal.php'; $HW = 'libs/IHUB_RemoteHuawei.php'; $HD = 'libs/IHUB_HuaweiDriver.php'; $SG = 'libs/IHUB_RemoteSungrow.php'; $SGD = 'libs/IHUB_SungrowDriver.php'; $VI = 'libs/IHUB_RemoteVictron.php'; $VD = 'libs/IHUB_VictronDriver.php'; $KD = 'libs/IHUB_KostalDriver.php'; $FD = 'libs/IHUB_FroniusDriver.php'; $SD = 'libs/IHUB_SmaDriver.php'; $M = 'InverterHub/module.php';
+$B = 'libs/IHUB_RemoteControl.php'; $F = 'libs/IHUB_RemoteFoxEss.php'; $Y = 'libs/IHUB_RemoteDeye.php'; $X1 = 'libs/IHUB_RemoteSolax.php'; $S = 'libs/IHUB_RemoteSolis.php'; $SM = 'libs/IHUB_RemoteSma.php'; $FR = 'libs/IHUB_RemoteFronius.php'; $KO = 'libs/IHUB_RemoteKostal.php'; $HW = 'libs/IHUB_RemoteHuawei.php'; $HD = 'libs/IHUB_HuaweiDriver.php'; $SG = 'libs/IHUB_RemoteSungrow.php'; $SGD = 'libs/IHUB_SungrowDriver.php'; $VI = 'libs/IHUB_RemoteVictron.php'; $VD = 'libs/IHUB_VictronDriver.php'; $VD = 'libs/IHUB_VictronDriver.php'; $KD = 'libs/IHUB_KostalDriver.php'; $FD = 'libs/IHUB_FroniusDriver.php'; $SD = 'libs/IHUB_SmaDriver.php'; $M = 'InverterHub/module.php';
 $X = [
     // Basis
     [$B, [["if (\$steps === []) {", 'if (false) {']], 'leere Schrittliste wird nicht als erfüllt behandelt'],
@@ -90,7 +90,7 @@ $X = [
     [$VI, [["if (\$mode !== 0 && isset(\$cap['hub4']) && (int)\$cap['hub4'] === 3) {", 'if (false) {']], 'Victron: ESS-Modus 3 (externe Steuerung) wird nicht abgelehnt'],
     [$VI, [["if (!isset(\$cap['grid']) || (\$cap['override'] ?? null) === \$cap['grid']) {", 'if (false) {']], 'Victron: Modus 0 schreibt immer, auch ohne lesbaren Netzsollwert'],
     [$VI, [["'words' => self::words((int)\$cap['grid'])", "'words' => self::words(0)"]], 'Victron: Modus 0 schreibt 0 statt den Netzsollwert zu spiegeln'],
-    [$VI, [["return (int)\$req['mode'] !== 0 ? self::FAILSAFE_S : 0;", 'return 0;']], 'Victron: Totmann nicht gemeldet'],
+    [$VI, [["if (\$mode === 0) {\n            return 0;\n        }", "return 0;"]], 'Victron: Totmann nicht gemeldet'],
     [$VI, [["if (abs(\$back['override'] - \$want) > 1) {", 'if (false) {']], 'Victron: Rücklesen vergleicht nichts'],
     [$VI, [["if (!in_array(\$mode, [0, 1, 2, 3], true)) {", 'if (false) {']], 'Victron: ungültiger Modus wird nicht abgelehnt'],
     [$VI, [['return $status !== 0;', 'return true;']], 'Victron: immer aktiv gemeldet'],
@@ -105,6 +105,11 @@ $X = [
     [$VI, [["foreach (['ForceCharge', 'MaxChargePower', 'MaxDischargePower', 'FeedInExcess', 'Setpoint'] as \$name)", "foreach (['Setpoint', 'ForceCharge', 'MaxChargePower', 'MaxDischargePower', 'FeedInExcess'] as \$name)"]], 'Victron MQTT: Setpoint nicht zuletzt'],
     [$VI, [["\$o = ['ForceCharge' => 0, 'MaxChargePower' => -1, 'MaxDischargePower' => -1, 'Setpoint' => null, 'FeedInExcess' => 0];", "\$o = ['ForceCharge' => 0, 'MaxChargePower' => -1, 'MaxDischargePower' => -1, 'Setpoint' => 0, 'FeedInExcess' => 0];"]], 'Victron MQTT: Modus 0 setzt 0 statt null (keine Freigabe)'],
     [$B, [["if (isset(\$s['mqtt'])) {", "if (false) {"]], 'Basis: MQTT-Schritte werden nicht ausgeführt'],
+    [$VD, [["|| \$now - \$cmd > self::LOOP_MAX_AGE_S", "|| false"]], 'Victron-Regelkreis: läuft ohne Frist weiter (Totmann ausgehebelt)'],
+    [$VD, [["\$now - \$hub->RcStamp('loop') < self::LOOP_PERIOD_S", "false"]], 'Victron-Regelkreis: ohne Takt (schreibt in jedem schnellen Zyklus)'],
+    [$VD, [["if (\$a->mqttEnabled()) {\n            return;\n        }\n        \$now", "\$now"]], 'Victron-Regelkreis: läuft auch mit MQTT-Weg'],
+    [$VD, [["if (\$mode !== 1 && \$mode !== 2) {\n            return;\n        }\n        \$a = ", "\$a = "]], 'Victron-Regelkreis: läuft auch bei Modus 0 und 3'],
+    [$VD, [["\$hub->SetRcStamp('cmd', \$this->now());", ""]], 'Victron-Regelkreis: Befehl von außen setzt die Frist nicht zurück'],
     [$VD, [["'default' => false, 'vars' => IHUB_RemoteControl::vars()", "'default' => true, 'vars' => IHUB_RemoteControl::vars()"]], 'Victron-Treiber: Gruppe Fernsteuerung startet an'],
     [$VD, [["            \$mb->unitId = self::UNIT_SYSTEM;\n            try {", "            try {"]], 'Victron-Treiber: Steuerbefehl nicht auf Unit 100'],
     // Kostal

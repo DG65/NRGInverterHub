@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.97.1 (2026-11-20)
+
+- **Victron: Regelkreis für Halten und Akku ±W läuft in der Instanz (über Modbus, ungetestet).** Der Adapter rechnete den Netzsollwert (Vorsteuerung aus Last und PV, Rückführung über Netz und Akkuleistung) nur beim Schreiben von `ctl_rc_mode`; das Energiemanagement schreibt höchstens alle 30 bis 60 s nach, die Regelung war dann entsprechend grob (Hinweis EMS, 20.11.2026). Jetzt rechnet und schreibt die Instanz in ihrem schnellen Zyklus alle 10 s selbst, mit den gemerkten Vorgaben. **Nur bis 90 s nach dem letzten Modus-Befehl von außen**: bleibt der aus, endet auch der Regelkreis, und der Zeitgeber von hub4control (180 bis 300 s) holt Victron zurück; der Totmann liegt also weiter beim Gerät. Gilt nicht für Modus 0 und 3 (feste Vorgabe) und nicht mit dem MQTT-Weg (feste Overrides).
+- Der gemeldete Totmann (`rc_failsafe_eff_sec`, Vertragsfeld `failsafeSec`) ist für Halten und Akku ±W über Modbus jetzt 270 s (90 s Regelkreis plus 180 s hub4control), sonst unverändert 180 s.
+- Neue Prüfungen (11) und Mutationsproben (5) für den Regelkreis; 154 von 154 Mutationen erkannt.
+
 ## 0.97.0 (2026-11-20)
 
 - **Victron: Fernsteuerung über MQTT für Halten und Akku ±W (ungetestet).** Zwei neue Einstellungen an der Instanz: die MQTT-Brücke (`InverterHubMqttBridge`, übergeordnet der MQTT-Client von Symcon zum GX) und die Portal-ID des GX. Sind beide gesetzt, schreibt die gemeinsame Fernsteuerung die Overrides so, wie es Victrons Dynamic ESS selbst macht (Quellcode `venus-dynamicess`, Recherche Runde 4, „Weg B-MQTT“): `W/<Portal-ID>/hub4/0/Overrides/{ForceCharge, MaxChargePower, MaxDischargePower, FeedInExcess, Setpoint}`, der Setpoint zuletzt. **Halten** = MaxDischargePower auf die DC-PV begrenzt (mindestens 1 W), **Laden P** = ForceCharge 1 und MaxChargePower = P/0,95 − 0,98·PV_DC, **Entladen P** = MaxDischargePower (P + PV_DC)·0,95 und Setpoint −40000 W, **Modus 3** = Setpoint (+ Einspeisung), **Modus 0** = alle Overrides frei (JSON null, eine echte Freigabe statt des Spiegelns von 2700 über Modbus). Ohne Brücke oder Portal-ID bleibt alles wie in 0.95.0 (Netzsollwert 2716 über Modbus mit dem Regelkreis).

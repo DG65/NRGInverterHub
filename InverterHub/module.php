@@ -2878,6 +2878,17 @@ This KOSTAL HTTP API does not provide a battery temperature, so it is not read i
         return $this->ReadPropertyBoolean($name);
     }
 
+    // Zeitstempel des Victron-Regelkreises (Unixzeit, nur im Arbeitsspeicher der Instanz): 'cmd' letzter Modus-Befehl von außen, 'loop' letzter Lauf.
+    public function RcStamp(string $key)
+    {
+        return (int)$this->GetBuffer('RcStamp_' . $key);
+    }
+
+    public function SetRcStamp(string $key, int $ts)
+    {
+        $this->SetBuffer('RcStamp_' . $key, (string)$ts);
+    }
+
     // Wie GetPropInt, für Text-Eigenschaften (z. B. VictronPortalID).
     public function GetPropStr(string $name)
     {

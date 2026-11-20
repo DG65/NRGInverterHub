@@ -467,7 +467,7 @@ ref_ok(!isset($hub->vars['rc_available']) && $mb->unitId === 1, 'Victron: ohne A
 $mb = new SimVictron(); $hub = hubFor(); $victron->readSlow($mb, $hub);
 ref_ok($hub->vars['rc_available'][1] === true && $hub->vars['rc_modes'][1] === '0,1,2,3' && $hub->vars['rc_tested'][1] === false, 'Victron: langsamer Zyklus meldet Fähigkeit und die Modi 0,1,2,3');
 $mb = new SimVictron(); $mb->flow(0, 1000, 1000, 0, 0); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 4000]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 1);
-ref_ok($mb->writes === [['multi', 2716, [0, 1000]]] && $hub->warn === [] && $hub->vars['rc_failsafe_eff_sec'][1] === 180, 'Victron: Halten (Last 1000 W, keine PV): Netzsollwert = Last = 1000 W Bezug (Akku 0 W), auch bei gemerkter Leistung; Totmann 180 s');
+ref_ok($mb->writes === [['multi', 2716, [0, 1000]]] && $hub->warn === [] && $hub->vars['rc_failsafe_eff_sec'][1] === 270, 'Victron: Halten (Last 1000 W, keine PV): Netzsollwert = Last = 1000 W Bezug (Akku 0 W), auch bei gemerkter Leistung; Totmann 270 s (180 s hub4control + 90 s Regelkreis der Instanz)');
 $mb = new SimVictron(); $mb->flow(0, 1000, 400, 0, 600); $hub = hubFor(['rc_version' => 1]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 1);
 ref_ok($mb->ov() === 400, 'Victron: Halten mit DC-gekoppelter PV (600 W, Register 850) und Last 1000 W: Sollwert 400 W Bezug');
 $mb = new SimVictron(); $mb->flow(0, 1000, -500, 0, 1500); $hub = hubFor(['rc_version' => 1]); $victron->writeControl($mb, $hub, 'ctl_rc_mode', 1);
@@ -521,6 +521,36 @@ $mb = new SimVictron(2, 1); $mb->flow(0, 1000, 1000, 0, 0); $hub = mqttHub(['rc_
 ref_ok($hub->published === [] && $hub->warn !== [], 'Victron MQTT: Dynamic ESS aktiv wird auch über MQTT abgelehnt (der Override würde verworfen)');
 $mb = new SimVictron(); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 1000]); $hub->props['VictronPortalID'] = 'c0619ab12345'; $victron->writeControl($mb, $hub, 'ctl_rc_mode', 3);
 ref_ok($hub->published === [] && $mb->ov() === -1000, 'Victron: Portal-ID ohne Brücke bleibt beim Modbus-Weg 2716');
+
+echo "\n== Victron: Regelkreis der Instanz (Halten und Akku ±W über Modbus) ==\n";
+$T = 1000; IHUB_VictronDriver::$clock = function () use (&$T) { return $T; };
+$mb = new SimVictron(); $mb->flow(0, 1000, 1000, 0, 0); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 0]); $T = 1000;
+$victron->writeControl($mb, $hub, 'ctl_rc_mode', 1);
+ref_ok(count($mb->writes) === 1 && $mb->ov() === 1000, 'Regelkreis: der Befehl von außen schreibt sofort (Last 1000 W, Netzsollwert 1000 W)');
+$mb->flow(0, 2000, 2000, 0, 0); $T = 1005; $victron->readFast($mb, $hub);
+ref_ok(count($mb->writes) === 1, 'Regelkreis: nach 5 s noch kein Nachrechnen (Takt 10 s)');
+$T = 1011; $victron->readFast($mb, $hub);
+ref_ok(count($mb->writes) === 2 && $mb->ov() === 2000 && $hub->warn === [], 'Regelkreis: nach 10 s rechnet und schreibt die Instanz selbst (Last 2000 W, Netzsollwert 2000 W), ohne neuen Befehl von außen');
+$mb->flow(0, 500, 500, 0, 0); $T = 1022; $victron->readFast($mb, $hub);
+ref_ok(count($mb->writes) === 3 && $mb->ov() === 500, 'Regelkreis: folgt der Last weiter (500 W)');
+$T = 1000 + 91; $mb->flow(0, 3000, 3000, 0, 0); $victron->readFast($mb, $hub);
+ref_ok(count($mb->writes) === 3, 'Regelkreis: 90 s nach dem letzten Befehl von außen ist Schluss (Totmann: hub4control holt Victron danach selbst zurück)');
+$victron->writeControl($mb, $hub, 'ctl_rc_mode', 1); $T = 1000 + 91 + 11; $victron->readFast($mb, $hub);
+ref_ok(count($mb->writes) === 5 && $mb->ov() === 3000, 'Regelkreis: ein neuer Befehl von außen setzt die Frist zurück');
+// Modus 2 mit Leistung folgt auch
+$mb = new SimVictron(); $mb->flow(0, 1000, 1000, 0, 0); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 2000]); $T = 5000;
+$victron->writeControl($mb, $hub, 'ctl_rc_mode', 2); $n = count($mb->writes); $T = 5011; $victron->readFast($mb, $hub);
+ref_ok($n === 1 && count($mb->writes) === 2 && $hub->vars['ctl_rc_mode'][1] === 2, 'Regelkreis: Akku ±W läuft ebenfalls selbst nach');
+// nicht bei Modus 3, Modus 0, MQTT-Weg und ausgeschalteter Gruppe
+foreach ([3, 0] as $m) {
+    $mb = new SimVictron(); $hub = hubFor(['rc_version' => 1, 'ctl_rc_w' => 1000]); $T = 7000; $victron->writeControl($mb, $hub, 'ctl_rc_mode', $m); $n = count($mb->writes); $T = 7011; $victron->readFast($mb, $hub);
+    ref_ok(count($mb->writes) === $n, "Regelkreis: Modus $m wird nicht nachgerechnet");
+}
+$mb = new SimVictron(); $mb->flow(0, 1000, 1000, 0, 600); $mb->regs[3][2716] = (int)((-40000 >> 16) & 0xFFFF); $mb->regs[3][2717] = (int)(-40000 & 0xFFFF); $hub = mqttHub(['rc_version' => 1]); $T = 9000; $victron->writeControl($mb, $hub, 'ctl_rc_mode', 1); $n = count($hub->published); $T = 9011; $victron->readFast($mb, $hub);
+ref_ok($n === 4 && $hub->vars["ctl_rc_mode"][1] === 1 && count($hub->published) === $n && $mb->writes === [], 'Regelkreis: mit MQTT-Weg entfällt er (feste Overrides), obwohl Modus 1 aktiv ist');
+$mb = new SimVictron(); $hub = hubFor(['rc_version' => 1], false); $hub->props['GroupRemote'] = false; $hub->seed['ctl_rc_mode'] = 1; $T = 11000; $hub->stamps = ['cmd' => 11000, 'loop' => 0]; $victron->readFast($mb, $hub);
+ref_ok($mb->writes === [], 'Regelkreis: Gruppe Fernsteuerung aus: nichts');
+IHUB_VictronDriver::$clock = null;
 
 $vg = $victron->getOptionalGroups();
 ref_ok(isset($vg['GroupRemote']) && ($vg['GroupRemote']['default'] ?? true) === false && ($vg['GroupPV']['default'] ?? true) === true, 'Victron: Gruppe Fernsteuerung startet aus, die übrigen Gruppen bleiben an');
